@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
 from backend.src.core.log_redaction import configure_logging, get_logger
@@ -43,6 +44,15 @@ app = FastAPI(
     description="Purpose-built Anthropic client for self-learners (BYOK).",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# CORS — permits the Expo web preview (and any localhost port) to call the API.
+# The real Android app is not subject to CORS; this only affects browser clients.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(generate_router.router)

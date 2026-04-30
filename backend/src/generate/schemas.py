@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 OutputFormat = Literal["lesson", "explanation", "quiz"]
 
 # Level dropdown values (D15).
-Level = Literal["elementary", "middle", "high_school", "undergrad", "professional", "expert"]
+Level = Literal["student", "professional", "expert"]
 
 # Languages (D15). MVP is English-only; v1.1 adds fr/es.
 Language = Literal["en", "fr", "es"]

@@ -89,22 +89,40 @@ class TestRedactionProcessor:
 @pytest.mark.asyncio
 async def test_generate_endpoint_does_not_log_key(client, known_test_api_key, capsys):
     """Submit a /generate request with a known fake key; assert no log line
-    captured anywhere contains the key."""
+    captured anywhere contains the key. Mocks AnthropicProvider so the test
+    is fully offline."""
+    import asyncio
+    from unittest.mock import patch
 
     buffer, _ = _capture_log_output()
 
-    resp = await client.post(
-        "/api/v1/generate",
-        json={
-            "request_id": str(uuid.uuid4()),
-            "topic": "Quadratic formula",
-            "level": "high_school",
-            "language": "en",
-            "format": "lesson",
-            "api_key": known_test_api_key,
-        },
-    )
-    assert resp.status_code == 202
+    with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:
+        # Simulate a successful (mock) generation. The test only cares that
+        # the key never lands in any log along the way.
+        MockProvider.return_value.generate.return_value = (
+            '{"topic": "Quadratic formula", "level": "student", "language": "en", '
+            '"synopsis": "x", "learning_objectives": ["a"], '
+            '"sections": [{"heading": "h", "body_markdown": "b"}], '
+            '"key_takeaways": ["k"], "further_reading": []}',
+            10,
+            10,
+        )
+
+        resp = await client.post(
+            "/api/v1/generate",
+            json={
+                "request_id": str(uuid.uuid4()),
+                "topic": "Quadratic formula",
+                "level": "student",
+                "language": "en",
+                "format": "lesson",
+                "api_key": known_test_api_key,
+            },
+        )
+        assert resp.status_code == 202
+
+        # Wait for the background task to complete so we capture all its logs.
+        await asyncio.sleep(0.2)
 
     log_text = buffer.getvalue()
     captured = capsys.readouterr()
@@ -129,7 +147,7 @@ async def test_generate_validation_error_does_not_log_key(client, capsys):
         json={
             "request_id": str(uuid.uuid4()),
             "topic": "",  # invalid — triggers validation error
-            "level": "high_school",
+            "level": "student",
             "language": "en",
             "format": "lesson",
             "api_key": leaky,
@@ -160,3 +178,59 @@ def test_envelope_does_not_log_key(known_test_api_key, capsys):
     captured = capsys.readouterr()
     assert known_test_api_key not in captured.out
     assert known_test_api_key not in captured.err
+
+
+@pytest.mark.asyncio
+async def test_worker_path_does_not_log_key(client, known_test_api_key, capsys):
+    """The full /generate → background worker → Anthropic-call path must not
+    leak the user's api_key, even when the upstream SDK raises an exception
+    that contains the key in its message.
+
+    This is the most realistic leakage vector — error paths inside a worker
+    that capture the offending input. ADR-001 explicitly requires this gate.
+    """
+    import asyncio
+    import json as _json
+    from unittest.mock import patch
+
+    buffer, _ = _capture_log_output()
+
+    with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:
+        # SDK raises with the user's key in the exception message — the most
+        # dangerous case. The wrapper must swallow the chained exception so
+        # the key never lands in any log.
+        MockProvider.return_value.generate.side_effect = RuntimeError(
+            f"upstream rejected key={known_test_api_key}"
+        )
+
+        resp = await client.post(
+            "/api/v1/generate",
+            json={
+                "request_id": str(uuid.uuid4()),
+                "topic": "Anything",
+                "level": "student",
+                "language": "en",
+                "format": "lesson",
+                "api_key": known_test_api_key,
+            },
+        )
+        assert resp.status_code == 202
+
+        # Wait for the background task to complete (and fail).
+        await asyncio.sleep(0.2)
+        # Read the job to make sure it failed cleanly.
+        status = await client.get(f"/api/v1/jobs/{resp.json()['job_id']}")
+        body = status.json()
+        # Either still queued/running due to async timing, or already failed —
+        # both are acceptable here. The key point is the LEAK assertion below.
+        assert body["status"] in {"queued", "running", "failed"}
+        if body["status"] == "failed":
+            assert known_test_api_key not in _json.dumps(body), (
+                "api_key leaked into failed-job response"
+            )
+
+    captured = capsys.readouterr()
+    combined = buffer.getvalue() + captured.out + captured.err
+    assert known_test_api_key not in combined, (
+        f"BYOK key leaked into log output via worker error path: {combined[:500]}"
+    )

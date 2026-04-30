@@ -1,12 +1,18 @@
-"""Tests for the PR-1 /generate stub.
+"""Tests for the /generate submit + job-status surface.
 
-PR-1 verifies submit + status flow without an actual Anthropic call.
-PR-2 will add the worker tests.
+These tests focus on the HANDLER behaviour (validation, envelope creation,
+idempotency response, status retrieval). The worker pipeline is exercised
+in test_generate_e2e.py with mocked Anthropic.
+
+To keep these tests independent of the worker, we patch
+`backend.src.generate.router.run_generation` to a no-op so the BackgroundTask
+doesn't fire during the test.
 """
 
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -15,7 +21,7 @@ def _request_body(api_key: str, **overrides) -> dict:
     body = {
         "request_id": str(uuid.uuid4()),
         "topic": "Quadratic formula",
-        "level": "high_school",
+        "level": "student",
         "language": "en",
         "format": "lesson",
         "api_key": api_key,
@@ -23,6 +29,20 @@ def _request_body(api_key: str, **overrides) -> dict:
     }
     body.update(overrides)
     return body
+
+
+@pytest.fixture(autouse=True)
+def _disable_worker():
+    """Default: BackgroundTask dispatch is a no-op for tests in this module.
+
+    Tests that need worker behaviour live in test_generate_e2e.py and
+    test_idempotency.py — they mock at the AnthropicProvider level instead.
+    """
+    with patch(
+        "backend.src.generate.router.run_generation",
+        new_callable=AsyncMock,
+    ) as m:
+        yield m
 
 
 @pytest.mark.asyncio

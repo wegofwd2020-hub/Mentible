@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "StudyBuddy Q",
+    "slug": "studybuddy-q",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.wegofwd2020.studybuddyq",
+      "versionCode": 1,
+      "permissions": ["android.permission.INTERNET"]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ]
+    ],
+    "scheme": "studybuddy-q",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
