@@ -93,7 +93,7 @@ describe("pollUntilDone", () => {
     });
 
     const ticks: string[] = [];
-    const job = await pollUntilDone("j1", (j) => ticks.push(j.status));
+    const job = await pollUntilDone("j1", (j) => ticks.push(j.status), 0);
 
     expect(job.status).toBe("done");
     expect(job.result?.topic).toBe("Algebra");
@@ -103,7 +103,7 @@ describe("pollUntilDone", () => {
   it("resolves with failed status when generation fails", async () => {
     mockResponse({ job_id: "j2", status: "failed", error: "Anthropic call failed" });
 
-    const job = await pollUntilDone("j2");
+    const job = await pollUntilDone("j2", undefined, 0);
     expect(job.status).toBe("failed");
     expect(job.error).toBe("Anthropic call failed");
   });
@@ -111,6 +111,6 @@ describe("pollUntilDone", () => {
   it("rejects when fetch throws", async () => {
     mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-    await expect(pollUntilDone("j3")).rejects.toThrow("Network error");
+    await expect(pollUntilDone("j3", undefined, 0)).rejects.toThrow("Network error");
   });
 });

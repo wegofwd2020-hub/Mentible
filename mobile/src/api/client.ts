@@ -51,6 +51,7 @@ export async function getJobStatus(jobId: string): Promise<JobResponse> {
 export async function pollUntilDone(
   jobId: string,
   onTick?: (job: JobResponse) => void,
+  intervalMs = POLL_INTERVAL_MS,
 ): Promise<JobResponse> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
@@ -66,7 +67,7 @@ export async function pollUntilDone(
         if (job.status === "done" || job.status === "failed") {
           resolve(job);
         } else {
-          setTimeout(tick, POLL_INTERVAL_MS);
+          setTimeout(tick, intervalMs);
         }
       } catch (err) {
         reject(err);
