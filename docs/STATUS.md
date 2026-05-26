@@ -90,7 +90,7 @@ End-to-end flow works: **paste TOC → structure → edit tree → generate all 
 - `SBQ-SEC-001` safety follow-up (gates the override UI from public alpha — not yet filed).
 
 ### Book Authoring — Phase 2+ (deferred, per `adr/ADR-003-book-authoring.md`)
-- Flow analysis (`POST /flow-check`), snapshots/versioning, regenerate-with-reason, full-book PDF/EPUB export.
+- Phase 1 is built (see the "Book Authoring — Phase 1 ✅" entry under Done). Remaining: flow analysis (`POST /flow-check`), snapshots/versioning, regenerate-with-reason, full-book PDF/EPUB export.
 
 ---
 
@@ -116,3 +116,4 @@ End-to-end flow works: **paste TOC → structure → edit tree → generate all 
    `eas build --platform android --profile preview --env EXPO_PUBLIC_API_BASE_URL=https://<url>`.
 3. Run the six success criteria on a Pixel emulator + one physical Android.
 4. When all six pass → MVP done → start v1.1 (auth, sync, push, more formats).
+5. Book Authoring **Phase 1 is done** (structure → edit → generate-all → read). Next, when prioritised: **Phase 2** per `adr/ADR-003-book-authoring.md` (flow analysis, snapshots/versioning, regenerate-with-reason, full-book PDF/EPUB).
