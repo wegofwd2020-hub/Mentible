@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
-import { LessonRenderer } from "@/components/LessonRenderer";
+import { TopicRenderer } from "@/components/LessonRenderer";
 import { colors, spacing, typography } from "@/constants/theme";
 import type { GeneratedTopic } from "@/types/book";
 
-// Renders one book topic's generated lesson, reusing the same LessonRenderer as
-// the single-lesson view.
+// Renders one book topic's full generated content — lesson plus any tutorial,
+// quiz sets, and experiment carried by the topic (e.g. a migrated book).
 export default function BookTopicScreen() {
   const { bookId, topicId } = useLocalSearchParams<{ bookId: string; topicId: string }>();
   const [topic, setTopic] = useState<GeneratedTopic | null>(null);
@@ -46,7 +46,7 @@ export default function BookTopicScreen() {
 
   return (
     <View style={styles.screen}>
-      <LessonRenderer lesson={topic.lesson} />
+      <TopicRenderer topic={topic} />
     </View>
   );
 }

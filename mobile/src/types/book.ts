@@ -46,11 +46,79 @@ export interface StructureJobResponse {
   error?: string;
 }
 
-// One topic's generated lesson, produced by the generate-all loop.
+// Extra content types beyond the lesson. These mirror exactly the shapes
+// emitted by the OnDemand book-export contract (StudyBuddy_OnDemand
+// `backend/src/admin/book_export.py`), so a migrated book.json drops straight in.
+// Field names are snake_case to match the vendored pipeline schema (like
+// LessonOutput). They are optional on GeneratedTopic: native single-lesson
+// generation produces only `lesson`; a migrated book may carry all five.
+
+export interface TutorialSection {
+  section_id: string;
+  title: string;
+  content: string; // markdown
+  examples: string[]; // markdown each
+  practice_question: string;
+}
+
+export interface TutorialOutput {
+  title: string;
+  sections: TutorialSection[];
+  common_mistakes: string[];
+}
+
+export interface QuizOption {
+  option_id: string; // "A" | "B" | "C" | "D"
+  text: string;
+}
+
+export interface QuizQuestion {
+  question_id: string;
+  question_text: string; // markdown (may contain GFM tables / KaTeX)
+  question_type: string; // "multiple_choice"
+  options: QuizOption[];
+  correct_option: string; // "A" | "B" | "C" | "D"
+  explanation: string; // markdown
+  difficulty: string; // "easy" | "medium" | "hard"
+}
+
+export interface QuizSet {
+  set_number: number | null;
+  questions: QuizQuestion[];
+  total_questions: number | null;
+  passing_score: number | null;
+  estimated_duration_minutes: number | null;
+}
+
+export interface ExperimentStep {
+  step_number: number | null;
+  instruction: string;
+  expected_observation: string;
+}
+
+export interface ExperimentQuestion {
+  question: string;
+  answer: string;
+}
+
+export interface ExperimentOutput {
+  experiment_title: string;
+  materials: string[];
+  safety_notes: string[];
+  steps: ExperimentStep[];
+  questions: ExperimentQuestion[];
+  conclusion_prompt: string;
+}
+
+// One topic's generated content, produced by the generate-all loop (lesson
+// only) or imported from a migrated book (lesson + any of the extras).
 export interface GeneratedTopic {
   topicId: string;
   title: string; // snapshot of the topic title at generation time
   lesson: LessonOutput;
+  tutorial?: TutorialOutput;
+  quizSets?: QuizSet[];
+  experiment?: ExperimentOutput;
   generatedAt: string;
 }
 
