@@ -2,6 +2,8 @@ import React, { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteBook, loadBookIndex } from "@/storage/bookStore";
+import { useResponsive } from "@/hooks/useResponsive";
+import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { BookMeta } from "@/types/book";
 
@@ -29,6 +31,8 @@ function NewBookButton({ onPress }: { onPress: () => void }) {
 export default function BooksScreen() {
   const router = useRouter();
   const [books, setBooks] = useState<BookMeta[]>([]);
+  const { isTablet, isDesktop } = useResponsive();
+  const numColumns = isDesktop ? 2 : 1;
 
   useFocusEffect(
     useCallback(() => {
@@ -57,15 +61,18 @@ export default function BooksScreen() {
 
   return (
     <FlatList
+      key={numColumns} // numColumns can't change without a remount
       style={styles.list}
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={[styles.listContent, isTablet && styles.listContentWide]}
       data={books}
       keyExtractor={(item) => item.id}
+      numColumns={numColumns}
+      columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
       ListHeaderComponent={<NewBookButton onPress={() => router.push("/book/new")} />}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       renderItem={({ item }) => (
         <Pressable
-          style={styles.card}
+          style={[styles.card, numColumns > 1 && styles.cardGrid]}
           onPress={() => router.push(`/book/saved/${item.id}`)}
           accessibilityRole="button"
           accessibilityLabel={`Open book: ${item.title}`}
@@ -98,6 +105,10 @@ export default function BooksScreen() {
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
   listContent: { padding: spacing.md },
+  // Desktop: cap + center the grid, and lay cards out in columns.
+  listContentWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
+  columnWrapper: { gap: spacing.sm },
+  cardGrid: { flex: 1 },
   separator: { height: spacing.sm },
   newBtn: {
     backgroundColor: colors.primary,

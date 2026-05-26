@@ -12,6 +12,8 @@ import { loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
 import { LevelPicker } from "@/components/LevelPicker";
+import { useResponsive } from "@/hooks/useResponsive";
+import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_LEVEL } from "@/constants/levels";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
@@ -70,6 +72,7 @@ export default function GenerateAllScreen() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState(DEFAULT_LEVEL);
+  const { isDesktop } = useResponsive();
 
   // Hold the live book in a ref so per-topic persistence always builds on the
   // latest content without re-creating the generation loop.
@@ -143,76 +146,93 @@ export default function GenerateAllScreen() {
   }
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.bookTitle}>{book.title}</Text>
-      <Text style={styles.summary}>
-        {total} topic{total === 1 ? "" : "s"} · {doneCount} generated
-        {failedCount > 0 ? ` · ${failedCount} failed` : ""}
-      </Text>
-
-      {!running && !finished && (
-        <>
-          <Text style={styles.label}>Level</Text>
-          <LevelPicker value={level} onChange={setLevel} />
-        </>
-      )}
-
-      {errorMsg && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{errorMsg}</Text>
-        </View>
-      )}
-
-      {!running ? (
-        <Pressable
-          style={styles.actionBtn}
-          onPress={start}
-          accessibilityRole="button"
-          accessibilityLabel={finished ? "Generate remaining topics" : "Generate all topics"}
-        >
-          <Text style={styles.actionBtnText}>
-            {finished
-              ? failedCount > 0
-                ? "Retry failed / remaining"
-                : "Done — regenerate gaps"
-              : doneCount > 0
-                ? "Generate remaining topics"
-                : "Generate all topics"}
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <View
+        style={[styles.page, isDesktop && styles.pageWide, isDesktop && styles.pageRow]}
+      >
+        {/* Controls — left sidebar on desktop, top block on mobile */}
+        <View style={[styles.col, isDesktop && styles.colLeft]}>
+          <Text style={styles.bookTitle}>{book.title}</Text>
+          <Text style={styles.summary}>
+            {total} topic{total === 1 ? "" : "s"} · {doneCount} generated
+            {failedCount > 0 ? ` · ${failedCount} failed` : ""}
           </Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          style={[styles.actionBtn, styles.cancelBtn]}
-          onPress={cancel}
-          accessibilityRole="button"
-          accessibilityLabel="Stop generating"
-        >
-          <Text style={styles.actionBtnText}>Stop ({doneCount}/{total})</Text>
-        </Pressable>
-      )}
 
-      <View style={styles.list}>
-        {progress.map((item) => (
-          <StatusRow
-            key={item.topicId}
-            item={item}
-            onOpen={() => router.push(`/book/topic/${book.id}/${item.topicId}`)}
-          />
-        ))}
+          {!running && !finished && (
+            <>
+              <Text style={styles.label}>Level</Text>
+              <LevelPicker value={level} onChange={setLevel} />
+            </>
+          )}
+
+          {errorMsg && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          {!running ? (
+            <Pressable
+              style={styles.actionBtn}
+              onPress={start}
+              accessibilityRole="button"
+              accessibilityLabel={finished ? "Generate remaining topics" : "Generate all topics"}
+            >
+              <Text style={styles.actionBtnText}>
+                {finished
+                  ? failedCount > 0
+                    ? "Retry failed / remaining"
+                    : "Done — regenerate gaps"
+                  : doneCount > 0
+                    ? "Generate remaining topics"
+                    : "Generate all topics"}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.actionBtn, styles.cancelBtn]}
+              onPress={cancel}
+              accessibilityRole="button"
+              accessibilityLabel="Stop generating"
+            >
+              <Text style={styles.actionBtnText}>Stop ({doneCount}/{total})</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Topic progress — right column on desktop */}
+        <View style={[styles.col, isDesktop && styles.colRight]}>
+          <View style={styles.list}>
+            {progress.map((item) => (
+              <StatusRow
+                key={item.topicId}
+                item={item}
+                onOpen={() => router.push(`/book/topic/${book.id}/${item.topicId}`)}
+              />
+            ))}
+          </View>
+
+          {finished && (
+            <Text style={styles.finishedNote}>
+              Tap any generated topic (✓) to read it. Your lessons are saved to this book.
+            </Text>
+          )}
+        </View>
       </View>
-
-      {finished && (
-        <Text style={styles.finishedNote}>
-          Tap any generated topic (✓) to read it. Your lessons are saved to this book.
-        </Text>
-      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
-  container: { padding: spacing.md, gap: spacing.sm },
+  scrollContent: { flexGrow: 1 },
+  page: { padding: spacing.md, gap: spacing.sm },
+  // Desktop: cap + center, lay controls and progress side by side.
+  pageWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
+  pageRow: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
+  col: { gap: spacing.sm },
+  colLeft: { flex: 4 },
+  colRight: { flex: 6 },
   centered: {
     flex: 1,
     backgroundColor: colors.background,

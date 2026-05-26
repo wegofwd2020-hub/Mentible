@@ -10,6 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
+import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
 
@@ -52,36 +53,38 @@ export default function SavedBookScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
-      <BookEditor
-        bookId={book.id}
-        initialTitle={book.title}
-        initialToc={book.toc}
-        createdAt={book.createdAt}
-        onSaved={() => router.replace("/books")}
-      />
+      <PageContainer>
+        <BookEditor
+          bookId={book.id}
+          initialTitle={book.title}
+          initialToc={book.toc}
+          createdAt={book.createdAt}
+          onSaved={() => router.replace("/books")}
+        />
 
-      <Pressable
-        style={styles.generateBtn}
-        onPress={() => router.push(`/book/generate/${book.id}`)}
-        accessibilityRole="button"
-        accessibilityLabel="Generate all topics"
-      >
-        <Text style={styles.generateBtnText}>Generate all topics →</Text>
-      </Pressable>
-      <Text style={styles.generateHint}>
-        Save your edits first. Generation runs one topic at a time against your
-        Anthropic key.
-      </Text>
+        <Pressable
+          style={styles.generateBtn}
+          onPress={() => router.push(`/book/generate/${book.id}`)}
+          accessibilityRole="button"
+          accessibilityLabel="Generate all topics"
+        >
+          <Text style={styles.generateBtnText}>Generate all topics →</Text>
+        </Pressable>
+        <Text style={styles.generateHint}>
+          Save your edits first. Generation runs one topic at a time against your
+          Anthropic key.
+        </Text>
+      </PageContainer>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
-  container: { padding: spacing.md, gap: spacing.sm },
+  scrollContent: { flexGrow: 1 },
   centered: {
     flex: 1,
     backgroundColor: colors.background,

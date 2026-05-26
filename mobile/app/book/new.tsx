@@ -14,6 +14,8 @@ import { useStructureJob } from "@/hooks/useStructureJob";
 import { loadApiKey } from "@/secure/keyStore";
 import { ensureTopicIds } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
+import { PageContainer } from "@/components/PageContainer";
+import { useResponsive } from "@/hooks/useResponsive";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function randomRequestId(): string {
@@ -24,6 +26,7 @@ type Phase = "input" | "submitted";
 
 export default function NewBookScreen() {
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [title, setTitle] = useState("");
   const [rawToc, setRawToc] = useState("");
   const [phase, setPhase] = useState<Phase>("input");
@@ -67,15 +70,17 @@ export default function NewBookScreen() {
       return (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.container}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <BookEditor
-            bookId={null}
-            initialTitle={title.trim() || "Untitled book"}
-            initialToc={ensureTopicIds(toc)}
-            onSaved={() => router.replace("/books")}
-          />
+          <PageContainer>
+            <BookEditor
+              bookId={null}
+              initialTitle={title.trim() || "Untitled book"}
+              initialToc={ensureTopicIds(toc)}
+              onSaved={() => router.replace("/books")}
+            />
+          </PageContainer>
         </ScrollView>
       );
     }
@@ -113,9 +118,10 @@ export default function NewBookScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
+      <PageContainer gap={spacing.sm}>
       <Text style={styles.label}>Book title (optional)</Text>
       <TextInput
         style={styles.titleInput}
@@ -133,7 +139,7 @@ export default function NewBookScreen() {
         editable topic tree — you stay in control of the result.
       </Text>
       <TextInput
-        style={styles.tocInput}
+        style={[styles.tocInput, isDesktop && styles.tocInputDesktop]}
         value={rawToc}
         onChangeText={setRawToc}
         placeholder={
@@ -161,13 +167,15 @@ export default function NewBookScreen() {
       >
         <Text style={styles.structureBtnText}>Structure →</Text>
       </Pressable>
+      </PageContainer>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
-  container: { padding: spacing.md, gap: spacing.sm },
+  scrollContent: { flexGrow: 1 },
+  tocInputDesktop: { minHeight: 300 },
   centered: {
     flex: 1,
     backgroundColor: colors.background,
