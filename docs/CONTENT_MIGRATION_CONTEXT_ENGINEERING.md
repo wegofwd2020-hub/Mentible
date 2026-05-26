@@ -50,16 +50,37 @@ loop. The book-authoring port has effectively landed. This migration builds on i
 - Content-store files present:
   `curricula/{curriculum_id}/{unit_id}/{lesson,tutorial,quiz_set_1..3,experiment}_en.json`.
 
-## Phase 1 — OnDemand: export script (`pipeline/export_book.py` or `backend/scripts/`)
+## Phase 1 — OnDemand: export script ✅ SHIPPED (OnDemand PR #400)
 
-- Args: `--curriculum-id <published Context Engineering id>`, `--out book.json`.
-- Read the **content store** (preferred over DB — bodies already serialized) for
-  every unit; transform each of the 5 bodies per the maps above.
-- Lift `toc` from the project's `structured_toc` (identical shape); assign stable
-  `topicId`s (UUIDs) and key generated content by them.
-- Emit one Q-shaped `Book`:
-  `{id, title, toc: StructuredTOC, content: {[topicId]: GeneratedTopic}}`.
-- Lives in OnDemand; emits plain JSON only.
+Lives in the **OnDemand** repo (`StudyBuddy_OnDemand`):
+
+| File | Role |
+|---|---|
+| `backend/src/admin/book_export.py` | Pure, DB-free transform layer + `assemble_book()`. |
+| `backend/scripts/export_book.py` | asyncpg CLI shell. |
+| `backend/tests/test_book_export.py` | 12 unit tests (synthetic bodies, no DB). |
+
+Two deviations from the original sketch, both deliberate:
+- **Reads the DB authoring tables, not the content store** — `authoring_projects`
+  (TOC + title + grade), `authoring_active_versions`⋈`authoring_topic_versions`
+  (accepted bodies), `curriculum_units` (authoritative unit order). One source,
+  no filesystem-layout coupling.
+- **Keyed by `--project-id`, not `--curriculum-id`** (the authoring tables are
+  project-scoped). Use `--list` to find it by title.
+
+Run (when published): `python scripts/export_book.py --project-id <uuid> --out book.json`.
+
+Emits one Q-shaped `Book`:
+`{id: "authored-<project_id>", title, toc: StructuredTOC, content: {[topicId]: GeneratedTopic}}`,
+with `topicId = uuid5(unit_id)` (stable across re-exports) injected into each TOC unit.
+
+**`book_export.py` is the de-facto contract for the Phase-2 Q types below.** The
+tutorial / quiz / experiment objects it emits use the vendored-schema field names
+(snake_case, pipeline metadata like `model`/`content_version`/`unit_id` stripped):
+- `tutorial`: `{title, sections[{section_id, title, content, examples[], practice_question}], common_mistakes[]}`
+- `quizSets[]`: `{set_number, questions[{question_id, question_text, question_type, options[{option_id, text}], correct_option, explanation, difficulty}], total_questions, passing_score, estimated_duration_minutes}`
+- `experiment`: `{experiment_title, materials[], safety_notes[], steps[{step_number, instruction, expected_observation}], questions[{question, answer}], conclusion_prompt}`
+- `lesson`: Q's existing `LessonOutput` (the field-rename map above).
 
 ## Phase 2 — Q: grow the content model to hold 5 types
 
