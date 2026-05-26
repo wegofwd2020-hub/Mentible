@@ -23,6 +23,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="library"
+        options={{
+          title: "My Lessons",
+          tabBarLabel: "Library",
+        }}
+      />
+      <Tabs.Screen
+        name="books"
+        options={{
+          title: "Books",
+          tabBarLabel: "Books",
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",

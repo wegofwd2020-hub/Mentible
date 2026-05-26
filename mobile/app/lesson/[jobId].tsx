@@ -12,22 +12,40 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useGenerateJob } from "@/hooks/useGenerateJob";
 import { buildHtml, LessonRenderer } from "@/components/LessonRenderer";
-import { saveLastLesson } from "@/storage/lessonStore";
+import { loadLesson, saveLesson } from "@/storage/lessonStore";
+import type { LessonOutput } from "@/types/lesson";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 export default function LessonScreen() {
   const { jobId } = useLocalSearchParams<{ jobId: string }>();
   const router = useRouter();
-  const { status, lesson, error, elapsed } = useGenerateJob(jobId ?? null);
-  const [exporting, setExporting] = useState(false);
+
+  // Check library first — lessons opened from the Library tab load instantly.
+  const [cachedLesson, setCachedLesson] = useState<LessonOutput | null>(null);
+  const [cacheChecked, setCacheChecked] = useState(false);
 
   useEffect(() => {
-    if (jobId && lesson) {
-      saveLastLesson(jobId, lesson).catch(() => {
-        // Best-effort — failure to cache does not break lesson display.
-      });
+    if (!jobId) { setCacheChecked(true); return; }
+    loadLesson(jobId).then((stored) => {
+      if (stored) setCachedLesson(stored.lesson);
+      setCacheChecked(true);
+    });
+  }, [jobId]);
+
+  // Only poll when the lesson isn't already in the library.
+  const { status: pollStatus, lesson: polledLesson, error, elapsed } =
+    useGenerateJob(cacheChecked && !cachedLesson ? jobId ?? null : null);
+
+  const lesson = cachedLesson ?? polledLesson;
+  const status = cachedLesson ? "done" : pollStatus;
+  const [exporting, setExporting] = useState(false);
+
+  // Save every freshly generated lesson to the library.
+  useEffect(() => {
+    if (jobId && polledLesson) {
+      saveLesson(jobId, polledLesson).catch(() => {});
     }
-  }, [jobId, lesson]);
+  }, [jobId, polledLesson]);
 
   const handleExportPDF = useCallback(async () => {
     if (!lesson) return;

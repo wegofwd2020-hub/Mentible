@@ -1,7 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { LessonOutput } from "@/types/lesson";
 
-const LAST_LESSON_KEY = "sbq_last_lesson";
+const INDEX_KEY = "sbq_library_index";
+const lessonKey = (jobId: string) => `sbq_lesson_${jobId}`;
+
+export interface LessonMeta {
+  jobId: string;
+  topic: string;
+  level: string;
+  savedAt: string;
+}
 
 export interface StoredLesson {
   lesson: LessonOutput;
@@ -9,20 +17,33 @@ export interface StoredLesson {
   savedAt: string;
 }
 
-export async function saveLastLesson(
+export async function saveLesson(
   jobId: string,
   lesson: LessonOutput,
 ): Promise<void> {
-  const entry: StoredLesson = {
-    lesson,
-    jobId,
-    savedAt: new Date().toISOString(),
-  };
-  await AsyncStorage.setItem(LAST_LESSON_KEY, JSON.stringify(entry));
+  const savedAt = new Date().toISOString();
+  const entry: StoredLesson = { lesson, jobId, savedAt };
+
+  await AsyncStorage.setItem(lessonKey(jobId), JSON.stringify(entry));
+
+  const index = await loadLibrary();
+  const meta: LessonMeta = { jobId, topic: lesson.topic, level: lesson.level, savedAt };
+  const deduped = index.filter((m) => m.jobId !== jobId);
+  await AsyncStorage.setItem(INDEX_KEY, JSON.stringify([meta, ...deduped]));
 }
 
-export async function loadLastLesson(): Promise<StoredLesson | null> {
-  const raw = await AsyncStorage.getItem(LAST_LESSON_KEY);
+export async function loadLibrary(): Promise<LessonMeta[]> {
+  const raw = await AsyncStorage.getItem(INDEX_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as LessonMeta[];
+  } catch {
+    return [];
+  }
+}
+
+export async function loadLesson(jobId: string): Promise<StoredLesson | null> {
+  const raw = await AsyncStorage.getItem(lessonKey(jobId));
   if (!raw) return null;
   try {
     return JSON.parse(raw) as StoredLesson;
@@ -31,6 +52,29 @@ export async function loadLastLesson(): Promise<StoredLesson | null> {
   }
 }
 
-export async function clearLastLesson(): Promise<void> {
-  await AsyncStorage.removeItem(LAST_LESSON_KEY);
+export async function deleteLesson(jobId: string): Promise<void> {
+  const index = await loadLibrary();
+  await Promise.all([
+    AsyncStorage.removeItem(lessonKey(jobId)),
+    AsyncStorage.setItem(
+      INDEX_KEY,
+      JSON.stringify(index.filter((m) => m.jobId !== jobId)),
+    ),
+  ]);
+}
+
+export async function clearLibrary(): Promise<void> {
+  const index = await loadLibrary();
+  await Promise.all([
+    ...index.map((m) => AsyncStorage.removeItem(lessonKey(m.jobId))),
+    AsyncStorage.removeItem(INDEX_KEY),
+  ]);
+}
+
+// Legacy aliases — used by existing screens until next refactor.
+export const saveLastLesson = saveLesson;
+export async function loadLastLesson(): Promise<StoredLesson | null> {
+  const index = await loadLibrary();
+  if (!index.length) return null;
+  return loadLesson(index[0].jobId);
 }

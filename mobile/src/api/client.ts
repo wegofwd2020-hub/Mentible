@@ -4,6 +4,11 @@ import type {
   GenerateResponse,
   JobResponse,
 } from "@/types/lesson";
+import type {
+  StructureRequest,
+  StructureResponse,
+  StructureJobResponse,
+} from "@/types/book";
 
 // On web (Expo browser preview), 10.0.2.2 is the Android emulator loopback
 // address — unreachable from a real browser. Transparently swap it for
@@ -56,6 +61,25 @@ export async function submitGenerate(
 
 export async function getJobStatus(jobId: string): Promise<JobResponse> {
   return apiFetch<JobResponse>(`/jobs/${jobId}`);
+}
+
+// ── Book authoring: POST /structure ───────────────────────────────────────────
+// Submit a free-text TOC for structuring. Polls the SAME /jobs/{id} endpoint as
+// /generate (a structure job's result is a StructuredTOC, not a lesson).
+
+export async function submitStructure(
+  req: StructureRequest,
+): Promise<StructureResponse> {
+  return apiFetch<StructureResponse>("/structure", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function getStructureJob(
+  jobId: string,
+): Promise<StructureJobResponse> {
+  return apiFetch<StructureJobResponse>(`/jobs/${jobId}`);
 }
 
 export async function pollUntilDone(
