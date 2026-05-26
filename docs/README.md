@@ -9,6 +9,7 @@ Project documentation for **StudyBuddy Q**.
 | `../SCOPE.md` | First — full scope decisions, why each was made |
 | `../CLAUDE.md` | Durable spec — repo conventions, layer rules, pitfalls |
 | `MVP_v1.md` | What's actually being built first |
+| `STATUS.md` | What's actually built so far (progress vs. the plan) |
 | `adr/ADR-001-byok-security-model.md` | Before touching any code that handles the API key |
 | `adr/ADR-002-repo-structure-and-vendoring.md` | Before importing or copying from StudyBuddy_OnDemand |
 
