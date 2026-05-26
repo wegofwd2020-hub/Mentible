@@ -81,6 +81,10 @@ and "Next up" below).
 - Quiz / Explanation formats, French / Spanish, iOS.
 - `SBQ-SEC-001` safety follow-up (gates the override UI from public alpha — not yet filed).
 
+### Next major phase — Book Authoring (post-MVP)
+- **Multi-topic book authoring** is Q's next major phase per `adr/ADR-003-book-authoring.md` (status: *Proposed*) — porting the OnDemand "Curriculum Authoring Studio" workflow onto Q's BYOK/stateless/local-first stack (paste TOC → structure → topic tree → generate-per-topic → review → snapshot → publish/export).
+- A re-implementation, not a code transplant; sequenced **after** the single-lesson MVP stabilises. See `PORT_BRIEF.md` for the port handoff.
+
 ---
 
 ## MVP success criteria — status
@@ -105,3 +109,4 @@ and "Next up" below).
    `eas build --platform android --profile preview --env EXPO_PUBLIC_API_BASE_URL=https://<url>`.
 3. Run the six success criteria on a Pixel emulator + one physical Android.
 4. When all six pass → MVP done → start v1.1 (auth, sync, push, more formats).
+5. **Then** begin Book Authoring Phase 1 per `adr/ADR-003-book-authoring.md` (`POST /structure` + topic-tree editor + generate-all loop).
