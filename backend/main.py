@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
 from backend.src.core.log_redaction import configure_logging, get_logger
 from backend.src.generate import router as generate_router
+from backend.src.structure import router as structure_router
 
 configure_logging(settings.log_level)
 log = get_logger("main")
@@ -56,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(generate_router.router)
+app.include_router(structure_router.router)
 
 
 @app.get("/healthz")

@@ -15,6 +15,7 @@ Files in this directory are copied from `StudyBuddy_OnDemand`. See
 | `providers/__init__.py` | `pipeline/providers/__init__.py` | `0e7ebc06` | 2026-04-25 | **Yes** — Q is single-provider; OnDemand registry intentionally not vendored |
 | `providers/base.py` | `pipeline/providers/base.py` | `0e7ebc06` | 2026-04-25 | No |
 | `providers/anthropic.py` | `pipeline/providers/anthropic.py` | `0e7ebc06` | 2026-04-25 | **Yes** — constructor takes `api_key` per call (BYOK), not from config/env. See ADR-001 |
+| `toc_structurer.py` | `pipeline/toc_structurer.py` | `458287b` | 2026-05-26 | **Yes** — network wrapper `structure_toc(provider)` dropped (its error path could stringify the BYOK key); Q vendors only the models + `STRUCTURE_PROMPT_TEMPLATE` + new pure `parse_structured_toc()`, and drives the LLM call via the backend's key-safe `call_anthropic` seam. See ADR-001 / ADR-003 |
 
 ## Files explicitly NOT vendored
 
