@@ -1,4 +1,11 @@
-import { ApiError, getJobStatus, pollUntilDone, submitGenerate } from "../../src/api/client";
+import {
+  ApiError,
+  exportBook,
+  getJobStatus,
+  pollUntilDone,
+  submitGenerate,
+} from "../../src/api/client";
+import type { Book } from "../../src/types/book";
 
 global.fetch = jest.fn();
 
@@ -112,5 +119,41 @@ describe("pollUntilDone", () => {
     mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
     await expect(pollUntilDone("j3", undefined, 0)).rejects.toThrow("Network error");
+  });
+});
+
+describe("exportBook", () => {
+  const book = { id: "b1", title: "T", toc: { subjects: [] }, createdAt: "", updatedAt: "" } as Book;
+
+  it("posts the book and defaults to format=epub, diagrams=false", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new Uint8Array([80, 75]).buffer, // "PK"
+    });
+    const bytes = await exportBook(book);
+    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/export?");
+    expect(url).toContain("format=epub");
+    expect(url).toContain("diagrams=false");
+    expect(opts.method).toBe("POST");
+    expect(new Uint8Array(bytes)[0]).toBe(80);
+  });
+
+  it("passes format=pdf and diagrams=true", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) });
+    await exportBook(book, { format: "pdf", diagrams: true });
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain("format=pdf");
+    expect(url).toContain("diagrams=true");
+  });
+
+  it("throws ApiError on non-2xx (e.g. 422 no content)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      text: async () => '{"detail":"Book has no generated content to compile."}',
+    });
+    await expect(exportBook(book)).rejects.toBeInstanceOf(ApiError);
   });
 });

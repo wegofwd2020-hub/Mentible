@@ -83,12 +83,21 @@ export async function getStructureJob(
   return apiFetch<StructureJobResponse>(`/jobs/${jobId}`);
 }
 
-// ── Export: POST /export → compile a book to an EPUB ──────────────────────────
-// Returns the raw EPUB bytes (application/epub+zip). Synchronous and key-free.
-// 422 → the book has no generated content (or is malformed); surface as a
-// friendly message via ApiError.body.
-export async function exportBook(book: Book): Promise<ArrayBuffer> {
-  const res = await fetch(`${BASE_URL}/api/v1/export`, {
+// ── Export: POST /export → compile a book to an artifact ──────────────────────
+// Returns the raw bytes (EPUB or PDF). Synchronous and key-free. 422 → the book
+// has no generated content (or is malformed); surface via ApiError.body.
+// diagrams=true renders Mermaid→SVG (much slower — minutes for a big book).
+export interface ExportOptions {
+  format?: "epub" | "pdf";
+  diagrams?: boolean;
+}
+
+export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<ArrayBuffer> {
+  const params = new URLSearchParams({
+    format: opts.format ?? "epub",
+    diagrams: String(opts.diagrams ?? false),
+  });
+  const res = await fetch(`${BASE_URL}/api/v1/export?${params.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(book),

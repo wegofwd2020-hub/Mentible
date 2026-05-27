@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { deleteEpub, listEpubs, openEpub, type EpubMeta } from "@/storage/epubLibrary";
+import { deleteEpub, listEpubs, type EpubMeta } from "@/storage/epubLibrary";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function formatDate(iso: string): string {
@@ -19,7 +19,6 @@ function formatSize(bytes: number): string {
 export default function LibraryScreen() {
   const router = useRouter();
   const [items, setItems] = useState<EpubMeta[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -28,15 +27,6 @@ export default function LibraryScreen() {
         .catch(() => setItems([]));
     }, []),
   );
-
-  const handleOpen = useCallback(async (item: EpubMeta) => {
-    setError(null);
-    try {
-      await openEpub(item.id, item.title);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn’t open that EPUB.");
-    }
-  }, []);
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteEpub(id);
@@ -71,19 +61,12 @@ export default function LibraryScreen() {
       data={items}
       keyExtractor={(item) => item.id}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={
-        error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null
-      }
       renderItem={({ item }) => (
         <Pressable
           style={styles.card}
-          onPress={() => handleOpen(item)}
+          onPress={() => router.push(`/book/read/${item.id}`)}
           accessibilityRole="button"
-          accessibilityLabel={`${Platform.OS === "web" ? "Download" : "Open"} EPUB: ${item.title}`}
+          accessibilityLabel={`Open book: ${item.title}`}
         >
           <Text style={styles.cardIcon}>📖</Text>
           <View style={styles.cardMain}>
@@ -113,15 +96,6 @@ const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
   listContent: { padding: spacing.md },
   separator: { height: spacing.sm },
-  errorBanner: {
-    backgroundColor: colors.error + "22",
-    borderColor: colors.error + "66",
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  errorText: { color: colors.error, fontSize: typography.sizeSm },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

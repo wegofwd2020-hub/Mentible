@@ -49,6 +49,13 @@ export default function RootLayout() {
             headerBackTitle: "Back",
           }}
         />
+        <Stack.Screen
+          name="book/read/[id]"
+          options={{
+            title: "Read",
+            headerBackTitle: "Library",
+          }}
+        />
       </Stack>
     </>
   );

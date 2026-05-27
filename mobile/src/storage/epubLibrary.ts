@@ -45,6 +45,31 @@ function epubFilename(title: string): string {
   return `${slug.slice(0, 60) || "book"}.epub`;
 }
 
+// Deliver freshly-fetched artifact bytes (e.g. an on-demand PDF) to the user:
+// a browser download on web; a saved file on native (returns the path).
+export async function downloadArtifact(
+  bytes: ArrayBuffer,
+  filename: string,
+  mimeType: string,
+): Promise<{ savedPath?: string }> {
+  if (isWeb) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return {};
+  }
+  const path = `${FileSystem.documentDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(path, toBase64(bytes), {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return { savedPath: path };
+}
+
 // ── web: IndexedDB ────────────────────────────────────────────────────────────
 const DB_NAME = "sbq";
 const STORE = "epubs";
