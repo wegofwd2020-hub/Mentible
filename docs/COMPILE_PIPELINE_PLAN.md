@@ -63,7 +63,8 @@ backend/tests/test_export.py
 
 | # | Milestone | Heavy dep? | Output |
 |---|---|---|---|
-| 1 | **Shared render core** — extract render helpers + CSS from `contentHtml.ts` into `compiler/src/renderCore.ts`; rewire the mobile WebView to consume the same module. Markdown→XHTML, KaTeX→**MathML** bundled (no CDN). Diagrams behind a `DiagramRenderer` interface with a passthrough stub. | no | one renderer, no drift |
+| 1 | **Shared render core** *(done)* — `compiler/` TS package: render helpers + CSS in `renderCore.ts`/`css.ts`, markdown→HTML + KaTeX→**MathML** (bundled, no CDN, pinned to the app's `marked@9.1.6`/`katex@0.16.9`), diagrams behind a `DiagramRenderer` interface (passthrough stub). 12 unit tests + verified against the real 17-topic book (MathML present, zero script/link/CDN refs). | no | the shared core |
+| 1b | **Mobile preview adoption** *(deferred)* — rewire `contentHtml.ts` to consume the shared core. Split out of M1 so it doesn't destabilise the shipping app; needs the `compiler/`↔`mobile/` types/workspace-sharing decision first. | no | no drift |
 | 2 | **EPUB3 packager** — `epub.ts`: valid EPUB3 (OPF, `nav.xhtml` TOC from subjects/topics, one XHTML per topic, shared CSS, inline MathML). Static quizzes. `compile-epub` CLI. | no | a `.epub` |
 | 3 | **Validation gate** — `scripts/epubcheck.sh` + a jest test compiling the migrated "Context Engineering" `book.json`: assert epubcheck passes and zero `http(s)://` refs in output. | no | validated, offline-proven |
 | 4 | **Diagrams for real** — wire `@mermaid-js/mermaid-cli` behind `DiagramRenderer`; embed SVG. | Chromium | diagrams |
