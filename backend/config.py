@@ -6,8 +6,14 @@ fast at startup if any required value is missing.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root = parent of the backend/ directory; used to locate the sibling Node
+# artifact compiler by default.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -37,6 +43,15 @@ class Settings(BaseSettings):
 
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
+
+    # ── Artifact compiler (Node) ──────────────────────────────────────────────
+    # POST /export shells out to the Node EPUB/PDF compiler (compiler/dist/cli.js).
+    # Compilation is deterministic and KEY-FREE (no Anthropic key). Build it with
+    # `cd compiler && npm run build`. These are paths, not secrets, so defaults
+    # are fine; override via NODE_BIN / COMPILER_CLI in other layouts.
+    node_bin: str = Field(default="node")
+    compiler_cli: str = Field(default=str(_REPO_ROOT / "compiler" / "dist" / "cli.js"))
+    export_timeout_seconds: int = Field(default=300, ge=5, le=1800)
 
 
 settings = Settings()  # type: ignore[call-arg]

@@ -68,7 +68,7 @@ backend/tests/test_export.py
 | 2 | **EPUB3 packager** *(done)* — `epub.ts`: valid EPUB3 OCF (stored `mimetype` first, `container.xml`, OPF manifest+spine with `dcterms:modified` and per-chapter `properties="mathml"`, `nav.xhtml` TOC grouped by subject, one XHTML per content-bearing topic, shared CSS, inline MathML). Static quizzes. `marked` void elements self-closed for XML. `compile-epub` CLI. | no | a `.epub` |
 | 3 | **Validation gate** *(done)* — jest gate reads the zip back and asserts XML well-formedness (every `.xhtml`/`.opf`/`.xml`), OCF structure, manifest hrefs resolve, and zero script/CDN refs — on both a synthetic book and the real 17-topic book (→17 well-formed chapters). `scripts/epubcheck.sh` runs the authoritative epubcheck when Java is available (degrades gracefully otherwise). | no | validated, offline-proven |
 | 4 | **Diagrams for real** *(done)* — `mermaid.ts`: async two-pass render (collect unique sources → pre-render each to SVG → embed inline), behind the `DiagramRenderer` seam. `MermaidCliRenderer` uses `@mermaid-js/mermaid-cli` (Chromium) via a native dynamic import; it's an **optional, non-committed** tool (`npm i @mermaid-js/mermaid-cli` in `compiler/`), opt-in via `compile-epub --mermaid`. A failed diagram falls back to the placeholder. Chapters with SVG get `properties="...svg"`. Tested with a fake renderer (CI-safe); proven end-to-end on the real book (108 diagrams → 5 MB EPUB, all `<svg>`, 0 placeholders, 0 scripts, well-formed). | Chromium (optional) | diagrams |
-| 5 | **Backend export endpoint** — `POST /api/v1/export` job (key-free, job/poll UX like `/structure`) → runs the compiler → streams the `.epub`; wire `main.py`; `test_export.py`. | — | backend service |
+| 5 | **Backend export endpoint** *(done)* — `POST /api/v1/export`: **synchronous, key-free** (compilation is deterministic over already-generated content — no Anthropic key, no Redis envelope). Streams `book.json` to the Node compiler over stdin and the `.epub` back over stdout (`compiler/src/cli.ts` gained `-`/`-o -` stdio mode); returns `application/epub+zip` with a `Content-Disposition` filename. Light input validation (422), clean 500 on compiler failure (no internals leaked), 413 body cap. `backend/src/export/{compiler,router}.py` + `main.py` wiring + config (`node_bin`/`compiler_cli`/`export_timeout_seconds`). 10 tests (mocked + a real-compiler e2e that auto-skips without Node). | — | backend service |
 
 Milestones 1–3 produce a validated, offline EPUB **with maths** before introducing
 the Chromium dependency (M4) or the backend service (M5).
@@ -88,6 +88,19 @@ the Chromium dependency (M4) or the backend service (M5).
   drift from the preview.
 - **Types contract** — `compiler/src/types.ts` must track `mobile/src/types/book.ts`
   (keep aligned, or share via a small workspace later).
+
+## M5 deployment + follow-ups
+
+- **Runtime requirement:** the backend host needs **Node on PATH** and the
+  compiler **built** (`cd compiler && npm run build` → `compiler/dist/cli.js`).
+  Paths are configurable via `NODE_BIN` / `COMPILER_CLI`. The endpoint returns a
+  clean 5xx if the compiler is unavailable. The `backend/Dockerfile` still needs
+  a Node stage + a compiler build — **not yet done** (tracked follow-up).
+- **Synchronous + no diagrams by default:** export blocks until the EPUB is ready
+  and uses the diagram *placeholder* (no headless Chromium in the backend image).
+  An **async-job variant** (202 + poll, transient artifact store + download) with
+  full `--mermaid` rendering for large books is a deliberate follow-up — the
+  current sync path is fine for the no-diagram default.
 
 ## Out of scope (later phases, per ADR-004)
 
