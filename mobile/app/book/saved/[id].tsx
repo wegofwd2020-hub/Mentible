@@ -10,6 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
+import { TopicReadList } from "@/components/TopicReadList";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
@@ -57,6 +58,11 @@ export default function SavedBookScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <PageContainer>
+        <TopicReadList
+          book={book}
+          onOpen={(topicId) => router.push(`/book/topic/${book.id}/${topicId}`)}
+        />
+
         <BookEditor
           bookId={book.id}
           initialTitle={book.title}
