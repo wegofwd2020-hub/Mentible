@@ -14,6 +14,15 @@ product — refuse free-form chat, refuse generic markdown rendering, force the
 user through the 6 scope dimensions that turn a bare prompt into a real
 educational artefact.
 
+> **Product shape (amended 2026-05-27 — see ADR-004).** The product is now **two
+> apps**: a **paid authoring app** (this repo — generate content, compile an
+> **EPUB3/PDF artifact**, author **BYOK**) and a **separate, free, offline reader
+> app** (new repo — opens any EPUB/MOBI/PDF, "lights up" *our* books with
+> interactive quizzes + local progress). The single-app, "free download" framing
+> in parts of this file and `SCOPE.md` predates the split — **ADR-003** (book
+> authoring) and **ADR-004** (two-product split + artifact delivery) take
+> precedence where they differ.
+
 ---
 
 ## Mental model — "scoped retrieval over the world of knowledge"
@@ -46,6 +55,9 @@ Read these in order:
 | `docs/MVP_v1.md` | Second — what's actually being built first |
 | `docs/adr/ADR-001-byok-security-model.md` | Before touching anything that handles the API key |
 | `docs/adr/ADR-002-repo-structure-and-vendoring.md` | Before importing or copying from StudyBuddy_OnDemand |
+| `docs/adr/ADR-003-book-authoring.md` | Before touching book authoring (TOC structuring, topic tree, generate-all) |
+| `docs/adr/ADR-004-two-product-split-and-artifacts.md` | Before touching artifact export (EPUB3/PDF), the money model, or anything reader-facing |
+| `docs/ARTIFACT_PIPELINE.md` | With ADR-004 — the content→EPUB3/PDF compile flow and the interactive-vs-static matrix |
 
 The parent product's docs (`StudyBuddy_OnDemand/CLAUDE.md` and the
 `studybuddy-docs` repo) are useful background but **do not apply** to this repo.
@@ -73,7 +85,7 @@ This is a separate product with separate compliance, infra, and audience.
 | D14 | v1 visual aids: KaTeX + Mermaid + blockquotes + tables + AI-picks |
 | D15 | Refined 7-field input list |
 | D16 | Single canvas + collapsible side panel (no wizard) |
-| D17 | v1 app fee: free download, BYOK only, no IAP |
+| D17 | *(amended — ADR-004)* Paid authoring app (subscription/purchase, covers app+upkeep only) + free reader app; author still BYOK |
 | D18 | v1 storage: ~100-lesson fair-use cap |
 | D19 | Brand "StudyBuddy Q" |
 
