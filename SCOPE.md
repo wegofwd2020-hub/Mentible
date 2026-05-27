@@ -100,6 +100,16 @@ The guiding framing for every product decision:
 
 ## 5. Decisions locked in
 
+> **Amended since lock — read the ADRs first.** The product has evolved past the
+> original single-app framing below:
+> - **ADR-003** adds **book authoring** and makes books **local-first** (revising D4).
+> - **ADR-004** splits this into **two products** — a **paid authoring app** (this
+>   repo) and a **free, offline reader app** (separate repo) — with content
+>   delivered as **artifacts (EPUB3 flagship / PDF print)**, and **amends D17** (the
+>   authoring app is now paid). **D1 (BYOK) is reaffirmed.**
+>
+> Where an ADR differs from a row below, the ADR wins.
+
 | # | Decision | Notes |
 |---|---|---|
 | D1 | **BYOK** (Bring Your Own Key) | User pastes Anthropic API key; StudyBuddy never has a token bill |
@@ -118,7 +128,7 @@ The guiding framing for every product decision:
 | D14 | **Visual aids v1 — all of (b)** | KaTeX + Mermaid + blockquotes + tables + AI-picks. Image gen = v2+ |
 | D15 | **Inputs — refined 7-field list** (Topic / Level / Language / Prior knowledge / Format / Framing / Depth) | Side panel collapsible from default canvas view |
 | D16 | **Layout — single canvas + collapsible side panel** | No wizard |
-| D17 | **App fee model v1 — free download, BYOK only, no IAP** | Pure demo of the IP. Pro tier deferred to v2 |
+| D17 | **App fee model — paid authoring app (subscription/purchase) + free reader** *(amended — ADR-004)* | Fee covers the **authoring app + upkeep only, never Anthropic tokens** — author still **BYOK** (D1). The separate **reader app is a free download**. Supersedes the original "free download, BYOK only, no IAP, pro tier deferred to v2." |
 | D18 | **v1 storage — fair-use soft cap (~100 lessons / account)** | Abuse prevention, not monetization |
 | D19 | **Brand — "StudyBuddy Q"** (Q = Query) | Repo stays `StudyBuddy_SelfLearner`; public-facing brand is "StudyBuddy Q" |
 
