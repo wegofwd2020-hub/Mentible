@@ -25,7 +25,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="library"
         options={{
-          title: "My Lessons",
+          title: "Library",
           tabBarLabel: "Library",
         }}
       />
