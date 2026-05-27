@@ -111,11 +111,42 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   zip.file("META-INF/container.xml", CONTAINER_XML);
   zip.file("OEBPS/content.opf", buildOpf(book, chapters));
   zip.file("OEBPS/nav.xhtml", buildNav(navSubjects));
+  // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
+  // require it and render blank pages without it.
+  zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
   zip.file("OEBPS/css/style.css", STYLESHEET);
   zip.file("OEBPS/title.xhtml", titleXhtml);
   for (const ch of chapters) zip.file(`OEBPS/${ch.href}`, ch.xhtml);
 
   return zip.generateAsync({ type: "uint8array", mimeType: "application/epub+zip" });
+}
+
+// EPUB2 NCX navigation document. Flat navMap (one point per chapter) — enough
+// for traditional readers to render and navigate; the EPUB3 nav.xhtml carries
+// the subject grouping.
+function buildNcx(book: Book, chapters: Chapter[]): string {
+  const navPoints = chapters
+    .map(
+      (ch, i) =>
+        `<navPoint id="np-${i + 1}" playOrder="${i + 1}">` +
+        `<navLabel><text>${escapeHtml(ch.title)}</text></navLabel>` +
+        `<content src="${escapeHtml(ch.href)}"/></navPoint>`,
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<head>
+<meta name="dtb:uid" content="${escapeHtml(book.id)}"/>
+<meta name="dtb:depth" content="1"/>
+<meta name="dtb:totalPageCount" content="0"/>
+<meta name="dtb:maxPageNumber" content="0"/>
+</head>
+<docTitle><text>${escapeHtml(book.title)}</text></docTitle>
+<navMap>
+${navPoints}
+</navMap>
+</ncx>
+`;
 }
 
 function buildNav(subjects: NavSubject[]): string {
@@ -135,6 +166,7 @@ function buildNav(subjects: NavSubject[]): string {
 function buildOpf(book: Book, chapters: Chapter[]): string {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
+    '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
     '<item id="css" href="css/style.css" media-type="text/css"/>',
     '<item id="titlepage" href="title.xhtml" media-type="application/xhtml+xml"/>',
     ...chapters.map((ch) => {
@@ -158,7 +190,7 @@ function buildOpf(book: Book, chapters: Chapter[]): string {
 <manifest>
 ${manifest.join("\n")}
 </manifest>
-<spine>
+<spine toc="ncx">
 ${spine.join("\n")}
 </spine>
 </package>

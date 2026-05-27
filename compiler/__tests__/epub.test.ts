@@ -73,6 +73,15 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     expect(container).toContain('full-path="OEBPS/content.opf"');
     expect(zip.file("OEBPS/content.opf")).not.toBeNull();
 
+    // EPUB2 NCX fallback present + referenced from the spine (traditional readers).
+    expect(zip.file("OEBPS/toc.ncx")).not.toBeNull();
+    const ncx = await zip.file("OEBPS/toc.ncx")!.async("string");
+    expect(ncx).toContain("<navPoint");
+    expect(ncx).toContain('src="chapters/ch-001.xhtml"');
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<spine toc="ncx">');
+    expect(opf).toContain('media-type="application/x-dtbncx+xml"');
+
     // nav + css + title + exactly one chapter (the ungenerated unit is skipped).
     expect(zip.file("OEBPS/nav.xhtml")).not.toBeNull();
     expect(zip.file("OEBPS/css/style.css")).not.toBeNull();
