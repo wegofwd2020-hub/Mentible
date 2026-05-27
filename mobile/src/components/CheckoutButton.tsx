@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { ApiError, exportBook } from "@/api/client";
-import { downloadArtifact, openEpub } from "@/storage/epubLibrary";
+import { downloadArtifact } from "@/storage/epubLibrary";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
 
@@ -21,22 +21,19 @@ function slug(title: string): string {
 export function CheckoutButton({ book }: { book: Book }) {
   const [state, setState] = useState<State>({ kind: "idle" });
 
-  const checkoutEpub = async () => {
-    setState({ kind: "working", fmt: "epub" });
+  // Compile a fresh artifact WITH diagrams (Mermaid→SVG) and hand it to the
+  // user — same for both formats, so the checked-out book always has its images.
+  const checkout = async (fmt: "epub" | "pdf") => {
+    setState({ kind: "working", fmt });
     try {
-      await openEpub(book.id, book.title); // the stored Library EPUB
-      setState({ kind: "done", msg: Platform.OS === "web" ? "EPUB downloaded." : "EPUB ready." });
-    } catch (err) {
-      setState({ kind: "error", msg: messageFor(err) });
-    }
-  };
-
-  const checkoutPdf = async () => {
-    setState({ kind: "working", fmt: "pdf" });
-    try {
-      const bytes = await exportBook(book, { format: "pdf" });
-      const res = await downloadArtifact(bytes, `${slug(book.title)}.pdf`, "application/pdf");
-      setState({ kind: "done", msg: res.savedPath ? `Saved: ${res.savedPath}` : "PDF downloaded." });
+      const bytes = await exportBook(book, { format: fmt, diagrams: true });
+      const mime = fmt === "pdf" ? "application/pdf" : "application/epub+zip";
+      const res = await downloadArtifact(bytes, `${slug(book.title)}.${fmt}`, mime);
+      const label = fmt.toUpperCase();
+      setState({
+        kind: "done",
+        msg: res.savedPath ? `Saved: ${res.savedPath}` : `${label} downloaded.`,
+      });
     } catch (err) {
       setState({ kind: "error", msg: messageFor(err) });
     }
@@ -50,7 +47,7 @@ export function CheckoutButton({ book }: { book: Book }) {
       <View style={styles.row}>
         <Pressable
           style={[styles.btn, working && styles.btnDisabled]}
-          onPress={checkoutEpub}
+          onPress={() => checkout("epub")}
           disabled={working}
           accessibilityRole="button"
           accessibilityLabel="Check out as EPUB3"
@@ -59,7 +56,7 @@ export function CheckoutButton({ book }: { book: Book }) {
         </Pressable>
         <Pressable
           style={[styles.btn, styles.btnAlt, working && styles.btnDisabled]}
-          onPress={checkoutPdf}
+          onPress={() => checkout("pdf")}
           disabled={working}
           accessibilityRole="button"
           accessibilityLabel="Check out as PDF"
@@ -72,7 +69,8 @@ export function CheckoutButton({ book }: { book: Book }) {
         <View style={styles.statusRow}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.statusText}>
-            {state.fmt === "pdf" ? "Compiling PDF… this can take a minute." : "Preparing EPUB…"}
+            Rendering diagrams + building the {state.fmt.toUpperCase()} — this can take a
+            few minutes for a large book.
           </Text>
         </View>
       )}
