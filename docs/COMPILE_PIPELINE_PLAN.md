@@ -106,6 +106,18 @@ the Chromium dependency (M4) or the backend service (M5).
   full `--mermaid` rendering for large books is a deliberate follow-up — the
   current sync path is fine for the no-diagram default.
 
+## PDF export (ADR-004 D5) — compiler done
+
+`compiler/src/pdf.ts` builds the **textbook** HTML (title → page-numbered TOC →
+chapters [lesson+tutorial] → grouped **Quizzes** section → **Answers** section),
+and `compiler/src/pdfRender.ts` renders it with **Vivliostyle** (CSS Paged Media;
+resolves the page-numbered TOC via `target-counter`). `compile --format pdf`.
+Verified: the real book → **727-page A4 PDF** with a working page-numbered TOC
+(Course Overview…3 … Quizzes…481 … Answers…636). Vivliostyle is an optional,
+non-committed tool (its own headless browser) behind the `PdfRenderer` seam.
+**Still to wire:** backend `/export?format=pdf`, Chromium in the backend image
+(also enables Mermaid SVG), and the Library "open to read + Checkout (EPUB3/PDF)".
+
 ## Out of scope (later phases, per ADR-004)
 
 Interactive quiz layer (phasing 3), the textbook-style PDF (phasing 4), the

@@ -27,3 +27,10 @@ export { STYLESHEET } from "./css";
 export { escapeHtml } from "./html";
 export { xhtmlDocument } from "./xhtml";
 export { compileEpub, EmptyBookError, type CompileOptions } from "./epub";
+export { buildPdfHtml, orderedChapters, type PdfChapter } from "./pdf";
+export {
+  compilePdf,
+  VivliostyleRenderer,
+  type PdfRenderer,
+  type CompilePdfOptions,
+} from "./pdfRender";
