@@ -34,7 +34,8 @@ export function CheckoutButton({ book }: { book: Book }) {
   const checkoutPdf = async () => {
     setState({ kind: "working", fmt: "pdf" });
     try {
-      const bytes = await exportBook(book, { format: "pdf" });
+      // The PDF is the "final" print artifact, so render diagrams (Mermaid→SVG).
+      const bytes = await exportBook(book, { format: "pdf", diagrams: true });
       const res = await downloadArtifact(bytes, `${slug(book.title)}.pdf`, "application/pdf");
       setState({ kind: "done", msg: res.savedPath ? `Saved: ${res.savedPath}` : "PDF downloaded." });
     } catch (err) {
@@ -72,7 +73,9 @@ export function CheckoutButton({ book }: { book: Book }) {
         <View style={styles.statusRow}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.statusText}>
-            {state.fmt === "pdf" ? "Compiling PDF… this can take a minute." : "Preparing EPUB…"}
+            {state.fmt === "pdf"
+              ? "Rendering diagrams + building the PDF — this can take a few minutes for a large book."
+              : "Preparing EPUB…"}
           </Text>
         </View>
       )}
