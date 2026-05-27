@@ -42,6 +42,12 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
       checkbox(checked: boolean): string {
         return `<input ${checked ? 'checked="checked" ' : ""}disabled="disabled" type="checkbox"/>`;
       },
+      // Add an (empty) <caption> so the table gets an auto-numbered "Table N."
+      // label (CSS counter). Mirrors marked@9's default table markup otherwise.
+      table(header: string, body: string): string {
+        const tbody = body ? `<tbody>${body}</tbody>` : "";
+        return `<table>\n<caption></caption>\n<thead>\n${header}</thead>\n${tbody}</table>\n`;
+      },
     },
   });
   return m.parse(md ?? "", { async: false }) as string;

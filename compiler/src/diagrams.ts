@@ -18,15 +18,16 @@ export class PassthroughDiagramRenderer implements DiagramRenderer {
     return (
       '<figure class="diagram diagram--placeholder">' +
       `<pre class="mermaid-src">${escapeHtml(mermaidSource)}</pre>` +
-      "<figcaption>diagram</figcaption>" +
+      "<figcaption></figcaption>" +
       "</figure>"
     );
   }
 }
 
-// Wrap a finished inline-SVG fragment in the shared diagram figure.
+// Wrap a finished inline-SVG fragment in the shared diagram figure. The empty
+// <figcaption> is the target for the auto-numbered "Figure N." label (CSS).
 function svgFigure(svg: string): string {
-  return `<figure class="diagram">${svg}</figure>`;
+  return `<figure class="diagram">${svg}<figcaption></figcaption></figure>`;
 }
 
 // Records every Mermaid source it's asked to render (so they can be rendered in

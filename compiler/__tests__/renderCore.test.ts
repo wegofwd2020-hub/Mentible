@@ -50,9 +50,10 @@ describe("renderMarkdown", () => {
     expect(html).toContain("1 &lt; 2");
   });
 
-  it("renders GFM tables", () => {
+  it("renders GFM tables with an (auto-numbered) caption element", () => {
     const html = renderMarkdown("| a | b |\n|---|---|\n| 1 | 2 |", diagrams);
     expect(html).toContain("<table");
+    expect(html).toContain("<caption></caption>"); // CSS adds "Table N."
     expect(html).toContain("<td>1</td>");
   });
 });

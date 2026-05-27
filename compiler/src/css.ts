@@ -3,16 +3,26 @@
 // neutral palette: an EPUB/print artifact should defer to the reading system and
 // read well on paper, not carry the app's dark UI theme. Colours are concrete
 // (no CSS variables / no theme injection) so the artifact is fully self-contained.
+//
+// Typography: serif body text, sans-serif headings (and quiz questions). Figures
+// and tables are auto-numbered ("Figure N." / "Table N.") via CSS counters —
+// works in PDF (Vivliostyle) and modern EPUB readers; older readers that lack
+// counter support simply show no number.
+
+const SANS = `-apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
+const SERIF = `Georgia, "Times New Roman", "Liberation Serif", serif`;
 
 export const STYLESHEET = `
   * { box-sizing: border-box; }
   body {
     color: #1a1a1a;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: ${SERIF};
     line-height: 1.6;
     margin: 0;
     padding: 1em;
+    counter-reset: figure table;
   }
+  h1, h2, h3, h4, h5, h6 { font-family: ${SANS}; }
   h1 { font-size: 1.6em; font-weight: 700; margin: 0 0 0.3em; }
   h2 { font-size: 1.3em; font-weight: 700; margin: 1.2em 0 0.4em; }
   h3 { font-size: 1.1em; font-weight: 600; margin: 1em 0 0.3em; color: #333; }
@@ -43,9 +53,11 @@ export const STYLESHEET = `
     color: #444;
     font-style: italic;
   }
-  table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; }
+  table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
   th { background: #f2f2f2; font-weight: 600; padding: 0.5em 0.8em; border: 1px solid #ccc; text-align: left; }
   td { padding: 0.45em 0.8em; border: 1px solid #ccc; }
+  caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
+  caption::before { content: "Table " counter(table) ". "; font-weight: 600; }
   hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
   .synopsis {
     color: #444; padding: 0.8em; margin: 0.8em 0 1.2em;
@@ -67,15 +79,17 @@ export const STYLESHEET = `
     background: #fafafa; border: 1px solid #e0e0e0;
     border-radius: 6px; padding: 0.8em 1em; margin: 0.8em 0;
   }
+  .quiz-qtext, .quiz-qtext p { font-family: ${SANS}; font-weight: 600; }
   .quiz-options { list-style: none; padding-left: 0; margin: 0.5em 0; }
-  .quiz-options li { padding: 0.2em 0; }
+  .quiz-options li { padding: 0.2em 0; font-family: ${SERIF}; font-size: 0.9em; }
   .quiz-options li.correct { color: #2e7d32; font-weight: 600; }
   .quiz-answer { margin-top: 0.5em; color: #2e7d32; font-size: 0.92em; }
   .quiz-expl { color: #444; font-size: 0.92em; }
   .difficulty { margin-top: 0.4em; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; color: #888; }
   .step .obs { color: #555; font-style: italic; font-size: 0.95em; }
-  .diagram { margin: 0.9em 0; }
+  .diagram { margin: 0.9em 0; counter-increment: figure; text-align: center; }
   .diagram--placeholder pre { white-space: pre-wrap; }
-  .diagram figcaption { font-size: 0.8em; color: #888; margin-top: 0.3em; }
+  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: #666; margin-top: 0.3em; }
+  .diagram figcaption::before { content: "Figure " counter(figure) ". "; font-weight: 600; }
   math { font-size: 1.05em; }
 `;

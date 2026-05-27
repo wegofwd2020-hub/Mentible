@@ -151,7 +151,15 @@ const PDF_CSS = `
     margin: 20mm 18mm;
     @bottom-center { content: counter(page); font-size: 9pt; color: #777; }
   }
-  html { font-family: Georgia, "Times New Roman", serif; line-height: 1.5; color: #111; }
+  html {
+    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    line-height: 1.5;
+    color: #111;
+    counter-reset: figure table;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+  }
   h1 { font-size: 1.6em; margin: 0 0 0.4em; }
   h2 { font-size: 1.25em; margin: 1em 0 0.3em; }
   h3 { font-size: 1.08em; margin: 0.8em 0 0.2em; color: #333; }
@@ -159,9 +167,20 @@ const PDF_CSS = `
   ul, ol { padding-left: 1.4em; }
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95em; counter-increment: table; }
   th, td { border: 1px solid #ccc; padding: 0.35em 0.6em; text-align: left; }
+  caption {
+    caption-side: top; text-align: left; font-family: "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    font-size: 0.85em; color: #555; margin-bottom: 0.3em;
+  }
+  caption::before { content: "Table " counter(table) ". "; font-weight: 700; }
+  .diagram { counter-increment: figure; text-align: center; }
   .diagram svg { max-width: 100%; }
+  .diagram figcaption {
+    font-family: "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    font-size: 0.85em; color: #555; margin-top: 0.3em;
+  }
+  .diagram figcaption::before { content: "Figure " counter(figure) ". "; font-weight: 700; }
 
   .titlepage { break-after: page; text-align: center; padding-top: 35vh; }
   .titlepage h1 { font-size: 2.4em; }
@@ -177,6 +196,10 @@ const PDF_CSS = `
   .objectives, .takeaways, .further, .mistakes, .examples { background: #f6f8fa; padding: 0.6em 0.9em; margin: 0.8em 0; }
   .quiz-chapter { margin-bottom: 1.2em; }
   .quiz-q { margin: 0.6em 0; break-inside: avoid; }
+  .quiz-qtext, .quiz-qtext p {
+    font-family: "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 600;
+  }
+  .quiz-options { font-size: 0.9em; }
   .answer { margin: 0.4em 0; break-inside: avoid; }
   .answer-key { color: #1a6b1a; }
 `;
