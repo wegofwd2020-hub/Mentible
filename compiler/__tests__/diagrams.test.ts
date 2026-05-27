@@ -10,12 +10,13 @@ import { compileEpub } from "../src/epub";
 import type { Book, LessonOutput } from "../src/types";
 
 // A fake renderer — exercises the two-pass wiring (collect → pre-render → embed)
-// without headless Chromium, so this runs in CI. Records calls to prove dedupe.
+// without headless Chromium, so this runs in CI. Records the batch it received.
 class FakeMermaid implements MermaidRenderer {
-  calls: string[] = [];
-  async renderToSvg(source: string): Promise<string> {
-    this.calls.push(source);
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>`;
+  calls: string[][] = [];
+  async renderAll(sources: readonly string[]): Promise<Map<string, string>> {
+    this.calls.push([...sources]);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>`;
+    return new Map(sources.map((s) => [s, svg]));
   }
 }
 
@@ -61,20 +62,24 @@ describe("collectMermaidSources", () => {
 });
 
 describe("prerenderDiagrams", () => {
-  it("renders each unique diagram exactly once", async () => {
+  it("passes the unique (deduped) sources to the batch renderer once", async () => {
     const fake = new FakeMermaid();
     const map = await prerenderDiagrams(bookWith(lessonWith(MERMAID_A, MERMAID_A, MERMAID_B)), fake);
-    expect(fake.calls).toHaveLength(2); // deduped
+    expect(fake.calls).toHaveLength(1); // one batch
+    expect(fake.calls[0]).toEqual(["graph TD; A-->B;", "sequenceDiagram; X->>Y: hi;"]); // deduped
     expect(map.size).toBe(2);
     expect(map.get("graph TD; A-->B;")).toContain("<svg");
   });
 
-  it("skips a diagram that fails to render (placeholder fallback)", async () => {
+  it("a source omitted by the renderer falls back to the placeholder", async () => {
     const flaky: MermaidRenderer = {
-      renderToSvg: async (s) => {
-        if (s.includes("sequenceDiagram")) throw new Error("boom");
-        return "<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
-      },
+      // renders A, omits the sequenceDiagram (as if it failed)
+      renderAll: async (sources) =>
+        new Map(
+          sources
+            .filter((s) => !s.includes("sequenceDiagram"))
+            .map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"/>']),
+        ),
     };
     const map = await prerenderDiagrams(bookWith(lessonWith(MERMAID_A, MERMAID_B)), flaky);
     expect(map.has("graph TD; A-->B;")).toBe(true);
@@ -97,7 +102,7 @@ describe("compileEpub with the mermaid option", () => {
   });
 
   it("falls back to the placeholder when a diagram fails", async () => {
-    const allFail: MermaidRenderer = { renderToSvg: async () => { throw new Error("no chromium"); } };
+    const allFail: MermaidRenderer = { renderAll: async () => new Map() }; // nothing rendered
     const bytes = await compileEpub(bookWith(lessonWith(MERMAID_A)), { mermaid: allFail });
     const zip = await JSZip.loadAsync(bytes);
     const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");

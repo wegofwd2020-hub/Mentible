@@ -1,88 +1,122 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { renderTopicBody } from "./renderCore";
 import { CollectingDiagramRenderer } from "./diagrams";
 import type { Book, GeneratedTopic } from "./types";
 
-// Async Mermaid → SVG rendering (milestone 4). Mermaid needs a DOM, so the only
-// real options are a headless browser or an external service — this is the
-// heaviest dependency in the pipeline. It is therefore:
-//   * async (the markdown render is sync → we pre-render in a separate pass),
-//   * pluggable behind this interface, and
-//   * OFF by default; the CLI opts in with --mermaid.
+// Async Mermaid → SVG rendering (milestone 4 + perf). Mermaid needs a DOM, so a
+// headless browser does the work — but ONE browser renders ALL diagrams via the
+// Mermaid JS API (mermaid.render), instead of spawning a fresh Chromium per
+// diagram. That turns a minutes-long, 100-diagram book into tens of seconds.
+//
+// Heavy + OPTIONAL (own headless browser), kept out of the default path; the
+// CLI opts in with --mermaid.
 export interface MermaidRenderer {
-  renderToSvg(source: string): Promise<string>;
+  /** Render many Mermaid sources to SVG in one pass. A source that fails to
+   *  render is omitted from the map (the caller falls back to a placeholder). */
+  renderAll(sources: readonly string[]): Promise<Map<string, string>>;
 }
 
-// Strip any XML prolog / DOCTYPE so the <svg> root can be inlined into an XHTML
-// content document.
+// Strip any XML prolog / DOCTYPE so the <svg> root can be inlined into XHTML.
 export function extractSvg(raw: string): string {
   const i = raw.indexOf("<svg");
   return i >= 0 ? raw.slice(i).trim() : raw.trim();
 }
 
-// Preserve a *native* dynamic import: this file is compiled to CommonJS, but
-// @mermaid-js/mermaid-cli is ESM-only, and a plain import() would be downleveled
-// to require() (which can't load ESM). Going through the Function constructor
-// keeps a real import() at runtime and avoids a compile-time module-resolution
-// error for a package that isn't a committed dependency.
-const nativeImport = new Function("specifier", "return import(specifier)") as (
-  specifier: string,
-) => Promise<{ run: MermaidCliRun }>;
+// Preserve a native dynamic import (CJS build importing ESM packages that aren't
+// committed deps; also dodges compile-time module resolution).
+const nativeImport = new Function("s", "return import(s)") as (s: string) => Promise<unknown>;
 
-type MermaidCliRun = (
-  input: string,
-  output: `${string}.svg`,
-  opts?: Record<string, unknown>,
-) => Promise<unknown>;
+// Resolve a package file path without a static specifier (puppeteer/mermaid are
+// installed only in the image, not the committed package.json).
+function resolvePath(spec: string): string {
+  return require.resolve(spec);
+}
 
-// Real renderer backed by @mermaid-js/mermaid-cli (Puppeteer + headless
-// Chromium). NOT a committed dependency — install it where you need diagrams:
-//   cd compiler && npm install @mermaid-js/mermaid-cli
-export class MermaidCliRenderer implements MermaidRenderer {
-  async renderToSvg(source: string): Promise<string> {
-    let run: MermaidCliRun;
+interface MermaidConfig {
+  theme: string;
+  securityLevel: string;
+  flowchart: { htmlLabels: boolean };
+  startOnLoad: boolean;
+}
+
+const MERMAID_CONFIG: MermaidConfig = {
+  startOnLoad: false,
+  theme: "neutral",
+  securityLevel: "strict",
+  flowchart: { htmlLabels: false }, // keep SVG XML-clean (no foreignObject HTML)
+};
+
+// One headless browser, the local Mermaid bundle injected once, then every
+// diagram rendered in the same page.
+export class PuppeteerMermaidRenderer implements MermaidRenderer {
+  async renderAll(sources: readonly string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    if (sources.length === 0) return out;
+
+    let puppeteer: { launch: (opts: Record<string, unknown>) => Promise<PuppeteerBrowser> };
+    let mermaidDist: string;
     try {
-      ({ run } = await nativeImport("@mermaid-js/mermaid-cli"));
+      const mod = (await nativeImport("puppeteer")) as { default?: typeof puppeteer; launch?: unknown };
+      puppeteer = (mod.default ?? mod) as typeof puppeteer;
+      mermaidDist = resolvePath("mermaid/dist/mermaid.min.js");
     } catch {
       throw new Error(
-        "@mermaid-js/mermaid-cli is not installed. Run `npm install @mermaid-js/mermaid-cli` " +
-          "in compiler/ to render diagrams (needs headless Chromium).",
+        "puppeteer + mermaid are not installed. Run `npm install puppeteer mermaid` in " +
+          "compiler/ to render diagrams (needs a headless browser).",
       );
     }
-    const dir = await mkdtemp(join(tmpdir(), "sbq-mmd-"));
-    const inPath = join(dir, "in.mmd");
-    const outPath = join(dir, "out.svg") as `${string}.svg`;
-    try {
-      await writeFile(inPath, source, "utf8");
-      // In a container, point Puppeteer at the system Chromium and drop the
-      // sandbox (env-driven so local dev keeps the defaults).
-      const puppeteerConfig: Record<string, unknown> = {};
-      const chromium = process.env.PUPPETEER_EXECUTABLE_PATH;
-      if (chromium) puppeteerConfig.executablePath = chromium;
-      if (process.env.SBQ_NO_SANDBOX === "1") {
-        puppeteerConfig.args = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
-      }
-      await run(inPath, outPath, {
-        quiet: true,
-        puppeteerConfig,
-        parseMMDOptions: {
-          // htmlLabels:false keeps the SVG XML-clean (no foreignObject HTML);
-          // strict security disables embedded scripts; neutral theme reads on
-          // paper and in light readers.
-          mermaidConfig: {
-            theme: "neutral",
-            securityLevel: "strict",
-            flowchart: { htmlLabels: false },
-          },
-        },
-      });
-      return extractSvg(await readFile(outPath, "utf8"));
-    } finally {
-      await rm(dir, { recursive: true, force: true });
+
+    const launch: Record<string, unknown> = { headless: true };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      launch.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
+    launch.args =
+      process.env.SBQ_NO_SANDBOX === "1"
+        ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+        : [];
+
+    const browser = await puppeteer.launch(launch);
+    try {
+      const page = await browser.newPage();
+      await page.setContent("<!DOCTYPE html><html><body></body></html>");
+      await page.addScriptTag({ path: mermaidDist });
+      await page.evaluate((cfg: MermaidConfig) => {
+        (globalThis as unknown as { mermaid: { initialize: (c: unknown) => void } }).mermaid.initialize(cfg);
+      }, MERMAID_CONFIG);
+
+      let i = 0;
+      for (const source of sources) {
+        i += 1;
+        try {
+          const svg = (await page.evaluate(
+            async (code: string, id: string) => {
+              const m = (globalThis as unknown as {
+                mermaid: { render: (id: string, t: string) => Promise<{ svg: string }> };
+              }).mermaid;
+              return (await m.render(id, code)).svg;
+            },
+            source,
+            `sbq-d${i}`,
+          )) as string;
+          out.set(source, extractSvg(svg));
+        } catch {
+          // leave unset → placeholder fallback
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+    return out;
   }
+}
+
+interface PuppeteerBrowser {
+  newPage(): Promise<PuppeteerPage>;
+  close(): Promise<void>;
+}
+interface PuppeteerPage {
+  setContent(html: string): Promise<void>;
+  addScriptTag(opts: { path: string }): Promise<unknown>;
+  evaluate(fn: (...args: never[]) => unknown, ...args: unknown[]): Promise<unknown>;
 }
 
 // Collect unique Mermaid sources across all content-bearing topics, in reading
@@ -100,20 +134,10 @@ export function collectMermaidSources(book: Book): string[] {
   return [...collector.sources];
 }
 
-// Pre-render every unique diagram to SVG. A diagram that fails to render is left
-// unset (the PrerenderedDiagramRenderer falls back to the placeholder) rather
-// than failing the whole compile.
+// Pre-render every unique diagram to SVG in one batch.
 export async function prerenderDiagrams(
   book: Book,
   renderer: MermaidRenderer,
 ): Promise<Map<string, string>> {
-  const svgBySource = new Map<string, string>();
-  for (const source of collectMermaidSources(book)) {
-    try {
-      svgBySource.set(source, await renderer.renderToSvg(source));
-    } catch {
-      // leave unset → placeholder fallback
-    }
-  }
-  return svgBySource;
+  return renderer.renderAll(collectMermaidSources(book));
 }

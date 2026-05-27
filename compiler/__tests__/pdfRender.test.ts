@@ -43,7 +43,8 @@ it("builds the textbook HTML and hands it to the PDF engine", async () => {
 
 it("pre-renders diagrams to SVG before layout when a Mermaid renderer is given", async () => {
   const fakeMermaid: MermaidRenderer = {
-    renderToSvg: async () => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+    renderAll: async (sources) =>
+      new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'])),
   };
   const fake = new FakePdf();
   await compilePdf(book(), { mermaid: fakeMermaid, pdf: fake });

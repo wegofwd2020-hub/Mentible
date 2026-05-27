@@ -18,7 +18,7 @@ export {
 } from "./diagrams";
 export {
   type MermaidRenderer,
-  MermaidCliRenderer,
+  PuppeteerMermaidRenderer,
   collectMermaidSources,
   prerenderDiagrams,
   extractSvg,

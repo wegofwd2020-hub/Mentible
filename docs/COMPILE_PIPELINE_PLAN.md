@@ -78,10 +78,10 @@ the Chromium dependency (M4) or the backend service (M5).
 - **Headless Chromium** (mermaid-cli) is a fat backend-image dependency — hence M4,
   isolated behind `DiagramRenderer` so we can later swap a Kroki sidecar or
   pre-render diagrams at authoring time.
-- **Diagram render speed** — M4 renders sequentially, one Chromium pass per
-  diagram (the real 108-diagram book took ~7 min). Follow-ups: render in
-  parallel / reuse one browser, cache by source hash, or move diagram rendering
-  to authoring time. Not a foundation blocker.
+- **Diagram render speed** — *resolved.* The renderer now uses ONE headless
+  browser (puppeteer) with the Mermaid JS bundle injected once, rendering all
+  diagrams via `mermaid.render` (`PuppeteerMermaidRenderer.renderAll`). The real
+  108-diagram book went from ~7 min (one Chromium per diagram) to **~9 s**.
 - **XHTML well-formedness** — EPUB3 is XML-strict; `marked` HTML must serialize as
   XHTML (self-closing tags, entities). Verified by `epubcheck`, not by eye.
 - **Render duplication** — M1 unifies the renderer *first* so the artifact can't

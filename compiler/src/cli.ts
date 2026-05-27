@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { compileEpub } from "./epub";
 import { compilePdf } from "./pdfRender";
-import { MermaidCliRenderer } from "./mermaid";
+import { PuppeteerMermaidRenderer } from "./mermaid";
 import type { Book } from "./types";
 
 // compile <book.json|-> [-o out|-] [--format epub|pdf] [--mermaid]
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const raw = fromStdin ? (await readStdin()).toString("utf8") : readFileSync(input, "utf8");
   const book = JSON.parse(raw) as Book;
 
-  const mermaidOpt = mermaid ? { mermaid: new MermaidCliRenderer() } : {};
+  const mermaidOpt = mermaid ? { mermaid: new PuppeteerMermaidRenderer() } : {};
   const out =
     format === "pdf"
       ? await compilePdf(book, mermaidOpt)

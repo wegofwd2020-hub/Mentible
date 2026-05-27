@@ -18,12 +18,14 @@ COPY compiler/src ./src
 # Build, then drop devDeps (typescript, jest, …) keeping runtime deps.
 RUN npm run build && npm prune --omit=dev
 
-# Add the heavy, optional render CLIs WITHOUT their bundled browsers — the final
-# image ships a system Chromium both tools are pointed at. Kept out of the
+# Add the heavy, optional render tools WITHOUT their bundled browsers — the
+# final image ships a system Chromium both are pointed at. Kept out of the
 # committed package.json (CI stays light); installed only into the image.
+# puppeteer + mermaid drive the batched one-browser diagram renderer; vivliostyle
+# renders the PDF.
 ENV PUPPETEER_SKIP_DOWNLOAD=1 \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm install --no-save @mermaid-js/mermaid-cli @vivliostyle/cli
+RUN npm install --no-save puppeteer mermaid @vivliostyle/cli
 
 # ── Stage 2: Python runtime + Node + Chromium + built compiler ────────────────
 FROM python:3.11-slim
