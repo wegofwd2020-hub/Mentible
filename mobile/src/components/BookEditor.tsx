@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
-import { saveBook } from "@/storage/bookStore";
+import { loadBook, saveBook } from "@/storage/bookStore";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, StructuredTOC } from "@/types/book";
 
@@ -37,14 +37,19 @@ export function BookEditor({
     if (!canSave) return;
     setSaving(true);
     const now = new Date().toISOString();
-    const book: Book = {
-      id: bookId ?? newId(),
-      title: title.trim(),
-      toc,
-      createdAt: createdAt ?? now,
-      updatedAt: now,
-    };
     try {
+      // Preserve any generated/imported per-topic content across edits — without
+      // this, editing a book's title/TOC would wipe its lessons (saveBook prunes
+      // content to the current topic ids, dropping orphans of removed topics).
+      const existing = bookId ? await loadBook(bookId) : null;
+      const book: Book = {
+        id: bookId ?? newId(),
+        title: title.trim(),
+        toc,
+        createdAt: createdAt ?? now,
+        updatedAt: now,
+        content: existing?.content,
+      };
       await saveBook(book);
       onSaved(book);
     } finally {
