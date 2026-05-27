@@ -5,6 +5,7 @@ import type {
   JobResponse,
 } from "@/types/lesson";
 import type {
+  Book,
   StructureRequest,
   StructureResponse,
   StructureJobResponse,
@@ -80,6 +81,23 @@ export async function getStructureJob(
   jobId: string,
 ): Promise<StructureJobResponse> {
   return apiFetch<StructureJobResponse>(`/jobs/${jobId}`);
+}
+
+// ── Export: POST /export → compile a book to an EPUB ──────────────────────────
+// Returns the raw EPUB bytes (application/epub+zip). Synchronous and key-free.
+// 422 → the book has no generated content (or is malformed); surface as a
+// friendly message via ApiError.body.
+export async function exportBook(book: Book): Promise<ArrayBuffer> {
+  const res = await fetch(`${BASE_URL}/api/v1/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(book),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.arrayBuffer();
 }
 
 export async function pollUntilDone(

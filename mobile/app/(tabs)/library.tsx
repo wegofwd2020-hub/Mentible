@@ -1,55 +1,65 @@
 import React, { useCallback, useState } from "react";
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { deleteLesson, loadLibrary, type LessonMeta } from "@/storage/lessonStore";
+import { deleteEpub, listEpubs, openEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function LevelBadge({ level }: { level: string }) {
-  const label = level.charAt(0).toUpperCase() + level.slice(1);
-  return (
-    <View style={styles.badge}>
-      <Text style={styles.badgeText}>{label}</Text>
-    </View>
-  );
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// The Library: finished books compiled to EPUB3 and stored on this device.
+// Tapping a book downloads it (web) or opens the share sheet (native).
 export default function LibraryScreen() {
   const router = useRouter();
-  const [lessons, setLessons] = useState<LessonMeta[]>([]);
+  const [items, setItems] = useState<EpubMeta[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      loadLibrary().then(setLessons);
+      listEpubs()
+        .then(setItems)
+        .catch(() => setItems([]));
     }, []),
   );
 
-  const handleDelete = useCallback(async (jobId: string) => {
-    await deleteLesson(jobId);
-    setLessons((prev) => prev.filter((m) => m.jobId !== jobId));
+  const handleOpen = useCallback(async (item: EpubMeta) => {
+    setError(null);
+    try {
+      await openEpub(item.id, item.title);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn’t open that EPUB.");
+    }
   }, []);
 
-  if (lessons.length === 0) {
+  const handleDelete = useCallback(async (id: string) => {
+    await deleteEpub(id);
+    setItems((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  if (items.length === 0) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyIcon}>📚</Text>
-        <Text style={styles.emptyTitle}>No saved lessons</Text>
+        <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
-          Generate a lesson on the Query tab — it will appear here automatically.
+          Finish a book in the Books tab, then tap “Save to Library (EPUB3)”. Your
+          compiled books appear here.
         </Text>
+        <Pressable
+          style={styles.cta}
+          onPress={() => router.push("/books")}
+          accessibilityRole="button"
+          accessibilityLabel="Go to Books"
+        >
+          <Text style={styles.ctaText}>Go to Books →</Text>
+        </Pressable>
       </View>
     );
   }
@@ -58,28 +68,37 @@ export default function LibraryScreen() {
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      data={lessons}
-      keyExtractor={(item) => item.jobId}
+      data={items}
+      keyExtractor={(item) => item.id}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={
+        error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null
+      }
       renderItem={({ item }) => (
         <Pressable
           style={styles.card}
-          onPress={() => router.push(`/lesson/${item.jobId}`)}
+          onPress={() => handleOpen(item)}
           accessibilityRole="button"
-          accessibilityLabel={`Open lesson: ${item.topic}`}
+          accessibilityLabel={`${Platform.OS === "web" ? "Download" : "Open"} EPUB: ${item.title}`}
         >
+          <Text style={styles.cardIcon}>📖</Text>
           <View style={styles.cardMain}>
-            <Text style={styles.topic} numberOfLines={2}>{item.topic}</Text>
-            <View style={styles.meta}>
-              <LevelBadge level={item.level} />
-              <Text style={styles.date}>{formatDate(item.savedAt)}</Text>
-            </View>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <Text style={styles.meta}>
+              EPUB3 · {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}
+            </Text>
           </View>
           <Pressable
             style={styles.deleteBtn}
-            onPress={() => handleDelete(item.jobId)}
+            onPress={() => handleDelete(item.id)}
             accessibilityRole="button"
-            accessibilityLabel={`Delete lesson: ${item.topic}`}
+            accessibilityLabel={`Delete from library: ${item.title}`}
             hitSlop={8}
           >
             <Text style={styles.deleteIcon}>🗑</Text>
@@ -91,16 +110,18 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  listContent: {
+  list: { flex: 1, backgroundColor: colors.background },
+  listContent: { padding: spacing.md },
+  separator: { height: spacing.sm },
+  errorBanner: {
+    backgroundColor: colors.error + "22",
+    borderColor: colors.error + "66",
+    borderWidth: 1,
+    borderRadius: radius.md,
     padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  separator: {
-    height: spacing.sm,
-  },
+  errorText: { color: colors.error, fontSize: typography.sizeSm },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -111,43 +132,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
   },
-  cardMain: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  topic: {
-    fontSize: typography.sizeMd,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  meta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  badge: {
-    backgroundColor: colors.primary + "33",
-    borderRadius: radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  date: {
-    fontSize: typography.sizeXs,
-    color: colors.textMuted,
-  },
-  deleteBtn: {
-    padding: spacing.xs,
-  },
-  deleteIcon: {
-    fontSize: 18,
-  },
+  cardIcon: { fontSize: 22 },
+  cardMain: { flex: 1, gap: spacing.xs },
+  title: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text },
+  meta: { fontSize: typography.sizeXs, color: colors.textMuted },
+  deleteBtn: { padding: spacing.xs },
+  deleteIcon: { fontSize: 18 },
   empty: {
     flex: 1,
     backgroundColor: colors.background,
@@ -156,19 +146,20 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
   },
-  emptyIcon: {
-    fontSize: 48,
-  },
-  emptyTitle: {
-    fontSize: typography.sizeLg,
-    fontWeight: "700",
-    color: colors.text,
-  },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
   emptyBody: {
     fontSize: typography.sizeSm,
     color: colors.textMuted,
     textAlign: "center",
     lineHeight: 22,
-    maxWidth: 280,
+    maxWidth: 300,
   },
+  cta: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  ctaText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
 });

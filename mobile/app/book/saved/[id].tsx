@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
 import { TopicReadList } from "@/components/TopicReadList";
+import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
@@ -83,6 +84,14 @@ export default function SavedBookScreen() {
           Save your edits first. Generation runs one topic at a time against your
           Anthropic key.
         </Text>
+
+        <View style={styles.publishDivider} />
+        <Text style={styles.publishLabel}>Publish</Text>
+        <SaveToLibraryButton bookId={book.id} />
+        <Text style={styles.generateHint}>
+          Compiles the generated topics into an EPUB3 and saves it to your
+          Library. Generate the topics first.
+        </Text>
       </PageContainer>
     </ScrollView>
   );
@@ -114,5 +123,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizeXs,
     textAlign: "center",
     marginTop: spacing.xs,
+  },
+  publishDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginTop: spacing.xl,
+  },
+  publishLabel: {
+    fontSize: typography.sizeSm,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginTop: spacing.md,
   },
 });
