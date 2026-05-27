@@ -1,36 +1,53 @@
-# StudyBuddy Q backend image — Python API + the Node artifact compiler.
+# StudyBuddy Q backend image — Python API + the Node artifact compiler, with a
+# headless Chromium for PDF (Vivliostyle) and diagram (Mermaid → SVG) rendering.
 #
-# POST /api/v1/export shells out to the Node compiler (compiler/dist/cli.js), so
-# the runtime needs Node plus the built compiler and its production deps.
-# Diagram rendering (--mermaid / headless Chromium) is NOT included; the default
-# export path uses the lightweight diagram placeholder.
+# POST /api/v1/export shells out to the Node compiler (compiler/dist/cli.js).
+# format=epub|pdf and diagrams=true are all supported here.
 #
 # Build from the REPO ROOT (the context the COPY paths assume):
 #   docker build -f backend/Dockerfile -t studybuddyq-backend .
 
-# ── Stage 1: build the Node compiler (TypeScript → dist, prod deps only) ──────
+# ── Stage 1: build the Node compiler + install the optional render tools ──────
 FROM node:20-bookworm-slim AS compiler-build
 WORKDIR /build/compiler
 
-# Install all deps (incl. typescript) against the lockfile, then build.
 COPY compiler/package.json compiler/package-lock.json ./
 RUN npm ci
 COPY compiler/tsconfig.json compiler/tsconfig.build.json ./
 COPY compiler/src ./src
-RUN npm run build \
-    # Drop devDependencies (typescript, jest, …); keep only runtime deps
-    # (jszip, marked, katex, marked-katex-extension) for the final image.
-    && npm prune --omit=dev
+# Build, then drop devDeps (typescript, jest, …) keeping runtime deps.
+RUN npm run build && npm prune --omit=dev
 
-# ── Stage 2: Python runtime + Node binary + built compiler ────────────────────
+# Add the heavy, optional render CLIs WITHOUT their bundled browsers — the final
+# image ships a system Chromium both tools are pointed at. Kept out of the
+# committed package.json (CI stays light); installed only into the image.
+ENV PUPPETEER_SKIP_DOWNLOAD=1 \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN npm install --no-save @mermaid-js/mermaid-cli @vivliostyle/cli
+
+# ── Stage 2: Python runtime + Node + Chromium + built compiler ────────────────
 FROM python:3.11-slim
 WORKDIR /app
 
-# Node runtime so the backend can spawn the compiler. Both bases are Debian
-# bookworm, so the node binary is ABI-compatible; we only need `node` (not npm)
-# at runtime. The version check fails the build early if the copy is broken.
+# Node runtime (only `node`, not npm) — ABI-compatible bookworm→bookworm.
 COPY --from=node:20-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 RUN node --version
+
+# Headless Chromium + fonts for Vivliostyle (PDF) and Mermaid (diagrams).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      chromium fonts-liberation fonts-noto fonts-noto-color-emoji \
+      libnss3 libatk-bridge2.0-0 libgbm1 libasound2 libxkbcommon0 \
+      libxdamage1 libxcomposite1 libxrandr2 libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Chromium wrapper forcing --no-sandbox (Vivliostyle exposes no sandbox flag,
+# and Chromium can't sandbox in this container). SBQ_CHROMIUM points Vivliostyle
+# here; PUPPETEER_EXECUTABLE_PATH + SBQ_NO_SANDBOX drive Mermaid's Puppeteer.
+RUN printf '#!/bin/sh\nexec /usr/bin/chromium --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage "$@"\n' \
+      > /usr/local/bin/chromium-nosandbox && chmod +x /usr/local/bin/chromium-nosandbox
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    SBQ_NO_SANDBOX=1 \
+    SBQ_CHROMIUM=/usr/local/bin/chromium-nosandbox
 
 # Python deps
 COPY backend/requirements.txt /app/backend/requirements.txt
@@ -40,17 +57,14 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 COPY backend/ /app/backend/
 COPY pipeline/ /app/pipeline/
 
-# Built compiler at the path backend.config.compiler_cli defaults to:
-# <repo_root>/compiler/dist/cli.js → /app/compiler/dist/cli.js here.
+# Built compiler (dist + node_modules incl. the render CLIs) at the path
+# backend.config.compiler_cli defaults to.
 COPY --from=compiler-build /build/compiler/dist /app/compiler/dist
 COPY --from=compiler-build /build/compiler/node_modules /app/compiler/node_modules
 COPY --from=compiler-build /build/compiler/package.json /app/compiler/package.json
 
-# Fail the build if the compiler can't load at the final image paths. Loading
-# the compiled module by absolute path transitively requires its runtime deps
-# (jszip / marked / katex / marked-katex-extension) from /app/compiler/node_modules
-# — the same resolution the backend gets when it runs `node compiler/dist/cli.js`.
-RUN node -e "require('/app/compiler/dist/epub.js'); console.log('compiler runtime OK')"
+# Fail the build if the compiler can't load at the final image paths.
+RUN node -e "require('/app/compiler/dist/epub.js'); require('/app/compiler/dist/pdfRender.js'); console.log('compiler runtime OK')"
 
 WORKDIR /app
 EXPOSE 8000

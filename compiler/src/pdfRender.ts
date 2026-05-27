@@ -53,8 +53,12 @@ export class VivliostyleRenderer implements PdfRenderer {
 function runVivliostyle(bin: string, input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Generous timeout — large textbooks paginate to hundreds of pages.
-    // (Container Chromium sandbox is handled at the image layer, not here.)
     const args = [bin, "build", input, "-o", output, "--log-level", "silent", "-t", "600"];
+    // In a container, point Vivliostyle at a specific Chromium. SBQ_CHROMIUM may
+    // be a wrapper that adds --no-sandbox (the CLI has no sandbox flag of its
+    // own). Env-driven, so local dev uses Vivliostyle's managed browser.
+    const browser = process.env.SBQ_CHROMIUM;
+    if (browser) args.push("--executable-browser", browser);
     const proc = spawn(process.execPath, args, { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
     proc.stderr.on("data", (d) => (err += String(d)));
