@@ -1,0 +1,21 @@
+  - Open vs monetized content (decides whether auth-free is safe).
+  I am considering to "Curriculum Authoring Studio" be a standalone application with a free epub reader that we can provide as a download. The primary application "Curriculum Authoring Studio" will be either a one time purchase or subscription. Not sure yet.
+
+  - Static vs interactive reading (decides EPUB viability) — are printed Q+answer-key quizzes acceptable, or must they stay interactive?
+  I believe the value is being interactive.
+  
+  - Analytics — do you need completion/engagement signals (esp. corporate)?
+Not for now.
+
+  - Scope — all authored packages, or specific "book-like" ones (corporate/home-school)?
+"authored book for the individual who purchase teh application and sign up [Pay] for Anthropic Key. Which they will do when they buy and want to Use this application.
+
+
+  - Mermaid/math fidelity — OK to pre-render diagrams to static SVG and math to MathML for EPUB?
+Yes.
+
+
+
+The work we did today is close to https://github.com/wegofwd2020-hub/StudyBuddy_SelfLearner. Should we conisder taking this work out of this project and taking it there?
+
+Here is my other advantage of moving towards StudyBuddy_SelfLearner. When schools subscribe to StudyBuddy_OnDemand they could also subscribe to StudyBuddy_SelfLearner and generate content for offline access for students as additional learning material. 
