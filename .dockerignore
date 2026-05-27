@@ -1,0 +1,16 @@
+# Keep the build context small. The backend image only needs backend/,
+# pipeline/, and compiler/ (built in-stage), so exclude everything heavy or
+# irrelevant. The compiler's node_modules/dist are rebuilt inside the image.
+.git
+**/node_modules
+**/dist
+**/__pycache__
+*.pyc
+.venv
+**/.venv
+mobile
+*.epub
+.expo
+**/.expo
+**/coverage
+.github

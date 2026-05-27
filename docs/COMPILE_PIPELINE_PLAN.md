@@ -94,8 +94,12 @@ the Chromium dependency (M4) or the backend service (M5).
 - **Runtime requirement:** the backend host needs **Node on PATH** and the
   compiler **built** (`cd compiler && npm run build` → `compiler/dist/cli.js`).
   Paths are configurable via `NODE_BIN` / `COMPILER_CLI`. The endpoint returns a
-  clean 5xx if the compiler is unavailable. The `backend/Dockerfile` still needs
-  a Node stage + a compiler build — **not yet done** (tracked follow-up).
+  clean 5xx if the compiler is unavailable. **Done in `backend/Dockerfile`** — a
+  multi-stage build compiles the TS in a `node:20` stage, prunes to prod deps,
+  and copies the `node` binary + built compiler into the Python image at
+  `/app/compiler/dist` (the default `compiler_cli` path). An in-image smoke check
+  fails the build if the compiler can't load. Verified end-to-end: a running
+  container returns a valid EPUB (with MathML) from `POST /api/v1/export`.
 - **Synchronous + no diagrams by default:** export blocks until the EPUB is ready
   and uses the diagram *placeholder* (no headless Chromium in the backend image).
   An **async-job variant** (202 + poll, transient artifact store + download) with
