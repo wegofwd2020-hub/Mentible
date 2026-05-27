@@ -16,13 +16,31 @@ import { escapeHtml } from "./html";
 // shared global renderer state.
 export function renderMarkdown(md: string | null | undefined, diagrams: DiagramRenderer): string {
   const m = new Marked();
-  m.use(markedKatex({ throwOnError: false, output: "mathml" }));
+  // strict:false — render best-effort and don't warn on quirks in LLM-authored
+  // LaTeX (e.g. a stray en-dash inside math); throwOnError:false keeps a bad
+  // expression from failing the whole compile.
+  m.use(markedKatex({ throwOnError: false, strict: false, output: "mathml" }));
   m.use({
     renderer: {
       code(code: string, infostring: string | undefined): string {
         const lang = (infostring ?? "").trim().split(/\s+/)[0];
         if (lang === "mermaid") return diagrams.render(code);
         return `<pre><code>${escapeHtml(code)}</code></pre>`;
+      },
+      // Self-close void elements so output is well-formed XHTML (EPUB3 content
+      // docs are parsed as XML — a bare <br>/<hr>/<img> would break the parse).
+      br(): string {
+        return "<br/>";
+      },
+      hr(): string {
+        return "<hr/>";
+      },
+      image(href: string | null, title: string | null, text: string): string {
+        const t = title ? ` title="${escapeHtml(title)}"` : "";
+        return `<img src="${escapeHtml(href)}" alt="${escapeHtml(text)}"${t}/>`;
+      },
+      checkbox(checked: boolean): string {
+        return `<input ${checked ? 'checked="checked" ' : ""}disabled="disabled" type="checkbox"/>`;
       },
     },
   });

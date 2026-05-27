@@ -13,3 +13,5 @@ export {
 export { type DiagramRenderer, PassthroughDiagramRenderer } from "./diagrams";
 export { STYLESHEET } from "./css";
 export { escapeHtml } from "./html";
+export { xhtmlDocument } from "./xhtml";
+export { compileEpub, EmptyBookError, type CompileOptions } from "./epub";
