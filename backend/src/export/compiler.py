@@ -1,15 +1,16 @@
 """Invoke the Node artifact compiler (compiler/dist/cli.js) to turn a book.json
-into an EPUB.
+into an artifact (EPUB or PDF).
 
 Compilation is deterministic and KEY-FREE — it renders already-generated
 content, so there is no Anthropic key, no Redis envelope, and nothing to redact.
-The book is streamed to the compiler over stdin and the EPUB read back from
+The book is streamed to the compiler over stdin and the artifact read back from
 stdout; nothing touches disk here, and the book content is never logged.
 
 Deployment note: the runtime must have Node on PATH and the compiler built
-(`cd compiler && npm run build`). The endpoint returns a clean 5xx if it isn't.
-Diagram rendering (--mermaid / headless Chromium) is intentionally OFF here; the
-default export uses the lightweight diagram placeholder (see ADR-004 M5).
+(`cd compiler && npm run build`). PDF (Vivliostyle) and diagram rendering
+(Mermaid → SVG) additionally need a headless browser + those optional CLIs in
+the image — see backend/Dockerfile. The endpoint returns a clean 5xx if a tool
+is missing. `diagrams=False` (the default) uses the lightweight placeholder.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ class CompilerError(Exception):
 
 
 class ExportResult(NamedTuple):
-    epub: bytes
+    data: bytes  # the compiled artifact (EPUB or PDF bytes)
     title: str
 
 
@@ -56,20 +57,32 @@ def validate_book(raw: bytes) -> dict:
     return data
 
 
-async def compile_epub(raw_book: bytes) -> ExportResult:
-    """Compile raw book.json bytes into EPUB bytes via the Node compiler.
+async def compile_book(
+    raw_book: bytes,
+    *,
+    fmt: str = "epub",
+    diagrams: bool = False,
+) -> ExportResult:
+    """Compile raw book.json bytes into an artifact (EPUB or PDF) via the Node
+    compiler.
 
-    Raises ExportValidationError for bad input, CompilerError otherwise.
+    fmt:      "epub" | "pdf". diagrams: render Mermaid → SVG (needs Chromium;
+    much slower, so it gets the longer diagram timeout). Raises
+    ExportValidationError for bad input, CompilerError otherwise.
     """
     book = validate_book(raw_book)
 
+    argv = [settings.node_bin, settings.compiler_cli, "-", "-o", "-", "--format", fmt]
+    if diagrams:
+        argv.append("--mermaid")
+    # Diagram rendering (108 Chromium passes) is minutes-long; give it room.
+    timeout = (
+        settings.export_diagram_timeout_seconds if diagrams else settings.export_timeout_seconds
+    )
+
     try:
         proc = await asyncio.create_subprocess_exec(
-            settings.node_bin,
-            settings.compiler_cli,
-            "-",  # read book JSON from stdin
-            "-o",
-            "-",  # write EPUB to stdout
+            *argv,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -81,7 +94,7 @@ async def compile_epub(raw_book: bytes) -> ExportResult:
     try:
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(input=raw_book),
-            timeout=settings.export_timeout_seconds,
+            timeout=timeout,
         )
     except TimeoutError as exc:
         proc.kill()
@@ -94,13 +107,15 @@ async def compile_epub(raw_book: bytes) -> ExportResult:
         # a user-input problem (422), not a server fault.
         if "no generated content" in detail.lower():
             raise ExportValidationError("Book has no generated content to compile.")
-        log.error("compiler_failed", returncode=proc.returncode, detail=detail[:500])
+        log.error("compiler_failed", fmt=fmt, returncode=proc.returncode, detail=detail[:500])
         raise CompilerError("Compilation failed.")
 
     log.info(
         "export_ok",
+        fmt=fmt,
+        diagrams=diagrams,
         title_len=len(book["title"]),
         subjects=len(book["toc"]["subjects"]),
-        epub_bytes=len(stdout),
+        out_bytes=len(stdout),
     )
-    return ExportResult(epub=stdout, title=book["title"])
+    return ExportResult(data=stdout, title=book["title"])
