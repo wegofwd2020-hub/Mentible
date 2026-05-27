@@ -74,24 +74,58 @@ def test_validate_book_rejects_bad_input(raw, needle):
 
 
 # ── endpoint with the compiler mocked ────────────────────────────────────────
-async def test_export_returns_epub(client, monkeypatch):
-    async def fake_compile(raw: bytes) -> ExportResult:
-        return ExportResult(epub=b"PK\x03\x04-fake-epub", title="Physics & Friends")
+def _fake_compile(record: dict):
+    async def fake(raw: bytes, *, fmt: str = "epub", diagrams: bool = False) -> ExportResult:
+        record["fmt"] = fmt
+        record["diagrams"] = diagrams
+        return ExportResult(data=b"%PDF-or-PK-bytes", title="Physics & Friends")
 
-    monkeypatch.setattr(compiler, "compile_epub", fake_compile)
+    return fake
+
+
+async def test_export_epub_by_default(client, monkeypatch):
+    rec: dict = {}
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec))
 
     resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("application/epub+zip")
     assert resp.headers["content-disposition"] == 'attachment; filename="physics-friends.epub"'
-    assert resp.content == b"PK\x03\x04-fake-epub"
+    assert rec == {"fmt": "epub", "diagrams": False}
+
+
+async def test_export_pdf_with_diagrams(client, monkeypatch):
+    rec: dict = {}
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec))
+
+    resp = await client.post("/api/v1/export?format=pdf&diagrams=true", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/pdf")
+    assert resp.headers["content-disposition"] == 'attachment; filename="physics-friends.pdf"'
+    assert rec == {"fmt": "pdf", "diagrams": True}
+
+
+async def test_export_rejects_unknown_format(client, monkeypatch):
+    called = False
+
+    async def fake(raw, *, fmt="epub", diagrams=False):
+        nonlocal called
+        called = True
+        return ExportResult(data=b"", title="x")
+
+    monkeypatch.setattr(compiler, "compile_book", fake)
+
+    resp = await client.post("/api/v1/export?format=mobi", content=json.dumps(_BOOK))
+    assert resp.status_code == 422
+    assert "epub" in resp.json()["detail"]
+    assert called is False
 
 
 async def test_export_validation_error_is_422(client, monkeypatch):
-    async def fake_compile(raw: bytes) -> ExportResult:
+    async def fake(raw, *, fmt="epub", diagrams=False):
         raise ExportValidationError("Book has no generated content to compile.")
 
-    monkeypatch.setattr(compiler, "compile_epub", fake_compile)
+    monkeypatch.setattr(compiler, "compile_book", fake)
 
     resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
     assert resp.status_code == 422
@@ -99,31 +133,31 @@ async def test_export_validation_error_is_422(client, monkeypatch):
 
 
 async def test_export_compiler_error_is_500_without_internals(client, monkeypatch):
-    async def fake_compile(raw: bytes) -> ExportResult:
+    async def fake(raw, *, fmt="epub", diagrams=False):
         raise CompilerError("node exploded: /secret/path/stacktrace")
 
-    monkeypatch.setattr(compiler, "compile_epub", fake_compile)
+    monkeypatch.setattr(compiler, "compile_book", fake)
 
     resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
     assert resp.status_code == 500
     assert resp.json()["detail"] == "Could not compile the book."
-    assert "secret" not in resp.text  # no leaked internals
+    assert "secret" not in resp.text
 
 
 async def test_export_rejects_oversized_body(client, monkeypatch):
     called = False
 
-    async def fake_compile(raw: bytes) -> ExportResult:
+    async def fake(raw, *, fmt="epub", diagrams=False):
         nonlocal called
         called = True
-        return ExportResult(epub=b"", title="x")
+        return ExportResult(data=b"", title="x")
 
-    monkeypatch.setattr(compiler, "compile_epub", fake_compile)
+    monkeypatch.setattr(compiler, "compile_book", fake)
 
     big = b"x" * (25 * 1024 * 1024 + 1)
     resp = await client.post("/api/v1/export", content=big)
     assert resp.status_code == 413
-    assert called is False  # rejected before invoking the compiler
+    assert called is False
 
 
 # ── real end-to-end (auto-skips unless the Node compiler is built) ───────────
@@ -133,7 +167,7 @@ _HAVE_COMPILER = bool(shutil.which(settings.node_bin)) and os.path.exists(settin
 @pytest.mark.skipif(
     not _HAVE_COMPILER, reason="Node compiler not built (run: cd compiler && npm run build)"
 )
-async def test_export_end_to_end_real_compiler(client):
+async def test_export_epub_end_to_end_real_compiler(client):
     resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
     assert resp.status_code == 200
     assert resp.content[:2] == b"PK"  # a real zip/EPUB

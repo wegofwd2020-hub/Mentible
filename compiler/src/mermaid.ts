@@ -56,8 +56,17 @@ export class MermaidCliRenderer implements MermaidRenderer {
     const outPath = join(dir, "out.svg") as `${string}.svg`;
     try {
       await writeFile(inPath, source, "utf8");
+      // In a container, point Puppeteer at the system Chromium and drop the
+      // sandbox (env-driven so local dev keeps the defaults).
+      const puppeteerConfig: Record<string, unknown> = {};
+      const chromium = process.env.PUPPETEER_EXECUTABLE_PATH;
+      if (chromium) puppeteerConfig.executablePath = chromium;
+      if (process.env.SBQ_NO_SANDBOX === "1") {
+        puppeteerConfig.args = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+      }
       await run(inPath, outPath, {
         quiet: true,
+        puppeteerConfig,
         parseMMDOptions: {
           // htmlLabels:false keeps the SVG XML-clean (no foreignObject HTML);
           // strict security disables embedded scripts; neutral theme reads on

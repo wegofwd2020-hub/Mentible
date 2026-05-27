@@ -26,14 +26,33 @@ log = get_logger("export")
 # Generous ceiling for a large book.json (the migrated 17-topic book is ~1.9 MB).
 _MAX_BODY_BYTES = 25 * 1024 * 1024
 
+_FORMATS = {
+    "epub": ("application/epub+zip", "epub"),
+    "pdf": ("application/pdf", "pdf"),
+}
 
-def _filename(title: str) -> str:
+
+def _filename(title: str, ext: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower() or "book"
-    return f"{slug[:60]}.epub"
+    return f"{slug[:60]}.{ext}"
 
 
 @router.post("/export")
-async def export_book(request: Request) -> Response:
+async def export_book(
+    request: Request,
+    format: str = "epub",
+    diagrams: bool = False,
+) -> Response:
+    """Compile a book to an artifact. `format`=epub|pdf; `diagrams`=true renders
+    Mermaid → SVG (Chromium; much slower)."""
+    fmt = format.lower()
+    if fmt not in _FORMATS:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "format must be 'epub' or 'pdf'."},
+        )
+    media_type, ext = _FORMATS[fmt]
+
     raw = await request.body()
     if len(raw) > _MAX_BODY_BYTES:
         return JSONResponse(
@@ -42,7 +61,7 @@ async def export_book(request: Request) -> Response:
         )
 
     try:
-        result = await compiler.compile_epub(raw)
+        result = await compiler.compile_book(raw, fmt=fmt, diagrams=diagrams)
     except compiler.ExportValidationError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -56,7 +75,7 @@ async def export_book(request: Request) -> Response:
         )
 
     return Response(
-        content=result.epub,
-        media_type="application/epub+zip",
-        headers={"Content-Disposition": f'attachment; filename="{_filename(result.title)}"'},
+        content=result.data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{_filename(result.title, ext)}"'},
     )

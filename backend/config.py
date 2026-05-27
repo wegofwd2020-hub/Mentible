@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     node_bin: str = Field(default="node")
     compiler_cli: str = Field(default=str(_REPO_ROOT / "compiler" / "dist" / "cli.js"))
     export_timeout_seconds: int = Field(default=300, ge=5, le=1800)
+    # Diagram rendering runs one headless-Chromium pass per Mermaid block, so a
+    # diagram-laden book takes minutes — give that path a much longer ceiling.
+    export_diagram_timeout_seconds: int = Field(default=1200, ge=5, le=3600)
 
 
 settings = Settings()  # type: ignore[call-arg]
