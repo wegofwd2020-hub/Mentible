@@ -2,10 +2,19 @@
 
 | | |
 |---|---|
-| **Status** | Accepted — 2026-04-25 |
+| **Status** | Accepted — 2026-04-25 · **Amended by ADR-005 (2026-05-29)** |
 | **Decision-maker** | Sivakumar Mambakkam |
 | **Supersedes** | — |
 | **Superseded by** | — |
+
+> **Amendment (ADR-005, 2026-05-29) — key handling is now HYBRID.** This ADR's
+> Pattern B (per-request passthrough) is **retained in full for the optional BYOK
+> path**. A second, default **managed** path was added: we hold *our own* provider
+> keys in an at-rest secrets vault (rotated, never logged) and bill tokens via the
+> subscription. The two regimes coexist. The non-negotiable rule is unchanged and
+> now covers both: **no key — the user's or ours — ever reaches a log line, DB
+> row, or traceback.** Everything below describes the **BYOK path**; see ADR-005
+> for the managed-vault path.
 
 ---
 

@@ -10,6 +10,15 @@ and *reader location*.
 paid/subscription). **Reaffirms D1** (author still BYOK). Touches **D13/D14**
 (formats / visual aids now compile into artifacts).
 
+> **Amendment (ADR-005, 2026-05-29) — D6 money model superseded.** D6 below
+> states the subscription "covers the app + upkeep only… never covers Anthropic
+> token cost" because the author always BYOK. ADR-005 makes key handling
+> **hybrid**: that statement now holds **only for the optional BYOK path**. For
+> the **default managed path**, we hold provider keys and the subscription
+> **includes a metered token allowance** (we carry vendor cost; pricing is
+> margin-aware, per-plan caps). Accounts/auth + usage metering move to MVP. See
+> ADR-005 D4/D5.
+
 ---
 
 ## Context

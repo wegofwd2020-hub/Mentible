@@ -1,5 +1,17 @@
 # Multi-Provider LLM Content Generation
 
+> **Status (2026-05-29):** Multi-provider support is **accepted** — see
+> **ADR-005**. **This document is a design target, not yet-built code:** the live
+> code is Anthropic-only (`pipeline/providers/`); the `llm/` package and
+> `requirements-llm.txt` below **do not exist yet**.
+>
+> **Two corrections vs. ADR-005** that this doc has not yet been rewritten to
+> match: (1) key handling is **hybrid** — *managed keys (we hold them) by
+> default* + *optional BYOK*; the env-var/secrets-manager pattern below applies to
+> the **managed** path, and a per-request BYOK passthrough path (ADR-001) also
+> exists. (2) The Anthropic default model is **`claude-sonnet-4-6`**, not
+> `claude-opus-4-8`. The build should follow ADR-005 where they differ.
+
 StudyBuddy can generate study content with **Anthropic, OpenAI, DeepSeek, Qwen,
 or Gemma**, selectable at runtime. This page documents how the layer is
 structured, how to configure it, and how to use it.
