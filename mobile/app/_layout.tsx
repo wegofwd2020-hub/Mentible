@@ -15,6 +15,13 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
+          name="concepts"
+          options={{
+            title: "UI concepts (prototype)",
+            headerBackTitle: "Settings",
+          }}
+        />
+        <Stack.Screen
           name="lesson/[jobId]"
           options={{
             title: "Lesson",
