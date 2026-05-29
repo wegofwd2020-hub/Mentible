@@ -106,11 +106,11 @@ must clear **"Mentible"** before it is locked.
 
 ## 4. Chosen name + fallback shortlist
 
-**Chosen (ADR-006): Mentible** — tagline *"Knowledge in. Lessons out."* It is
-vendor-neutral (fits the multi-provider direction, ADR-005), not boxed into
-"study/school," and escapes both the "StudyBuddy" crowding and the Amazon-Q risk.
-**Provisional until clearance** — the preliminary sweep (§4a) leaves it as lead
-but with a "Mentable" conflict that needs **attorney review**.
+**Chosen (ADR-006): Mentible** — vendor-neutral (fits the multi-provider
+direction, ADR-005), not boxed into "study/school," and escapes both the
+"StudyBuddy" crowding and the Amazon-Q risk. **Provisional until clearance** —
+the preliminary sweep (§4a) leaves it as lead but with a "Mentable" conflict that
+needs **attorney review**. *(The tagline is a separate decision — see §4b.)*
 
 The "Q = Query" rationale retires with the old brand (ADR-006 D1).
 
@@ -138,6 +138,49 @@ required before any name is locked.
 
 ---
 
+## 4b. Tagline & positioning
+
+> **The tagline is a *separate* decision from the wordmark (§4).** A name must be
+> distinctive and ownable; a tagline can be evocative and even descriptive. The
+> name remains Mentible-vs-SelfSyllabus (pending attorney review); the tagline
+> below pairs with **whichever** name wins.
+
+**Lead tagline candidate: "Author Yourself."**
+
+Chosen for a deliberate double meaning that fits the adult self-learner:
+
+- *Author [the material] **yourself*** — the DIY authoring engine: you generate
+  your own structured learning artifact.
+- ***Author yourself*** — take authorship of your own learning and growth.
+  ("Self-authorship" is an established developmental-psychology concept — Kegan,
+  Baxter Magolda — so the phrase carries real intellectual weight.)
+
+It speaks to the user's **identity and agency**, not just the mechanism — a
+stronger emotional hook than the prior line.
+
+**Positioning narrative it supports** — the medium progression:
+
+1. **Books** — static text.
+2. **Video courses** (Udemy / Coursera) — media with embedded text.
+3. **Books *and* media, coexisting and interactive** — the **interactive EPUB3
+   artifact + offline reader** (ADR-004). Text, math, diagrams, quizzes, and
+   (with later media generation) audio/video in one portable, offline artifact.
+
+> **Honesty check for marketing:** interactive EPUB3 is **not** a brand-new medium
+> (Pressbooks, Kotobee, the former iBooks Author live there). The genuine novelty
+> is the **combination** — *AI-authored* structured content + an *integrated
+> offline interactive reader*. Lead with that, not "we invented a medium."
+
+**Note on "Author Yourself" as a *name*:** it is a strong tagline but a **weak
+wordmark** — a descriptive/laudatory verb-phrase is hard to trademark and defend,
+awkward as a domain, and "self-authorship" already has prior use. Keep it as the
+**tagline/manifesto**, not the brand name.
+
+**Alternate taglines retained:** *"Knowledge in. Lessons out."* (input→output
+shape); audience-specific lines in earlier drafts.
+
+---
+
 ## 5. Next steps (post-sweep)
 
 - **Attorney knockout search on the finalist** — resolve **Mentible vs Mentable**
@@ -150,8 +193,8 @@ required before any name is locked.
   (D5/D19) to the final name and sweep "StudyBuddy Q" references repo-wide.
 - **Two-app naming (ADR-004):** decide whether the free reader shares the brand,
   takes a sub-brand, or stands alone.
-- **Tagline:** lead with the **input → output** shape — *"Knowledge in. Lessons
-  out."*
+- **Tagline:** lead with **"Author Yourself"** (see §4b) — keep *"Knowledge in.
+  Lessons out."* as the alternate. Pairs with whichever name clears.
 
 ---
 
@@ -167,6 +210,8 @@ required before any name is locked.
 4. **Clearance:** 🟡 preliminary sweep done (§4a) — Mentible leads with a Mentable
    conflict; Knowmad/Curriculo eliminated; SelfSyllabus the fallback. **Attorney
    knockout opinion still required** before launch.
+5. **Tagline:** ✅ lead candidate **"Author Yourself"** (§4b) — a decision separate
+   from the wordmark; pairs with whichever name clears.
 
 ---
 

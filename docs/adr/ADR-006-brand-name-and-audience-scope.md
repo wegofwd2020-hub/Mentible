@@ -32,9 +32,11 @@ Two product calls were made:
 
 ### D1 — New brand: "Mentible"
 
-The public brand becomes **"Mentible"** (working tagline: *"Knowledge in. Lessons
-out."*). This supersedes "StudyBuddy Q" (SCOPE.md D5/D19). The "Q = Query"
-rationale retires with the old name.
+The public brand becomes **"Mentible"** (supersedes "StudyBuddy Q", SCOPE.md
+D5/D19). The "Q = Query" rationale retires with the old name. **Tagline** is a
+separate decision — lead candidate **"Author Yourself"** (double meaning: author
+the material yourself / author yourself; see branding doc §4b), with *"Knowledge
+in. Lessons out."* as the alternate. The tagline pairs with whichever name clears.
 
 **Conditional on clearance.** "Mentible" is **not yet legally cleared.** Before it
 is locked for store listings / assets, run the mandatory sweep (CLAUDE.md pitfall
