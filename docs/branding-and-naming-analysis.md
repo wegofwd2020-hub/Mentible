@@ -1,38 +1,52 @@
 # Branding & Naming Analysis
 
-> **Status:** Draft for discussion
-> **Scope:** Competitive landscape, name-collision findings, and candidate names + taglines
-> **Working codename:** `StudyBuddy_SelfLearner` / `StudyBuddy_Q`
+> **Status:** **Decision made — ADR-006 Accepted (2026-05-29).** The brand
+> **rebrands from "StudyBuddy Q" to "Mentible"** *(pending the mandatory
+> trademark/domain sweep — see §3/§5)*. Audience stays **self-learners +
+> professionals** (D6 reaffirmed; no school funnel). This doc is now the research
+> record behind that decision; the candidate names in §4 are the **fallback
+> shortlist** if "Mentible" fails clearance.
+> **New brand:** **Mentible** *(provisional until cleared)* — supersedes D5/D19.
+> **Audience:** adult self-learners, incl. professionals (D6).
 
 ---
 
-## 1. Product summary
+## 1. Product summary (what StudyBuddy Q actually is)
 
-StudyBuddy is a **study-material generation tool**. A user supplies a topic, an
-outline, or a full curriculum, and the app produces structured course/study
-material from it.
+StudyBuddy Q is a **purpose-built Anthropic client for adult self-learners**.
+The user pastes their own Anthropic API key (**BYOK**), describes what they want
+to learn across the six scope dimensions, and gets back a rendered lesson,
+explanation, or quiz. It is **not** a chatbot, **not** a course platform, and
+**not** a children's or school product.
 
-It is positioned on the **authoring (creation) side** of the market — "build the
-material" — rather than the student-consumption side ("here is a study guide for
-you").
+Per **ADR-004**, the product is now **two apps**:
 
-### Target audiences
+| | **Authoring app** (this repo) | **Reader app** (separate repo) |
+|---|---|---|
+| Role | generate content → compile an **EPUB3/PDF artifact** | open any EPUB/MOBI/PDF; "light up" *our* books |
+| Network | online (Anthropic, BYOK) | offline |
+| Money | paid / subscription | free download |
 
-| # | Audience | Entry point | Goal |
-|---|----------|-------------|------|
-| 🏫 | **Schools** | A broad, standards-driven **curriculum** | Cascade the curriculum down into course material |
-| 🧑‍💻 | **Self-learners** | Their own **high-level understanding** of a topic | Build structured material to deepen it |
-| 👩‍🏫 | **Private tutors** | A **specific topic** they need to teach | Generate targeted material for a student |
+> **Single audience.** Unlike the broader "StudyBuddy" family, Q serves **one**
+> audience — the adult self-learner. **Schools and tutors are explicitly out of
+> scope** (D6; CLAUDE.md: "No school anything"). The school/curriculum-cascade
+> use case belongs to the sibling product **StudyBuddy OnDemand**, not here. Any
+> branding that targets schools/tutors would reverse a locked decision.
 
-All three are variations on one engine: **knowledge / intent in → structured
-learning material out.**
+### Why "Q"
+
+**Q = Query.** It references the **scoped-query model** — the six dimensions
+(topic, level, language, prior knowledge, format, real-world framing) that turn a
+bare prompt into a real educational artefact. That scoping layer is the product
+IP; "the LLM is the commodity." **Q is *not* "quiz."**
 
 ---
 
 ## 2. Competitive landscape
 
-The market splits into two adjacent clusters. StudyBuddy straddles both, which is
-where its differentiation lives.
+The market splits into two adjacent clusters. StudyBuddy Q sits on the
+**authoring / generation** side, but narrowed to the **solo adult learner** —
+which is itself an underserved slice.
 
 ### 2a. Student-facing study-material generators (consume → study)
 
@@ -42,7 +56,7 @@ where its differentiation lives.
 | **StudyFetch** | Notes, quizzes, flashcards, exam simulations, AI-generated educational videos from any material |
 | **NoteGPT / StudyPDF / HyperWrite / iWeaver / Piktochart** | Variations of "AI study guide maker" from notes, PDFs, or topics |
 
-### 2b. Authoring / curriculum builders (closest to schools + tutors)
+### 2b. Authoring / curriculum builders (school- and creator-oriented)
 
 | Product | What it does |
 |---------|--------------|
@@ -52,12 +66,14 @@ where its differentiation lives.
 | **Teachable** | Curriculum generator that helps experts translate expertise into a course outline |
 | **Venngage / eSkilled / Mini Course Generator** | Additional course/syllabus builders |
 
-### 2c. The wedge
+### 2c. The wedge for Q
 
-Most competitors serve **one** of StudyBuddy's three audiences. Few span
-**curriculum → course → material** *and* serve the "I already know a topic, build
-me the material" self-learner *and* the single-topic tutor. The **"build your
-own" authoring angle** is the differentiator a name should lean into.
+Most competitors are either student-consumption tools or **school/creator**
+authoring platforms (multi-tenant, standards-aligned, dashboard-driven). Few
+target the **adult self-learner who wants to author a structured, rigorous
+artefact for their own learning, BYOK, and read it offline.** Q's differentiators
+are the **opinionated 6-dimension scoping**, **BYOK** (no token markup), and the
+**offline interactive artifact** (ADR-004) — not breadth of audience.
 
 ---
 
@@ -72,72 +88,68 @@ the name:
 4. A K-12 LMS ("We Care StudyBuddy")
 5. A campus tutoring app (`studybuddymobile.com`)
 
-**Implication:** SEO, app-store discoverability, and trademark would all be
-uphill. Recommend treating **"StudyBuddy" as a working codename, not the launch
-brand.**
+**Plus the "Q" suffix carries its own risk: Amazon Q.** CLAUDE.md pitfall #6
+flags this directly — the brand must be watched for **Amazon Q** trademark
+conflict, and should **never collapse to a bare "Q"** in marketing.
 
-> ⚠️ The candidate names in §4 are creative suggestions only. A proper
-> **trademark and domain availability search** is required before committing to
-> any of them. This document flags collision risk; it does not clear names
-> legally.
+**Implication:** these two risks (crowded "StudyBuddy" + Amazon-Q-adjacent "Q")
+are why **ADR-006 decided to rebrand to "Mentible"** — a name that escapes both.
+The same gating discipline now applies to the *new* name: **the mandatory
+pre-alpha trademark sweep** (USPTO TESS, Google Play, App Store) + domain check
+must clear **"Mentible"** before it is locked.
 
----
-
-## 4. Candidate names & taglines
-
-Audience leaning: 🏫 schools · 🧑‍💻 self-learners · 👩‍🏫 tutors
-
-### Authoring / "you build it" (strongest differentiator)
-
-| Name | Tagline | Leans |
-|------|---------|-------|
-| **CourseSmith** | "Forge your course from what you know." | 🏫 👩‍🏫 |
-| **LessonForge** | "From a topic to teachable, in minutes." | 👩‍🏫 🏫 |
-| **Currio** | "Curriculum, built around what you teach." | 🏫 |
-| **Syllabize** | "Turn knowledge into a syllabus." | 🏫 👩‍🏫 |
-
-### Self-learner empowerment
-
-| Name | Tagline | Leans |
-|------|---------|-------|
-| **Knowmad** | "Build the course you wish existed." | 🧑‍💻 |
-| **SelfSyllabus** | "You bring the curiosity. We build the curriculum." | 🧑‍💻 |
-| **Upskool** *(or Upskule)* | "Teach yourself anything, structured." | 🧑‍💻 👩‍🏫 |
-
-### Neutral / spans all three (parent-brand candidates)
-
-| Name | Tagline | Leans |
-|------|---------|-------|
-| **Curriculo** | "From idea to curriculum to ready-to-teach material." | 🏫 🧑‍💻 👩‍🏫 |
-| **Tutela** *(Latin: guardianship; tutor-adjacent)* | "Every topic, made teachable." | 🏫 🧑‍💻 👩‍🏫 |
-| **Mentible** | "Knowledge in. Lessons out." | 🏫 🧑‍💻 👩‍🏫 |
-| **Studyforge** | "Where topics become study material." | 🧑‍💻 👩‍🏫 |
-
-### On the "_Q" idea
-
-If **Q = questions / quizzes**, a name like **QuizCraft** ("Every lesson,
-quiz-ready") works well as a **feature sub-brand**, but is too narrow to be the
-umbrella brand — the core value is full material generation, not just questions.
+> ⚠️ This document flags collision risk; it does **not** clear any name legally.
+> "Mentible" is **provisional** until a proper **trademark + domain availability
+> search** passes. If it fails, fall back to the §4 shortlist and re-clear.
 
 ---
 
-## 5. Recommendation
+## 4. Chosen name + fallback shortlist
 
-- For a **single brand across all three audiences**, **Curriculo**, **Mentible**,
-  or **Tutela** carry the "knowledge → structured material" promise without
-  boxing the product into students-only (where "StudyBuddy" already lives).
-- The strongest **tagline pattern** is the **input → output** shape, e.g.
-  *"Knowledge in. Lessons out."*
+**Chosen (ADR-006): Mentible** — tagline *"Knowledge in. Lessons out."* It is
+vendor-neutral (fits the multi-provider direction, ADR-005), not boxed into
+"study/school," and escapes both the "StudyBuddy" crowding and the Amazon-Q risk.
+**Provisional until the trademark/domain sweep passes** (§5).
+
+**Fallback shortlist** — if "Mentible" fails clearance, re-clear in this order:
+
+| Name | Tagline | Note |
+|------|---------|------|
+| **Knowmad** | "Build the course you wish existed." | Existing coined term ("knowledge nomad") — prior use; verify. |
+| **Curriculo** | "From idea to ready-to-study material." | Unverified; check TESS/domains. |
+| **SelfSyllabus** | "You bring the curiosity. We build the curriculum." | On-audience; descriptive, weaker mark. |
+| **Upskool** *(Upskule)* | "Teach yourself anything, structured." | Spelling collisions likely. |
+| **Studyforge** | "Where topics become study material." | Crowded "forge/smith" edtech space; retains "study". |
+| ~~**Tutela**~~ | — | ❌ Excluded — existing trademark (network analytics). |
+
+The "Q = Query" rationale retires with the old brand (ADR-006 D1).
 
 ---
 
-## 6. Open questions / next steps
+## 5. Next steps (post-decision)
 
-1. **Brand architecture:** One master brand for all three audiences, or a parent
-   brand with audience-specific sub-products?
-2. **Meaning of "Q":** Quiz/question generation specifically, or something else?
-3. **Shortlisting:** Once 1–2 are answered, narrow to a shortlist and run
-   trademark + domain (.com / .ai) availability checks.
+- **Clear "Mentible" before locking it** (CLAUDE.md pitfall #6): USPTO TESS,
+  Google Play, App Store, and `.com`/`.ai` domains. This is a **gating pre-alpha
+  task**. If it fails, take the §4 fallback shortlist in order and re-clear.
+- **Ratify into canonical docs** once cleared: update CLAUDE.md + SCOPE.md
+  (D5/D19) to "Mentible" and sweep "StudyBuddy Q" references repo-wide.
+- **Two-app naming (ADR-004):** decide whether the free reader shares "Mentible,"
+  takes a sub-brand, or stands alone.
+- **Tagline:** lead with the **input → output** shape — *"Knowledge in. Lessons
+  out."*
+
+---
+
+## 6. Decisions recorded (ADR-006)
+
+1. **Brand name:** ✅ **Rebrand "StudyBuddy Q" → "Mentible"** (provisional until
+   cleared). Drops the crowded "StudyBuddy" family and the Amazon-Q risk.
+2. **Audience scope:** ✅ **Stay self-learner-only** (D6 reaffirmed), widened to
+   make explicit that **adult professionals** are in scope. Schools/tutors/OnDemand
+   integration **rejected** (would re-import multi-tenancy + FERPA/COPPA).
+3. **Two-app naming (ADR-004):** ⏳ open — does the free reader share "Mentible,"
+   get a sub-brand, or stand alone?
+4. **Clearance:** ⏳ run the trademark + domain sweep for "Mentible" before launch.
 
 ---
 
