@@ -15,10 +15,12 @@ import {
   maskApiKey,
   saveApiKey,
 } from "@/secure/keyStore";
+import { useRouter } from "expo-router";
 import { BRAND_NAME } from "@/constants/brand";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [draftKey, setDraftKey] = useState("");
   const [savedMask, setSavedMask] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -135,6 +137,19 @@ export default function SettingsScreen() {
         <AboutRow label="Version" value="0.1.0 (MVP)" />
         <AboutRow label="Key model" value="claude-sonnet-4-6" />
       </View>
+
+      <View style={styles.divider} />
+
+      <Text style={styles.sectionLabel}>Prototypes</Text>
+      <Pressable
+        style={styles.protoRow}
+        onPress={() => router.push("/concepts")}
+        accessibilityRole="button"
+        accessibilityLabel="Open UI concept gallery"
+      >
+        <Text style={styles.protoText}>🎨 UI concept gallery</Text>
+        <Text style={styles.protoChevron}>→</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -252,6 +267,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     overflow: "hidden",
+  },
+  protoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  protoText: {
+    fontSize: typography.sizeMd,
+    color: colors.text,
+    fontWeight: "600",
+  },
+  protoChevron: {
+    fontSize: typography.sizeMd,
+    color: colors.primary,
   },
   aboutRow: {
     flexDirection: "row",
