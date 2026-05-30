@@ -4,6 +4,7 @@ import { renderMarkdown } from "./markdown";
 import { escapeHtml } from "./html";
 import { PassthroughDiagramRenderer, type DiagramRenderer } from "./diagrams";
 import { EmptyBookError } from "./epub";
+import { SOURCE_SERIF_FONTFACE } from "./fonts";
 
 // Build the single-document HTML for the print/PDF target — a *textbook
 // compilation* (ADR-004 D5), distinct from the EPUB's per-topic layout:
@@ -146,13 +147,14 @@ ${answersHtml}
 // CSS Paged Media stylesheet (resolved by Vivliostyle). The TOC page numbers
 // come from target-counter(attr(href url), page).
 const PDF_CSS = `
+  ${SOURCE_SERIF_FONTFACE}
   @page {
     size: A4;
     margin: 20mm 18mm;
     @bottom-center { content: counter(page); font-size: 9pt; color: #777; }
   }
   html {
-    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    font-family: "Source Serif 4", Georgia, "Times New Roman", "Liberation Serif", serif;
     line-height: 1.5;
     color: #111;
     counter-reset: figure table;

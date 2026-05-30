@@ -9,10 +9,15 @@
 // works in PDF (Vivliostyle) and modern EPUB readers; older readers that lack
 // counter support simply show no number.
 
+import { SOURCE_SERIF_FONTFACE } from "./fonts";
+
 const SANS = `-apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
-const SERIF = `Georgia, "Times New Roman", "Liberation Serif", serif`;
+// Embedded Source Serif 4 (see fonts.ts) — matches the in-app reader; Georgia
+// is the fallback for readers that ignore the embedded font.
+const SERIF = `"Source Serif 4", Georgia, "Times New Roman", "Liberation Serif", serif`;
 
 export const STYLESHEET = `
+  ${SOURCE_SERIF_FONTFACE}
   * { box-sizing: border-box; }
   body {
     color: #1a1a1a;
