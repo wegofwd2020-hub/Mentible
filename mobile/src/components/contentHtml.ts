@@ -173,7 +173,7 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
     color: var(--text);
     font-family: var(--serif);
     font-weight: 400;
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1.7;
     -webkit-font-smoothing: antialiased;
     padding: 20px 18px 40px;
