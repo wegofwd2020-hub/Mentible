@@ -153,22 +153,30 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
     --primary: ${colors.primary};
     --success: ${colors.success};
     --warning: ${colors.warning};
+    /* Match the EPUB/PDF artifact: serif body for prose, sans for headings/UI. */
+    --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+    --serif: Georgia, "Times New Roman", "Liberation Serif", serif;
     color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
+  html { background: var(--bg); }
+  body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, "Helvetica Neue", sans-serif;
-    font-size: 16px;
-    line-height: 1.65;
-    padding: 16px;
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.7;
+    padding: 20px 18px 40px;
+    /* Cap the line length for a comfortable reading measure (esp. on tablets). */
+    max-width: 42rem;
+    margin: 0 auto;
   }
-  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
-  h2 { font-size: 1.2rem; font-weight: 700; margin: 20px 0 8px; color: var(--text); }
-  h3 { font-size: 1rem; font-weight: 600; margin: 16px 0 6px; color: var(--text2); }
-  h4, h5, h6 { font-size: 0.95rem; font-weight: 600; margin: 12px 0 4px; }
-  p  { margin: 10px 0; }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 8px; color: var(--text); }
+  h2 { font-size: 1.3rem; font-weight: 700; margin: 24px 0 8px; color: var(--text); }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 18px 0 6px; color: var(--text2); }
+  h4, h5, h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
+  p  { margin: 12px 0; }
   ul, ol { padding-left: 22px; margin: 8px 0; }
   li { margin: 4px 0; }
   code {
