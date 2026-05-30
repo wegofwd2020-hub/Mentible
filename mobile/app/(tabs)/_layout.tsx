@@ -1,4 +1,22 @@
 import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+// A tab icon that fills in when the tab is active and is outlined otherwise.
+function tabIcon(active: IconName, inactive: IconName) {
+  return function TabBarIcon({
+    color,
+    size,
+    focused,
+  }: {
+    color: string;
+    size: number;
+    focused: boolean;
+  }) {
+    return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+  };
+}
 
 export default function TabLayout() {
   return (
@@ -21,6 +39,7 @@ export default function TabLayout() {
           // Header hidden: the home screen renders its own branded hero.
           headerShown: false,
           tabBarLabel: "Query",
+          tabBarIcon: tabIcon("sparkles", "sparkles-outline"),
         }}
       />
       <Tabs.Screen
@@ -28,6 +47,7 @@ export default function TabLayout() {
         options={{
           title: "Library",
           tabBarLabel: "Library",
+          tabBarIcon: tabIcon("bookmarks", "bookmarks-outline"),
         }}
       />
       <Tabs.Screen
@@ -35,6 +55,7 @@ export default function TabLayout() {
         options={{
           title: "Books",
           tabBarLabel: "Books",
+          tabBarIcon: tabIcon("book", "book-outline"),
         }}
       />
       <Tabs.Screen
@@ -42,6 +63,7 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarLabel: "Settings",
+          tabBarIcon: tabIcon("settings", "settings-outline"),
         }}
       />
     </Tabs>
