@@ -36,6 +36,30 @@ _DEPTH_HINTS: dict[str, str] = {
     "deep": "Go deep — include 5–7 sections with examples, edge cases, and connections to adjacent topics.",
 }
 
+# Words per page used to turn a page target into a word-count instruction. A
+# rendered lesson page (headings + prose + the occasional formula/diagram) runs
+# lighter than a dense paragraph page, so this sits at the low end.
+_WORDS_PER_PAGE = 450
+
+
+def _length_hint(depth: str, target_pages: int) -> str:
+    """The length directive for the prompt.
+
+    A positive page target wins over the depth hint (it is the more specific
+    instruction); 0 falls back to the depth-based section-count hint.
+    """
+    if target_pages > 0:
+        lo = round(target_pages * _WORDS_PER_PAGE * 0.85)
+        hi = round(target_pages * _WORDS_PER_PAGE * 1.15)
+        return (
+            f"Aim for approximately {target_pages} page(s) of lesson content "
+            f"(roughly {lo}–{hi} words) across the sections — use as many "
+            f"sections as needed to reach that length naturally. This length "
+            f"target is for the lesson prose only; it excludes any quiz "
+            f"questions or answers."
+        )
+    return _DEPTH_HINTS.get(depth, _DEPTH_HINTS["standard"])
+
 
 def _infer_subject(topic: str) -> str:
     """Best-effort subject inference for picking the right per-subject guidelines.
@@ -118,16 +142,20 @@ def build_lesson_prompt(
     level: str,
     language: str,
     depth: str = "standard",
+    target_pages: int = 0,
     prior_knowledge: str | None = None,
     framing: str | None = None,
 ) -> str:
     """Return the prompt for generating a self-learner lesson.
 
     Output is JSON conforming to `lesson_schema.LessonOutput`.
+
+    target_pages > 0 sets an approximate length for the lesson prose (it takes
+    precedence over `depth`); 0 leaves length to the depth hint.
     """
     # _LEVEL_TO_GRADE is reserved for future per-grade tuning; not used yet.
     audience = _LEVEL_HUMAN.get(level, "a self-learner")
-    depth_hint = _DEPTH_HINTS.get(depth, _DEPTH_HINTS["standard"])
+    depth_hint = _length_hint(depth, target_pages)
     subject = _infer_subject(topic)
 
     lang_instruction = (

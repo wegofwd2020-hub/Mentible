@@ -33,7 +33,22 @@ def test_call_anthropic_success(known_test_api_key):
 
     assert result == '{"topic": "x"}'
     MockProvider.assert_called_once_with(api_key=known_test_api_key, model="claude-sonnet-4-6")
-    instance.generate.assert_called_once_with("some prompt")
+    instance.generate.assert_called_once_with("some prompt", max_tokens=16384)
+
+
+def test_call_anthropic_passes_custom_max_tokens(known_test_api_key):
+    with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:
+        instance = MockProvider.return_value
+        instance.generate.return_value = ('{"topic": "x"}', 1, 1)
+
+        call_anthropic(
+            api_key=known_test_api_key,
+            prompt="p",
+            model="claude-sonnet-4-6",
+            max_tokens=32000,
+        )
+
+    instance.generate.assert_called_once_with("p", max_tokens=32000)
 
 
 # ── Error paths ───────────────────────────────────────────────────────────────

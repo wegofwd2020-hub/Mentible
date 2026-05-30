@@ -42,6 +42,30 @@ from backend.src.generate.prompt_builder import build_lesson_prompt
 
 log = get_logger("generate.tasks")
 
+# Output-token budget. The default matches the provider's conservative ceiling;
+# a page target raises it (~one page of rendered lesson ≈ 800 output tokens incl.
+# JSON + markdown) up to the Sonnet 4.6 model maximum.
+_DEFAULT_MAX_TOKENS = 16384
+_MODEL_MAX_TOKENS = 64000
+_TOKENS_PER_PAGE = 800
+
+# Claude is stochastic and occasionally returns non-JSON or schema-invalid
+# output; CLAUDE.md mandates retrying before failing the job. Each attempt is a
+# fresh call with the same prompt (a re-roll usually parses cleanly).
+_MAX_GENERATION_ATTEMPTS = 3
+
+
+def _max_tokens_for_pages(target_pages: int) -> int:
+    """Pick the output-token ceiling for a lesson with a given page target.
+
+    0 (no target) keeps the default. A target never lowers the ceiling below the
+    default (so short targets don't risk truncating richly formatted output) and
+    never exceeds the model maximum.
+    """
+    if target_pages <= 0:
+        return _DEFAULT_MAX_TOKENS
+    return max(_DEFAULT_MAX_TOKENS, min(target_pages * _TOKENS_PER_PAGE, _MODEL_MAX_TOKENS))
+
 
 def _byok_redis_key(job_id: uuid.UUID) -> str:
     return f"byok:{job_id}"
@@ -93,6 +117,7 @@ async def run_generation(
     language: str,
     format: str,
     depth: str = "standard",
+    target_pages: int = 0,
     prior_knowledge: str | None = None,
     framing: str | None = None,
     model: str | None = None,
@@ -150,58 +175,81 @@ async def run_generation(
         level=level,
         language=language,
         depth=depth,
+        target_pages=target_pages,
         prior_knowledge=prior_knowledge,
         framing=framing,
     )
+    max_tokens = _max_tokens_for_pages(target_pages)
 
-    # ── 3. Call Anthropic + parse + validate ─────────────────────────────────
+    # ── 3. Call Anthropic + parse + validate, retrying transient bad output ───
+    # The api_key is reused across attempts (each one needs it), then shredded
+    # once in `finally` — regardless of outcome — so the credential window is
+    # the job's lifetime, not a single attempt.
     chosen_model = model or settings.anthropic_default_model
+    lesson: LessonOutput | None = None
+    last_error = "generation failed"
     try:
-        # Run synchronous SDK call in a thread so we don't block the event loop.
-        raw_text = await asyncio.to_thread(
-            call_anthropic,
-            api_key=api_key,
-            prompt=prompt,
-            model=chosen_model,
-        )
-        # SHRED: api_key has been used, drop our reference. (CPython str
-        # immutability prevents true zeroing, but explicit del + envelope
-        # deletion below close the window.)
+        for attempt in range(1, _MAX_GENERATION_ATTEMPTS + 1):
+            try:
+                # Sync SDK call in a thread so we don't block the event loop.
+                raw_text = await asyncio.to_thread(
+                    call_anthropic,
+                    api_key=api_key,
+                    prompt=prompt,
+                    model=chosen_model,
+                    max_tokens=max_tokens,
+                )
+            except AnthropicCallError:
+                last_error = "generation failed (Anthropic call error)"
+                log.warning(
+                    "generation_attempt_failed",
+                    job_id=str(job_id),
+                    attempt=attempt,
+                    reason="call_error",
+                )
+                continue
+            except Exception:
+                # Unknown failure — log type only, never the message.
+                last_error = "generation failed"
+                log.warning("generation_unknown_error", job_id=str(job_id), attempt=attempt)
+                continue
+
+            try:
+                parsed = parse_json_response(raw_text)
+                lesson = LessonOutput.model_validate(parsed)
+                break  # success — stop retrying
+            except AnthropicCallError:
+                last_error = "Anthropic returned invalid JSON"
+                log.warning(
+                    "generation_attempt_failed",
+                    job_id=str(job_id),
+                    attempt=attempt,
+                    reason="invalid_json",
+                )
+                continue
+            except ValidationError:
+                last_error = "generated content failed schema validation"
+                log.warning(
+                    "generation_attempt_failed",
+                    job_id=str(job_id),
+                    attempt=attempt,
+                    reason="schema",
+                )
+                continue
+    finally:
+        # SHRED: drop our key reference and the encrypted envelope as soon as
+        # we're done with the user's credentials, on every path. (CPython str
+        # immutability prevents true zeroing, but del + envelope DEL close the
+        # window.)
         del api_key
-    except AnthropicCallError:
-        await _write_status(
-            redis_client, job_id, "failed", error="generation failed (Anthropic call error)"
-        )
         await _shred_envelope(redis_client, job_id)
-        return
-    except Exception:
-        # Unknown failure — log type only, never the message.
-        log.warning("generation_unknown_error", job_id=str(job_id))
-        await _write_status(redis_client, job_id, "failed", error="generation failed")
-        await _shred_envelope(redis_client, job_id)
-        return
 
-    # The api_key is no longer needed. Shred the encrypted envelope NOW —
-    # we're done with everything related to the user's credentials.
-    await _shred_envelope(redis_client, job_id)
-
-    # ── 4. JSON parse + schema validate ──────────────────────────────────────
-    try:
-        parsed = parse_json_response(raw_text)
-    except AnthropicCallError as exc:
-        await _write_status(redis_client, job_id, "failed", error=str(exc))
+    # ── 4. Write outcome ──────────────────────────────────────────────────────
+    if lesson is None:
+        log.warning("generation_failed", job_id=str(job_id), attempts=_MAX_GENERATION_ATTEMPTS)
+        await _write_status(redis_client, job_id, "failed", error=last_error)
         return
 
-    try:
-        lesson = LessonOutput.model_validate(parsed)
-    except ValidationError:
-        log.warning("lesson_schema_validation_failed", job_id=str(job_id))
-        await _write_status(
-            redis_client, job_id, "failed", error="generated content failed schema validation"
-        )
-        return
-
-    # ── 5. Write success ─────────────────────────────────────────────────────
     await _write_status(
         redis_client,
         job_id,

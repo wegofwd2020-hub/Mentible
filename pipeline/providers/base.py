@@ -23,12 +23,15 @@ class LLMProvider(ABC):
     provider_id: str = ""
 
     @abstractmethod
-    def generate(self, prompt: str) -> tuple[str, int, int]:
+    def generate(self, prompt: str, max_tokens: int = 16384) -> tuple[str, int, int]:
         """
         Send prompt to the LLM and return the raw text response.
 
         Args:
             prompt: Full prompt string (instruction + JSON schema).
+            max_tokens: Output token ceiling for this call. Defaults to the
+                conservative 16384; callers raise it when a longer response is
+                expected (e.g. a multi-page lesson target).
 
         Returns:
             (response_text, input_tokens, output_tokens)

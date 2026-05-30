@@ -40,14 +40,14 @@ class AnthropicProvider(LLMProvider):
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
 
-    def generate(self, prompt: str) -> tuple[str, int, int]:
+    def generate(self, prompt: str, max_tokens: int = 16384) -> tuple[str, int, int]:
         message = self._client.messages.create(
             model=self._model,
-            # 16384: matches OnDemand. Epic 11 prompts (GFM tables + KaTeX)
-            # regularly exceed 8192 output tokens, causing mid-string JSON
-            # truncation on the client side. Sonnet 4.6 supports up to 64K;
-            # 16K is conservative headroom.
-            max_tokens=16384,
+            # Default 16384 matches OnDemand: Epic 11 prompts (GFM tables +
+            # KaTeX) regularly exceed 8192 output tokens, causing mid-string
+            # JSON truncation on the client side. Sonnet 4.6 supports up to 64K,
+            # so the caller raises this ceiling for multi-page lesson targets.
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
         text = message.content[0].text if message.content else ""

@@ -43,6 +43,13 @@ class GenerateRequest(BaseModel):
     framing: str | None = Field(default=None, max_length=500)
     depth: Literal["quick", "standard", "deep"] = "standard"
 
+    # Target length in pages for this lesson's prose (excludes quizzes/answers).
+    # 0 (default) = no explicit target — let depth + the model decide ("as much
+    # as possible"). The mobile client divides a whole-book page target evenly
+    # across topics, so this is the per-lesson share. Upper bound is generous;
+    # the worker clamps the resulting max_tokens to the model ceiling anyway.
+    target_pages: int = Field(default=0, ge=0, le=100)
+
     # BYOK key — sk-ant-... . Validated on length only; format checking
     # happens implicitly when Anthropic rejects malformed keys.
     api_key: str = Field(min_length=20, max_length=512)
