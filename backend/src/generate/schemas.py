@@ -50,6 +50,10 @@ class GenerateRequest(BaseModel):
     # the worker clamps the resulting max_tokens to the model ceiling anyway.
     target_pages: int = Field(default=0, ge=0, le=100)
 
+    # Free-text author guidance applied on (re)generation — e.g. "add a diagram
+    # for the T-shape". Persisted per topic on the client and re-sent each time.
+    instructions: str | None = Field(default=None, max_length=2000)
+
     # BYOK key — sk-ant-... . Validated on length only; format checking
     # happens implicitly when Anthropic rejects malformed keys.
     api_key: str = Field(min_length=20, max_length=512)

@@ -40,6 +40,19 @@ class TestPromptLengthHint:
         assert "2 short sections" not in p
 
 
+class TestEnhancementInstructions:
+    def test_instructions_added_when_set(self):
+        p = _prompt(instructions="Add a diagram for the T-shape")
+        assert "Add a diagram for the T-shape" in p
+        assert "improvements the author requested" in p
+
+    def test_no_instructions_block_when_absent(self):
+        assert "improvements the author requested" not in _prompt()
+
+    def test_blank_instructions_ignored(self):
+        assert "improvements the author requested" not in _prompt(instructions="   ")
+
+
 class TestMaxTokensForPages:
     def test_zero_uses_the_default_ceiling(self):
         assert _max_tokens_for_pages(0) == _DEFAULT_MAX_TOKENS

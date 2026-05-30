@@ -120,6 +120,7 @@ async def run_generation(
     target_pages: int = 0,
     prior_knowledge: str | None = None,
     framing: str | None = None,
+    instructions: str | None = None,
     model: str | None = None,
     redis_client: redis.Redis,
 ) -> None:
@@ -178,6 +179,7 @@ async def run_generation(
         target_pages=target_pages,
         prior_knowledge=prior_knowledge,
         framing=framing,
+        instructions=instructions,
     )
     max_tokens = _max_tokens_for_pages(target_pages)
 

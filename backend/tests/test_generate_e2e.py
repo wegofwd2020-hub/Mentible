@@ -127,6 +127,22 @@ async def test_retries_invalid_json_then_succeeds(client, fake_redis, known_test
 
 
 @pytest.mark.asyncio
+async def test_instructions_threaded_into_prompt(client, fake_redis, known_test_api_key):
+    """Author enhancement instructions reach the Anthropic prompt."""
+    with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:
+        MockProvider.return_value.generate.return_value = (_FAKE_LESSON_JSON, 100, 500)
+
+        body = _request_body(known_test_api_key, instructions="Add a diagram for the T-shape")
+        submit = await client.post("/api/v1/generate", json=body)
+        job_id = submit.json()["job_id"]
+        await _wait_for_status(client, job_id, "done")
+
+        prompt = MockProvider.return_value.generate.call_args.args[0]
+
+    assert "Add a diagram for the T-shape" in prompt
+
+
+@pytest.mark.asyncio
 async def test_envelope_shredded_after_done(client, fake_redis, known_test_api_key):
     """The byok:{job_id} key must be DELETED from Redis after the worker finishes."""
     with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:

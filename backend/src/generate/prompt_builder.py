@@ -145,6 +145,7 @@ def build_lesson_prompt(
     target_pages: int = 0,
     prior_knowledge: str | None = None,
     framing: str | None = None,
+    instructions: str | None = None,
 ) -> str:
     """Return the prompt for generating a self-learner lesson.
 
@@ -152,6 +153,9 @@ def build_lesson_prompt(
 
     target_pages > 0 sets an approximate length for the lesson prose (it takes
     precedence over `depth`); 0 leaves length to the depth hint.
+
+    instructions: free-text author guidance applied to this (re)generation —
+    e.g. "add a diagram for the T-shape".
     """
     # _LEVEL_TO_GRADE is reserved for future per-grade tuning; not used yet.
     audience = _LEVEL_HUMAN.get(level, "a self-learner")
@@ -169,6 +173,11 @@ def build_lesson_prompt(
         extras_block += f"\nThe learner has told us they already know: {prior_knowledge.strip()}\n"
     if framing:
         extras_block += f"\nWhere appropriate, connect the explanation to: {framing.strip()}\n"
+    if instructions and instructions.strip():
+        extras_block += (
+            "\nApply these specific improvements the author requested for this "
+            f"lesson: {instructions.strip()}\n"
+        )
 
     return f"""You are an expert educator preparing a self-study lesson for {audience}.
 
