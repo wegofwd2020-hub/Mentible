@@ -1,5 +1,6 @@
 import type { Book, StructuredTOC } from "@/types/book";
 import { ensureTopicIds, saveBook } from "@/storage/bookStore";
+import { randomUUID } from "@/lib/uuid";
 
 // Ingest a book produced elsewhere — chiefly a migrated book.json exported from
 // the OnDemand Authoring Studio (StudyBuddy_OnDemand book_export.py), which
@@ -41,7 +42,7 @@ export function parseBook(raw: string): Book {
   }
 
   const now = new Date().toISOString();
-  const id = typeof data.id === "string" && data.id ? data.id : crypto.randomUUID();
+  const id = typeof data.id === "string" && data.id ? data.id : randomUUID();
   const createdAt = typeof data.createdAt === "string" ? data.createdAt : now;
   const content = isRecord(data.content) ? (data.content as Book["content"]) : undefined;
 

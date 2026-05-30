@@ -9,7 +9,7 @@ jest.mock("expo-file-system", () => ({
 }));
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 
-import { pickBookFileContents } from "@/storage/pickBookFile";
+import { pickBookFileContents, pickTocFileContents } from "@/storage/pickBookFile";
 
 describe("pickBookFileContents", () => {
   beforeEach(() => {
@@ -36,5 +36,35 @@ describe("pickBookFileContents", () => {
     mockReadAsString.mockResolvedValue('{"title":"x"}');
     expect(await pickBookFileContents()).toBe('{"title":"x"}');
     expect(mockReadAsString).toHaveBeenCalledWith("file:///tmp/book.json");
+  });
+});
+
+describe("pickTocFileContents", () => {
+  beforeEach(() => {
+    mockGetDocument.mockReset();
+    mockReadAsString.mockReset();
+  });
+
+  it("returns null when the picker is cancelled", async () => {
+    mockGetDocument.mockResolvedValue({ canceled: true, assets: null });
+    expect(await pickTocFileContents()).toBeNull();
+    expect(mockReadAsString).not.toHaveBeenCalled();
+  });
+
+  it("reads a picked markdown file's contents", async () => {
+    mockGetDocument.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: "file:///tmp/toc.md", name: "toc.md" }],
+    });
+    mockReadAsString.mockResolvedValue("# Physics\n- Kinematics");
+    expect(await pickTocFileContents()).toBe("# Physics\n- Kinematics");
+    expect(mockReadAsString).toHaveBeenCalledWith("file:///tmp/toc.md");
+  });
+
+  it("allows markdown/text MIME types so .md files are selectable", async () => {
+    mockGetDocument.mockResolvedValue({ canceled: true, assets: null });
+    await pickTocFileContents();
+    const passedType = mockGetDocument.mock.calls[0][0].type;
+    expect(passedType).toEqual(expect.arrayContaining(["text/markdown", "text/plain"]));
   });
 });

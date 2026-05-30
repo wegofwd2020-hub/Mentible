@@ -31,6 +31,10 @@ export interface GenerateRequest {
   format: "lesson";
   api_key: string;
   depth?: "quick" | "standard" | "deep";
+  // Target length in pages for this lesson's prose (excludes quizzes/answers).
+  // 0 or omitted = no explicit target. For a book, the client divides the
+  // whole-book page target across topics, so this is the per-lesson share.
+  target_pages?: number;
 }
 
 export interface GenerateResponse {

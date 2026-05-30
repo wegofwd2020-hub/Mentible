@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Book, BookMeta, GeneratedTopic, StructuredTOC } from "@/types/book";
+import { randomUUID } from "@/lib/uuid";
 
 // Local-first book storage (ADR-003 D1) — same AsyncStorage shape as the lesson
 // library: a single index + one entry per book. Migrate to expo-sqlite if books
@@ -18,7 +19,7 @@ export function ensureTopicIds(toc: StructuredTOC): StructuredTOC {
   return {
     subjects: toc.subjects.map((s) => ({
       ...s,
-      units: s.units.map((u) => (u.id ? u : { ...u, id: crypto.randomUUID() })),
+      units: s.units.map((u) => (u.id ? u : { ...u, id: randomUUID() })),
     })),
   };
 }

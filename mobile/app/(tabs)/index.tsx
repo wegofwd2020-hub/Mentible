@@ -17,10 +17,11 @@ import { LevelPicker } from "@/components/LevelPicker";
 import { DEFAULT_LEVEL } from "@/constants/levels";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/constants/brand";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { randomUUID } from "@/lib/uuid";
 import type { StoredLesson } from "@/storage/lessonStore";
 
 function randomRequestId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 export default function HomeScreen() {

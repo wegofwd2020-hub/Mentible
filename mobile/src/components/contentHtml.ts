@@ -30,6 +30,15 @@ const RENDER_HELPERS_JS = `
   function li(items) {
     return (items || []).map(function (x) { return '<li>' + escHtml(x) + '</li>'; }).join('');
   }
+  function normHeading(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\\s+/g, ' '); }
+  // The model often repeats the section heading as a leading "## Heading" line
+  // in body_markdown; since we already emit the heading, drop that duplicate.
+  function stripDupHeading(body, heading) {
+    var text = String(body == null ? '' : body);
+    var m = text.match(/^\\s*#{1,6}[ \\t]+(.+?)[ \\t]*#*[ \\t]*(?:\\r?\\n|$)/);
+    if (m && normHeading(m[1]) === normHeading(heading)) return text.slice(m[0].length);
+    return text;
+  }
 
   function renderLesson(lesson) {
     var h = '';
@@ -39,7 +48,7 @@ const RENDER_HELPERS_JS = `
     (lesson.sections || []).forEach(function (s) {
       h += '<hr class="section-divider">';
       h += '<h2>' + escHtml(s.heading) + '</h2>';
-      h += renderMd(s.body_markdown);
+      h += renderMd(stripDupHeading(s.body_markdown, s.heading));
     });
     h += '<hr class="section-divider">';
     h += '<div class="takeaways"><h3>Key takeaways</h3><ul>' + li(lesson.key_takeaways) + '</ul></div>';
@@ -191,6 +200,7 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
   td { padding: 7px 12px; border: 1px solid var(--border); color: var(--text2); }
   tr:nth-child(even) td { background: var(--surface); }
   a { color: var(--primary); }
+  img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
   hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
   .synopsis {
     color: var(--text2); font-size: 0.95em;

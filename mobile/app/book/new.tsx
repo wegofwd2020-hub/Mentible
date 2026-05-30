@@ -13,13 +13,27 @@ import { submitStructure } from "@/api/client";
 import { useStructureJob } from "@/hooks/useStructureJob";
 import { loadApiKey } from "@/secure/keyStore";
 import { ensureTopicIds } from "@/storage/bookStore";
+import { pickTocFileContents } from "@/storage/pickBookFile";
+import { randomUUID } from "@/lib/uuid";
 import { BookEditor } from "@/components/BookEditor";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function randomRequestId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
+}
+
+// If the markdown opens with an H1 (`# Title`), use it as a suggested book
+// title. Stops at the first non-blank line so a body paragraph isn't mistaken
+// for a heading.
+function firstHeading(md: string): string | null {
+  for (const line of md.split("\n")) {
+    const m = line.match(/^#\s+(.+?)\s*#*\s*$/);
+    if (m) return m[1].trim();
+    if (line.trim()) break;
+  }
+  return null;
 }
 
 type Phase = "input" | "submitted";
@@ -32,6 +46,7 @@ export default function NewBookScreen() {
   const [phase, setPhase] = useState<Phase>("input");
   const [jobId, setJobId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const { status, toc, error, elapsed } = useStructureJob(
     phase === "submitted" ? jobId : null,
@@ -60,6 +75,28 @@ export default function NewBookScreen() {
       setErrorMsg(err instanceof Error ? err.message : "Could not reach server");
     }
   }, [rawToc]);
+
+  // Load the TOC from a Markdown/text file instead of pasting it — easier than
+  // hand-pasting a long local outline. Fills the title from the file's first H1
+  // when the title field is still empty.
+  const handleLoadFile = useCallback(async () => {
+    setErrorMsg(null);
+    setPicking(true);
+    try {
+      const contents = await pickTocFileContents();
+      if (contents == null) return; // user cancelled
+      if (!contents.trim()) {
+        setErrorMsg("That file was empty.");
+        return;
+      }
+      setRawToc(contents);
+      setTitle((cur) => (cur.trim() ? cur : firstHeading(contents) ?? cur));
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Could not read that file.");
+    } finally {
+      setPicking(false);
+    }
+  }, []);
 
   const canStructure = rawToc.trim().length > 0;
 
@@ -133,11 +170,28 @@ export default function NewBookScreen() {
         accessibilityLabel="Book title"
       />
 
-      <Text style={styles.label}>Paste a table of contents</Text>
+      <Text style={styles.label}>Table of contents</Text>
       <Text style={styles.hint}>
-        A rough outline, syllabus, or textbook index. We’ll turn it into an
-        editable topic tree — you stay in control of the result.
+        A rough outline, syllabus, or textbook index. Load it from a Markdown
+        file or paste it below — we’ll turn it into an editable topic tree, and
+        you stay in control of the result.
       </Text>
+
+      <Pressable
+        style={styles.loadBtn}
+        onPress={handleLoadFile}
+        disabled={picking}
+        accessibilityRole="button"
+        accessibilityLabel="Load table of contents from a Markdown file"
+        accessibilityState={{ disabled: picking }}
+      >
+        {picking ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Text style={styles.loadBtnText}>📄 Load from a Markdown file</Text>
+        )}
+      </Pressable>
+
       <TextInput
         style={[styles.tocInput, isDesktop && styles.tocInputDesktop]}
         value={rawToc}
@@ -193,6 +247,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   hint: { color: colors.textMuted, fontSize: typography.sizeSm },
+  loadBtn: {
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.xs,
+  },
+  loadBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
   titleInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -72,6 +73,17 @@ export default function GenerateAllScreen() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState(DEFAULT_LEVEL);
+  // Whole-book page target. Held as a raw digit string (empty = no limit) so the
+  // input never reformats mid-edit — reformatting a controlled TextInput on each
+  // keystroke triggers RN's cursor-jump bug and makes typing feel broken.
+  const [pagesText, setPagesText] = useState("");
+  const totalPages = Math.max(0, parseInt(pagesText, 10) || 0);
+  // Step the page count with buttons — works without a soft keyboard (the
+  // emulator doesn't always render one). 0 clears back to the placeholder.
+  const adjustPages = (delta: number) => {
+    const next = Math.min(999, Math.max(0, totalPages + delta));
+    setPagesText(next === 0 ? "" : String(next));
+  };
   const { isDesktop } = useResponsive();
 
   // Hold the live book in a ref so per-topic persistence always builds on the
@@ -127,6 +139,7 @@ export default function GenerateAllScreen() {
       getApiKey,
       onTopicDone: handleTopicDone,
       alreadyDone: initialDoneIds,
+      totalPages,
     });
 
   if (loading) {
@@ -146,7 +159,11 @@ export default function GenerateAllScreen() {
   }
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
       <View
         style={[styles.page, isDesktop && styles.pageWide, isDesktop && styles.pageRow]}
       >
@@ -158,10 +175,62 @@ export default function GenerateAllScreen() {
             {failedCount > 0 ? ` · ${failedCount} failed` : ""}
           </Text>
 
-          {!running && !finished && (
+          {!running && (
             <>
               <Text style={styles.label}>Level</Text>
               <LevelPicker value={level} onChange={setLevel} />
+
+              <Text style={styles.label}>Pages (whole book)</Text>
+              <View style={styles.pagesRow}>
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => adjustPages(-10)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease pages by 10"
+                >
+                  <Text style={styles.stepBtnText}>−10</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => adjustPages(-1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease pages by 1"
+                >
+                  <Text style={styles.stepBtnText}>−1</Text>
+                </Pressable>
+                <TextInput
+                  style={[styles.pagesInput, styles.pagesInputFlex]}
+                  value={pagesText}
+                  onChangeText={(t) => setPagesText(t.replace(/[^0-9]/g, ""))}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={3}
+                  textAlign="center"
+                  accessibilityLabel="Target pages for the whole book — 0 means no limit"
+                />
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => adjustPages(1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase pages by 1"
+                >
+                  <Text style={styles.stepBtnText}>+1</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => adjustPages(10)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase pages by 10"
+                >
+                  <Text style={styles.stepBtnText}>+10</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.pagesHint}>
+                Total pages across all topics, split evenly. 0 = as much as the
+                model produces. Quizzes and answers don’t count. Use − / + if the
+                keyboard doesn’t open.
+              </Text>
             </>
           )}
 
@@ -172,22 +241,37 @@ export default function GenerateAllScreen() {
           )}
 
           {!running ? (
-            <Pressable
-              style={styles.actionBtn}
-              onPress={start}
-              accessibilityRole="button"
-              accessibilityLabel={finished ? "Generate remaining topics" : "Generate all topics"}
-            >
-              <Text style={styles.actionBtnText}>
-                {finished
-                  ? failedCount > 0
-                    ? "Retry failed / remaining"
-                    : "Done — regenerate gaps"
-                  : doneCount > 0
-                    ? "Generate remaining topics"
+            <>
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => start()}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  doneCount > 0 ? "Generate remaining topics" : "Generate all topics"
+                }
+              >
+                <Text style={styles.actionBtnText}>
+                  {doneCount > 0
+                    ? doneCount >= total
+                      ? "All topics generated"
+                      : "Generate remaining topics"
                     : "Generate all topics"}
-              </Text>
-            </Pressable>
+                </Text>
+              </Pressable>
+
+              {/* Force a full redo, overwriting topics that already have content
+                  — the trial/authoring loop of edit-then-regenerate. */}
+              {doneCount > 0 && (
+                <Pressable
+                  style={[styles.actionBtn, styles.regenBtn]}
+                  onPress={() => start({ force: true })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Regenerate all topics, overwriting existing content"
+                >
+                  <Text style={styles.regenBtnText}>Regenerate all (overwrite)</Text>
+                </Pressable>
+              )}
+            </>
           ) : (
             <Pressable
               style={[styles.actionBtn, styles.cancelBtn]}
@@ -250,6 +334,30 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
+  pagesRow: { flexDirection: "row", alignItems: "stretch", gap: spacing.xs },
+  pagesInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: typography.sizeLg,
+    fontWeight: "700",
+  },
+  pagesInputFlex: { flex: 1 },
+  stepBtn: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    minWidth: 52,
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  stepBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
+  pagesHint: { color: colors.textMuted, fontSize: typography.sizeXs },
   errorBanner: {
     backgroundColor: colors.error + "22",
     borderColor: colors.error + "66",
@@ -267,6 +375,14 @@ const styles = StyleSheet.create({
   },
   cancelBtn: { backgroundColor: colors.warning },
   actionBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  // Outline (destructive-ish) so "overwrite" reads as the deliberate, secondary action.
+  regenBtn: {
+    backgroundColor: "transparent",
+    borderColor: colors.warning,
+    borderWidth: 1,
+    marginTop: 0,
+  },
+  regenBtnText: { color: colors.warning, fontSize: typography.sizeMd, fontWeight: "700" },
   list: { gap: spacing.xs },
   row: {
     flexDirection: "row",

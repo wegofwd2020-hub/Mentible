@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { loadBook, saveBook } from "@/storage/bookStore";
+import { randomUUID } from "@/lib/uuid";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, StructuredTOC } from "@/types/book";
 
@@ -15,7 +16,7 @@ interface Props {
 }
 
 function newId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 // Title field + editable topic tree + Save. Shared by the new-book flow (after

@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { randomUUID } from "@/lib/uuid";
 import type { StructuredTOC, SubjectNode, TopicNode } from "@/types/book";
 
 interface Props {
@@ -15,7 +16,7 @@ function clone(toc: StructuredTOC): StructuredTOC {
 }
 
 function emptyUnit(): TopicNode {
-  return { id: crypto.randomUUID(), title: "New topic", subtopics: [], prerequisites: [] };
+  return { id: randomUUID(), title: "New topic", subtopics: [], prerequisites: [] };
 }
 
 function emptySubject(): SubjectNode {
