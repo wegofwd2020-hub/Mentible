@@ -15,6 +15,8 @@ type State =
 // Compiles the saved book to an EPUB3 (backend /export) and stores it in the
 // device Library, then offers a jump to the Library tab. Reloads the book from
 // the store at press time so it compiles the latest *saved* state.
+// Diagrams are rendered (Mermaid → SVG) so the shelved artifact matches what the
+// reader sees — this makes the compile minutes-long for diagram-heavy books.
 export function SaveToLibraryButton({ bookId }: { bookId: string }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -24,7 +26,7 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
     try {
       const book = await loadBook(bookId);
       if (!book) throw new Error("Book not found.");
-      const bytes = await exportBook(book);
+      const bytes = await exportBook(book, { diagrams: true });
       await saveEpub({ bookId: book.id, title: book.title, bytes });
       setState({ kind: "done" });
     } catch (err) {
@@ -61,7 +63,7 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
         {saving ? (
           <View style={styles.row}>
             <ActivityIndicator color={colors.primaryText} />
-            <Text style={styles.btnText}> Compiling EPUB…</Text>
+            <Text style={styles.btnText}> Rendering diagrams + compiling EPUB…</Text>
           </View>
         ) : (
           <Text style={styles.btnText}>Save to Library (EPUB3)</Text>
