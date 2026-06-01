@@ -14,8 +14,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from collections.abc import Iterable
+
 from pipeline.providers.contract import LLM_CONTRACT_VERSION, Capabilities, Provider
-from pipeline.providers.errors import LLMConfigurationError
+from pipeline.providers.errors import LLMConfigurationError, LLMNotAllowedError
 
 
 @dataclass(frozen=True)
@@ -85,19 +87,34 @@ ROLE_DEFAULTS: dict[str, tuple[str, str]] = {
 }
 
 
-def available_providers() -> list[str]:
-    return list(PROVIDER_REGISTRY)
+def available_providers(allowed: Iterable[str] | None = None) -> list[str]:
+    """Known providers, in registry order. If `allowed` is given (the author's
+    include/exclude set), restrict to it — unknown names in `allowed` are
+    ignored, and an empty set yields []. `None` means no restriction. This is
+    what the future GET-available-LLMs endpoint hands the mobile picker."""
+    ids = list(PROVIDER_REGISTRY)
+    if allowed is None:
+        return ids
+    allowset = set(allowed)
+    return [p for p in ids if p in allowset]
 
 
-def validate_selection(provider_id: str, model: str | None = None) -> tuple[str, str]:
-    """Resolve + validate a user/caller LLM choice (the seam the future request
-    param + mobile selector call). Returns (provider_id, model). The provider
-    must be known; the model string is accepted as-is (we don't hold a vendor
-    catalogue) and defaults to the spec default. Raises LLMConfigurationError
-    for an unknown provider."""
+def validate_selection(
+    provider_id: str, model: str | None = None, *, allowed: Iterable[str] | None = None
+) -> tuple[str, str]:
+    """Resolve + validate a caller's LLM choice (the seam the future request
+    param + mobile selector call). Returns (provider_id, model).
+
+    - Unknown provider -> LLMConfigurationError (maps to 422).
+    - Known but outside `allowed` (the author's include/exclude set) ->
+      LLMNotAllowedError (maps to 403). `allowed=None` means no restriction.
+    The model string is accepted as-is (we hold no vendor catalogue) and defaults
+    to the spec default. The unknown check precedes the allow-list check."""
     spec = PROVIDER_REGISTRY.get(provider_id)
     if spec is None:
         raise LLMConfigurationError(f"unknown provider {provider_id!r}")
+    if allowed is not None and provider_id not in set(allowed):
+        raise LLMNotAllowedError(f"provider {provider_id!r} is excluded by the author's allow-list")
     return provider_id, (model or spec.default_model)
 
 
@@ -131,14 +148,15 @@ def build_provider(
     api_key: str,
     model: str | None = None,
     http_client=None,
+    allowed: Iterable[str] | None = None,
 ) -> Provider:
     """Construct a BYOK provider from the registry. `model` overrides the spec
-    default. `http_client` (httpx.Client) is for OpenAI-compatible providers,
-    chiefly to inject a MockTransport in tests."""
-    spec = PROVIDER_REGISTRY.get(provider_id)
-    if spec is None:
-        raise LLMConfigurationError(f"unknown provider {provider_id!r}")
-    chosen_model = model or spec.default_model
+    default. `allowed` (the author's include/exclude set) is enforced here too —
+    raises LLMNotAllowedError before any provider is built. `http_client`
+    (httpx.Client) is for OpenAI-compatible providers, chiefly to inject a
+    MockTransport in tests."""
+    provider_id, chosen_model = validate_selection(provider_id, model, allowed=allowed)
+    spec = PROVIDER_REGISTRY[provider_id]
 
     if spec.openai_compatible:
         from pipeline.providers.openai_compatible import OpenAICompatibleProvider

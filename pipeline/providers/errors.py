@@ -15,7 +15,14 @@ class LLMError(Exception):
 
 
 class LLMConfigurationError(LLMError):
-    """Misconfiguration — missing/empty key, unknown provider, bad base_url."""
+    """Misconfiguration — missing/empty key, unknown provider, bad base_url.
+    Maps to a 4xx 'bad request' at the API boundary (the provider isn't real)."""
+
+
+class LLMNotAllowedError(LLMError):
+    """The selected provider is a real, known provider but is excluded by the
+    author's include/exclude allow-list. Distinct from LLMConfigurationError so
+    the API can map it to 403 (forbidden by policy) vs 422 (unknown provider)."""
 
 
 class LLMAuthError(LLMError):
