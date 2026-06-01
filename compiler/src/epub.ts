@@ -10,6 +10,7 @@ import { xhtmlDocument } from "./xhtml";
 import { STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
 import { buildCoverSvgFile, buildCoverXhtml, coverInputForBook } from "./cover";
+import { colophonSection } from "./colophon";
 import type { Book } from "./types";
 
 // Compile a canonical Book (book.json) into a self-contained EPUB3 (milestone 2).
@@ -113,6 +114,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     diagrams = new PrerenderedDiagramRenderer(await prerenderDiagrams(book, opts.mermaid));
   }
   const content = book.content ?? {};
+  const lang = book.metadata?.language || "en";
 
   // Walk the TOC in reading order; emit a chapter per content-bearing topic and
   // collect the nav structure (subjects with ≥1 chapter).
@@ -131,7 +133,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const href = `chapters/ch-${idx}.xhtml`;
       const title = topic.title || unit.title || `Topic ${n}`;
       const xhtml = packImages(
-        xhtmlDocument(title, renderTopicBody(topic, diagrams), "../css/style.css"),
+        xhtmlDocument(title, renderTopicBody(topic, diagrams), "../css/style.css", lang),
         images,
         seenImages,
       );
@@ -158,14 +160,16 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     book.title,
     `<section epub:type="titlepage"><h1>${escapeHtml(book.title)}</h1></section>`,
     "css/style.css",
+    lang,
   );
+  const colophonXhtml = buildColophon(book, lang);
 
   const zip = new JSZip();
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", CONTAINER_XML);
   zip.file("OEBPS/content.opf", buildOpf(book, chapters, images));
-  zip.file("OEBPS/nav.xhtml", buildNav(navSubjects));
+  zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang));
   // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
   // require it and render blank pages without it.
   zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
@@ -173,6 +177,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   zip.file("OEBPS/cover.xhtml", coverXhtml);
   zip.file("OEBPS/cover.svg", coverSvg);
   zip.file("OEBPS/title.xhtml", titleXhtml);
+  zip.file("OEBPS/colophon.xhtml", colophonXhtml);
   for (const ch of chapters) zip.file(`OEBPS/${ch.href}`, ch.xhtml);
   for (const img of images) zip.file(`OEBPS/${img.href}`, img.bytes);
 
@@ -207,7 +212,7 @@ ${navPoints}
 `;
 }
 
-function buildNav(subjects: NavSubject[]): string {
+function buildNav(subjects: NavSubject[], lang = "en"): string {
   let ol = "<ol>";
   for (const s of subjects) {
     ol += `<li><span>${escapeHtml(s.label)}</span><ol>`;
@@ -218,7 +223,13 @@ function buildNav(subjects: NavSubject[]): string {
   }
   ol += "</ol>";
   const body = `<nav epub:type="toc" id="toc"><h1>Contents</h1>${ol}</nav>`;
-  return xhtmlDocument("Contents", body, "css/style.css");
+  return xhtmlDocument("Contents", body, "css/style.css", lang);
+}
+
+// A conventional copyright / colophon page, emitted right after the title page.
+// Shares colophonSection() with the PDF path so the two artifacts match.
+function buildColophon(book: Book, lang: string): string {
+  return xhtmlDocument(book.title, colophonSection(book), "css/style.css", lang);
 }
 
 function buildOpf(book: Book, chapters: Chapter[], images: ImageRes[] = []): string {
@@ -231,6 +242,7 @@ function buildOpf(book: Book, chapters: Chapter[], images: ImageRes[] = []): str
     '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
     '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
     '<item id="titlepage" href="title.xhtml" media-type="application/xhtml+xml"/>',
+    '<item id="colophon" href="colophon.xhtml" media-type="application/xhtml+xml"/>',
     ...images.map(
       (img) => `<item id="${img.id}" href="${escapeHtml(img.href)}" media-type="${img.mediaType}"/>`,
     ),
@@ -243,16 +255,41 @@ function buildOpf(book: Book, chapters: Chapter[], images: ImageRes[] = []): str
   const spine = [
     '<itemref idref="cover"/>',
     '<itemref idref="titlepage"/>',
+    '<itemref idref="colophon"/>',
     ...chapters.map((ch) => `<itemref idref="${ch.id}"/>`),
   ];
+
+  const m = book.metadata ?? {};
+  const lang = m.language || "en";
+  const identifier = m.identifier || book.id;
+  const meta: string[] = [
+    `<dc:identifier id="bookid">${escapeHtml(identifier)}</dc:identifier>`,
+    `<dc:title>${escapeHtml(book.title)}</dc:title>`,
+    `<dc:language>${escapeHtml(lang)}</dc:language>`,
+  ];
+  if (m.author) {
+    meta.push(`<dc:creator id="creator">${escapeHtml(m.author)}</dc:creator>`);
+    meta.push(`<meta refines="#creator" property="role" scheme="marc:relators">aut</meta>`);
+    meta.push(`<meta refines="#creator" property="file-as">${escapeHtml(m.authorFileAs || m.author)}</meta>`);
+  }
+  if (m.publisher) meta.push(`<dc:publisher>${escapeHtml(m.publisher)}</dc:publisher>`);
+  if (m.date) meta.push(`<dc:date>${escapeHtml(m.date)}</dc:date>`);
+  if (m.description) meta.push(`<dc:description>${escapeHtml(m.description)}</dc:description>`);
+  for (const s of m.subjects ?? []) meta.push(`<dc:subject>${escapeHtml(s)}</dc:subject>`);
+  if (m.rights) meta.push(`<dc:rights>${escapeHtml(m.rights)}</dc:rights>`);
+  if (m.series) {
+    meta.push(`<meta property="belongs-to-collection" id="series">${escapeHtml(m.series)}</meta>`);
+    meta.push(`<meta refines="#series" property="collection-type">series</meta>`);
+    if (m.seriesIndex != null)
+      meta.push(`<meta refines="#series" property="group-position">${escapeHtml(String(m.seriesIndex))}</meta>`);
+  }
+  meta.push(`<meta name="cover" content="cover-image"/>`);
+  meta.push(`<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>`);
+
   return `<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="en">
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="${escapeHtml(lang)}">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-<dc:identifier id="bookid">${escapeHtml(book.id)}</dc:identifier>
-<dc:title>${escapeHtml(book.title)}</dc:title>
-<dc:language>en</dc:language>
-<meta name="cover" content="cover-image"/>
-<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>
+${meta.join("\n")}
 </metadata>
 <manifest>
 ${manifest.join("\n")}

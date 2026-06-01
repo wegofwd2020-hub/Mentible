@@ -6,6 +6,7 @@ import { PassthroughDiagramRenderer, type DiagramRenderer } from "./diagrams";
 import { EmptyBookError } from "./epub";
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
 import { buildCoverSvg, coverInputForBook } from "./cover";
+import { colophonSection } from "./colophon";
 
 // Build the single-document HTML for the print/PDF target — a *textbook
 // compilation* (ADR-004 D5), distinct from the EPUB's per-topic layout:
@@ -126,9 +127,11 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
   }
 
   const coverPage = `<section class="cover-page">${buildCoverSvg(coverInputForBook(book))}</section>`;
+  const colophonPage = colophonSection(book);
+  const lang = book.metadata?.language || "en";
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(lang)}">
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(book.title)}</title>
@@ -136,6 +139,7 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
 </head>
 <body>
 ${coverPage}
+${colophonPage}
 ${toc}
 ${chaptersHtml}
 ${quizzesHtml}
@@ -190,6 +194,12 @@ const PDF_CSS = `
   @page cover { margin: 0; }
   .cover-page { page: cover; break-after: page; text-align: center; background: #1e1b4b; }
   .cover-page svg { display: inline-block; height: 297mm; width: 185.6mm; }
+
+  .colophon { break-after: page; text-align: center; }
+  .colophon h1 { margin-top: 40mm; font-size: 1.4em; }
+  .colophon .byline { font-size: 1.05em; color: #333; }
+  .colophon hr { width: 30%; margin: 1.2em auto; border: none; border-top: 1px solid #ccc; }
+  .colophon .identifier, .colophon .colophon-note { font-size: 0.85em; color: #777; }
 
   nav.toc { break-after: page; }
   nav.toc ol { list-style: none; padding: 0; }

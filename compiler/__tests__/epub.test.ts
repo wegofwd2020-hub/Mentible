@@ -2,7 +2,7 @@ import fs from "node:fs";
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
 import { compileEpub, EmptyBookError } from "../src/epub";
-import type { Book, LessonOutput } from "../src/types";
+import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
 // XML well-formedness check (dependency-free stand-in for full epubcheck, which
 // needs Java — see scripts/epubcheck.sh). Strips the html5 DOCTYPE, which the
@@ -125,6 +125,71 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
         }
       }
     }
+  });
+});
+
+describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
+  function withMeta(metadata: BookMetadata): Book {
+    return { ...syntheticBook(), metadata };
+  }
+
+  it("emits dc:* metadata from Book.metadata and a colophon in the spine", async () => {
+    const zip = await unzip(
+      await compileEpub(
+        withMeta({
+          author: "Jane Doe",
+          authorFileAs: "Doe, Jane",
+          publisher: "Mentible",
+          language: "en",
+          description: "A guide.",
+          subjects: ["AI", "Product"],
+          rights: "(c) 2026 Jane Doe.",
+          date: "2026",
+          identifier: "urn:uuid:abc",
+        }),
+      ),
+    );
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<dc:creator id="creator">Jane Doe</dc:creator>');
+    expect(opf).toContain('property="role" scheme="marc:relators">aut<');
+    expect(opf).toContain('property="file-as">Doe, Jane<');
+    expect(opf).toContain("<dc:publisher>Mentible</dc:publisher>");
+    expect(opf).toContain("<dc:description>A guide.</dc:description>");
+    expect(opf).toContain("<dc:subject>AI</dc:subject>");
+    expect(opf).toContain("<dc:subject>Product</dc:subject>");
+    expect(opf).toContain("<dc:date>2026</dc:date>");
+    expect(opf).toContain('<dc:identifier id="bookid">urn:uuid:abc</dc:identifier>');
+
+    // colophon packaged + in the spine, after the title page, before chapter 1
+    expect(zip.file("OEBPS/colophon.xhtml")).not.toBeNull();
+    expect(opf.indexOf('<itemref idref="titlepage"/>')).toBeLessThan(
+      opf.indexOf('<itemref idref="colophon"/>'),
+    );
+    expect(opf.indexOf('<itemref idref="colophon"/>')).toBeLessThan(
+      opf.indexOf('<itemref idref="ch001"/>'),
+    );
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    assertWellFormed(col, "colophon.xhtml");
+    expect(col).toContain("by Jane Doe");
+    expect(col).toContain("Jane Doe.");
+  });
+
+  it("honours metadata.language in dc:language and xml:lang", async () => {
+    const zip = await unzip(await compileEpub(withMeta({ language: "fr" })));
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain("<dc:language>fr</dc:language>");
+    expect(opf).toContain('xml:lang="fr"');
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    expect(col).toContain('xml:lang="fr"');
+  });
+
+  it("defaults language to en and synthesises a rights line when metadata is absent", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook())); // no metadata
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain("<dc:language>en</dc:language>");
+    expect(zip.file("OEBPS/colophon.xhtml")).not.toBeNull();
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    expect(col).toContain("All rights reserved.");
   });
 });
 

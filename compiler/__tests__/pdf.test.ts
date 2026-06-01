@@ -112,6 +112,20 @@ describe("buildPdfHtml — textbook layout", () => {
     empty.content = {};
     expect(() => buildPdfHtml(empty)).toThrow(EmptyBookError);
   });
+
+  it("includes a colophon page (after the cover, before the TOC) from metadata", () => {
+    const b = book();
+    b.metadata = { author: "Jane Doe", publisher: "Mentible", date: "2026", language: "en" };
+    const html = buildPdfHtml(b);
+    expect(html).toContain('class="colophon"');
+    expect(html).toContain("by Jane Doe");
+    expect(html).toContain("Mentible");
+    expect(html).toContain("All rights reserved."); // synthesised from author + year
+    // order in the body: cover-page section → colophon section → toc
+    expect(html.indexOf('class="cover-page"')).toBeLessThan(html.indexOf('class="colophon"'));
+    expect(html.indexOf('class="colophon"')).toBeLessThan(html.indexOf('id="toc"'));
+    expect(html).toContain('<html lang="en">');
+  });
 });
 
 describe("buildPdfHtml — typography & numbering CSS", () => {

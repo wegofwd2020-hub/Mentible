@@ -126,6 +126,22 @@ export interface GeneratedTopic {
   generatedAt: string;
 }
 
+// Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on
+// compile. All optional; kept aligned with compiler/src/types.ts BookMetadata.
+export interface BookMetadata {
+  author?: string;
+  authorFileAs?: string;
+  publisher?: string;
+  language?: string; // dc:language + package xml:lang (default "en")
+  description?: string;
+  subjects?: string[];
+  rights?: string;
+  date?: string;
+  identifier?: string; // ISBN/UUID; defaults to book id
+  series?: string;
+  seriesIndex?: number;
+}
+
 // A book persisted on the device (local-first, per ADR-003 D1).
 export interface Book {
   id: string;
@@ -140,6 +156,8 @@ export interface Book {
   // source of truth for generating any topic in this book. Seeded from the
   // global default (settingsStore) at creation; defaulted on load if missing.
   generationParams?: GenerationParams;
+  // Bibliographic metadata for the compiled artifact (author, publisher, …).
+  metadata?: BookMetadata;
 }
 
 // Lightweight index entry for the books list (no full TOC).

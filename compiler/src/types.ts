@@ -104,6 +104,22 @@ export interface StructuredTOC {
   subjects: SubjectNode[];
 }
 
+// Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page.
+// All optional; absent fields are simply omitted from the OPF.
+export interface BookMetadata {
+  author?: string; // dc:creator
+  authorFileAs?: string; // creator file-as (sort name, e.g. "Doe, Jane")
+  publisher?: string; // dc:publisher
+  language?: string; // dc:language + package xml:lang (default "en")
+  description?: string; // dc:description
+  subjects?: string[]; // dc:subject (repeatable)
+  rights?: string; // dc:rights (verbatim copyright/licence line)
+  date?: string; // dc:date (publication; ISO date or year)
+  identifier?: string; // dc:identifier override (ISBN/UUID); defaults to book.id
+  series?: string; // belongs-to-collection
+  seriesIndex?: number; // group-position within the series
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -111,4 +127,5 @@ export interface Book {
   createdAt: string;
   updatedAt: string;
   content?: Record<string, GeneratedTopic>;
+  metadata?: BookMetadata;
 }
