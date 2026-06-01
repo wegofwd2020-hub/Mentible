@@ -24,6 +24,7 @@ export interface CoverInput {
   title: string;
   subtitle?: string; // defaults to the title's parenthetical / colon tail
   tagline?: string; // optional italic line
+  author?: string; // byline, e.g. "Sridhar Parthasarathy"
   brand?: string; // footer wordmark, default "MENTIBLE"
 }
 
@@ -108,6 +109,16 @@ export function buildCoverSvg(input: CoverInput): string {
     taglineBlock =
       `<text x="${MARGIN_L + 6}" y="${y}" fill="#4b4570" font-family="${SERIF}" ` +
       `font-size="56" font-weight="500" font-style="italic">${escapeHtml(input.tagline)}</text>`;
+    y += 104;
+  }
+
+  // Author byline ("by <name>") below the title block. Serif, indigo, prominent
+  // but smaller than the subtitle. Omitted when no author is supplied.
+  let authorBlock = "";
+  if (input.author) {
+    authorBlock =
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="#312a8c" font-family="${SERIF}" ` +
+      `font-size="60" font-weight="700">${escapeHtml("by " + input.author)}</text>`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
@@ -135,6 +146,7 @@ export function buildCoverSvg(input: CoverInput): string {
   <text fill="#1e1b4b" font-family="${SERIF}" font-size="${main.size}" font-weight="800" letter-spacing="-2">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
   ${subBlock}
   ${taglineBlock}
+  ${authorBlock}
   <line x1="${MARGIN_L}" y1="2392" x2="${MARGIN_R}" y2="2392" stroke="#d9d2f5" stroke-width="2"/>
   <circle cx="172" cy="2452" r="22" fill="none" stroke="#16a34a" stroke-width="5"/>
   <path d="M172 2440c-14 8-14 26 0 24 14 2 14-16 0-24z" fill="#16a34a"/>
@@ -187,5 +199,5 @@ export function coverInputForBook(book: Book): CoverInput {
     }
     if (tagline !== undefined) break;
   }
-  return { title: book.title, tagline };
+  return { title: book.title, tagline, author: book.metadata?.author };
 }

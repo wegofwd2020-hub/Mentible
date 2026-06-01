@@ -53,6 +53,13 @@ describe("buildCoverSvg", () => {
     expect(svg).toContain("ACME");
   });
 
+  it("renders an author byline when given, and omits it otherwise", () => {
+    expect(buildCoverSvg({ title: "Algebra", author: "Sridhar Parthasarathy" })).toContain(
+      "by Sridhar Parthasarathy",
+    );
+    expect(buildCoverSvg({ title: "Algebra" })).not.toContain("by ");
+  });
+
   it("escapes special characters in the title", () => {
     const svg = buildCoverSvg({ title: "Tom & Jerry <Physics>" });
     expect(svg).toContain("Tom &amp; Jerry &lt;Physics&gt;".split(" ")[0]); // "Tom" line carries the &amp;
@@ -78,6 +85,12 @@ describe("coverInputForBook", () => {
     b.content!.t1.lesson.synopsis =
       "This lesson introduces the AI-Native Software Era which is a sweeping change across the whole industry and beyond.";
     expect(coverInputForBook(b).tagline).toBeUndefined();
+  });
+
+  it("carries the author from book.metadata onto the cover input", () => {
+    const b = bookWith({ metadata: { author: "Sridhar Parthasarathy" } });
+    expect(coverInputForBook(b).author).toBe("Sridhar Parthasarathy");
+    expect(coverInputForBook(bookWith()).author).toBeUndefined();
   });
 });
 
