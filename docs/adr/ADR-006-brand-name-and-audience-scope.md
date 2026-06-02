@@ -38,6 +38,15 @@ separate decision — lead candidate **"Author Yourself"** (double meaning: auth
 the material yourself / author yourself; see branding doc §4b), with *"Knowledge
 in. Lessons out."* as the alternate. The tagline pairs with whichever name clears.
 
+**Etymology (intended reading).** "Mentible" is a **coined word**, read as Latin
+*mens / mentis* ("mind") + the *-ible* suffix ("capable of being") — the same
+construction as *tangible*, *comprehensible*, *legible*. The intended sense is
+*"of the mind / able to be grasped by the mind"*, which squares with the product
+(turning knowledge into something a mind can hold) and the cover's "growing mind"
+mark. This is the rationale for the name, **not a claim of a dictionary origin** —
+the word is invented, which is precisely what gives it the high distinctiveness
+(and trademark ownability) noted in the sweep below.
+
 **Conditional on clearance.** "Mentible" is **not yet legally cleared.** Before it
 is locked for store listings / assets, run the mandatory sweep (CLAUDE.md pitfall
 #6): **USPTO TESS, Google Play, App Store**, plus **`.com`/`.ai` domain**
