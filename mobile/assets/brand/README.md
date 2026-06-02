@@ -7,6 +7,7 @@ truth; the PNGs are transparent-background exports at 1200×1240.
 |---|---|
 | `mentible-growing-mind.{svg,png}` | "M" over an open book with a green "growing mind" tree — tagline *AI-Driven Self-Learner* |
 | `mentible-pathway.{svg,png}` | Ascending pathway of learning steps (book → chat → video → compass) — tagline *Self-Learner Journey* |
+| `mentible-growing-mind-gemini.png` | Gemini-generated take on the growing-mind concept (tree-in-book "M") — tagline *AI-Driven Self-Learner*. **Raster only** (no SVG source), 469×384, on a light card background (not transparent). Wordmark reads "MENTIBLE" with an *I*. Concept candidate, not production-ready. |
 
 > Brand note: "Mentible" is **provisional pending trademark clearance** (see the
 > rebrand/ADR memory). Don't ship to a store under this name until cleared.
