@@ -1,6 +1,6 @@
 # ADR-007 — Book templates / theme system (content vs. presentation)
 
-**Status:** Proposed — 2026-06-03
+**Status:** Accepted — 2026-06-03
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-003 (book authoring), ADR-004 (two-product split + artifacts),
 `docs/ARTIFACT_PIPELINE.md`. Builds on the house-style work in PRs #48–#53
