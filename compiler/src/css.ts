@@ -10,6 +10,7 @@
 // counter support simply show no number.
 
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
+import { BRAND } from "./tokens";
 
 const SANS = `-apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
 // Embedded Source Serif 4 (see fonts.ts) — matches the in-app reader; Georgia
@@ -92,10 +93,16 @@ export const STYLESHEET = `
   .quiz-expl { color: #444; font-size: 0.92em; }
   .difficulty { margin-top: 0.4em; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; color: #888; }
   .step .obs { color: #555; font-style: italic; font-size: 0.95em; }
-  .diagram { margin: 0.9em 0; counter-increment: figure; text-align: center; }
-  .diagram--placeholder pre { white-space: pre-wrap; }
-  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: #666; margin-top: 0.3em; }
-  .diagram figcaption::before { content: "Figure " counter(figure) ". "; font-weight: 600; }
+  .diagram {
+    margin: 1.4em 0; counter-increment: figure; text-align: center;
+    background: ${BRAND.lavender}; border: 1px solid ${BRAND.lavenderBorder};
+    border-radius: 10px; padding: 1.1em 1em 0.8em; break-inside: avoid;
+  }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram--placeholder { background: #f6f6f6; border-color: #e3e3e3; }
+  .diagram--placeholder pre { white-space: pre-wrap; text-align: left; }
+  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: ${BRAND.indigo}; margin-top: 0.5em; }
+  .diagram figcaption::before { content: "Figure " counter(figure) ". "; font-weight: 700; }
   math { font-size: 1.05em; }
   img { max-width: 100%; height: auto; display: block; margin: 0.9em auto; }
 `;

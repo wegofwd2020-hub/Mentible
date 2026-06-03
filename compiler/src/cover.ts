@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html";
+import { BRAND } from "./tokens";
 import type { Book } from "./types";
 
 // Generates the book's cover — the "Editorial" design: a deep indigo upper field
@@ -97,8 +98,8 @@ export function buildCoverSvg(input: CoverInput): string {
     const subLH = Math.round(sub.size * 1.12);
     // accent rule sits to the left of the first subtitle line
     subBlock =
-      `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="#16a34a"/>` +
-      `<text fill="#16a34a" font-family="${SERIF}" font-size="${sub.size}" font-weight="800">` +
+      `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="${BRAND.green}"/>` +
+      `<text fill="${BRAND.green}" font-family="${SERIF}" font-size="${sub.size}" font-weight="800">` +
       tspans(sub.lines, MARGIN_L + 130, y, subLH) +
       `</text>`;
     y += (sub.lines.length - 1) * subLH + 96;
@@ -117,39 +118,39 @@ export function buildCoverSvg(input: CoverInput): string {
   let authorBlock = "";
   if (input.author) {
     authorBlock =
-      `<text x="${MARGIN_L + 6}" y="${y}" fill="#312a8c" font-family="${SERIF}" ` +
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="${BRAND.indigo}" font-family="${SERIF}" ` +
       `font-size="60" font-weight="700">${escapeHtml("by " + input.author)}</text>`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
   <defs>
     <linearGradient id="cvTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4c1d95"/>
-      <stop offset="0.6" stop-color="#312a8c"/>
-      <stop offset="1" stop-color="#1e1b4b"/>
+      <stop offset="0" stop-color="${BRAND.indigoLuminous}"/>
+      <stop offset="0.6" stop-color="${BRAND.indigo}"/>
+      <stop offset="1" stop-color="${BRAND.indigoDark}"/>
     </linearGradient>
     <linearGradient id="cvMark" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#16a34a"/>
-      <stop offset="1" stop-color="#4ade80"/>
+      <stop offset="0" stop-color="${BRAND.green}"/>
+      <stop offset="1" stop-color="${BRAND.greenBright}"/>
     </linearGradient>
     <filter id="cvGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="#4ade80" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="${BRAND.greenBright}" flood-opacity="0.5"/>
     </filter>
   </defs>
   <rect width="${VW}" height="${SPLIT_Y}" fill="url(#cvTop)"/>
-  <rect y="${SPLIT_Y}" width="${VW}" height="${VH - SPLIT_Y}" fill="#f5f3ff"/>
-  <text x="${MARGIN_L}" y="300" fill="#cdbcff" font-family="${SANS}" font-size="44" letter-spacing="10" font-weight="600">MENTIBLE&#160;·&#160;AUTHOR’S EDITION</text>
+  <rect y="${SPLIT_Y}" width="${VW}" height="${VH - SPLIT_Y}" fill="${BRAND.lavender}"/>
+  <text x="${MARGIN_L}" y="300" fill="${BRAND.indigoSoft}" font-family="${SANS}" font-size="44" letter-spacing="10" font-weight="600">MENTIBLE&#160;·&#160;AUTHOR’S EDITION</text>
   <g filter="url(#cvGlow)" transform="translate(800,800)">
     <path d="M-300 60 L-110 250 L300 -240" fill="none" stroke="url(#cvMark)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M300 -240 L150 -250 M300 -240 L290 -90" fill="none" stroke="url(#cvMark)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text fill="#1e1b4b" font-family="${SERIF}" font-size="${main.size}" font-weight="800" letter-spacing="-2">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
+  <text fill="${BRAND.indigoDark}" font-family="${SERIF}" font-size="${main.size}" font-weight="800" letter-spacing="-2">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
   ${subBlock}
   ${taglineBlock}
   ${authorBlock}
   <line x1="${MARGIN_L}" y1="2392" x2="${MARGIN_R}" y2="2392" stroke="#d9d2f5" stroke-width="2"/>
-  <circle cx="172" cy="2452" r="22" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <path d="M172 2440c-14 8-14 26 0 24 14 2 14-16 0-24z" fill="#16a34a"/>
+  <circle cx="172" cy="2452" r="22" fill="none" stroke="${BRAND.green}" stroke-width="5"/>
+  <path d="M172 2440c-14 8-14 26 0 24 14 2 14-16 0-24z" fill="${BRAND.green}"/>
   <text x="214" y="2466" fill="#5b5489" font-family="${SANS}" font-size="42" letter-spacing="7" font-weight="700">${escapeHtml(brand)}</text>
 </svg>`;
 }
@@ -172,7 +173,7 @@ export function buildCoverXhtml(input: CoverInput): string {
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(input.title)}</title>
-<style>html,body{margin:0;padding:0;height:100%;background:#1e1b4b}.cv{width:100%;height:100vh}.cv svg{width:100%;height:100%;display:block}</style>
+<style>html,body{margin:0;padding:0;height:100%;background:${BRAND.indigoDark}}.cv{width:100%;height:100vh}.cv svg{width:100%;height:100%;display:block}</style>
 </head>
 <body>
 <section epub:type="cover" class="cv">

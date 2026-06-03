@@ -41,6 +41,44 @@ _DEPTH_HINTS: dict[str, str] = {
 # lighter than a dense paragraph page, so this sits at the low end.
 _WORDS_PER_PAGE = 450
 
+# Diagram styling guidance. The compiler injects the brand palette for these role
+# classes automatically (see compiler/src/tokens.ts + mermaid.ts), so the model
+# only has to TAG nodes with a role — it must not emit its own classDef/colours.
+# The role vocabulary here must stay in sync with DIAGRAM_ROLES in tokens.ts.
+_DIAGRAM_GUIDELINES = """\
+Diagram styling (Mermaid flowcharts):
+- Use a `flowchart` (LR or TD) for processes, pipelines, decision flows and
+  concept maps — one focused diagram beats a wall of prose.
+- Colour-code each node by tagging it with EXACTLY ONE role class, appended as
+  `:::role` on the node. Use only these roles:
+  - `:::concept`  — a core idea / anchor / the subject itself
+  - `:::process`  — a step, stage or action
+  - `:::decision` — a question or branch (diamond)
+  - `:::success`  — a positive outcome, result or "done" state
+  - `:::warn`     — a risk, pitfall or failure path
+  Example:
+  ```mermaid
+  flowchart LR
+    A[Raw input]:::concept --> B[Transform]:::process
+    B --> C{Valid?}:::decision
+    C -->|yes| D[Ship]:::success
+    C -->|no| B
+  ```
+- Do NOT write your own `classDef` lines or hex colours — they are added on
+  render. Just tag nodes with `:::role`. Keep diagrams to ~4-9 nodes so they
+  stay legible at page width.
+"""
+
+# Prose-quality directive — sharpen clarity WITHOUT sacrificing coverage. Avoids
+# the literals asserted against in tests ("page(s)", "2 short sections").
+_PROSE_QUALITY = """\
+Prose quality:
+- Open each section with its main point in the first sentence, then support it.
+- Favour concrete examples, named scenarios and worked cases over abstraction.
+- Use active voice and tight sentences; cut filler and hedging.
+- Be concise but complete — keep the breadth the topic needs and the takeaways.
+"""
+
 
 def _length_hint(depth: str, target_pages: int) -> str:
     """The length directive for the prompt.
@@ -190,6 +228,8 @@ You MUST respond with ONLY valid JSON — no markdown fences, no extra text, no 
 
 {_FORMATTING_GUIDELINES}
 {_subject_guidelines(subject)}
+{_DIAGRAM_GUIDELINES}
+{_PROSE_QUALITY}
 The JSON must exactly match this schema:
 
 {{
@@ -212,6 +252,6 @@ Requirements:
 - learning_objectives: 3–5 items, starting with action verbs (e.g., "Explain...", "Calculate...", "Identify...").
 - key_takeaways: 3–6 items.
 - sections: as many as the depth hint suggests; each section's body_markdown must be ready to render directly.
-- All maths inline as $...$ and display as $$...$$ (KaTeX). All flowcharts/sequences as ```mermaid``` code blocks.
+- All maths inline as $...$ and display as $$...$$ (KaTeX). Flowcharts/processes as ```mermaid``` flowcharts with `:::role`-tagged nodes (see Diagram styling above); other diagram kinds as ```mermaid``` code blocks.
 - Do NOT include any text outside the JSON object.
 """
