@@ -63,6 +63,14 @@ K-12, tutors-as-a-distinct-segment, and any OnDemand integration. D6 stands; the
 OnDemand "what-if" was considered and **rejected** to avoid re-importing
 multi-tenancy and FERPA/COPPA surface.
 
+**Use-case widening — declined (2026-06-03).** Using Mentible as a general
+**content-generation** engine for **marketing** (or other non-educational copy)
+was raised and **declined**. It cuts against the product's opinion (scoped
+educational artifacts — lesson/explanation/quiz → EPUB3/PDF), and there is no
+external API/MCP surface for it by design. The reusable IP for any such future
+need is the **scoped-query layer + multi-provider seam** (ADR-005), which would
+be a *separate* product, not Mentible widened. **D6 reaffirmed.**
+
 ### D3 — Repo name unchanged
 
 `StudyBuddy_SelfLearner` stays as the **internal** repo name (already
