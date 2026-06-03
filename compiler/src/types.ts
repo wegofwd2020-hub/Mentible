@@ -118,6 +118,23 @@ export interface BookMetadata {
   identifier?: string; // dc:identifier override (ISBN/UUID); defaults to book.id
   series?: string; // belongs-to-collection
   seriesIndex?: number; // group-position within the series
+  accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata
+}
+
+// EPUB Accessibility 1.1 metadata (schema.org accessibility vocabulary →
+// schema:* meta in the OPF). Most values are auto-derived from the actual
+// content on compile (math → MathML, diagrams/images → a visual access mode);
+// every field here is an OVERRIDE/extension. We deliberately do not auto-assert
+// WCAG conformance or `alternativeText` — `conformsTo`/`certifiedBy` are for
+// titles that have actually been audited. See docs/PROFESSIONAL_PUBLISHING.md.
+export interface BookAccessibility {
+  summary?: string; // schema:accessibilitySummary (human-readable)
+  accessModes?: string[]; // schema:accessMode — replaces the auto-detected set
+  accessModeSufficient?: string[]; // schema:accessModeSufficient — each entry is one comma-joined sufficient set
+  features?: string[]; // schema:accessibilityFeature — merged with the auto-detected features
+  hazards?: string[]; // schema:accessibilityHazard — defaults to ["none"]
+  conformsTo?: string; // dcterms:conformsTo — a conformance-profile URL; set ONLY when truly conformant
+  certifiedBy?: string; // a11y:certifiedBy — who vouches for the conformance claim
 }
 
 export interface Book {

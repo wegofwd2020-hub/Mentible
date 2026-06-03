@@ -140,6 +140,22 @@ export interface BookMetadata {
   identifier?: string; // ISBN/UUID; defaults to book id
   series?: string;
   seriesIndex?: number;
+  accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata
+}
+
+// EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary). Auto-derived
+// from content on compile; these fields override/extend. Kept aligned with
+// compiler/src/types.ts BookAccessibility. We do not auto-claim WCAG conformance
+// or alt text — conformsTo/certifiedBy are for audited titles. See
+// docs/PROFESSIONAL_PUBLISHING.md.
+export interface BookAccessibility {
+  summary?: string; // schema:accessibilitySummary
+  accessModes?: string[]; // schema:accessMode (replaces auto set)
+  accessModeSufficient?: string[]; // schema:accessModeSufficient (each entry a comma-joined set)
+  features?: string[]; // schema:accessibilityFeature (merged with auto)
+  hazards?: string[]; // schema:accessibilityHazard (default ["none"])
+  conformsTo?: string; // dcterms:conformsTo URL — only when conformant
+  certifiedBy?: string; // a11y:certifiedBy
 }
 
 // A book persisted on the device (local-first, per ADR-003 D1).

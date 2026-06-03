@@ -99,6 +99,72 @@ Out of near-term scope.
 
 ---
 
+## Artifact types & media (extension point — PLACEHOLDER)
+
+> **Status: reserved, not built.** Today the pipeline emits **EPUB3** and **PDF**,
+> carrying **text, figures (SVG), and math (MathML)**. Publishing is broader than
+> that — artifacts can carry audio, video, and interactive media, and there are
+> several distribution formats beyond ours. This section names that space so it's
+> a **deliberate extension point** rather than something bolted on later. The rows
+> marked **PLACEHOLDER** are *not implemented* and there is **no code seam yet**
+> (this is documentation only); fill each in when the roadmap reaches it.
+
+### Format × status × media
+
+| Artifact | Status | Media carried | First-build notes |
+|---|---|---|---|
+| **EPUB3 (reflowable)** | ✅ shipping | text · image · math | flagship; interactive quiz layer in our reader |
+| **PDF (screen)** | ✅ shipping | text · image | fixed layout; *not* print-ready PDF/X (see publishing §6) |
+| **MOBI / Kindle (AZW)** | 🔜 planned (ADR-004) | text · image (static math) | convert from finished EPUB; static |
+| **Enhanced EPUB** | 🟡 PLACEHOLDER | + audio · video | media-embedded EPUB3; **EPUB Media Overlays** for read-along; big size/licensing/a11y implications |
+| **Audiobook (M4B / DAISY audio)** | 🟡 PLACEHOLDER | audio (+ chapter marks) | needs narration (TTS or human), chapter timing; DAISY for accessible audio |
+| **Interactive HTML / web bundle** | 🟡 PLACEHOLDER | interactive · text · image · math | self-hosted package; richer widgets than EPUB JS; needs a static fallback |
+| **DAISY (accessible)** | 🟡 PLACEHOLDER | text · audio | the accessible-publishing format; overlaps the EAA work (publishing §7) |
+| **SCORM / xAPI package** | 🟡 PLACEHOLDER | interactive · text | only if we ever target LMS distribution; likely out of scope |
+
+### Media kinds (vocabulary)
+
+A single canonical `book.json` can, in principle, carry these media kinds; each
+compile target supports a subset. This vocabulary should line up with the
+accessibility **access modes** the OPF already emits (see
+[`PROFESSIONAL_PUBLISHING.md`](PROFESSIONAL_PUBLISHING.md) §7 and
+`compiler/src/epub.ts → accessibilityMeta`):
+
+| Media kind | Example formats | Today | a11y access mode | The new obligation it brings |
+|---|---|---|---|---|
+| `text` | (X)HTML | ✅ | textual | — |
+| `image` / diagram | SVG, PNG, JPEG, **GIF** | ✅ (static) | visual | alt text / described diagrams. **Animated GIF** adds motion → declare a `flashing`/`motionSimulation` hazard if applicable, and prefer a pausable format (GIF can't be paused) |
+| `math` | MathML | ✅ | textual (+visual) | already accessible as MathML |
+| `audio` | MP3, M4A/AAC | 🟡 placeholder | auditory | **transcript**; synced text for read-along |
+| `video` | **MP4 (H.264/AAC)**, WebM | 🟡 placeholder | auditory + visual | **captions + audio description + transcript** |
+| `music` (symbolic) | **MIDI**, MusicXML | 🟡 placeholder | auditory (+ textual score) | **notation/score + text description** (not just an audio transcript — MIDI is note events, not sampled sound); playback control |
+| `interactive` | HTML/JS widgets | 🟡 placeholder | (varies) | **static fallback**; keyboard/AT operability |
+
+### When we build one (stub checklist)
+
+For each new artifact/media type, decide and document:
+
+- [ ] **Source model** — what new fields (if any) the canonical `book.json`
+      gains, and whether it's additive (it must not break existing books).
+- [ ] **Compile path** — how the deterministic, key-free compile stage produces
+      it (new renderer? external tool like Calibre/ffmpeg? TTS provider?).
+- [ ] **Media generation cost & rights** — audio/video may need a provider and
+      have licensing/cost implications (cf. BYOK economics, ADR-005).
+- [ ] **Accessibility** — the obligation column above (transcripts, captions,
+      fallbacks) is **mandatory**, not optional (EAA — publishing §7).
+- [ ] **Metadata** — extend the OPF/accessibility metadata to declare the new
+      access modes and features.
+- [ ] **Distribution** — which channels accept it (publishing §8) and its
+      identifier rules (a distinct ISBN per format — publishing §4).
+- [ ] **Reader support** — whether our free reader (ADR-004) renders it or it's
+      a standalone artifact.
+
+> If/when one of these graduates from placeholder to planned, promote it to a
+> first-class section under **Per-format mechanics** and, if it changes the
+> product direction, record the decision in an ADR (cf. ADR-004).
+
+---
+
 ## Worked example — one topic, two destinations
 
 Source (canonical `book.json`, abbreviated):

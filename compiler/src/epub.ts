@@ -232,6 +232,45 @@ function buildColophon(book: Book, lang: string): string {
   return xhtmlDocument(book.title, colophonSection(book), "css/style.css", lang);
 }
 
+// EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary, emitted with the
+// EPUB-reserved `schema:`/`a11y:`/`dcterms:` prefixes — no xmlns needed). Values
+// are auto-derived from the actual content (math → MathML feature + textual
+// access; diagrams/images → a visual access mode) and can be overridden or
+// extended via book.metadata.accessibility. We deliberately do NOT auto-claim
+// WCAG conformance or `alternativeText`: a formal claim (dcterms:conformsTo /
+// a11y:certifiedBy) is only emitted when the author asserts it after an audit.
+// See docs/PROFESSIONAL_PUBLISHING.md §7/§14.
+function accessibilityMeta(book: Book, chapters: Chapter[], images: ImageRes[]): string[] {
+  const a = book.metadata?.accessibility ?? {};
+  const hasVisual = images.length > 0 || chapters.some((c) => c.hasSvg);
+  const hasMath = chapters.some((c) => c.hasMath);
+
+  const accessModes = a.accessModes ?? ["textual", ...(hasVisual ? ["visual"] : [])];
+  const accessModeSufficient = a.accessModeSufficient ?? [hasVisual ? "textual,visual" : "textual"];
+
+  const autoFeatures = ["tableOfContents", "readingOrder", "structuralNavigation", "displayTransformability"];
+  if (hasMath) autoFeatures.push("MathML");
+  const features = [...new Set([...autoFeatures, ...(a.features ?? [])])];
+
+  const hazards = a.hazards ?? ["none"];
+  const summary =
+    a.summary ??
+    ("Reflowable EPUB with structural navigation, a table of contents, and resizable text." +
+      (hasMath ? " Mathematics is encoded as MathML." : "") +
+      (hasVisual ? " The publication contains diagrams and images." : ""));
+
+  const out: string[] = [];
+  for (const m of accessModes) out.push(`<meta property="schema:accessMode">${escapeHtml(m)}</meta>`);
+  for (const s of accessModeSufficient)
+    out.push(`<meta property="schema:accessModeSufficient">${escapeHtml(s)}</meta>`);
+  for (const f of features) out.push(`<meta property="schema:accessibilityFeature">${escapeHtml(f)}</meta>`);
+  for (const h of hazards) out.push(`<meta property="schema:accessibilityHazard">${escapeHtml(h)}</meta>`);
+  out.push(`<meta property="schema:accessibilitySummary">${escapeHtml(summary)}</meta>`);
+  if (a.conformsTo) out.push(`<link rel="dcterms:conformsTo" href="${escapeHtml(a.conformsTo)}"/>`);
+  if (a.certifiedBy) out.push(`<meta property="a11y:certifiedBy">${escapeHtml(a.certifiedBy)}</meta>`);
+  return out;
+}
+
 function buildOpf(book: Book, chapters: Chapter[], images: ImageRes[] = []): string {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
@@ -283,6 +322,7 @@ function buildOpf(book: Book, chapters: Chapter[], images: ImageRes[] = []): str
     if (m.seriesIndex != null)
       meta.push(`<meta refines="#series" property="group-position">${escapeHtml(String(m.seriesIndex))}</meta>`);
   }
+  meta.push(...accessibilityMeta(book, chapters, images));
   meta.push(`<meta name="cover" content="cover-image"/>`);
   meta.push(`<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>`);
 

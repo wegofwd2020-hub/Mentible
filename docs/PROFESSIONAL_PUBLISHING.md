@@ -12,9 +12,15 @@
 > (IP attorney, accountant, accessibility auditor), not a substitute for them.
 >
 > Related: [`ARTIFACT_PIPELINE.md`](ARTIFACT_PIPELINE.md) (how content becomes
-> EPUB3/PDF), [`adr/ADR-004-two-product-split-and-artifacts.md`](adr/ADR-004-two-product-split-and-artifacts.md)
+> EPUB3/PDF — incl. the **"Artifact types & media"** extension point for future
+> audio/video/interactive artifacts),
+> [`adr/ADR-004-two-product-split-and-artifacts.md`](adr/ADR-004-two-product-split-and-artifacts.md)
 > (the artifact/money model), [`adr/ADR-006-brand-name-and-audience-scope.md`](adr/ADR-006-brand-name-and-audience-scope.md)
 > (brand clearance).
+>
+> **Today this guide assumes text-based EPUB3/PDF.** Richer artifacts (enhanced
+> EPUB, audiobooks, interactive HTML, DAISY) each add their own production,
+> rights, and accessibility obligations — see that extension point.
 
 ---
 
@@ -204,18 +210,25 @@ deadline.
   navigable TOC, no information conveyed by colour alone, math as **MathML** (not
   images).
 
-> **Mentible status — important gap:**
+> **Mentible status:**
 > - ✅ Math is MathML (KaTeX `output:"mathml"`), language is declared, there's a
 >   proper nav/TOC and heading structure — good foundations.
-> - ❌ **No accessibility metadata** (`schema:access*`) is emitted in the OPF.
+> - ✅ **Accessibility metadata is now emitted** in the OPF (`schema:accessMode`,
+>   `accessModeSufficient`, `accessibilityFeature`, `accessibilityHazard`,
+>   `accessibilitySummary`), auto-derived from content (math → `MathML`;
+>   diagrams/images → a `visual` access mode) and overridable via
+>   `Book.metadata.accessibility`. See `compiler/src/epub.ts` (`accessibilityMeta`).
 > - ⚠️ **Diagram/image alt text** depends on what the generator produced; Mermaid
->   diagrams need descriptive alternatives, not just a rendered SVG.
+>   diagrams need descriptive alternatives, not just a rendered SVG. The compiler
+>   does **not** auto-claim `alternativeText` — assert it (and formal
+>   `conformsTo`/`certifiedBy`) only after you've ensured every figure is
+>   described.
 > - ❌ **Ace by DAISY is not run** in the pipeline.
 >
-> **Until the tool emits accessibility metadata (see §14), you cannot honestly
-> claim EAA conformance.** For EU commercial sale this is blocking — add the
-> metadata and alt text manually, or restrict sale to non-EU territories, and get
-> an accessibility audit.
+> **Emitting metadata is necessary but not sufficient for EAA conformance.** You
+> still need real alt text on every figure, an Ace pass, and (for a formal claim)
+> an audit. The tool no longer blocks you on metadata, but **don't assert WCAG
+> conformance until the content actually meets it.**
 
 ---
 
@@ -333,10 +346,11 @@ rejections are usually metadata/validation/cover issues.
 What the tool would need to better support a professional publisher (today these
 are manual / external):
 
-1. **Accessibility metadata emission** — add `schema:accessMode`,
-   `accessModeSufficient`, `accessibilityFeature`, `accessibilityHazard`,
-   `accessibilitySummary` to the OPF, driven by `Book.metadata`. **Highest
-   priority** (EAA is in force).
+1. ✅ **Accessibility metadata emission — DONE.** The OPF now emits
+   `schema:accessMode`, `accessModeSufficient`, `accessibilityFeature`,
+   `accessibilityHazard`, and `accessibilitySummary`, auto-derived from content
+   and overridable via `Book.metadata.accessibility`
+   (`compiler/src/epub.ts → accessibilityMeta`). Remaining a11y work is items 2–3.
 2. **In-pipeline validation** — run **EPUBCheck** and **Ace by DAISY** on compile
    and surface results, so an author can't ship an invalid/inaccessible artifact
    unknowingly.
