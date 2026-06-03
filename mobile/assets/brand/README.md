@@ -37,6 +37,38 @@ in-app hero or icon review; for a crisp store/launcher icon, redraw as vector
 | `mentible-mark-growing-mind.png` | 224×214 | tight transparent mark |
 | `mentible-icon-1024.png` | 1024×1024 | square, centered, ~12% safe margin — drop-in for `assets/icon.png` etc. (see below) |
 
+### Radiant recolor family (derived from `mentible-icon-1024.png`)
+
+All recolored/relit from `mentible-icon-1024.png` (which is **unchanged** — keep
+it as the original). The recolor segments the mark and applies per-region
+luminance ramps so the original shading/glow carries over:
+
+- **leaves → green** (`#2faa5d`/`#54d488`, matching `mentible-growing-mind.svg`)
+- **trunk + branches → brown** (`#724321`→`#a3713c`)
+- **book → teal** (kept), with its outline **sharpened** (the radiance glow had softened it)
+- **M → red-orange** (`#d2400c`→`#f66a22`) in the `redorange*` files; teal in `radiant.png`; bright orange in `radiant-orangeM.png`
+
+The "radiance" pass = saturation/brightness boost + a soft screen-blended bloom
+on the highlights. The **canonical mark is `mentible-icon-1024-redorange.png`**
+(transparent); the Expo assets below were generated from it.
+
+| File | Size / bg | M color | Notes |
+|---|---|---|---|
+| `mentible-icon-1024-radiant.png` | 1024, transparent | teal | radiant + green leaves / brown tree |
+| `mentible-icon-1024-radiant-orangeM.png` | 1024, transparent | bright orange | earlier orange exploration |
+| `mentible-icon-1024-redorange.png` | 1024, transparent | red-orange | **canonical mark** — source for the icon set |
+| `mentible-icon-1024-redorange-white.png` | 1024, white | red-orange | full-bleed white (e.g. iOS-style preview) |
+| `mentible-lockup-redorange-white.png` | 1024×~995, white | red-orange | mark + "Mentible" (DejaVu Serif Bold, teal) + *Author Yourself* (Z003 cursive, red-orange) |
+| `mentible-lockup-redorange-transparent.png` | 1024×~994, transparent | red-orange | same lockup, transparent (teal wordmark is low-contrast on dark surfaces — needs a light-wordmark variant for dark backdrops) |
+
+**Live Expo assets** (in `mobile/assets/`, generated from the canonical mark):
+`icon.png` (full-bleed white, mark ~78%), `adaptive-icon.png` (transparent
+foreground, mark in Android's central ~66% safe zone), `favicon.png` (196,
+transparent), `splash.png` (the transparent lockup). `app.json` `splash` and
+`android.adaptiveIcon` `backgroundColor` were set to `#ffffff` so the
+light-designed mark sits on its intended backdrop (the app is otherwise dark
+themed — revert to `#1e1b4b` if a dark splash is preferred).
+
 > Brand note: "Mentible" is **provisional pending trademark clearance** (see the
 > rebrand/ADR memory). Don't ship to a store under this name until cleared.
 
