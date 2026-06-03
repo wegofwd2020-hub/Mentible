@@ -12,10 +12,11 @@
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
 import { BRAND } from "./tokens";
 
-const SANS = `-apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
-// Embedded Source Serif 4 (see fonts.ts) — matches the in-app reader; Georgia
-// is the fallback for readers that ignore the embedded font.
-const SERIF = `"Source Serif 4", Georgia, "Times New Roman", "Liberation Serif", serif`;
+const SANS = `"Nimbus Sans", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
+// Lead with Liberation Serif (the body face used in the PDF/print target); the
+// embedded Source Serif 4 (fonts.ts) remains as a fallback for readers that lack
+// Liberation Serif, so the artifact still ships a serif it controls.
+const SERIF = `"Liberation Serif", "Source Serif 4", Georgia, "Times New Roman", serif`;
 
 export const STYLESHEET = `
   ${SOURCE_SERIF_FONTFACE}
@@ -60,8 +61,9 @@ export const STYLESHEET = `
     font-style: italic;
   }
   table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
-  th { background: #f2f2f2; font-weight: 600; padding: 0.5em 0.8em; border: 1px solid #ccc; text-align: left; }
-  td { padding: 0.45em 0.8em; border: 1px solid #ccc; }
+  th { background: ${BRAND.indigo}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${BRAND.indigo}; text-align: left; }
+  td { padding: 0.45em 0.8em; border: 1px solid ${BRAND.lavenderBorder}; }
+  tbody tr:nth-child(even) td { background: #f6f5fc; }
   caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
   caption::before { content: "Table " counter(table) ". "; font-weight: 600; }
   hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
@@ -72,11 +74,18 @@ export const STYLESHEET = `
   .objectives, .takeaways, .further, .mistakes, .examples, .materials, .safety {
     background: #f6f8fa; border-radius: 4px; padding: 0.8em 1em; margin: 1em 0;
   }
-  .objectives { border-left: 3px solid #1565c0; }
-  .takeaways  { border-left: 3px solid #2e7d32; }
-  .further    { border-left: 3px solid #888; }
+  .objectives { border-left: 3px solid ${BRAND.indigo}; }
+  .further    { border-left: 3px solid ${BRAND.green}; }
   .mistakes   { border-left: 3px solid #ef6c00; }
   .safety     { border-left: 3px solid #ef6c00; }
+  /* Key Takeaways: branded dark-indigo callout panel (matches the PDF). */
+  .takeaways {
+    background: ${BRAND.indigoDark}; color: #eceaf6; border: none;
+    border-radius: 8px; padding: 0.9em 1.1em; margin: 1em 0;
+  }
+  .takeaways h3 { color: ${BRAND.greenBright}; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82em; margin: 0 0 0.45em; }
+  .takeaways strong { color: #fff; }
+  .takeaways a { color: #9fd8ff; }
   .practice {
     background: #fff8e1; border-left: 3px solid #ef6c00;
     padding: 0.5em 0.8em; border-radius: 4px; margin: 0.7em 0;

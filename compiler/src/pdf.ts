@@ -155,23 +155,23 @@ const PDF_CSS = `
   ${SOURCE_SERIF_FONTFACE}
   @page {
     size: A4;
-    margin: 16mm 16mm;
+    margin: 20mm 18mm;
     @bottom-center { content: counter(page); font-size: 9pt; color: #777; }
   }
   html {
     font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
-    font-size: 10.5pt;
-    line-height: 1.36;
+    font-size: 11pt;
+    line-height: 1.55;
     color: #111;
     counter-reset: figure table;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
   }
-  h1 { font-size: 1.55em; margin: 0 0 0.35em; }
-  h2 { font-size: 1.22em; margin: 0.75em 0 0.25em; }
-  h3 { font-size: 1.06em; margin: 0.6em 0 0.15em; color: #333; }
-  p { margin: 0.38em 0; }
+  h1 { font-size: 1.6em; margin: 0 0 0.45em; }
+  h2 { font-size: 1.25em; margin: 1.1em 0 0.35em; }
+  h3 { font-size: 1.08em; margin: 0.9em 0 0.25em; color: #333; }
+  p { margin: 0.55em 0; }
   ul, ol { padding-left: 1.4em; }
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
@@ -184,8 +184,8 @@ const PDF_CSS = `
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
   }
   caption::before { content: "Table " counter(table) ". "; font-weight: 700; }
-  .diagram { counter-increment: figure; text-align: center; margin: 0.7em 0; break-inside: avoid; }
-  .diagram svg { max-width: 100%; max-height: 72mm; width: auto; height: auto; }
+  .diagram { counter-increment: figure; text-align: center; margin: 1.1em 0; break-inside: avoid; }
+  .diagram svg { max-width: 100%; max-height: 84mm; width: auto; height: auto; }
   .diagram figcaption {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-top: 0.3em;
@@ -211,10 +211,10 @@ const PDF_CSS = `
   nav.toc a::after { content: leader('.') target-counter(attr(href url), page); color: #777; }
 
   .chapter, .quizzes, .answers { break-before: page; }
-  .synopsis { font-style: italic; color: #444; margin: 0.4em 0 0.7em; }
-  .objectives, .takeaways, .further, .mistakes, .examples { background: #f6f8fa; padding: 0.45em 0.7em; margin: 0.55em 0; break-inside: avoid; }
-  .objectives ul, .takeaways ul, .further ul { margin: 0.2em 0; }
-  li { margin: 0.12em 0; }
+  .synopsis { font-style: italic; color: #444; margin: 0.6em 0 0.95em; }
+  .objectives, .takeaways, .further, .mistakes, .examples { background: #f6f8fa; padding: 0.7em 0.95em; margin: 0.9em 0; break-inside: avoid; }
+  .objectives ul, .takeaways ul, .further ul { margin: 0.3em 0; }
+  li { margin: 0.22em 0; }
   /* Accent the lighter callouts; make Key Takeaways a branded panel. */
   .objectives { border-left: 3px solid #312a8c; }
   .further { border-left: 3px solid #16a34a; }
