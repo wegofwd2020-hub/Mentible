@@ -131,7 +131,7 @@ describe("buildPdfHtml — textbook layout", () => {
 describe("buildPdfHtml — typography & numbering CSS", () => {
   const html = buildPdfHtml(book());
   it("uses sans-serif headings and counter-based Figure/Table numbering", () => {
-    expect(html).toMatch(/h1, h2, h3[^{]*\{\s*font-family:\s*"Helvetica Neue"/);
+    expect(html).toMatch(/h1, h2, h3[^{]*\{\s*font-family:\s*"Nimbus Sans"/);
     expect(html).toContain("counter-increment: figure");
     expect(html).toContain('content: "Figure " counter(figure)');
     expect(html).toContain("counter-increment: table");
