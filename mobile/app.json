@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1e1b4b"
+      "backgroundColor": "#ffffff"
     },
     "web": {
       "name": "Mentible",
@@ -22,7 +22,7 @@
       "permissions": ["android.permission.INTERNET"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1e1b4b"
+        "backgroundColor": "#ffffff"
       }
     },
     "plugins": [
