@@ -28,9 +28,7 @@ class AnthropicCallError(Exception):
     """
 
 
-def call_anthropic(
-    *, api_key: str, prompt: str, model: str, max_tokens: int = 16384
-) -> str:
+def call_anthropic(*, api_key: str, prompt: str, model: str, max_tokens: int = 16384) -> str:
     """Invoke Anthropic with the user's BYOK key, return raw response text.
 
     This function is synchronous because the Anthropic SDK is synchronous;

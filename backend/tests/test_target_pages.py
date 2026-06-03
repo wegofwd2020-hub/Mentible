@@ -16,7 +16,7 @@ from backend.src.generate.tasks import (
 
 
 def _prompt(**kw) -> str:
-    base = dict(topic="Kinematics", level="student", language="en")
+    base = {"topic": "Kinematics", "level": "student", "language": "en"}
     base.update(kw)
     return build_lesson_prompt(**base)
 

@@ -112,8 +112,8 @@ async def test_retries_invalid_json_then_succeeds(client, fake_redis, known_test
     """A bad first response (invalid JSON) is retried; a good second one wins."""
     with patch("backend.src.generate.anthropic_caller.AnthropicProvider") as MockProvider:
         MockProvider.return_value.generate.side_effect = [
-            ("not json at all", 1, 1),          # attempt 1 — fails to parse
-            (_FAKE_LESSON_JSON, 100, 500),       # attempt 2 — valid
+            ("not json at all", 1, 1),  # attempt 1 — fails to parse
+            (_FAKE_LESSON_JSON, 100, 500),  # attempt 2 — valid
         ]
 
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
