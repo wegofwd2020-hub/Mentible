@@ -1,5 +1,6 @@
 import { escapeHtml } from "./html";
 import { BRAND } from "./tokens";
+import { MENTIBLE_LOGO_DATA_URI } from "./brandLogo";
 import type { Book } from "./types";
 
 // Generates the book's cover — the "Editorial" design: a deep indigo upper field
@@ -80,13 +81,32 @@ function tspans(lines: string[], x: number, top: number, lineHeight: number): st
     .join("");
 }
 
+// A deterministic star field for the cover's night-sky field (seeded LCG so the
+// same stars render on every build — no Math.random, keeps output reproducible).
+function starField(count: number): string {
+  let s = 0x4d2e7a1;
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const x = Math.round(rnd() * VW);
+    const y = Math.round(rnd() * (SPLIT_Y - 30));
+    const r = (rnd() * 2.4 + 0.8).toFixed(1);
+    const o = (rnd() * 0.6 + 0.3).toFixed(2);
+    const blue = rnd() > 0.72;
+    out.push(`<circle cx="${x}" cy="${y}" r="${r}" fill="${blue ? "#cdd9ff" : "#ffffff"}" opacity="${o}"/>`);
+  }
+  return out.join("");
+}
+
 // The bare <svg> (viewBox only — the host sizes it). Used inline in both targets.
 export function buildCoverSvg(input: CoverInput): string {
   const brand = input.brand ?? "MENTIBLE";
   const parsed = splitTitle(input.title);
   const subtitle = input.subtitle ?? parsed.sub;
 
-  const main = fitTitle(parsed.main, [148, 128, 112, 98, 86, 76], 3);
+  // Cover styling: sans-serif main title, ampersand, kept to a single line.
+  const mainText = parsed.main.replace(/\s+and\s+/gi, " & ");
+  const main = fitTitle(mainText, [124, 112, 100, 90, 80], 1);
   const mainLH = Math.round(main.size * 1.06);
   const titleTop = 1716;
   const titleBottom = titleTop + (main.lines.length - 1) * mainLH;
@@ -122,7 +142,7 @@ export function buildCoverSvg(input: CoverInput): string {
       `font-size="60" font-weight="700">${escapeHtml("by " + input.author)}</text>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
   <defs>
     <linearGradient id="cvTop" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${BRAND.indigoLuminous}"/>
@@ -136,22 +156,45 @@ export function buildCoverSvg(input: CoverInput): string {
     <filter id="cvGlow" x="-40%" y="-40%" width="180%" height="180%">
       <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="${BRAND.greenBright}" flood-opacity="0.5"/>
     </filter>
+    <radialGradient id="cvBand" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#c3cdff" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#8a7fd6" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="${BRAND.indigoDark}" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect width="${VW}" height="${SPLIT_Y}" fill="url(#cvTop)"/>
+  <ellipse cx="800" cy="800" rx="1180" ry="250" fill="url(#cvBand)" transform="rotate(-25 800 800)"/>
+  ${starField(150)}
   <rect y="${SPLIT_Y}" width="${VW}" height="${VH - SPLIT_Y}" fill="${BRAND.lavender}"/>
-  <text x="${MARGIN_L}" y="300" fill="${BRAND.indigoSoft}" font-family="${SANS}" font-size="44" letter-spacing="10" font-weight="600">MENTIBLE&#160;·&#160;AUTHOR’S EDITION</text>
-  <g filter="url(#cvGlow)" transform="translate(800,800)">
-    <path d="M-300 60 L-110 250 L300 -240" fill="none" stroke="url(#cvMark)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M300 -240 L150 -250 M300 -240 L290 -90" fill="none" stroke="url(#cvMark)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(800,820)">
+    <!-- Context constellation converging into a single luminous Judgment node:
+         abundant knowledge/context (outer nodes) resolves into one decision. -->
+    <g stroke="${BRAND.indigoSoft}" stroke-opacity="0.4" stroke-width="3" fill="none">
+      <path d="M0 0 L-360 -200"/><path d="M0 0 L-270 90"/><path d="M0 0 L-190 -320"/>
+      <path d="M0 0 L-130 250"/><path d="M0 0 L70 -340"/><path d="M0 0 L220 -200"/>
+      <path d="M0 0 L350 -70"/><path d="M0 0 L320 180"/><path d="M0 0 L150 290"/>
+      <path d="M-360 -200 L-190 -320"/><path d="M220 -200 L350 -70"/>
+      <path d="M-270 90 L-130 250"/><path d="M350 -70 L320 180"/>
+    </g>
+    <g fill="${BRAND.indigoSoft}">
+      <circle cx="-360" cy="-200" r="15"/><circle cx="-270" cy="90" r="13"/>
+      <circle cx="-130" cy="250" r="13"/><circle cx="70" cy="-340" r="14"/>
+      <circle cx="350" cy="-70" r="13"/><circle cx="150" cy="290" r="13"/>
+    </g>
+    <g fill="${BRAND.greenBright}">
+      <circle cx="-190" cy="-320" r="16"/><circle cx="220" cy="-200" r="15"/><circle cx="320" cy="180" r="14"/>
+    </g>
+    <circle cx="0" cy="0" r="92" fill="url(#cvMark)" filter="url(#cvGlow)"/>
+    <circle cx="0" cy="0" r="92" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="5"/>
+    <circle cx="0" cy="0" r="40" fill="#ffffff" fill-opacity="0.18"/>
   </g>
-  <text fill="${BRAND.indigoDark}" font-family="${SERIF}" font-size="${main.size}" font-weight="800" letter-spacing="-2">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
+  <text fill="${BRAND.indigoDark}" font-family="${SANS}" font-size="${main.size}" font-weight="800" letter-spacing="-1">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
   ${subBlock}
   ${taglineBlock}
   ${authorBlock}
   <line x1="${MARGIN_L}" y1="2392" x2="${MARGIN_R}" y2="2392" stroke="#d9d2f5" stroke-width="2"/>
-  <circle cx="172" cy="2452" r="22" fill="none" stroke="${BRAND.green}" stroke-width="5"/>
-  <path d="M172 2440c-14 8-14 26 0 24 14 2 14-16 0-24z" fill="${BRAND.green}"/>
-  <text x="214" y="2466" fill="#5b5489" font-family="${SANS}" font-size="42" letter-spacing="7" font-weight="700">${escapeHtml(brand)}</text>
+  <image href="${MENTIBLE_LOGO_DATA_URI}" xlink:href="${MENTIBLE_LOGO_DATA_URI}" x="${MARGIN_L}" y="2404" width="88" height="84"/>
+  <text x="${MARGIN_L + 110}" y="2466" fill="#5b5489" font-family="${SANS}" font-size="42" letter-spacing="7" font-weight="700">${escapeHtml(brand)}</text>
 </svg>`;
 }
 
