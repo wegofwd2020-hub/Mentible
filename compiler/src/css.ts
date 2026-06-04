@@ -23,8 +23,9 @@ export const STYLESHEET = `
   * { box-sizing: border-box; }
   body {
     color: #1a1a1a;
+    background: #faf8f3; /* warm ivory ground (Anthropic-leaning, calmer than pure white) */
     font-family: ${SERIF};
-    line-height: 1.6;
+    line-height: 1.7; /* more air */
     margin: 0;
     padding: 1em;
     counter-reset: figure table;

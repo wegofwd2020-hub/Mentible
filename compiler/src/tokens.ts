@@ -15,10 +15,10 @@ export const BRAND = {
   lavender: "#f5f3ff", // pale lavender panel
   lavenderNode: "#ede9fe", // diagram node fill / soft surfaces
   lavenderBorder: "#ece8fb", // hairline lavender border
-  green: "#16a34a", // secondary brand green
-  greenBright: "#4ade80", // accent / glow green
-  greenDark: "#15803d", // green border
-  teal: "#0e7490", // decision/accent teal
+  green: "#2a9258", // secondary brand green (desaturated ~12% for a calmer, editorial accent)
+  greenBright: "#6cc79a", // accent / glow green (muted)
+  greenDark: "#1f7544", // green border
+  teal: "#1b7287", // decision/accent teal (desaturated)
   tealDark: "#0c4a6e", // teal border
   amber: "#fde68a", // caution fill
   amberText: "#7c2d12", // caution text
