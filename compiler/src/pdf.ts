@@ -223,7 +223,7 @@ const PDF_CSS = `
   html {
     font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
     font-size: 11pt;
-    line-height: 1.62;
+    line-height: 1.66;
     color: #111;
     counter-reset: figure table;
   }
@@ -235,7 +235,7 @@ const PDF_CSS = `
   h1 { font-size: 1.6em; margin: 0 0 0.45em; }
   h2 { font-size: 1.25em; margin: 1.1em 0 0.35em; }
   h3 { font-size: 1.08em; margin: 0.9em 0 0.25em; color: #333; }
-  p { margin: 0.55em 0; orphans: 2; widows: 2; }
+  p { margin: 0.62em 0; orphans: 2; widows: 2; }
   ul, ol { padding-left: 1.4em; }
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
