@@ -29,6 +29,10 @@ _MAX_BODY_BYTES = 25 * 1024 * 1024
 _FORMATS = {
     "epub": ("application/epub+zip", "epub"),
     "pdf": ("application/pdf", "pdf"),
+    # A PNG thumbnail of the book's cover — lets the mobile Library show the real
+    # cover (the EPUB carries only the vector cover.svg, which the app can't
+    # render on-device).
+    "cover": ("image/png", "png"),
 }
 
 

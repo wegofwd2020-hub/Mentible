@@ -27,7 +27,14 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
       const book = await loadBook(bookId);
       if (!book) throw new Error("Book not found.");
       const bytes = await exportBook(book, { diagrams: true });
-      await saveEpub({ bookId: book.id, title: book.title, bytes });
+      // Cover thumbnail is best-effort — never fail the save over it.
+      let coverBytes: ArrayBuffer | undefined;
+      try {
+        coverBytes = await exportBook(book, { format: "cover" });
+      } catch {
+        coverBytes = undefined;
+      }
+      await saveEpub({ bookId: book.id, title: book.title, bytes, coverBytes });
       setState({ kind: "done" });
     } catch (err) {
       setState({ kind: "error", message: messageFor(err) });

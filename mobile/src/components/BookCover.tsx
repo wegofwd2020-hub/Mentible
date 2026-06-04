@@ -1,23 +1,43 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "@/constants/theme";
 
-// In-app book cover, echoing the compiled artifact's "Editorial" cover (see
-// compiler/src/cover.ts): a deep-indigo upper field with a green growth mark
-// (the "growing mind" / spec→growth motif) over a light lower band carrying the
-// title in serif. Authored books have no cover art, so this stands in as a
-// consistent, brand-aligned placeholder in the grid and detail views.
+// In-app book cover. When the library entry has a real cover thumbnail
+// (coverUri — the compiled artifact's actual cover, see compiler/src/cover.ts),
+// it's shown directly. Otherwise we fall back to a brand-aligned placeholder: a
+// deep-indigo upper field with a green growth mark over a light lower band
+// carrying the title in serif (for authored books without a compiled cover yet).
 export function BookCover({
   title,
   badge,
   size = "thumb",
+  coverUri,
 }: {
   title: string;
   badge?: string; // small label, e.g. "EPUB3" or "12/16"
   size?: "thumb" | "large";
+  coverUri?: string; // real cover image (file:// path or data: URL)
 }) {
   const large = size === "large";
+  const badgeEl = badge ? (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>{badge}</Text>
+    </View>
+  ) : null;
+
+  if (coverUri) {
+    return (
+      <View
+        style={[styles.cover, large ? styles.large : styles.thumb]}
+        accessibilityLabel={`Cover: ${title}`}
+      >
+        <Image source={{ uri: coverUri }} style={styles.image} resizeMode="cover" />
+        {badgeEl}
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.cover, large ? styles.large : styles.thumb]} accessibilityLabel={`Cover: ${title}`}>
       <View style={styles.top}>
@@ -29,11 +49,7 @@ export function BookCover({
           {title}
         </Text>
       </View>
-      {badge ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      ) : null}
+      {badgeEl}
     </View>
   );
 }
@@ -48,6 +64,7 @@ const styles = StyleSheet.create({
   },
   thumb: { width: "100%" },
   large: { width: 150 },
+  image: { width: "100%", height: "100%" },
   top: {
     flex: 0.55,
     backgroundColor: "#312a8c",

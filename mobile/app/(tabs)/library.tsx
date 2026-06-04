@@ -77,7 +77,7 @@ export default function LibraryScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Open book: ${item.title}`}
           >
-            <BookCover title={item.title} badge="EPUB3" />
+            <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} />
           </Pressable>
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
           <View style={styles.tileFooter}>

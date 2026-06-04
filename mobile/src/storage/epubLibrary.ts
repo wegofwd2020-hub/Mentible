@@ -15,12 +15,14 @@ export interface EpubMeta {
   title: string;
   sizeBytes: number;
   compiledAt: string; // ISO
+  coverUri?: string; // displayable cover image: file:// path (native) or data: URL (web)
 }
 
 export interface SaveEpubInput {
   bookId: string;
   title: string;
   bytes: ArrayBuffer;
+  coverBytes?: ArrayBuffer; // optional PNG cover thumbnail (from /export?format=cover)
 }
 
 const isWeb = Platform.OS === "web";
@@ -102,12 +104,17 @@ interface WebRecord extends EpubMeta {
   blob: Blob;
 }
 
-async function webSave({ bookId, title, bytes }: SaveEpubInput): Promise<EpubMeta> {
+async function webSave({ bookId, title, bytes, coverBytes }: SaveEpubInput): Promise<EpubMeta> {
   const meta: EpubMeta = {
     id: bookId,
     title,
     sizeBytes: bytes.byteLength,
     compiledAt: new Date().toISOString(),
+    // A data: URL renders directly in <Image> and survives reloads (unlike an
+    // object URL), so store the cover inline in the meta on web.
+    ...(coverBytes && coverBytes.byteLength > 0
+      ? { coverUri: `data:image/png;base64,${toBase64(coverBytes)}` }
+      : {}),
   };
   const blob = new Blob([bytes], { type: "application/epub+zip" });
   await tx("readwrite", (s) => s.put({ ...meta, blob } satisfies WebRecord));
@@ -142,9 +149,10 @@ async function webOpen(id: string, title: string): Promise<void> {
 const INDEX_KEY = "sbq_epub_index";
 const epubDir = () => `${FileSystem.documentDirectory}epubs/`;
 const epubPath = (id: string) => `${epubDir()}${id}.epub`;
+const coverDir = () => `${epubDir()}covers/`;
+const coverPath = (id: string) => `${coverDir()}${id}.png`;
 
-async function ensureDir(): Promise<void> {
-  const dir = epubDir();
+async function ensureDir(dir: string): Promise<void> {
   const info = await FileSystem.getInfoAsync(dir);
   if (!info.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
 }
@@ -181,16 +189,25 @@ function toBase64(buf: ArrayBuffer): string {
   return out;
 }
 
-async function nativeSave({ bookId, title, bytes }: SaveEpubInput): Promise<EpubMeta> {
-  await ensureDir();
+async function nativeSave({ bookId, title, bytes, coverBytes }: SaveEpubInput): Promise<EpubMeta> {
+  await ensureDir(epubDir());
   await FileSystem.writeAsStringAsync(epubPath(bookId), toBase64(bytes), {
     encoding: FileSystem.EncodingType.Base64,
   });
+  let coverUri: string | undefined;
+  if (coverBytes && coverBytes.byteLength > 0) {
+    await ensureDir(coverDir());
+    await FileSystem.writeAsStringAsync(coverPath(bookId), toBase64(coverBytes), {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    coverUri = coverPath(bookId);
+  }
   const meta: EpubMeta = {
     id: bookId,
     title,
     sizeBytes: bytes.byteLength,
     compiledAt: new Date().toISOString(),
+    ...(coverUri ? { coverUri } : {}),
   };
   const index = (await readIndex()).filter((m) => m.id !== bookId);
   await writeIndex([meta, ...index]);
@@ -203,6 +220,7 @@ async function nativeList(): Promise<EpubMeta[]> {
 
 async function nativeDelete(id: string): Promise<void> {
   await FileSystem.deleteAsync(epubPath(id), { idempotent: true });
+  await FileSystem.deleteAsync(coverPath(id), { idempotent: true });
   await writeIndex((await readIndex()).filter((m) => m.id !== id));
 }
 
