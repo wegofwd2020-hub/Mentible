@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
 import { REGISTERS } from "@/constants/registers";
@@ -22,6 +23,7 @@ export function GenerationParamsEditor({
   pagesLabel?: string;
   pagesHint?: string;
 }) {
+  const router = useRouter();
   const set = (patch: Partial<GenerationParams>) => onChange({ ...value, ...patch });
   const adjustPages = (delta: number) =>
     set({ pages: Math.min(999, Math.max(0, value.pages + delta)) });
@@ -70,6 +72,14 @@ export function GenerationParamsEditor({
           );
         })}
       </ScrollView>
+      <Pressable
+        onPress={() => router.push("/diagram-types")}
+        accessibilityRole="button"
+        accessibilityLabel="See diagram examples"
+        hitSlop={8}
+      >
+        <Text style={styles.examplesLink}>See examples →</Text>
+      </Pressable>
 
       <Text style={styles.label}>{pagesLabel}</Text>
       <View style={styles.pagesRow}>
@@ -174,4 +184,10 @@ const styles = StyleSheet.create({
   },
   stepBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
   hint: { color: colors.textMuted, fontSize: typography.sizeXs },
+  examplesLink: {
+    color: colors.primary,
+    fontSize: typography.sizeXs,
+    fontWeight: "700",
+    marginTop: spacing.xs,
+  },
 });

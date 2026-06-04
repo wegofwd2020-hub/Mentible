@@ -45,6 +45,22 @@ export default function HelpScreen() {
         </Text>
       </Section>
 
+      <Section title="Diagram types">
+        <Text style={styles.body}>
+          The Diagrams setting controls what kind of visuals you get — from
+          big-idea infographics to precise technical diagrams. Browse examples to
+          pick the direction that fits your audience.
+        </Text>
+        <Pressable
+          style={styles.linkBtn}
+          onPress={() => router.push("/diagram-types")}
+          accessibilityRole="button"
+          accessibilityLabel="Browse diagram types"
+        >
+          <Text style={styles.linkBtnText}>Browse diagram types →</Text>
+        </Pressable>
+      </Section>
+
       <Section title="Formats">
         <Text style={styles.body}>
           At launch, generations are lessons. Saved content can be compiled into

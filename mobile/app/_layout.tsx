@@ -22,6 +22,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="diagram-types"
+          options={{
+            title: "Diagram types",
+            headerBackTitle: "Help",
+          }}
+        />
+        <Stack.Screen
           name="lesson/[jobId]"
           options={{
             title: "Lesson",
