@@ -216,13 +216,14 @@ const PDF_CSS = `
   ${SOURCE_SERIF_FONTFACE}
   @page {
     size: A4;
-    margin: 20mm 18mm;
+    margin: 24mm 22mm; /* more air (Anthropic-leaning); also spreads content toward the ~50pp target */
+    background: #faf8f3; /* warm ivory ground */
     @bottom-center { content: counter(page); font-size: 9pt; color: #777; }
   }
   html {
     font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
     font-size: 11pt;
-    line-height: 1.55;
+    line-height: 1.62;
     color: #111;
     counter-reset: figure table;
   }
