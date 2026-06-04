@@ -48,3 +48,48 @@ export async function pickTocFileContents(): Promise<string | null> {
     "*/*",
   ]);
 }
+
+// base64 → ArrayBuffer. Hermes has no atob, so decode with a small accumulator.
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+export function fromBase64(s: string): ArrayBuffer {
+  const lookup = new Int16Array(128).fill(-1);
+  for (let i = 0; i < B64.length; i++) lookup[B64.charCodeAt(i)] = i;
+  const clean = s.replace(/[^A-Za-z0-9+/]/g, ""); // drop padding/newlines
+  const out = new Uint8Array((clean.length * 6) >> 3); // floor(n*6/8)
+  let p = 0;
+  let acc = 0;
+  let bits = 0;
+  for (let i = 0; i < clean.length; i++) {
+    acc = (acc << 6) | lookup[clean.charCodeAt(i)];
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[p++] = (acc >> bits) & 0xff;
+    }
+  }
+  return out.buffer;
+}
+
+// Pick an .epub file and return its bytes + filename, or null if cancelled.
+// EPUB is application/epub+zip, but Android providers often report it as
+// octet-stream, so allow a broad set (plus a wildcard) to keep it selectable.
+export async function pickEpubFile(): Promise<{ name: string; bytes: ArrayBuffer } | null> {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: ["application/epub+zip", "application/octet-stream", "*/*"],
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  if (res.canceled || !res.assets || res.assets.length === 0) return null;
+  const asset = res.assets[0];
+  const name = asset.name ?? "book.epub";
+  let bytes: ArrayBuffer;
+  if (Platform.OS === "web") {
+    bytes = await (await fetch(asset.uri)).arrayBuffer();
+  } else {
+    const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    bytes = fromBase64(b64);
+  }
+  return { name, bytes };
+}

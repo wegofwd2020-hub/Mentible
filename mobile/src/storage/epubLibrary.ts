@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 // Local library of compiled EPUB3 books — the authoring app's "finished shelf".
 // EPUBs are multi-MB binaries, so AsyncStorage/localStorage won't do:
@@ -225,7 +226,15 @@ async function nativeDelete(id: string): Promise<void> {
 }
 
 async function nativeOpen(id: string): Promise<void> {
-  // The EPUB is saved on device; sharing it to a reader app comes with the
-  // reader integration (would use expo-sharing). For now, surface its location.
-  throw new Error(`Saved on device at ${epubPath(id)} — opening in a reader is coming soon.`);
+  // Share the EPUB to an external reader (or Files) via the OS share sheet.
+  const path = epubPath(id);
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(path, {
+      mimeType: "application/epub+zip",
+      dialogTitle: "Open or share EPUB",
+      UTI: "org.idpf.epub-container",
+    });
+    return;
+  }
+  throw new Error(`Saved on device at ${path}`);
 }
