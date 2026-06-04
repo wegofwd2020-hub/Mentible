@@ -31,6 +31,9 @@ export interface GenerateRequest {
   format: "lesson";
   api_key: string;
   depth?: "quick" | "standard" | "deep";
+  // Diagram direction for this generation (conceptual ↔ technical). Omitted =
+  // backend default ("balanced"). See types/generationParams.ts DiagramRegister.
+  diagram_register?: "conceptual" | "balanced" | "technical";
   // Target length in pages for this lesson's prose (excludes quizzes/answers).
   // 0 or omitted = no explicit target. For a book, the client divides the
   // whole-book page target across topics, so this is the per-lesson share.

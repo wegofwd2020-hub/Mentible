@@ -32,6 +32,7 @@ export function buildGenerateRequest({
     language: params.language,
     format: params.format,
     depth: params.depth,
+    diagram_register: params.diagramRegister,
     target_pages: pages > 0 ? pages : 0,
     ...(trimmed ? { instructions: trimmed } : {}),
     api_key: apiKey,

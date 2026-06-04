@@ -19,6 +19,11 @@ Level = Literal["student", "professional", "expert"]
 # Languages (D15). MVP is English-only; v1.1 adds fr/es.
 Language = Literal["en", "fr", "es"]
 
+# Diagram register — the "diagram direction" of the publication. Steers what KIND
+# of diagrams the model produces (see prompt_builder._DIAGRAM_REGISTERS). Mirrors
+# the mobile DiagramRegister type (mobile/src/types/generationParams.ts).
+DiagramRegister = Literal["conceptual", "balanced", "technical"]
+
 
 class GenerateRequest(BaseModel):
     """Body of POST /generate.
@@ -42,6 +47,10 @@ class GenerateRequest(BaseModel):
     prior_knowledge: str | None = Field(default=None, max_length=2000)
     framing: str | None = Field(default=None, max_length=500)
     depth: Literal["quick", "standard", "deep"] = "standard"
+
+    # Diagram direction — what kind of diagrams to favour (conceptual ↔ technical).
+    # Defaults to "balanced" so existing clients are unaffected.
+    diagram_register: DiagramRegister = "balanced"
 
     # Target length in pages for this lesson's prose (excludes quizzes/answers).
     # 0 (default) = no explicit target — let depth + the model decide ("as much

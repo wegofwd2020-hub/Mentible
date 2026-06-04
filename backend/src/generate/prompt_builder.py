@@ -41,16 +41,20 @@ _DEPTH_HINTS: dict[str, str] = {
 # lighter than a dense paragraph page, so this sits at the low end.
 _WORDS_PER_PAGE = 450
 
-# Diagram styling guidance. The compiler injects the brand palette for these role
-# classes automatically (see compiler/src/tokens.ts + mermaid.ts), so the model
-# only has to TAG nodes with a role — it must not emit its own classDef/colours.
-# The role vocabulary here must stay in sync with DIAGRAM_ROLES in tokens.ts.
-_DIAGRAM_GUIDELINES = """\
-Diagram styling (Mermaid flowcharts):
-- Use a `flowchart` (LR or TD) for processes, pipelines, decision flows and
-  concept maps — one focused diagram beats a wall of prose.
-- Colour-code each node by tagging it with EXACTLY ONE role class, appended as
-  `:::role` on the node. Use only these roles:
+# Diagram styling guidance. The compiler injects the brand palette automatically
+# (see compiler/src/tokens.ts + mermaid.ts): role-tagged flowchart nodes get
+# their colours, and every other diagram type is themed via the base-theme
+# variables. So the model must TAG flowchart nodes with a role and never emit its
+# own classDef/colours. The role vocabulary must stay in sync with DIAGRAM_ROLES
+# in tokens.ts.
+#
+# The DIAGRAM REGISTER (request field; mirrors mobile DiagramRegister) selects
+# the "diagram direction" of the publication — what KIND of diagrams to favour.
+# See the diagram-register gallery + ADR-007 (generation directives are template
+# params). The role-tagging contract below is shared by every register.
+_DIAGRAM_ROLE_CONTRACT = """\
+Flowchart colour-coding (applies whenever you use a `flowchart`):
+- Tag each node with EXACTLY ONE role class, appended as `:::role`:
   - `:::concept`  — a core idea / anchor / the subject itself
   - `:::process`  — a step, stage or action
   - `:::decision` — a question or branch (diamond)
@@ -65,9 +69,67 @@ Diagram styling (Mermaid flowcharts):
     C -->|no| B
   ```
 - Do NOT write your own `classDef` lines or hex colours — they are added on
-  render. Just tag nodes with `:::role`. Keep diagrams to ~4-9 nodes so they
-  stay legible at page width.
+  render. Other diagram types (sequenceDiagram, stateDiagram-v2) are themed
+  automatically; do not colour them either. Keep every diagram legible at page
+  width (~4-9 nodes for a flowchart).
 """
+
+# Per-register guidance: what kind of diagrams to produce for this publication.
+_DIAGRAM_REGISTERS: dict[str, str] = {
+    "conceptual": """\
+Diagrams — CONCEPTUAL direction (overview / non-technical audience):
+- Aim for intuition and discussion, not implementation detail. Avoid
+  step-by-step decision logic, sequence diagrams and state machines — too
+  granular for this reader. Prefer ONE clear conceptual diagram per major idea,
+  drawn from these patterns:
+  - MINDMAP — a topic and the facets that branch off it. Native Mermaid
+    `mindmap` (no role tags; themed on render). Indent to nest:
+    ```mermaid
+    mindmap
+      root((Core idea))
+        Branch A
+          Detail
+        Branch B
+    ```
+  - RADIAL / hub-and-spoke — several contributors pointing at one centre. A
+    `flowchart` with each node `--> Hub`; tag the hub and the spokes `:::role`.
+  - FUNNEL / stage flow — a few big ideas in sequence. A short `flowchart TB`
+    of 3-4 `:::role`-tagged stages.
+  - QUADRANT — two axes splitting a space into four labelled cells. Native
+    Mermaid `quadrantChart`:
+    ```mermaid
+    quadrantChart
+      x-axis Low --> High
+      y-axis Low --> High
+      quadrant-1 Top right
+      quadrant-2 Top left
+      quadrant-3 Bottom left
+      quadrant-4 Bottom right
+    ```
+- Keep every diagram to a few elements so it carries the big picture at a glance.""",
+    "balanced": """\
+Diagrams — BALANCED direction (default; practitioner audience):
+- Use a `flowchart` (LR or TD) for processes, pipelines, decision flows and
+  concept maps — one focused diagram beats a wall of prose. Add decision
+  branches and loops where they genuinely clarify the logic.
+- Reach for a `sequenceDiagram` only when interaction-over-time is the point.""",
+    "technical": """\
+Diagrams — TECHNICAL direction (reference / engineer audience):
+- Choose the diagram type that fits the content precisely:
+  - `flowchart` for decision logic — show the real branches and loops.
+  - `sequenceDiagram` for interactions over time (who calls whom, sync vs async).
+  - `stateDiagram-v2` for lifecycles (the states one thing moves through).
+  - `flowchart` with `subgraph`s for architecture (components and boundaries).
+- Favour an accurate, complete diagram over a tidy one; more than one diagram in
+  a section is fine when each adds rigour.""",
+}
+
+
+def _diagram_guidelines(diagram_register: str) -> str:
+    """Diagram guidance for the chosen register + the shared role contract."""
+    block = _DIAGRAM_REGISTERS.get(diagram_register, _DIAGRAM_REGISTERS["balanced"])
+    return f"{block}\n\n{_DIAGRAM_ROLE_CONTRACT}"
+
 
 # Prose-quality directive — sharpen clarity WITHOUT sacrificing coverage. Avoids
 # the literals asserted against in tests ("page(s)", "2 short sections").
@@ -181,6 +243,7 @@ def build_lesson_prompt(
     language: str,
     depth: str = "standard",
     target_pages: int = 0,
+    diagram_register: str = "balanced",
     prior_knowledge: str | None = None,
     framing: str | None = None,
     instructions: str | None = None,
@@ -191,6 +254,9 @@ def build_lesson_prompt(
 
     target_pages > 0 sets an approximate length for the lesson prose (it takes
     precedence over `depth`); 0 leaves length to the depth hint.
+
+    diagram_register: the "diagram direction" (conceptual / balanced / technical)
+    — selects what kind of diagrams the model should favour.
 
     instructions: free-text author guidance applied to this (re)generation —
     e.g. "add a diagram for the T-shape".
@@ -228,7 +294,7 @@ You MUST respond with ONLY valid JSON — no markdown fences, no extra text, no 
 
 {_FORMATTING_GUIDELINES}
 {_subject_guidelines(subject)}
-{_DIAGRAM_GUIDELINES}
+{_diagram_guidelines(diagram_register)}
 {_PROSE_QUALITY}
 The JSON must exactly match this schema:
 

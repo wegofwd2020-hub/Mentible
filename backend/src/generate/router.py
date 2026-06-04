@@ -140,6 +140,7 @@ async def submit_generate(
         format=body.format,
         depth=body.depth,
         target_pages=body.target_pages,
+        diagram_register=body.diagram_register,
         prior_knowledge=body.prior_knowledge,
         framing=body.framing,
         instructions=body.instructions,

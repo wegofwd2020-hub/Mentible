@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
+import { REGISTERS } from "@/constants/registers";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { GenerationParams } from "@/types/generationParams";
 
@@ -45,6 +46,26 @@ export function GenerationParamsEditor({
             >
               <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{d.label}</Text>
               <Text style={[styles.chipDesc, selected && styles.chipDescSelected]}>{d.description}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <Text style={styles.label}>Diagrams</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {REGISTERS.map((r) => {
+          const selected = r.value === value.diagramRegister;
+          return (
+            <Pressable
+              key={r.value}
+              onPress={() => set({ diagramRegister: r.value })}
+              style={[styles.chip, selected && styles.chipSelected]}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={`${r.label} — ${r.description}`}
+            >
+              <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{r.label}</Text>
+              <Text style={[styles.chipDesc, selected && styles.chipDescSelected]}>{r.description}</Text>
             </Pressable>
           );
         })}

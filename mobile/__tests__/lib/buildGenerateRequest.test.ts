@@ -7,6 +7,7 @@ const PARAMS: GenerationParams = {
   pages: 12,
   language: "en",
   format: "lesson",
+  diagramRegister: "technical",
 };
 
 describe("buildGenerateRequest", () => {
@@ -18,6 +19,7 @@ describe("buildGenerateRequest", () => {
       depth: "deep",
       language: "en",
       format: "lesson",
+      diagram_register: "technical",
       target_pages: 12,
       api_key: "k",
     });
