@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -118,6 +119,12 @@ function ScopeLens() {
   const [format, setFormat] = useState("Lesson");
   return (
     <View style={styles.block}>
+      <Image
+        source={require("../assets/brand/mentible-icon-1024-redorange.png")}
+        style={styles.conceptMark}
+        resizeMode="contain"
+        accessibilityLabel="Mentible mark"
+      />
       <Text style={styles.wordmark}>{BRAND_NAME}</Text>
       <Text style={styles.tagline}>{BRAND_TAGLINE}</Text>
 
@@ -339,6 +346,11 @@ const styles = StyleSheet.create({
   switchTextOn: { color: colors.primary },
 
   block: { gap: spacing.sm },
+  conceptMark: {
+    width: 72,
+    height: 72,
+    alignSelf: "center",
+  },
   wordmark: {
     fontSize: typography.sizeXxl,
     fontWeight: "800",

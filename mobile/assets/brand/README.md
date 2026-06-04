@@ -74,19 +74,29 @@ themed — revert to `#1e1b4b` if a dark splash is preferred).
 
 ## Promoting one to the app
 
-These are full logos (they include the wordmark), so they are **not** drop-in
-launcher icons. To use one:
+## Where each asset is used (canonical wiring)
 
-- **App launcher / splash / favicon** — produce a **square, text-free** crop of
-  just the mark (e.g. 1024×1024), save as `assets/icon.png`,
-  `assets/adaptive-icon.png` (foreground), `assets/splash.png`,
-  `assets/favicon.png`, then wire them in `app.json` under
-  `expo.icon`, `expo.android.adaptiveIcon.foregroundImage`, `expo.splash.image`,
-  `expo.web.favicon`.
-- **In-app hero** — the Query screen renders the wordmark as text
-  (`BRAND_NAME`/`BRAND_TAGLINE` in `app/(tabs)/index.tsx`). To show the logo
-  image instead, render one of these via `expo-image`/`Image` there (the full
-  logo already contains the wordmark, so drop the text lines).
+The red-orange family is the **production brand**. Current usage:
+
+| Surface | Asset | Where |
+|---|---|---|
+| App launcher icon | `assets/icon.png` (from `…-redorange.png`) | `app.json` → `expo.icon` |
+| Android adaptive icon | `assets/adaptive-icon.png` | `app.json` → `android.adaptiveIcon.foregroundImage` |
+| Splash | `assets/splash.png` (the lockup) | `app.json` → `expo.splash.image` |
+| Web favicon | `assets/favicon.png` | `app.json` → `web.favicon` |
+| **Home hero** (mobile + web) | `mentible-lockup-redorange-white.png` | `app/(tabs)/index.tsx` |
+| **Settings header** | `mentible-lockup-redorange-white.png` | `app/(tabs)/settings.tsx` |
+| **Concept gallery** mark | `mentible-icon-1024-redorange.png` (transparent — reads on the dark UI) | `app/concepts.tsx` |
+| **Book cover/colophon** (compiler) | embedded `MENTIBLE_LOGO_DATA_URI` (red-orange mark) | `compiler/src/brandLogo.ts` |
+
+Notes:
+- The **white-bg lockup** sits on a light card (`#fff`) on the dark UI; the
+  **transparent mark** is used where a card would be intrusive (concept blocks).
+- App display **name** is "Mentible" (`expo.name` + `expo.web.name`); the
+  `slug`/`scheme`/`android.package` keep the legacy `studybuddy-q` identity —
+  **do not rename those** until the trademark is cleared (build/store identity).
+- To re-cut the launcher set, produce a **square, text-free** 1024² crop of the
+  mark and overwrite `assets/{icon,adaptive-icon,splash,favicon}.png`.
 
 Original drop: `~/Downloads/mentible_recolored.zip` (also had opaque
 white-background PNGs).

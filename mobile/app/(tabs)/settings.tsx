@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -85,6 +86,17 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
+      <View style={styles.brandHeader}>
+        <View style={styles.brandCard}>
+          <Image
+            source={require("../../assets/brand/mentible-lockup-redorange-white.png")}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="Mentible — Author Yourself"
+          />
+        </View>
+      </View>
+
       <Text style={styles.sectionLabel}>Anthropic API key</Text>
       <Text style={styles.helpText}>
         Your key is stored in the Android Keystore and sent directly to this
@@ -191,6 +203,23 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
     gap: spacing.md,
+  },
+  // Brand lockup sits on a light card (the mark is designed for light backdrops),
+  // shrink-wrapped and centered above the settings content.
+  brandHeader: {
+    alignItems: "center",
+    paddingTop: spacing.sm,
+  },
+  brandCard: {
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  brandLogo: {
+    width: 132,
+    height: 132,
   },
   sectionLabel: {
     fontSize: typography.sizeXs,

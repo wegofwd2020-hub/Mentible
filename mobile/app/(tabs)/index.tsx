@@ -99,10 +99,10 @@ export default function HomeScreen() {
         <View style={styles.hero} accessibilityRole="header">
           <View style={styles.logoCard}>
             <Image
-              source={require("../../assets/brand/mentible-growing-mind.png")}
+              source={require("../../assets/brand/mentible-lockup-redorange-white.png")}
               style={styles.logo}
               resizeMode="contain"
-              accessibilityLabel="Mentible — AI-Driven Self-Learner"
+              accessibilityLabel="Mentible — Author Yourself"
             />
           </View>
         </View>
