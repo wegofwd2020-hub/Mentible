@@ -3,7 +3,7 @@ import { pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import type { GenerationParams } from "@/types/generationParams";
-import type { LessonOutput } from "@/types/lesson";
+import type { LessonOutput, Provenance } from "@/types/lesson";
 
 export type TopicGenStatus = "idle" | "generating" | "done" | "failed";
 
@@ -23,13 +23,20 @@ export interface RunTopicArgs {
   instructions?: string;
 }
 
+// One successful generation: the lesson plus the provenance of the model that
+// produced it (when the backend reported it). The caller persists both.
+export interface TopicGenResult {
+  lesson: LessonOutput;
+  provenance?: Provenance;
+}
+
 export interface UseGenerateTopicResult {
   status: TopicGenStatus;
   error: string | null;
-  // Generate one topic against the user's key and resolve with the lesson, or
-  // null on failure (error is set). The caller persists the result — this hook
-  // is stateless about the book.
-  run: (args: RunTopicArgs) => Promise<LessonOutput | null>;
+  // Generate one topic against the user's key and resolve with the lesson +
+  // provenance, or null on failure (error is set). The caller persists the
+  // result — this hook is stateless about the book.
+  run: (args: RunTopicArgs) => Promise<TopicGenResult | null>;
 }
 
 // Single-topic generate over the same stateless /generate the batch loop uses.
@@ -43,7 +50,7 @@ export function useGenerateTopic({
   const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(
-    async ({ title, subtopics, params, instructions }: RunTopicArgs): Promise<LessonOutput | null> => {
+    async ({ title, subtopics, params, instructions }: RunTopicArgs): Promise<TopicGenResult | null> => {
       setError(null);
       setStatus("generating");
 
@@ -70,7 +77,7 @@ export function useGenerateTopic({
           // Force the clean topic title as the heading — the prompt folds
           // subtopics into the topic line and the model echoes them into
           // lesson.topic (the rendered H1), which pollutes the heading.
-          return { ...job.result, topic: title };
+          return { lesson: { ...job.result, topic: title }, provenance: job.provenance };
         }
         setError(job.error ?? "Generation failed");
         setStatus("failed");

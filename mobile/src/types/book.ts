@@ -1,7 +1,7 @@
 // Book-authoring types — mirror the backend StructuredTOC shape
 // (pipeline/toc_structurer.py) and the POST /structure request/response.
 
-import type { LessonOutput } from "@/types/lesson";
+import type { LessonOutput, Provenance } from "@/types/lesson";
 import type { GenerationParams } from "@/types/generationParams";
 
 export interface TopicNode {
@@ -124,6 +124,9 @@ export interface GeneratedTopic {
   quizSets?: QuizSet[];
   experiment?: ExperimentOutput;
   generatedAt: string;
+  // Which provider/model + versions produced this content (when known). Absent
+  // on pre-Phase-3c units and on imported books.
+  provenance?: Provenance;
 }
 
 // Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on

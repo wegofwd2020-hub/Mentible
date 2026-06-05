@@ -16,10 +16,22 @@ export interface LessonOutput {
 
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
+// Which LLM + versions produced a generation (backend registry.provenance).
+// Stored on the saved unit so we can later detect content made with an outdated
+// model/integration and offer to regenerate.
+export interface Provenance {
+  provider: string;
+  model: string;
+  model_verified?: boolean;
+  integration_version?: number;
+  contract_version?: number;
+}
+
 export interface JobResponse {
   job_id: string;
   status: JobStatus;
   result?: LessonOutput;
+  provenance?: Provenance;
   error?: string;
 }
 

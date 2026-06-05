@@ -17,7 +17,7 @@ import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
-import type { LessonOutput } from "@/types/lesson";
+import type { LessonOutput, Provenance } from "@/types/lesson";
 
 const STATUS_GLYPH: Record<TopicProgress["status"], string> = {
   pending: "○",
@@ -108,7 +108,7 @@ export default function GenerateAllScreen() {
   const getApiKey = useCallback(() => loadApiKey(params.provider), [params.provider]);
 
   const handleTopicDone = useCallback(
-    async (topicId: string, title: string, lesson: LessonOutput) => {
+    async (topicId: string, title: string, lesson: LessonOutput, provenance?: Provenance) => {
       const base = bookRef.current;
       if (!base) return;
       const next = setTopicContent(base, {
@@ -116,6 +116,7 @@ export default function GenerateAllScreen() {
         title,
         lesson,
         generatedAt: new Date().toISOString(),
+        provenance,
       });
       bookRef.current = next;
       setBook(next);

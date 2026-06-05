@@ -4,7 +4,7 @@ import { buildTopicPrompt } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import type { StructuredTOC } from "@/types/book";
 import type { GenerationParams } from "@/types/generationParams";
-import type { LessonOutput } from "@/types/lesson";
+import type { LessonOutput, Provenance } from "@/types/lesson";
 
 export type TopicRunStatus = "pending" | "generating" | "done" | "failed";
 
@@ -30,7 +30,13 @@ interface UseGenerateAllArgs {
   // Resolve the BYOK key lazily so it is read at run time, never held in state.
   getApiKey: () => Promise<string | null>;
   // Called once per topic that completes successfully — persist it here.
-  onTopicDone: (topicId: string, title: string, lesson: LessonOutput) => void | Promise<void>;
+  // provenance is the model that produced the lesson (when the backend reported it).
+  onTopicDone: (
+    topicId: string,
+    title: string,
+    lesson: LessonOutput,
+    provenance?: Provenance,
+  ) => void | Promise<void>;
   // Topic ids already generated — shown as done and skipped, so a re-run only
   // fills gaps rather than re-billing the user's key for finished topics.
   alreadyDone?: string[];
@@ -160,7 +166,7 @@ export function useGenerateAll({
             // echoes them back into lesson.topic (the rendered H1 heading).
             // Force the clean topic title so the heading isn't polluted with
             // the subtopic descriptions.
-            await onTopicDone(t.topicId, t.title, { ...job.result, topic: t.title });
+            await onTopicDone(t.topicId, t.title, { ...job.result, topic: t.title }, job.provenance);
             setStatus(t.topicId, "done");
           } else {
             setStatus(t.topicId, "failed", job.error ?? "Generation failed");

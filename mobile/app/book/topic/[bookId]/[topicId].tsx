@@ -100,14 +100,15 @@ export default function BookTopicScreen() {
     setBook(withInstr);
     await saveBook(withInstr);
 
-    const lesson = await run({ title, subtopics, params, instructions: trimmed || undefined });
-    if (!lesson) return; // failure surfaces via `error`
+    const result = await run({ title, subtopics, params, instructions: trimmed || undefined });
+    if (!result) return; // failure surfaces via `error`
 
     const next = setTopicContent(withInstr, {
       topicId,
       title,
-      lesson,
+      lesson: result.lesson,
       generatedAt: new Date().toISOString(),
+      provenance: result.provenance,
     });
     setBook(next);
     setTopic(next.content?.[topicId] ?? null);
