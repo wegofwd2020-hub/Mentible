@@ -20,6 +20,22 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Image MIME for a raster cover's file extension (so the web data: URL is
+// labelled correctly — third-party EPUB covers are frequently JPEG/WebP).
+function mimeForExt(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    default:
+      return "image/png";
+  }
+}
+
 // The Library: finished books compiled to EPUB3 and stored on this device,
 // shown as a cover shelf (Calibre-style). Authored books open in the in-app
 // reader; imported EPUBs (no book.json) open via the OS share sheet. Any EPUB
@@ -65,6 +81,7 @@ export default function LibraryScreen() {
         bytes: picked.bytes,
         coverSvg: cover?.svg,
         coverBytes: cover?.raster,
+        coverMime: cover?.ext ? mimeForExt(cover.ext) : undefined,
       });
       reload();
     } catch (e) {
