@@ -98,6 +98,34 @@ describe("parseBook", () => {
     expect(typeof book.id).toBe("string");
     expect(book.id.length).toBeGreaterThan(0);
   });
+
+  it("preserves metadata (author + edition drive the cover) and generationParams", () => {
+    const book = parseBook(
+      validBookJson({
+        metadata: {
+          author: "Sridhar Parthasarathy",
+          publisher: "Mentible",
+          version: "2.0",
+          edition: "Second Edition",
+          status: "release",
+          glossary: [{ term: "AI", definition: "…" }],
+        },
+        generationParams: { level: "Grade 11", language: "en" },
+      }),
+    );
+    expect(book.metadata?.author).toBe("Sridhar Parthasarathy");
+    expect(book.metadata?.version).toBe("2.0");
+    expect(book.metadata?.edition).toBe("Second Edition");
+    // Unmodelled-but-valid fields (e.g. glossary) survive the passthrough.
+    expect((book.metadata as Record<string, unknown>).glossary).toBeDefined();
+    expect(book.generationParams?.language).toBe("en");
+  });
+
+  it("omits metadata/generationParams when absent (no empty shells)", () => {
+    const book = parseBook(validBookJson());
+    expect("metadata" in book).toBe(false);
+    expect("generationParams" in book).toBe(false);
+  });
 });
 
 describe("importBook", () => {
