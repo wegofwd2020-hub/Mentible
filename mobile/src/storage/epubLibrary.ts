@@ -25,6 +25,7 @@ export interface SaveEpubInput {
   title: string;
   bytes: ArrayBuffer;
   coverBytes?: ArrayBuffer; // optional raster cover thumbnail (from /export?format=cover)
+  coverMime?: string; // MIME of coverBytes (defaults to image/png — compiled covers are PNG)
   coverSvg?: string; // optional vector cover (extracted from the EPUB on import)
 }
 
@@ -136,7 +137,7 @@ interface WebRecord extends EpubMeta {
   blob: Blob;
 }
 
-async function webSave({ bookId, title, bytes, coverBytes, coverSvg }: SaveEpubInput): Promise<EpubMeta> {
+async function webSave({ bookId, title, bytes, coverBytes, coverMime, coverSvg }: SaveEpubInput): Promise<EpubMeta> {
   const inlineSvg = coverSvg && coverSvg.length <= MAX_INLINE_SVG ? coverSvg : undefined;
   const meta: EpubMeta = {
     id: bookId,
@@ -144,9 +145,10 @@ async function webSave({ bookId, title, bytes, coverBytes, coverSvg }: SaveEpubI
     sizeBytes: bytes.byteLength,
     compiledAt: new Date().toISOString(),
     // A data: URL renders directly in <Image> and survives reloads (unlike an
-    // object URL), so store the cover inline in the meta on web.
+    // object URL), so store the cover inline in the meta on web. Use the cover's
+    // real MIME (third-party covers are often JPEG, not PNG).
     ...(coverBytes && coverBytes.byteLength > 0
-      ? { coverUri: `data:image/png;base64,${toBase64(coverBytes)}` }
+      ? { coverUri: `data:${coverMime || "image/png"};base64,${toBase64(coverBytes)}` }
       : {}),
     ...(inlineSvg ? { coverSvg: inlineSvg } : {}),
   };

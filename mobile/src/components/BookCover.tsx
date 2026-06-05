@@ -1,8 +1,22 @@
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Platform, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SvgXml } from "react-native-svg";
 import { typography } from "@/constants/theme";
+
+// Render a vector cover. On web, react-native-svg's SvgXml parser chokes on the
+// features our editorial cover SVGs use (embedded <style>, CSS classes,
+// gradients) and renders blank, so hand the markup to the browser's own SVG
+// engine via an <img> data URL. On native, keep SvgXml — RN's Image can't
+// render SVG. Mirrors the iframe-on-web / WebView-on-native split in
+// LessonRenderer.
+function VectorCover({ svg }: { svg: string }) {
+  if (Platform.OS === "web") {
+    const uri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    return <Image source={{ uri }} style={styles.image} resizeMode="cover" />;
+  }
+  return <SvgXml xml={svg} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />;
+}
 
 // In-app book cover. Renders the real cover when available — a raster thumbnail
 // (coverUri, e.g. a compiled artifact's cover) or a vector cover (coverSvg, e.g.
@@ -37,7 +51,7 @@ export function BookCover({
         {coverUri ? (
           <Image source={{ uri: coverUri }} style={styles.image} resizeMode="cover" />
         ) : (
-          <SvgXml xml={coverSvg as string} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+          <VectorCover svg={coverSvg as string} />
         )}
         {badgeEl}
       </View>
