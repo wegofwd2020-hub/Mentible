@@ -163,7 +163,7 @@ function ScopeLens() {
         <Text style={styles.ctaText}>Author it →</Text>
       </Pressable>
       <Text style={styles.note}>
-        The 6-dimension scoped query, made tactile — the IP as the interface.
+        The 6-dimension scoped generation, made tactile — the IP as the interface.
       </Text>
     </View>
   );
