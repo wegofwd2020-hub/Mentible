@@ -141,6 +141,16 @@ export interface BookMetadata {
   series?: string;
   seriesIndex?: number;
   accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata
+
+  // Release lifecycle (ADR-008). Absent or "release" → no watermark. These drive
+  // the cover's edition stamp (editionLabel) and the colophon — kept aligned with
+  // compiler/src/types.ts BookMetadata.
+  status?: "draft" | "release"; // "draft" watermarks the artifact
+  version?: string; // e.g. "1.0"
+  edition?: string; // e.g. "First Edition"
+  releaseDate?: string; // ISO date, set on release
+  watermark?: string; // explicit override text; else "DRAFT" when status === "draft"
+  revisionHistory?: { version: string; date: string; notes?: string }[];
 }
 
 // EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary). Auto-derived
