@@ -23,6 +23,14 @@ educational artefact.
 > authoring) and **ADR-004** (two-product split + artifact delivery) take
 > precedence where they differ.
 
+> **Books-only (amended 2026-06-05 — see ADR-009).** The standalone **Query**
+> single-lesson surface has been removed; the app is now **Books-only** (nav:
+> Library · Books · Settings · Help · About). The scoped-query *model* below is
+> unchanged and remains the IP — it now expresses itself **per topic inside a
+> book** rather than as a one-off lesson. Mentions of a "Query screen", a single
+> "Lesson view", or single-lesson output (D13, D16) are historical; **ADR-009**
+> takes precedence.
+
 ---
 
 ## Mental model — "scoped retrieval over the world of knowledge"
@@ -58,6 +66,7 @@ Read these in order:
 | `docs/adr/ADR-003-book-authoring.md` | Before touching book authoring (TOC structuring, topic tree, generate-all) |
 | `docs/adr/ADR-004-two-product-split-and-artifacts.md` | Before touching artifact export (EPUB3/PDF), the money model, or anything reader-facing |
 | `docs/ARTIFACT_PIPELINE.md` | With ADR-004 — the content→EPUB3/PDF compile flow and the interactive-vs-static matrix |
+| `docs/adr/ADR-009-books-only-remove-query.md` | Before adding any generation surface — the app is Books-only; the Query single-lesson screen was removed (amends D13/D16) |
 
 The parent product's docs (`StudyBuddy_OnDemand/CLAUDE.md` and the
 `studybuddy-docs` repo) are useful background but **do not apply** to this repo.
@@ -81,10 +90,10 @@ This is a separate product with separate compliance, infra, and audience.
 | D10 | Auth: email+password AND Sign in with Google |
 | D11 | Hosting: shared infra with StudyBuddy_OnDemand |
 | D12 | Latency target: minutes, not seconds-with-stream |
-| D13 | v1 output formats: Lesson / Explanation / Quiz |
+| D13 | *(amended — ADR-009)* Output formats: Lesson / Explanation / Quiz — as **per-topic content within a book**; no standalone single-lesson generator (`lesson` wired at MVP) |
 | D14 | v1 visual aids: KaTeX + Mermaid + blockquotes + tables + AI-picks |
 | D15 | Refined 7-field input list |
-| D16 | Single canvas + collapsible side panel (no wizard) |
+| D16 | *(superseded — ADR-009)* Described the Query screen (removed). Authoring uses New Book → structure → editable topic tree → generate → publish (ADR-003) |
 | D17 | *(amended — ADR-004)* Paid authoring app (subscription/purchase, covers app+upkeep only) + free reader app; author still BYOK |
 | D18 | v1 storage: ~100-lesson fair-use cap |
 | D19 | Brand "StudyBuddy Q" |
@@ -100,7 +109,7 @@ StudyBuddy_SelfLearner/
 
   mobile/              ← React Native + Expo (Android-first)
     app/
-      screens/         ← Query · Library · Settings · Lesson view
+      screens/         ← Library · Books · Settings (Query/Lesson removed — ADR-009)
       components/      ← Markdown renderer (KaTeX + Mermaid + tables)
       hooks/           ← useGenerateJob · useLibrary · useAuth
       api/             ← Backend HTTP client · FCM handler
