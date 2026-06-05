@@ -28,6 +28,44 @@ The integration boundary is an **artifact handoff**, not a service call: Mentibl
 *ships a consumable*; Pramana does not call a "generation service." This ADR
 defines that handoff so Pramana can build against it.
 
+### Mental model — Create → Manufacture → Approve → Present
+
+Four phases; the two boundaries are artifact handoffs (a **Package Request** out — §4
+"The Package Request" — and a **Consumable Package** back). **Pramana says *what*,
+Mentible makes the *thing*, Pramana approves it and presents it.** The **approve**
+step is the compliance-critical gate: manufactured content never reaches a learner
+un-approved.
+
+```mermaid
+flowchart LR
+  subgraph CREATE["1 · CREATE — Pramana"]
+    DEF["Definitions library<br/>(source of truth)"]
+    US["User story<br/>(capability)"]
+    REQ["Package Request<br/>(content brief)"]
+    US --> REQ
+    DEF --> REQ
+  end
+  subgraph MAKE["2 · MANUFACTURE — Mentible"]
+    GEN["Generate<br/>modules + quiz + visuals"]
+    PKG["Package + sign<br/>Consumable Package"]
+    GEN --> PKG
+  end
+  subgraph GATE["3 · APPROVE — Pramana (the gate)"]
+    VER["Verify signature + content_hash"]
+    REV["RECEIVED draft<br/>human approve (SoD)"]
+    PUB["Publish → immutable CourseVersion"]
+    VER --> REV --> PUB
+  end
+  subgraph SHOW["4 · PRESENT — Pramana"]
+    ASN["Assign → quiz → certify"]
+    AUD["Audit evidence (prove)"]
+    ASN --> AUD
+  end
+  REQ -->|push request| GEN
+  PKG -->|push package| VER
+  PUB --> ASN
+```
+
 ## 2. System context
 
 ```mermaid
