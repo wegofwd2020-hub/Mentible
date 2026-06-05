@@ -128,6 +128,51 @@ flowchart TD
   MAN --> QZ["quiz (questions + pass threshold)"]
 ```
 
+### The Package Request (Pramana → Mentible) — the reverse direction
+
+The package above is Mentible's **output**. The **input** that commissions it is a
+**Package Request**: the *spec side* of the manifest, authored on the Pramana side
+(by a compliance SME / content author, typically distilled from a product user
+story). This resolves the §10 "definitions feed" question — Mentible does **not**
+free-read Pramana's docs; it is handed an explicit, auditable request that
+**references** clause anchors in Pramana's definitions library.
+
+```jsonc
+{
+  "request_id": "uuid",
+  "requested_by": "sme@customer",        // audit: who authorized generation
+  "framework": "fcpa",
+  "title": "FCPA Anti-Bribery for At-Risk Roles",
+  "scope": { "personas": ["employee"], "risk_tier": "high" },
+  "source_definitions": [                // refs into Pramana's definitions library
+    { "framework": "fcpa", "clause": "anti-bribery",
+      "ref": "pramana/docs/frameworks/framework_fcpa.md#anti-bribery" }
+  ],
+  "learning_objectives": [ "…" ],        // → modules[]
+  "assessment": { "required": true, "pass_threshold_pct": 80,
+                  "min_questions": 8, "style": "scenario-based" },  // → quiz
+  "constraints": { "every_claim_cited": true, "length_minutes": 20 },
+  "deliverables": ["epub3", "pdf"],      // → artifacts[]
+  "visuals": ["animated_svg"],           // → assets[]
+  "satisfies_stories": ["US-FCPA-0001"]  // traceability into Pramana's backlog
+}
+```
+
+| Package Request (input) | → Manifest (Mentible output, §4) |
+|---|---|
+| `framework`, `title` | `frameworks`, `title` |
+| `source_definitions` | `source_definitions` + per-`module.citations` |
+| `learning_objectives` + `constraints` | `modules[]` |
+| `assessment` | `quiz { pass_threshold_pct, questions }` |
+| `deliverables` / `visuals` | `artifacts[]` / `assets[]` |
+| — (Mentible decides) | `provenance`, `content_hash`, `signature`, `package_id`/`version` |
+
+**Precondition:** every `source_definitions[].ref` must resolve to a real clause
+anchor in `pramana/docs/frameworks/*` (Pramana owns the definitions — §1). No
+definition, no request. The authoring guide + worked examples live on the Pramana
+side at `pramana/docs/user-stories/_templates/package-request.md` and
+`…/<framework>/briefs/`.
+
 ## 5. End-to-end flow
 
 ```mermaid
@@ -206,8 +251,11 @@ stateDiagram-v2
 - **Signing scheme** (key custody for the package signature)?
 - **Re-generation versioning** — a new `package_version` supersedes; how does
   Pramana relate it to an existing `CourseVersion` lineage + in-flight assignments?
-- **Definitions feed** — does Mentible read the framework docs directly, or does
-  Pramana export a machine-readable definitions feed for generation?
+- ~~**Definitions feed** — does Mentible read the framework docs directly, or does
+  Pramana export a machine-readable definitions feed for generation?~~
+  **Resolved (§4 "The Package Request"):** neither — Pramana issues an explicit,
+  auditable **Package Request** that *references* clause anchors in its definitions
+  library; Mentible generates against that request, not by free-reading the docs.
 - **Animated SVG / video in the static artifact** — still-frame + caption fallback
   (per the artifact interactive-vs-static matrix).
 
