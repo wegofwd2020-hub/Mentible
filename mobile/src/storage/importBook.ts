@@ -1,5 +1,6 @@
 import type { Book, StructuredTOC } from "@/types/book";
 import { ensureTopicIds, saveBook } from "@/storage/bookStore";
+import { randomUUID } from "@/lib/uuid";
 
 // Ingest a book produced elsewhere — chiefly a migrated book.json exported from
 // the OnDemand Authoring Studio (StudyBuddy_OnDemand book_export.py), which
@@ -41,9 +42,19 @@ export function parseBook(raw: string): Book {
   }
 
   const now = new Date().toISOString();
-  const id = typeof data.id === "string" && data.id ? data.id : crypto.randomUUID();
+  const id = typeof data.id === "string" && data.id ? data.id : randomUUID();
   const createdAt = typeof data.createdAt === "string" ? data.createdAt : now;
   const content = isRecord(data.content) ? (data.content as Book["content"]) : undefined;
+  // Carry through bibliographic metadata and the generation template verbatim:
+  // these drive the compiled artifact (the cover's byline + edition stamp, the
+  // colophon, copyright, glossary, OPF dc:* fields). Dropping them on import is
+  // why a JSON round-trip "lost" the designed cover — it regenerated without the
+  // author and edition. Passed through whole so fields the mobile type doesn't
+  // model yet (the compiler is the authority) still survive to /export.
+  const metadata = isRecord(data.metadata) ? (data.metadata as Book["metadata"]) : undefined;
+  const generationParams = isRecord(data.generationParams)
+    ? (data.generationParams as unknown as Book["generationParams"])
+    : undefined;
 
   return {
     id,
@@ -52,6 +63,8 @@ export function parseBook(raw: string): Book {
     createdAt,
     updatedAt: now,
     content,
+    ...(generationParams ? { generationParams } : {}),
+    ...(metadata ? { metadata } : {}),
   };
 }
 

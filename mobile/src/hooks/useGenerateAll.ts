@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { pollUntilDone, submitGenerate } from "@/api/client";
+import { buildTopicPrompt } from "@/hooks/topicPrompt";
+import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import type { StructuredTOC } from "@/types/book";
+import type { GenerationParams } from "@/types/generationParams";
 import type { LessonOutput } from "@/types/lesson";
 
 export type TopicRunStatus = "pending" | "generating" | "done" | "failed";
@@ -16,11 +19,14 @@ interface Target {
   topicId: string;
   title: string;
   subtopics: string[];
+  instructions?: string; // persisted per-topic enhancement guidance
 }
 
 interface UseGenerateAllArgs {
   toc: StructuredTOC;
-  level: string;
+  // The book's generation template (level / depth / pages …). `pages` is the
+  // whole-book target, divided evenly across topics into a per-lesson share.
+  params: GenerationParams;
   // Resolve the BYOK key lazily so it is read at run time, never held in state.
   getApiKey: () => Promise<string | null>;
   // Called once per topic that completes successfully — persist it here.
@@ -40,19 +46,11 @@ export interface UseGenerateAllResult {
   failedCount: number;
   total: number;
   errorMsg: string | null;
-  start: () => void;
+  // Run the batch. By default already-generated topics are skipped (gap-fill).
+  // Pass { force: true } to regenerate every topic, overwriting existing
+  // content — used by the "Regenerate all" action in trial/authoring.
+  start: (opts?: { force?: boolean }) => void;
   cancel: () => void;
-}
-
-function randomRequestId(): string {
-  return crypto.randomUUID();
-}
-
-// A book's topic carries its subtopics as scope; fold them into the prompt so
-// the generated lesson stays on-topic within the book.
-function buildTopicPrompt(t: Target): string {
-  if (t.subtopics.length === 0) return t.title;
-  return `${t.title} — covering: ${t.subtopics.join(", ")}`;
 }
 
 // Client-orchestrated batch over the existing stateless /generate (ADR-003 D3).
@@ -61,7 +59,7 @@ function buildTopicPrompt(t: Target): string {
 // continues.
 export function useGenerateAll({
   toc,
-  level,
+  params,
   getApiKey,
   onTopicDone,
   alreadyDone,
@@ -73,23 +71,33 @@ export function useGenerateAll({
     const out: Target[] = [];
     for (const s of toc.subjects) {
       for (const u of s.units) {
-        if (u.id) out.push({ topicId: u.id, title: u.title, subtopics: u.subtopics });
+        if (u.id)
+          out.push({
+            topicId: u.id,
+            title: u.title,
+            subtopics: u.subtopics,
+            instructions: u.enhancementInstructions,
+          });
       }
     }
     return out;
   }, [toc]);
 
-  const initialProgress = useCallback(
-    (): TopicProgress[] =>
+  // When forcing a full regenerate, every topic starts pending (even ones that
+  // already have content) so the UI shows them all re-running.
+  const buildInitialProgress = useCallback(
+    (force: boolean): TopicProgress[] =>
       targets.map((t) => ({
         topicId: t.topicId,
         title: t.title,
-        status: doneSet.has(t.topicId) ? "done" : "pending",
+        status: !force && doneSet.has(t.topicId) ? "done" : "pending",
       })),
     [targets, doneSet],
   );
 
-  const [progress, setProgress] = useState<TopicProgress[]>(initialProgress);
+  const [progress, setProgress] = useState<TopicProgress[]>(() =>
+    buildInitialProgress(false),
+  );
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -105,12 +113,13 @@ export function useGenerateAll({
     [],
   );
 
-  const start = useCallback(() => {
+  const start = useCallback((opts?: { force?: boolean }) => {
     if (running) return;
+    const force = opts?.force ?? false;
     cancelledRef.current = false;
     setErrorMsg(null);
     setFinished(false);
-    setProgress(initialProgress());
+    setProgress(buildInitialProgress(force));
     setRunning(true);
 
     (async () => {
@@ -121,25 +130,37 @@ export function useGenerateAll({
         return;
       }
 
+      // Divide the whole-book page target evenly across topics. An approximate
+      // per-lesson share is fine — the backend treats it as a soft target.
+      const perTopicPages =
+        params.pages > 0 && targets.length > 0
+          ? Math.max(1, Math.round(params.pages / targets.length))
+          : 0;
+
       for (const t of targets) {
         if (cancelledRef.current) break;
-        if (doneSet.has(t.topicId)) continue; // already generated — skip
+        // Skip finished topics on a gap-fill run; on a forced run, redo all.
+        if (!force && doneSet.has(t.topicId)) continue;
         setStatus(t.topicId, "generating");
         try {
-          const res = await submitGenerate({
-            request_id: randomRequestId(),
-            topic: buildTopicPrompt(t),
-            level,
-            language: "en",
-            format: "lesson",
-            depth: "standard",
-            api_key: apiKey,
-          });
+          const res = await submitGenerate(
+            buildGenerateRequest({
+              topic: buildTopicPrompt(t.title, t.subtopics),
+              apiKey,
+              params,
+              targetPages: perTopicPages,
+              instructions: t.instructions,
+            }),
+          );
           const job = await pollUntilDone(res.job_id, undefined, intervalMs);
           if (cancelledRef.current) break;
 
           if (job.status === "done" && job.result) {
-            await onTopicDone(t.topicId, t.title, job.result);
+            // The prompt folds subtopics into the topic line, so the model
+            // echoes them back into lesson.topic (the rendered H1 heading).
+            // Force the clean topic title so the heading isn't polluted with
+            // the subtopic descriptions.
+            await onTopicDone(t.topicId, t.title, { ...job.result, topic: t.title });
             setStatus(t.topicId, "done");
           } else {
             setStatus(t.topicId, "failed", job.error ?? "Generation failed");
@@ -153,7 +174,7 @@ export function useGenerateAll({
       setRunning(false);
       if (!cancelledRef.current) setFinished(true);
     })();
-  }, [running, targets, doneSet, level, getApiKey, onTopicDone, intervalMs, setStatus, initialProgress]);
+  }, [running, targets, doneSet, params, getApiKey, onTopicDone, intervalMs, setStatus, buildInitialProgress]);
 
   const cancel = useCallback(() => {
     cancelledRef.current = true;

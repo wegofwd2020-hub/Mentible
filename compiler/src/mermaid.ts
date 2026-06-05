@@ -1,5 +1,6 @@
 import { renderTopicBody } from "./renderCore";
 import { CollectingDiagramRenderer } from "./diagrams";
+import { DIAGRAM_ROLES, MERMAID_THEME_VARIABLES } from "./tokens";
 import type { Book, GeneratedTopic } from "./types";
 
 // Async Mermaid → SVG rendering (milestone 4 + perf). Mermaid needs a DOM, so a
@@ -34,16 +35,47 @@ function resolvePath(spec: string): string {
 interface MermaidConfig {
   theme: string;
   securityLevel: string;
-  flowchart: { htmlLabels: boolean };
+  flowchart: { htmlLabels: boolean; curve?: string };
   startOnLoad: boolean;
+  themeVariables?: Record<string, string>;
 }
 
+// `base` theme + branded variables (tokens.ts) — replaces Mermaid's gray
+// "neutral" default so every diagram renders on-brand (lavender nodes, indigo
+// borders) even when its nodes carry no role class. Combined with the injected
+// classDefs below, role-tagged flowcharts become high-contrast infographics.
 const MERMAID_CONFIG: MermaidConfig = {
   startOnLoad: false,
-  theme: "neutral",
+  theme: "base",
   securityLevel: "strict",
-  flowchart: { htmlLabels: false }, // keep SVG XML-clean (no foreignObject HTML)
+  flowchart: { htmlLabels: false, curve: "basis" }, // keep SVG XML-clean (no foreignObject HTML)
+  themeVariables: { ...MERMAID_THEME_VARIABLES },
 };
+
+// The role classDefs (concept/process/decision/success/warn) the generator tags
+// nodes against. Marker line lets applyDiagramTheme stay idempotent and lets an
+// author who hand-writes their own classDefs opt out.
+const CLASSDEF_MARKER = "classDef concept";
+function buildRoleClassDefs(): string {
+  return Object.entries(DIAGRAM_ROLES)
+    .map(
+      ([role, s]) =>
+        `classDef ${role} fill:${s.fill},color:${s.color},stroke:${s.stroke},stroke-width:2px;`,
+    )
+    .join("\n");
+}
+
+// Inject the standard role classDefs into a flowchart so `:::role` tags resolve
+// to the brand palette. No-op for non-flowchart diagrams (sequence, etc., where
+// classDef is invalid) and for sources that already define the roles. The
+// returned string is only what we feed the renderer — callers still key results
+// by the ORIGINAL source.
+export function applyDiagramTheme(source: string): string {
+  const firstKeyword = source.trimStart().split(/\s/, 1)[0]?.toLowerCase();
+  const isFlowchart = firstKeyword === "flowchart" || firstKeyword === "graph";
+  if (!isFlowchart || source.includes(CLASSDEF_MARKER)) return source;
+  return `${source.trimEnd()}\n${buildRoleClassDefs()}\n`;
+}
 
 // One headless browser, the local Mermaid bundle injected once, then every
 // diagram rendered in the same page.
@@ -94,10 +126,10 @@ export class PuppeteerMermaidRenderer implements MermaidRenderer {
               }).mermaid;
               return (await m.render(id, code)).svg;
             },
-            source,
+            applyDiagramTheme(source), // themed input…
             `sbq-d${i}`,
           )) as string;
-          out.set(source, extractSvg(svg));
+          out.set(source, extractSvg(svg)); // …keyed by the ORIGINAL source
         } catch {
           // leave unset → placeholder fallback
         }

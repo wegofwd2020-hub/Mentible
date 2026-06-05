@@ -1,7 +1,13 @@
 import React, { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { deleteEpub, listEpubs, type EpubMeta } from "@/storage/epubLibrary";
+import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
+import { pickEpubFile } from "@/storage/pickBookFile";
+import { extractEpubCover } from "@/storage/epubCover";
+import { BookCover } from "@/components/BookCover";
+import { useResponsive } from "@/hooks/useResponsive";
+import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function formatDate(iso: string): string {
@@ -14,24 +20,104 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// The Library: finished books compiled to EPUB3 and stored on this device.
-// Tapping a book downloads it (web) or opens the share sheet (native).
+// Image MIME for a raster cover's file extension (so the web data: URL is
+// labelled correctly — third-party EPUB covers are frequently JPEG/WebP).
+function mimeForExt(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    default:
+      return "image/png";
+  }
+}
+
+// The Library: finished books compiled to EPUB3 and stored on this device,
+// shown as a cover shelf (Calibre-style). Authored books open in the in-app
+// reader; imported EPUBs (no book.json) open via the OS share sheet. Any EPUB
+// can be added with "Import EPUB".
 export default function LibraryScreen() {
   const router = useRouter();
   const [items, setItems] = useState<EpubMeta[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { isDesktop } = useResponsive();
+  const numColumns = isDesktop ? 4 : 2;
 
-  useFocusEffect(
-    useCallback(() => {
-      listEpubs()
-        .then(setItems)
-        .catch(() => setItems([]));
-    }, []),
-  );
+  const reload = useCallback(() => {
+    listEpubs()
+      .then(setItems)
+      .catch(() => setItems([]));
+  }, []);
+
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteEpub(id);
     setItems((prev) => prev.filter((m) => m.id !== id));
   }, []);
+
+  const handleImport = useCallback(async () => {
+    setError(null);
+    setImporting(true);
+    try {
+      const picked = await pickEpubFile();
+      if (!picked) return; // cancelled
+      const head = new Uint8Array(picked.bytes.slice(0, 2));
+      if (head[0] !== 0x50 || head[1] !== 0x4b) {
+        throw new Error("That doesn't look like an EPUB (zip) file.");
+      }
+      const title = picked.name.replace(/\.epub$/i, "").trim() || "Imported book";
+      const slug =
+        title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "epub";
+      const cover = extractEpubCover(picked.bytes); // pull the real cover out of the EPUB
+      await saveEpub({
+        bookId: `imported-${slug}`,
+        title,
+        bytes: picked.bytes,
+        coverSvg: cover?.svg,
+        coverBytes: cover?.raster,
+        coverMime: cover?.ext ? mimeForExt(cover.ext) : undefined,
+      });
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't import that file.");
+    } finally {
+      setImporting(false);
+    }
+  }, [reload]);
+
+  const openItem = useCallback(
+    (item: EpubMeta) => {
+      // Imported EPUBs have no in-app book.json → share/open externally;
+      // authored books open in the in-app reader.
+      if (item.id.startsWith("imported-")) {
+        openEpub(item.id, item.title).catch((e) =>
+          Alert.alert("Couldn't open", e instanceof Error ? e.message : String(e)),
+        );
+      } else {
+        router.push(`/book/read/${item.id}`);
+      }
+    },
+    [router],
+  );
+
+  const importButton = (
+    <Pressable
+      style={[styles.importBtn, importing && styles.importBtnDisabled]}
+      onPress={handleImport}
+      disabled={importing}
+      accessibilityRole="button"
+      accessibilityLabel="Import an EPUB file into your library"
+    >
+      <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />
+      <Text style={styles.importBtnText}>{importing ? "Importing…" : "Import EPUB"}</Text>
+    </Pressable>
+  );
 
   if (items.length === 0) {
     return (
@@ -39,9 +125,11 @@ export default function LibraryScreen() {
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
-          Finish a book in the Books tab, then tap “Save to Library (EPUB3)”. Your
-          compiled books appear here.
+          Finish a book in the Books tab and tap “Save to Library”, or import an EPUB
+          you already have.
         </Text>
+        {importButton}
+        {error && <Text style={styles.errorText}>{error}</Text>}
         <Pressable
           style={styles.cta}
           onPress={() => router.push("/books")}
@@ -56,37 +144,43 @@ export default function LibraryScreen() {
 
   return (
     <FlatList
+      key={numColumns}
       style={styles.list}
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={[styles.gridContent, isDesktop && styles.gridWide]}
       data={items}
       keyExtractor={(item) => item.id}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      numColumns={numColumns}
+      columnWrapperStyle={styles.gridRow}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          {importButton}
+          {error && <Text style={styles.errorText}>{error}</Text>}
+        </View>
+      }
       renderItem={({ item }) => (
-        <Pressable
-          style={styles.card}
-          onPress={() => router.push(`/book/read/${item.id}`)}
-          accessibilityRole="button"
-          accessibilityLabel={`Open book: ${item.title}`}
-        >
-          <Text style={styles.cardIcon}>📖</Text>
-          <View style={styles.cardMain}>
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text style={styles.meta}>
-              EPUB3 · {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}
-            </Text>
-          </View>
+        <View style={[styles.tile, { maxWidth: `${100 / numColumns}%` }]}>
           <Pressable
-            style={styles.deleteBtn}
-            onPress={() => handleDelete(item.id)}
+            onPress={() => openItem(item)}
             accessibilityRole="button"
-            accessibilityLabel={`Delete from library: ${item.title}`}
-            hitSlop={8}
+            accessibilityLabel={`Open book: ${item.title}`}
           >
-            <Text style={styles.deleteIcon}>🗑</Text>
+            <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} coverSvg={item.coverSvg} />
           </Pressable>
-        </Pressable>
+          <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
+          <View style={styles.tileFooter}>
+            <Text style={styles.tileMeta} numberOfLines={1}>
+              {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}
+            </Text>
+            <Pressable
+              onPress={() => handleDelete(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Delete from library: ${item.title}`}
+              hitSlop={8}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
       )}
     />
   );
@@ -94,24 +188,28 @@ export default function LibraryScreen() {
 
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
-  listContent: { padding: spacing.md },
-  separator: { height: spacing.sm },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
+  gridContent: { padding: spacing.md },
+  gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
+  gridRow: { gap: spacing.md },
+  header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.md },
+  tile: { flex: 1, marginBottom: spacing.lg, gap: spacing.xs },
+  tileTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
+  tileFooter: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  tileMeta: { flex: 1, fontSize: typography.sizeXs, color: colors.textMuted },
+  importBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary + "1A",
   },
-  cardIcon: { fontSize: 22 },
-  cardMain: { flex: 1, gap: spacing.xs },
-  title: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text },
-  meta: { fontSize: typography.sizeXs, color: colors.textMuted },
-  deleteBtn: { padding: spacing.xs },
-  deleteIcon: { fontSize: 18 },
+  importBtnDisabled: { opacity: 0.6 },
+  importBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
+  errorText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" },
   empty: {
     flex: 1,
     backgroundColor: colors.background,

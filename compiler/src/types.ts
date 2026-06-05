@@ -104,6 +104,47 @@ export interface StructuredTOC {
   subjects: SubjectNode[];
 }
 
+// Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page.
+// All optional; absent fields are simply omitted from the OPF.
+export interface BookMetadata {
+  author?: string; // dc:creator
+  authorFileAs?: string; // creator file-as (sort name, e.g. "Doe, Jane")
+  publisher?: string; // dc:publisher
+  language?: string; // dc:language + package xml:lang (default "en")
+  description?: string; // dc:description
+  subjects?: string[]; // dc:subject (repeatable)
+  rights?: string; // dc:rights (verbatim copyright/licence line)
+  date?: string; // dc:date (publication; ISO date or year)
+  identifier?: string; // dc:identifier override (ISBN/UUID); defaults to book.id
+  series?: string; // belongs-to-collection
+  seriesIndex?: number; // group-position within the series
+  accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata
+
+  // Release lifecycle (ADR-008). Absent or "release" → no watermark.
+  status?: "draft" | "release"; // "draft" watermarks the artifact
+  version?: string; // e.g. "1.0"
+  edition?: string; // e.g. "First Edition"
+  releaseDate?: string; // ISO date, set on release
+  watermark?: string; // explicit override text; else "DRAFT" when status === "draft"
+  revisionHistory?: { version: string; date: string; notes?: string }[];
+}
+
+// EPUB Accessibility 1.1 metadata (schema.org accessibility vocabulary →
+// schema:* meta in the OPF). Most values are auto-derived from the actual
+// content on compile (math → MathML, diagrams/images → a visual access mode);
+// every field here is an OVERRIDE/extension. We deliberately do not auto-assert
+// WCAG conformance or `alternativeText` — `conformsTo`/`certifiedBy` are for
+// titles that have actually been audited. See docs/PROFESSIONAL_PUBLISHING.md.
+export interface BookAccessibility {
+  summary?: string; // schema:accessibilitySummary (human-readable)
+  accessModes?: string[]; // schema:accessMode — replaces the auto-detected set
+  accessModeSufficient?: string[]; // schema:accessModeSufficient — each entry is one comma-joined sufficient set
+  features?: string[]; // schema:accessibilityFeature — merged with the auto-detected features
+  hazards?: string[]; // schema:accessibilityHazard — defaults to ["none"]
+  conformsTo?: string; // dcterms:conformsTo — a conformance-profile URL; set ONLY when truly conformant
+  certifiedBy?: string; // a11y:certifiedBy — who vouches for the conformance claim
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -111,4 +152,5 @@ export interface Book {
   createdAt: string;
   updatedAt: string;
   content?: Record<string, GeneratedTopic>;
+  metadata?: BookMetadata;
 }

@@ -105,6 +105,17 @@ async def test_export_pdf_with_diagrams(client, monkeypatch):
     assert rec == {"fmt": "pdf", "diagrams": True}
 
 
+async def test_export_cover_png(client, monkeypatch):
+    rec: dict = {}
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec))
+
+    resp = await client.post("/api/v1/export?format=cover", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("image/png")
+    assert resp.headers["content-disposition"] == 'attachment; filename="physics-friends.png"'
+    assert rec == {"fmt": "cover", "diagrams": False}
+
+
 async def test_export_rejects_unknown_format(client, monkeypatch):
     called = False
 

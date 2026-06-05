@@ -1,0 +1,42 @@
+<svg viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mentible — The Growing Mind">
+  <defs>
+    <linearGradient id="blueM" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f86e0"/><stop offset="1" stop-color="#1657a8"/>
+    </linearGradient>
+    <linearGradient id="orangeBook" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb24d"/><stop offset="1" stop-color="#ef8a16"/>
+    </linearGradient>
+  </defs>
+
+  <!-- foliage (green) -->
+  <g fill="#2faa5d">
+    <circle cx="236" cy="150" r="42"/>
+    <circle cx="364" cy="150" r="42"/>
+    <circle cx="300" cy="120" r="38"/>
+    <circle cx="280" cy="172" r="30"/>
+    <circle cx="320" cy="172" r="30"/>
+  </g>
+  <g fill="#3dbf6e">
+    <circle cx="236" cy="142" r="22"/>
+    <circle cx="364" cy="142" r="22"/>
+    <circle cx="300" cy="112" r="20"/>
+  </g>
+
+  <!-- M monogram / trunk (blue) -->
+  <path d="M238 312 L238 176 L300 250 L362 176 L362 312"
+        fill="none" stroke="url(#blueM)" stroke-width="30"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- open book base (orange) -->
+  <g>
+    <path d="M300 300 C266 280 214 276 178 288 L178 350 C214 338 266 342 300 360 Z" fill="url(#orangeBook)"/>
+    <path d="M300 300 C334 280 386 276 422 288 L422 350 C386 338 334 342 300 360 Z" fill="url(#orangeBook)"/>
+    <rect x="295" y="300" width="10" height="60" rx="5" fill="#c96f0e" opacity="0.5"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="300" y="452" text-anchor="middle" font-family="DejaVu Serif" font-weight="bold"
+        font-size="78" letter-spacing="2" fill="#16518f">MENTIBLE</text>
+  <text x="300" y="492" text-anchor="middle" font-family="DejaVu Sans" font-weight="bold"
+        font-size="20" letter-spacing="3" fill="#2faa5d">AI-DRIVEN SELF-LEARNER</text>
+</svg>

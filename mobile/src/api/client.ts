@@ -88,7 +88,7 @@ export async function getStructureJob(
 // has no generated content (or is malformed); surface via ApiError.body.
 // diagrams=true renders Mermaid→SVG (much slower — minutes for a big book).
 export interface ExportOptions {
-  format?: "epub" | "pdf";
+  format?: "epub" | "pdf" | "cover"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
 }
 

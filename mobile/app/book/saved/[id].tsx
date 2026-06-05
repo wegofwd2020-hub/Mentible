@@ -12,6 +12,7 @@ import { loadBook } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
 import { TopicReadList } from "@/components/TopicReadList";
 import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
+import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
@@ -91,6 +92,12 @@ export default function SavedBookScreen() {
         <Text style={styles.generateHint}>
           Compiles the generated topics into an EPUB3 and saves it to your
           Library. Generate the topics first.
+        </Text>
+
+        <ExportBookJsonButton book={book} />
+        <Text style={styles.generateHint}>
+          Downloads this book as a .book.json file you can back up or re-import
+          on another device.
         </Text>
       </PageContainer>
     </ScrollView>

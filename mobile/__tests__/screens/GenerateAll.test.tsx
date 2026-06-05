@@ -89,7 +89,12 @@ describe("GenerateAllScreen", () => {
     await waitFor(() => {
       expect(saveBook).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.objectContaining({ t1: expect.objectContaining({ lesson: LESSON }) }),
+          // lesson.topic is forced to the clean topic title for the heading.
+          content: expect.objectContaining({
+            t1: expect.objectContaining({
+              lesson: expect.objectContaining({ ...LESSON, topic: "Kinematics" }),
+            }),
+          }),
         }),
       );
     });

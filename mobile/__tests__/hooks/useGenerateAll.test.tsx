@@ -12,6 +12,7 @@ const { submitGenerate, pollUntilDone } = require("../../src/api/client") as {
 
 import { useGenerateAll } from "../../src/hooks/useGenerateAll";
 import type { StructuredTOC } from "../../src/types/book";
+import type { GenerationParams } from "../../src/types/generationParams";
 
 const LESSON = {
   topic: "x",
@@ -23,6 +24,14 @@ const LESSON = {
   key_takeaways: ["k"],
   further_reading: [],
 };
+
+const params = (pages = 0): GenerationParams => ({
+  level: "student",
+  depth: "standard",
+  pages,
+  language: "en",
+  format: "lesson",
+});
 
 function toc(): StructuredTOC {
   return {
@@ -51,7 +60,7 @@ describe("useGenerateAll", () => {
     const onTopicDone = jest.fn();
 
     const { result } = renderHook(() =>
-      useGenerateAll({ toc: toc(), level: "student", getApiKey, onTopicDone, intervalMs: 1 }),
+      useGenerateAll({ toc: toc(), params: params(), getApiKey, onTopicDone, intervalMs: 1 }),
     );
 
     act(() => result.current.start());
@@ -61,14 +70,36 @@ describe("useGenerateAll", () => {
     expect(result.current.failedCount).toBe(0);
     expect(submitGenerate).toHaveBeenCalledTimes(2);
     expect(onTopicDone).toHaveBeenCalledTimes(2);
-    expect(onTopicDone).toHaveBeenCalledWith("t1", "Kinematics", LESSON);
+    // The lesson heading is forced to the clean topic title (not the
+    // subtopic-folded prompt the model may have echoed into lesson.topic).
+    expect(onTopicDone).toHaveBeenCalledWith(
+      "t1",
+      "Kinematics",
+      expect.objectContaining({ ...LESSON, topic: "Kinematics" }),
+    );
+  });
+
+  it("passes the template's depth into each request", async () => {
+    pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+    const { result } = renderHook(() =>
+      useGenerateAll({
+        toc: toc(),
+        params: { ...params(), depth: "deep" },
+        getApiKey,
+        onTopicDone: jest.fn(),
+        intervalMs: 1,
+      }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.finished).toBe(true));
+    expect(submitGenerate).toHaveBeenCalledWith(expect.objectContaining({ depth: "deep" }));
   });
 
   it("folds subtopics into the generated topic prompt", async () => {
     pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
 
     const { result } = renderHook(() =>
-      useGenerateAll({ toc: toc(), level: "student", getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+      useGenerateAll({ toc: toc(), params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
     );
     act(() => result.current.start());
     await waitFor(() => expect(result.current.finished).toBe(true));
@@ -78,13 +109,41 @@ describe("useGenerateAll", () => {
     );
   });
 
+  it("includes a topic's persisted enhancement instructions in its request", async () => {
+    pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+    const tocWithInstr: StructuredTOC = {
+      subjects: [
+        {
+          subject_label: "S",
+          units: [
+            {
+              id: "t1",
+              title: "Kinematics",
+              subtopics: [],
+              prerequisites: [],
+              enhancementInstructions: "Add a diagram",
+            },
+          ],
+        },
+      ],
+    };
+    const { result } = renderHook(() =>
+      useGenerateAll({ toc: tocWithInstr, params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.finished).toBe(true));
+    expect(submitGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ instructions: "Add a diagram" }),
+    );
+  });
+
   it("continues past a failed topic and records the error", async () => {
     pollUntilDone
       .mockResolvedValueOnce({ status: "failed", error: "boom" })
       .mockResolvedValueOnce({ status: "done", result: LESSON });
 
     const { result } = renderHook(() =>
-      useGenerateAll({ toc: toc(), level: "student", getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+      useGenerateAll({ toc: toc(), params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
     );
     act(() => result.current.start());
     await waitFor(() => expect(result.current.finished).toBe(true));
@@ -102,7 +161,7 @@ describe("useGenerateAll", () => {
     const { result } = renderHook(() =>
       useGenerateAll({
         toc: toc(),
-        level: "student",
+        params: params(),
         getApiKey,
         onTopicDone: jest.fn(),
         alreadyDone: ["t1"],
@@ -110,23 +169,80 @@ describe("useGenerateAll", () => {
       }),
     );
 
-    // t1 is shown done before any run.
     expect(result.current.progress.find((p) => p.topicId === "t1")?.status).toBe("done");
 
     act(() => result.current.start());
     await waitFor(() => expect(result.current.finished).toBe(true));
 
-    // Only the missing topic was generated.
     expect(submitGenerate).toHaveBeenCalledTimes(1);
     expect(submitGenerate).toHaveBeenCalledWith(expect.objectContaining({ topic: "Dynamics" }));
     expect(result.current.doneCount).toBe(2);
+  });
+
+  it("regenerates every topic, overwriting done ones, when started with force", async () => {
+    pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+    const onTopicDone = jest.fn();
+
+    const { result } = renderHook(() =>
+      useGenerateAll({
+        toc: toc(),
+        params: params(),
+        getApiKey,
+        onTopicDone,
+        alreadyDone: ["t1"],
+        intervalMs: 1,
+      }),
+    );
+
+    act(() => result.current.start({ force: true }));
+    await waitFor(() => expect(result.current.finished).toBe(true));
+
+    expect(submitGenerate).toHaveBeenCalledTimes(2);
+    expect(onTopicDone).toHaveBeenCalledWith(
+      "t1",
+      "Kinematics",
+      expect.objectContaining({ topic: "Kinematics" }),
+    );
+    expect(result.current.doneCount).toBe(2);
+  });
+
+  it("splits the template's whole-book page target evenly across topics", async () => {
+    pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+    const { result } = renderHook(() =>
+      useGenerateAll({
+        toc: toc(), // 2 topics
+        params: params(10),
+        getApiKey,
+        onTopicDone: jest.fn(),
+        intervalMs: 1,
+      }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.finished).toBe(true));
+
+    // 10 pages / 2 topics → 5 each.
+    expect(submitGenerate).toHaveBeenCalledWith(expect.objectContaining({ target_pages: 5 }));
+    expect(submitGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends target_pages 0 (no target) when the template has no page target", async () => {
+    pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+    const { result } = renderHook(() =>
+      useGenerateAll({ toc: toc(), params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.finished).toBe(true));
+
+    expect(submitGenerate).toHaveBeenCalledWith(expect.objectContaining({ target_pages: 0 }));
   });
 
   it("surfaces an error and does not generate when no API key is saved", async () => {
     const { result } = renderHook(() =>
       useGenerateAll({
         toc: toc(),
-        level: "student",
+        params: params(),
         getApiKey: () => Promise.resolve(null),
         onTopicDone: jest.fn(),
         intervalMs: 1,

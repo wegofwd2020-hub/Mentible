@@ -13,6 +13,13 @@ jest.mock("expo-router", () => ({
 jest.mock("../../src/storage/bookStore", () => ({
   loadBookIndex: jest.fn(),
   deleteBook: jest.fn(),
+  loadBook: jest.fn(),
+}));
+
+// Exercise the phone layout (cover grid → tap opens the book). The desktop
+// split view is width-gated and covered separately.
+jest.mock("../../src/hooks/useResponsive", () => ({
+  useResponsive: () => ({ width: 390, isTablet: false, isDesktop: false }),
 }));
 
 const { loadBookIndex, deleteBook } = require("../../src/storage/bookStore") as {
@@ -56,7 +63,7 @@ describe("BooksScreen", () => {
     ]);
     render(<BooksScreen />);
     await waitFor(() => {
-      expect(screen.getByText("Physics Primer")).toBeTruthy();
+      expect(screen.getAllByText("Physics Primer").length).toBeGreaterThan(0);
     });
     expect(screen.getByText(/4 topics/)).toBeTruthy();
   });
@@ -72,7 +79,7 @@ describe("BooksScreen", () => {
       },
     ]);
     render(<BooksScreen />);
-    await waitFor(() => screen.getByText("Physics Primer"));
+    await waitFor(() => screen.getAllByText("Physics Primer"));
     fireEvent.press(screen.getByLabelText("Open book: Physics Primer"));
     expect(mockPush).toHaveBeenCalledWith("/book/saved/b1");
   });

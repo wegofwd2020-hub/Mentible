@@ -71,6 +71,28 @@ it("saves an EPUB to a file + index and lists it", async () => {
   expect(Buffer.from(written, "base64")).toEqual(Buffer.from([1, 2, 3, 4, 5]));
 });
 
+it("stores a cover thumbnail and exposes it as coverUri", async () => {
+  const meta = await saveEpub({
+    bookId: "b1",
+    title: "Physics",
+    bytes: bytesOf(1, 2, 3),
+    coverBytes: bytesOf(9, 8, 7),
+  });
+  expect(meta.coverUri).toBe("file:///docs/epubs/covers/b1.png");
+
+  const files = (FileSystem as unknown as { __files: Record<string, string> }).__files;
+  expect(Buffer.from(files["file:///docs/epubs/covers/b1.png"], "base64")).toEqual(
+    Buffer.from([9, 8, 7]),
+  );
+  const list = await listEpubs();
+  expect(list[0].coverUri).toBe("file:///docs/epubs/covers/b1.png");
+});
+
+it("omits coverUri when no cover bytes are provided", async () => {
+  const meta = await saveEpub({ bookId: "b2", title: "No cover", bytes: bytesOf(1) });
+  expect(meta.coverUri).toBeUndefined();
+});
+
 it("replaces the entry when the same book is saved again (one entry per book)", async () => {
   await saveEpub({ bookId: "b1", title: "Old", bytes: bytesOf(1) });
   await saveEpub({ bookId: "b1", title: "New", bytes: bytesOf(1, 2) });

@@ -28,7 +28,7 @@ class AnthropicCallError(Exception):
     """
 
 
-def call_anthropic(*, api_key: str, prompt: str, model: str) -> str:
+def call_anthropic(*, api_key: str, prompt: str, model: str, max_tokens: int = 16384) -> str:
     """Invoke Anthropic with the user's BYOK key, return raw response text.
 
     This function is synchronous because the Anthropic SDK is synchronous;
@@ -38,6 +38,7 @@ def call_anthropic(*, api_key: str, prompt: str, model: str) -> str:
         api_key: User's Anthropic API key (sk-ant-*).
         prompt:  Full prompt string from prompt_builder.
         model:   Anthropic model identifier (e.g., claude-sonnet-4-6).
+        max_tokens: Output token ceiling — raised for multi-page lesson targets.
 
     Returns:
         Raw response text from Claude (expected to be JSON, parsed by caller).
@@ -50,7 +51,7 @@ def call_anthropic(*, api_key: str, prompt: str, model: str) -> str:
 
     try:
         provider = AnthropicProvider(api_key=api_key, model=model)
-        text, in_tok, out_tok = provider.generate(prompt)
+        text, in_tok, out_tok = provider.generate(prompt, max_tokens=max_tokens)
     except Exception as exc:
         # Log the EXCEPTION TYPE only — never the message, never with exc_info.
         # SDK exceptions sometimes include the api_key in their repr.

@@ -51,33 +51,42 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
+  // Beveled, matching the nav tiles. OFF = raised white face (light top/left,
+  // grey bottom/right); selected = inset yellow face (dark top/left, light
+  // bottom/right). Black glyphs throughout; the face + bevel carry on/off.
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.tileOffFace,
+    borderWidth: 2,
+    borderTopColor: colors.tileOffFace,
+    borderLeftColor: colors.tileOffFace,
+    borderBottomColor: colors.tileOffShadow,
+    borderRightColor: colors.tileOffShadow,
     alignItems: "center",
   },
   chipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + "22",
+    backgroundColor: colors.tileOnFace,
+    borderTopColor: colors.tileOnLo,
+    borderLeftColor: colors.tileOnLo,
+    borderBottomColor: colors.tileOnHi,
+    borderRightColor: colors.tileOnHi,
   },
   chipLabel: {
     fontSize: typography.sizeSm,
     fontWeight: "600",
-    color: colors.textSecondary,
+    color: colors.tileOffGlyph,
   },
   chipLabelSelected: {
-    color: colors.primary,
+    color: colors.tileOnGlyph,
   },
   chipDesc: {
     fontSize: typography.sizeXs,
-    color: colors.textMuted,
+    color: colors.tileSubGlyph,
     marginTop: 2,
   },
   chipDescSelected: {
-    color: colors.primary + "cc",
+    color: colors.tileSubGlyph,
   },
 });

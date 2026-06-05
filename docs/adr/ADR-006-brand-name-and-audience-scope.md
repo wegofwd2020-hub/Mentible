@@ -38,6 +38,15 @@ separate decision — lead candidate **"Author Yourself"** (double meaning: auth
 the material yourself / author yourself; see branding doc §4b), with *"Knowledge
 in. Lessons out."* as the alternate. The tagline pairs with whichever name clears.
 
+**Etymology (intended reading).** "Mentible" is a **coined word**, read as Latin
+*mens / mentis* ("mind") + the *-ible* suffix ("capable of being") — the same
+construction as *tangible*, *comprehensible*, *legible*. The intended sense is
+*"of the mind / able to be grasped by the mind"*, which squares with the product
+(turning knowledge into something a mind can hold) and the cover's "growing mind"
+mark. This is the rationale for the name, **not a claim of a dictionary origin** —
+the word is invented, which is precisely what gives it the high distinctiveness
+(and trademark ownability) noted in the sweep below.
+
 **Conditional on clearance.** "Mentible" is **not yet legally cleared.** Before it
 is locked for store listings / assets, run the mandatory sweep (CLAUDE.md pitfall
 #6): **USPTO TESS, Google Play, App Store**, plus **`.com`/`.ai` domain**
@@ -53,6 +62,14 @@ Target audience is the **adult independent learner**, explicitly including
 K-12, tutors-as-a-distinct-segment, and any OnDemand integration. D6 stands; the
 OnDemand "what-if" was considered and **rejected** to avoid re-importing
 multi-tenancy and FERPA/COPPA surface.
+
+**Use-case widening — declined (2026-06-03).** Using Mentible as a general
+**content-generation** engine for **marketing** (or other non-educational copy)
+was raised and **declined**. It cuts against the product's opinion (scoped
+educational artifacts — lesson/explanation/quiz → EPUB3/PDF), and there is no
+external API/MCP surface for it by design. The reusable IP for any such future
+need is the **scoped-query layer + multi-provider seam** (ADR-005), which would
+be a *separate* product, not Mentible widened. **D6 reaffirmed.**
 
 ### D3 — Repo name unchanged
 

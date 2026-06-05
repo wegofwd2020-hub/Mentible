@@ -2,6 +2,7 @@
 // (pipeline/toc_structurer.py) and the POST /structure request/response.
 
 import type { LessonOutput } from "@/types/lesson";
+import type { GenerationParams } from "@/types/generationParams";
 
 export interface TopicNode {
   // Client-assigned stable id (kept across edits/reorders so generated content
@@ -12,6 +13,9 @@ export interface TopicNode {
   title: string;
   subtopics: string[];
   prerequisites: string[];
+  // Free-text author guidance re-applied on every (re)generation of this topic
+  // (e.g. "add a diagram for the T-shape"). Persisted so refinements stick.
+  enhancementInstructions?: string;
 }
 
 export interface SubjectNode {
@@ -122,6 +126,48 @@ export interface GeneratedTopic {
   generatedAt: string;
 }
 
+// Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on
+// compile. All optional; kept aligned with compiler/src/types.ts BookMetadata.
+export interface BookMetadata {
+  author?: string;
+  authorFileAs?: string;
+  publisher?: string;
+  language?: string; // dc:language + package xml:lang (default "en")
+  description?: string;
+  subjects?: string[];
+  rights?: string;
+  date?: string;
+  identifier?: string; // ISBN/UUID; defaults to book id
+  series?: string;
+  seriesIndex?: number;
+  accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata
+
+  // Release lifecycle (ADR-008). Absent or "release" → no watermark. These drive
+  // the cover's edition stamp (editionLabel) and the colophon — kept aligned with
+  // compiler/src/types.ts BookMetadata.
+  status?: "draft" | "release"; // "draft" watermarks the artifact
+  version?: string; // e.g. "1.0"
+  edition?: string; // e.g. "First Edition"
+  releaseDate?: string; // ISO date, set on release
+  watermark?: string; // explicit override text; else "DRAFT" when status === "draft"
+  revisionHistory?: { version: string; date: string; notes?: string }[];
+}
+
+// EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary). Auto-derived
+// from content on compile; these fields override/extend. Kept aligned with
+// compiler/src/types.ts BookAccessibility. We do not auto-claim WCAG conformance
+// or alt text — conformsTo/certifiedBy are for audited titles. See
+// docs/PROFESSIONAL_PUBLISHING.md.
+export interface BookAccessibility {
+  summary?: string; // schema:accessibilitySummary
+  accessModes?: string[]; // schema:accessMode (replaces auto set)
+  accessModeSufficient?: string[]; // schema:accessModeSufficient (each entry a comma-joined set)
+  features?: string[]; // schema:accessibilityFeature (merged with auto)
+  hazards?: string[]; // schema:accessibilityHazard (default ["none"])
+  conformsTo?: string; // dcterms:conformsTo URL — only when conformant
+  certifiedBy?: string; // a11y:certifiedBy
+}
+
 // A book persisted on the device (local-first, per ADR-003 D1).
 export interface Book {
   id: string;
@@ -132,6 +178,12 @@ export interface Book {
   // Per-topic generated content, keyed by TopicNode.id. Absent until the user
   // runs "generate all". Orphaned entries (topic removed) are pruned on save.
   content?: Record<string, GeneratedTopic>;
+  // The book's generation template (level / depth / pages …) — the single
+  // source of truth for generating any topic in this book. Seeded from the
+  // global default (settingsStore) at creation; defaulted on load if missing.
+  generationParams?: GenerationParams;
+  // Bibliographic metadata for the compiled artifact (author, publisher, …).
+  metadata?: BookMetadata;
 }
 
 // Lightweight index entry for the books list (no full TOC).
@@ -141,4 +193,7 @@ export interface BookMeta {
   subjectCount: number;
   unitCount: number;
   updatedAt: string;
+  // Number of topics with generated content (for the books-list progress
+  // readout). Absent on books saved before this field existed.
+  generatedCount?: number;
 }

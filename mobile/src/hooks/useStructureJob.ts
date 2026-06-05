@@ -15,8 +15,8 @@ interface UseStructureJobResult {
   elapsed: number;
 }
 
-// Polls /jobs/{id} for a /structure job until done|failed. Mirrors
-// useGenerateJob; the interval is injectable so tests can avoid real timers.
+// Polls /jobs/{id} for a /structure job until done|failed. The interval is
+// injectable so tests can avoid real timers.
 export function useStructureJob(
   jobId: string | null,
   intervalMs = POLL_INTERVAL_MS,

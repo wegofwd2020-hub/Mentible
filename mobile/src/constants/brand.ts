@@ -9,3 +9,7 @@ export const BRAND_NAME = "Mentible";
 // Lead tagline candidate (ADR-006 / branding doc §4b): the double meaning is
 // "author the material yourself" + "author yourself".
 export const BRAND_TAGLINE = "Author Yourself";
+
+// App author / maintainer — surfaced on the About screen.
+export const BRAND_AUTHOR = "Sivakumar Mambakkam [Siva]";
+export const BRAND_CONTACT = "wegofwd2020@gmail.com";

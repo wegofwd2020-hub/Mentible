@@ -2,7 +2,7 @@ import fs from "node:fs";
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
 import { compileEpub, EmptyBookError } from "../src/epub";
-import type { Book, LessonOutput } from "../src/types";
+import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
 // XML well-formedness check (dependency-free stand-in for full epubcheck, which
 // needs Java — see scripts/epubcheck.sh). Strips the html5 DOCTYPE, which the
@@ -125,6 +125,127 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
         }
       }
     }
+  });
+});
+
+describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
+  function withMeta(metadata: BookMetadata): Book {
+    return { ...syntheticBook(), metadata };
+  }
+
+  it("emits dc:* metadata from Book.metadata and a colophon in the spine", async () => {
+    const zip = await unzip(
+      await compileEpub(
+        withMeta({
+          author: "Jane Doe",
+          authorFileAs: "Doe, Jane",
+          publisher: "Mentible",
+          language: "en",
+          description: "A guide.",
+          subjects: ["AI", "Product"],
+          rights: "(c) 2026 Jane Doe.",
+          date: "2026",
+          identifier: "urn:uuid:abc",
+        }),
+      ),
+    );
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<dc:creator id="creator">Jane Doe</dc:creator>');
+    expect(opf).toContain('property="role" scheme="marc:relators">aut<');
+    expect(opf).toContain('property="file-as">Doe, Jane<');
+    expect(opf).toContain("<dc:publisher>Mentible</dc:publisher>");
+    expect(opf).toContain("<dc:description>A guide.</dc:description>");
+    expect(opf).toContain("<dc:subject>AI</dc:subject>");
+    expect(opf).toContain("<dc:subject>Product</dc:subject>");
+    expect(opf).toContain("<dc:date>2026</dc:date>");
+    expect(opf).toContain('<dc:identifier id="bookid">urn:uuid:abc</dc:identifier>');
+
+    // colophon packaged + in the spine, after the title page, before chapter 1
+    expect(zip.file("OEBPS/colophon.xhtml")).not.toBeNull();
+    expect(opf.indexOf('<itemref idref="titlepage"/>')).toBeLessThan(
+      opf.indexOf('<itemref idref="colophon"/>'),
+    );
+    expect(opf.indexOf('<itemref idref="colophon"/>')).toBeLessThan(
+      opf.indexOf('<itemref idref="ch001"/>'),
+    );
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    assertWellFormed(col, "colophon.xhtml");
+    expect(col).toContain("by Jane Doe");
+    expect(col).toContain("Jane Doe.");
+  });
+
+  it("honours metadata.language in dc:language and xml:lang", async () => {
+    const zip = await unzip(await compileEpub(withMeta({ language: "fr" })));
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain("<dc:language>fr</dc:language>");
+    expect(opf).toContain('xml:lang="fr"');
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    expect(col).toContain('xml:lang="fr"');
+  });
+
+  it("defaults language to en and synthesises a rights line when metadata is absent", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook())); // no metadata
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain("<dc:language>en</dc:language>");
+    expect(zip.file("OEBPS/colophon.xhtml")).not.toBeNull();
+    const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
+    expect(col).toContain("All rights reserved.");
+  });
+});
+
+describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () => {
+  // syntheticBook has math (KaTeX → <math>) and a table, but no diagrams/images.
+  it("auto-derives a11y metadata from content: textual access + MathML, no visual mode", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook()));
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<meta property="schema:accessMode">textual</meta>');
+    expect(opf).not.toContain('<meta property="schema:accessMode">visual</meta>');
+    expect(opf).toContain('<meta property="schema:accessModeSufficient">textual</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">structuralNavigation</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">tableOfContents</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityHazard">none</meta>');
+    expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*MathML/);
+    assertWellFormed(opf, "content.opf");
+  });
+
+  it("adds a visual access mode when the content carries diagrams/SVG", async () => {
+    // Deep-clone: syntheticBook() shares a module-level LESSON object, so mutate
+    // a copy to avoid bleeding into other tests.
+    const book: Book = JSON.parse(JSON.stringify(syntheticBook()));
+    book.content!.u1.lesson!.sections[0].body_markdown =
+      'Here is a figure.\n\n<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>';
+    const opf = await (await unzip(await compileEpub(book))).file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<meta property="schema:accessMode">visual</meta>');
+    expect(opf).toContain('<meta property="schema:accessModeSufficient">textual,visual</meta>');
+  });
+
+  it("lets the author override/extend and assert formal conformance", async () => {
+    const book: Book = {
+      ...syntheticBook(),
+      metadata: {
+        accessibility: {
+          summary: "Audited; all figures have text alternatives.",
+          features: ["alternativeText"],
+          hazards: ["noFlashingHazard", "noSoundHazard"],
+          accessModeSufficient: ["textual"],
+          conformsTo: "https://www.w3.org/TR/epub-a11y-11/#sec-conf-wcag-aa",
+          certifiedBy: "Acme Accessibility Audits",
+        },
+      },
+    };
+    const opf = await (await unzip(await compileEpub(book))).file("OEBPS/content.opf")!.async("string");
+    // author summary/hazards/sufficient replace the defaults
+    expect(opf).toContain('<meta property="schema:accessibilitySummary">Audited; all figures have text alternatives.</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityHazard">noFlashingHazard</meta>');
+    expect(opf).not.toContain('<meta property="schema:accessibilityHazard">none</meta>');
+    // author features MERGE with the auto-detected ones (MathML still present)
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    // formal conformance only when asserted
+    expect(opf).toContain('<link rel="dcterms:conformsTo" href="https://www.w3.org/TR/epub-a11y-11/#sec-conf-wcag-aa"/>');
+    expect(opf).toContain('<meta property="a11y:certifiedBy">Acme Accessibility Audits</meta>');
+    assertWellFormed(opf, "content.opf");
   });
 });
 

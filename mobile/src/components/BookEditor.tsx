@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { loadBook, saveBook } from "@/storage/bookStore";
+import { loadDefaultParams } from "@/storage/settingsStore";
+import { randomUUID } from "@/lib/uuid";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, StructuredTOC } from "@/types/book";
 
@@ -15,7 +17,7 @@ interface Props {
 }
 
 function newId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 // Title field + editable topic tree + Save. Shared by the new-book flow (after
@@ -42,6 +44,8 @@ export function BookEditor({
       // this, editing a book's title/TOC would wipe its lessons (saveBook prunes
       // content to the current topic ids, dropping orphans of removed topics).
       const existing = bookId ? await loadBook(bookId) : null;
+      // New book → seed its template from the global default; existing → keep.
+      const generationParams = existing?.generationParams ?? (await loadDefaultParams());
       const book: Book = {
         id: bookId ?? newId(),
         title: title.trim(),
@@ -49,6 +53,7 @@ export function BookEditor({
         createdAt: createdAt ?? now,
         updatedAt: now,
         content: existing?.content,
+        generationParams,
       };
       await saveBook(book);
       onSaved(book);

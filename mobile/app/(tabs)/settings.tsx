@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,19 +17,25 @@ import {
   saveApiKey,
 } from "@/secure/keyStore";
 import { useRouter } from "expo-router";
-import { BRAND_NAME } from "@/constants/brand";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
+import { HelpButton } from "@/components/HelpButton";
+import { PageContainer } from "@/components/PageContainer";
+import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
+import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [draftKey, setDraftKey] = useState("");
   const [savedMask, setSavedMask] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [params, setParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
 
   useEffect(() => {
     loadApiKey().then((key) => {
       if (key) setSavedMask(maskApiKey(key));
     });
+    loadDefaultParams().then(setParams);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -68,13 +75,34 @@ export default function SettingsScreen() {
     );
   }, []);
 
+  // Persist the global default immediately on each change.
+  const handleParamsChange = useCallback((next: GenerationParams) => {
+    setParams(next);
+    void saveDefaultParams(next);
+  }, []);
+
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.sectionLabel}>Anthropic API key</Text>
+      <PageContainer>
+      <View style={styles.brandHeader}>
+        <View style={styles.brandCard}>
+          <Image
+            source={require("../../assets/brand/mentible-lockup-redorange-white.png")}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="Mentible — Author Yourself"
+          />
+        </View>
+      </View>
+
+      <View style={styles.labelRow}>
+        <Text style={styles.sectionLabel}>Anthropic API key</Text>
+        <HelpButton topic="byok" label="BYOK" />
+      </View>
       <Text style={styles.helpText}>
         Your key is stored in the Android Keystore and sent directly to this
         app's backend, which calls Anthropic on your behalf. It is never logged
@@ -131,12 +159,12 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>About</Text>
-      <View style={styles.aboutCard}>
-        <AboutRow label="App" value={BRAND_NAME} />
-        <AboutRow label="Version" value="0.1.0 (MVP)" />
-        <AboutRow label="Key model" value="claude-sonnet-4-6" />
-      </View>
+      <Text style={styles.sectionLabel}>Generation defaults</Text>
+      <Text style={styles.helpText}>
+        Defaults for new books and one-off lessons. Each book keeps its own copy
+        you can adjust per book.
+      </Text>
+      <GenerationParamsEditor value={params} onChange={handleParamsChange} />
 
       <View style={styles.divider} />
 
@@ -150,16 +178,8 @@ export default function SettingsScreen() {
         <Text style={styles.protoText}>🎨 UI concept gallery</Text>
         <Text style={styles.protoChevron}>→</Text>
       </Pressable>
+      </PageContainer>
     </ScrollView>
-  );
-}
-
-function AboutRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.aboutRow}>
-      <Text style={styles.aboutLabel}>{label}</Text>
-      <Text style={styles.aboutValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -168,9 +188,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  container: {
-    padding: spacing.md,
-    gap: spacing.md,
+  scrollContent: {
+    flexGrow: 1,
+  },
+  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  // Brand lockup sits on a light card (the mark is designed for light backdrops),
+  // shrink-wrapped and centered above the settings content.
+  brandHeader: {
+    alignItems: "center",
+    paddingTop: spacing.sm,
+  },
+  brandCard: {
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  brandLogo: {
+    width: 132,
+    height: 132,
   },
   sectionLabel: {
     fontSize: typography.sizeXs,
@@ -261,13 +298,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
   },
-  aboutCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    overflow: "hidden",
-  },
   protoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -286,21 +316,5 @@ const styles = StyleSheet.create({
   protoChevron: {
     fontSize: typography.sizeMd,
     color: colors.primary,
-  },
-  aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  aboutLabel: {
-    fontSize: typography.sizeSm,
-    color: colors.textSecondary,
-  },
-  aboutValue: {
-    fontSize: typography.sizeSm,
-    color: colors.text,
-    fontWeight: "500",
   },
 });

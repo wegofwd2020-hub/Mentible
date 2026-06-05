@@ -11,10 +11,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
-import { LevelPicker } from "@/components/LevelPicker";
+import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
-import { DEFAULT_LEVEL } from "@/constants/levels";
+import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
@@ -71,7 +71,9 @@ export default function GenerateAllScreen() {
 
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
-  const [level, setLevel] = useState(DEFAULT_LEVEL);
+  // The book's generation template (level / depth / pages). Edits persist back
+  // to the book, so the template is the single source of truth for this book.
+  const [params, setParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
   const { isDesktop } = useResponsive();
 
   // Hold the live book in a ref so per-topic persistence always builds on the
@@ -85,6 +87,7 @@ export default function GenerateAllScreen() {
       if (mounted) {
         bookRef.current = loaded;
         setBook(loaded);
+        if (loaded?.generationParams) setParams(loaded.generationParams);
         setLoading(false);
       }
     })();
@@ -120,10 +123,21 @@ export default function GenerateAllScreen() {
     [],
   );
 
+  // Persist template edits back to the book so they stick across sessions.
+  const handleParamsChange = useCallback((next: GenerationParams) => {
+    setParams(next);
+    const base = bookRef.current;
+    if (!base) return;
+    const updated = { ...base, generationParams: next, updatedAt: new Date().toISOString() };
+    bookRef.current = updated;
+    setBook(updated);
+    void saveBook(updated);
+  }, []);
+
   const { progress, running, finished, doneCount, failedCount, total, errorMsg, start, cancel } =
     useGenerateAll({
       toc: book?.toc ?? { subjects: [] },
-      level,
+      params,
       getApiKey,
       onTopicDone: handleTopicDone,
       alreadyDone: initialDoneIds,
@@ -146,7 +160,11 @@ export default function GenerateAllScreen() {
   }
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
       <View
         style={[styles.page, isDesktop && styles.pageWide, isDesktop && styles.pageRow]}
       >
@@ -158,11 +176,8 @@ export default function GenerateAllScreen() {
             {failedCount > 0 ? ` · ${failedCount} failed` : ""}
           </Text>
 
-          {!running && !finished && (
-            <>
-              <Text style={styles.label}>Level</Text>
-              <LevelPicker value={level} onChange={setLevel} />
-            </>
+          {!running && (
+            <GenerationParamsEditor value={params} onChange={handleParamsChange} />
           )}
 
           {errorMsg && (
@@ -172,22 +187,37 @@ export default function GenerateAllScreen() {
           )}
 
           {!running ? (
-            <Pressable
-              style={styles.actionBtn}
-              onPress={start}
-              accessibilityRole="button"
-              accessibilityLabel={finished ? "Generate remaining topics" : "Generate all topics"}
-            >
-              <Text style={styles.actionBtnText}>
-                {finished
-                  ? failedCount > 0
-                    ? "Retry failed / remaining"
-                    : "Done — regenerate gaps"
-                  : doneCount > 0
-                    ? "Generate remaining topics"
+            <>
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => start()}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  doneCount > 0 ? "Generate remaining topics" : "Generate all topics"
+                }
+              >
+                <Text style={styles.actionBtnText}>
+                  {doneCount > 0
+                    ? doneCount >= total
+                      ? "All topics generated"
+                      : "Generate remaining topics"
                     : "Generate all topics"}
-              </Text>
-            </Pressable>
+                </Text>
+              </Pressable>
+
+              {/* Force a full redo, overwriting topics that already have content
+                  — the trial/authoring loop of edit-then-regenerate. */}
+              {doneCount > 0 && (
+                <Pressable
+                  style={[styles.actionBtn, styles.regenBtn]}
+                  onPress={() => start({ force: true })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Regenerate all topics, overwriting existing content"
+                >
+                  <Text style={styles.regenBtnText}>Regenerate all (overwrite)</Text>
+                </Pressable>
+              )}
+            </>
           ) : (
             <Pressable
               style={[styles.actionBtn, styles.cancelBtn]}
@@ -250,6 +280,30 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
+  pagesRow: { flexDirection: "row", alignItems: "stretch", gap: spacing.xs },
+  pagesInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: typography.sizeLg,
+    fontWeight: "700",
+  },
+  pagesInputFlex: { flex: 1 },
+  stepBtn: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    minWidth: 52,
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  stepBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
+  pagesHint: { color: colors.textMuted, fontSize: typography.sizeXs },
   errorBanner: {
     backgroundColor: colors.error + "22",
     borderColor: colors.error + "66",
@@ -267,6 +321,14 @@ const styles = StyleSheet.create({
   },
   cancelBtn: { backgroundColor: colors.warning },
   actionBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  // Outline (destructive-ish) so "overwrite" reads as the deliberate, secondary action.
+  regenBtn: {
+    backgroundColor: "transparent",
+    borderColor: colors.warning,
+    borderWidth: 1,
+    marginTop: 0,
+  },
+  regenBtnText: { color: colors.warning, fontSize: typography.sizeMd, fontWeight: "700" },
   list: { gap: spacing.xs },
   row: {
     flexDirection: "row",

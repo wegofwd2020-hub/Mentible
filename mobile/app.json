@@ -1,14 +1,29 @@
 {
   "expo": {
-    "name": "StudyBuddy Q",
+    "name": "Mentible",
     "slug": "studybuddy-q",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "web": {
+      "name": "Mentible",
+      "shortName": "Mentible",
+      "favicon": "./assets/favicon.png"
+    },
     "android": {
       "package": "com.wegofwd2020.studybuddyq",
       "versionCode": 1,
-      "permissions": ["android.permission.INTERNET"]
+      "permissions": ["android.permission.INTERNET"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "plugins": [
       "expo-router",

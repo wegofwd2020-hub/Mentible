@@ -50,5 +50,15 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
       },
     },
   });
-  return m.parse(md ?? "", { async: false }) as string;
+  const html = m.parse(md ?? "", { async: false }) as string;
+  // Self-close every void element in the FINAL html — crucially the raw
+  // <br>/<img>/<hr> that LLM prose passes through verbatim. marked relays inline
+  // HTML as-is, so the br()/hr()/image() renderer overrides above only cover the
+  // markdown-*syntax* cases; a literal "<br>" the model typed slips straight
+  // through. EPUB3 content docs are parsed as XML, where a bare <br> is a fatal
+  // "mismatched tag" error — so normalise here. Idempotent on already-closed tags.
+  return html.replace(
+    /(<(?:br|hr|img|input|col|area|base|embed|source|track|wbr|meta|link)\b[^>]*?)\s*\/?>/gi,
+    "$1/>",
+  );
 }

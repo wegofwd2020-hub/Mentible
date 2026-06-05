@@ -93,7 +93,7 @@ describe("compileEpub with the mermaid option", () => {
     const zip = await JSZip.loadAsync(bytes);
 
     const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
-    expect(chapter).toContain('<figure class="diagram"><svg');
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><svg/); // now carries a per-chapter id
     expect(chapter).not.toContain("diagram--placeholder");
     expect(XMLValidator.validate(chapter.replace(/<!DOCTYPE[^>]*>/i, ""))).toBe(true);
 

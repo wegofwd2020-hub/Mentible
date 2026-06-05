@@ -9,15 +9,23 @@
 // works in PDF (Vivliostyle) and modern EPUB readers; older readers that lack
 // counter support simply show no number.
 
-const SANS = `-apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
-const SERIF = `Georgia, "Times New Roman", "Liberation Serif", serif`;
+import { SOURCE_SERIF_FONTFACE } from "./fonts";
+import { BRAND } from "./tokens";
+
+const SANS = `"Nimbus Sans", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
+// Lead with Liberation Serif (the body face used in the PDF/print target); the
+// embedded Source Serif 4 (fonts.ts) remains as a fallback for readers that lack
+// Liberation Serif, so the artifact still ships a serif it controls.
+const SERIF = `"Liberation Serif", "Source Serif 4", Georgia, "Times New Roman", serif`;
 
 export const STYLESHEET = `
+  ${SOURCE_SERIF_FONTFACE}
   * { box-sizing: border-box; }
   body {
     color: #1a1a1a;
+    background: #faf8f3; /* warm ivory ground (Anthropic-leaning, calmer than pure white) */
     font-family: ${SERIF};
-    line-height: 1.6;
+    line-height: 1.7; /* more air */
     margin: 0;
     padding: 1em;
     counter-reset: figure table;
@@ -54,10 +62,10 @@ export const STYLESHEET = `
     font-style: italic;
   }
   table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
-  th { background: #f2f2f2; font-weight: 600; padding: 0.5em 0.8em; border: 1px solid #ccc; text-align: left; }
-  td { padding: 0.45em 0.8em; border: 1px solid #ccc; }
+  th { background: ${BRAND.indigo}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${BRAND.indigo}; text-align: left; }
+  td { padding: 0.45em 0.8em; border: 1px solid ${BRAND.lavenderBorder}; }
+  tbody tr:nth-child(even) td { background: #f6f5fc; }
   caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
-  caption::before { content: "Table " counter(table) ". "; font-weight: 600; }
   hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
   .synopsis {
     color: #444; padding: 0.8em; margin: 0.8em 0 1.2em;
@@ -66,11 +74,18 @@ export const STYLESHEET = `
   .objectives, .takeaways, .further, .mistakes, .examples, .materials, .safety {
     background: #f6f8fa; border-radius: 4px; padding: 0.8em 1em; margin: 1em 0;
   }
-  .objectives { border-left: 3px solid #1565c0; }
-  .takeaways  { border-left: 3px solid #2e7d32; }
-  .further    { border-left: 3px solid #888; }
+  .objectives { border-left: 3px solid ${BRAND.indigo}; }
+  .further    { border-left: 3px solid ${BRAND.green}; }
   .mistakes   { border-left: 3px solid #ef6c00; }
   .safety     { border-left: 3px solid #ef6c00; }
+  /* Key Takeaways: branded dark-indigo callout panel (matches the PDF). */
+  .takeaways {
+    background: ${BRAND.indigoDark}; color: #eceaf6; border: none;
+    border-radius: 8px; padding: 0.9em 1.1em; margin: 1em 0;
+  }
+  .takeaways h3 { color: ${BRAND.greenBright}; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82em; margin: 0 0 0.45em; }
+  .takeaways strong { color: #fff; }
+  .takeaways a { color: #9fd8ff; }
   .practice {
     background: #fff8e1; border-left: 3px solid #ef6c00;
     padding: 0.5em 0.8em; border-radius: 4px; margin: 0.7em 0;
@@ -87,9 +102,25 @@ export const STYLESHEET = `
   .quiz-expl { color: #444; font-size: 0.92em; }
   .difficulty { margin-top: 0.4em; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; color: #888; }
   .step .obs { color: #555; font-style: italic; font-size: 0.95em; }
-  .diagram { margin: 0.9em 0; counter-increment: figure; text-align: center; }
-  .diagram--placeholder pre { white-space: pre-wrap; }
-  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: #666; margin-top: 0.3em; }
-  .diagram figcaption::before { content: "Figure " counter(figure) ". "; font-weight: 600; }
+  .diagram {
+    margin: 1.4em 0; counter-increment: figure; text-align: center;
+    background: ${BRAND.lavender}; border: 1px solid ${BRAND.lavenderBorder};
+    border-radius: 10px; padding: 1.1em 1em 0.8em; break-inside: avoid;
+  }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram--placeholder { background: #f6f6f6; border-color: #e3e3e3; }
+  .diagram--placeholder pre { white-space: pre-wrap; text-align: left; }
+  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: ${BRAND.indigo}; margin-top: 0.5em; }
+  .fnum { font-weight: 700; color: ${BRAND.indigo}; }
+  .floatlist ol { list-style: none; padding-left: 0; }
+  .floatlist li { margin: 0.4em 0; }
+  .floatlist a { text-decoration: none; color: #1a1a1a; }
+  .floatlist .fnum { display: inline-block; min-width: 5em; }
+  .glossary dt { font-family: ${SANS}; font-weight: 700; color: ${BRAND.indigoDark}; margin-top: 0.7em; }
+  .glossary dd { margin: 0.1em 0 0.5em; color: #333; }
+  .colophon .draft-notice { color: #b91c1c; font-weight: 700; }
+  .colophon .edition { color: ${BRAND.green}; font-weight: 700; }
+  .colophon .revisions ul { padding-left: 1.2em; font-size: 0.9em; color: #555; }
   math { font-size: 1.05em; }
+  img { max-width: 100%; height: auto; display: block; margin: 0.9em auto; }
 `;

@@ -48,6 +48,6 @@ it("pre-renders diagrams to SVG before layout when a Mermaid renderer is given",
   };
   const fake = new FakePdf();
   await compilePdf(book(), { mermaid: fakeMermaid, pdf: fake });
-  expect(fake.html).toContain('<figure class="diagram"><svg');
+  expect(fake.html).toMatch(/<figure class="diagram"[^>]*><svg/); // now carries a per-chapter id
   expect(fake.html).not.toContain("diagram--placeholder");
 });

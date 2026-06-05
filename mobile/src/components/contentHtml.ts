@@ -30,6 +30,15 @@ const RENDER_HELPERS_JS = `
   function li(items) {
     return (items || []).map(function (x) { return '<li>' + escHtml(x) + '</li>'; }).join('');
   }
+  function normHeading(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\\s+/g, ' '); }
+  // The model often repeats the section heading as a leading "## Heading" line
+  // in body_markdown; since we already emit the heading, drop that duplicate.
+  function stripDupHeading(body, heading) {
+    var text = String(body == null ? '' : body);
+    var m = text.match(/^\\s*#{1,6}[ \\t]+(.+?)[ \\t]*#*[ \\t]*(?:\\r?\\n|$)/);
+    if (m && normHeading(m[1]) === normHeading(heading)) return text.slice(m[0].length);
+    return text;
+  }
 
   function renderLesson(lesson) {
     var h = '';
@@ -39,7 +48,7 @@ const RENDER_HELPERS_JS = `
     (lesson.sections || []).forEach(function (s) {
       h += '<hr class="section-divider">';
       h += '<h2>' + escHtml(s.heading) + '</h2>';
-      h += renderMd(s.body_markdown);
+      h += renderMd(stripDupHeading(s.body_markdown, s.heading));
     });
     h += '<hr class="section-divider">';
     h += '<div class="takeaways"><h3>Key takeaways</h3><ul>' + li(lesson.key_takeaways) + '</ul></div>';
@@ -130,6 +139,14 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Source Serif 4 = a clean book serif loaded from the web; "Noto Serif" is
+     the on-device fallback so body prose renders serif even offline / when the
+     web font is unavailable (the generic serif keyword is not reliable on the
+     Android WebView). -->
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <link rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
   crossorigin="anonymous">
@@ -144,22 +161,32 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
     --primary: ${colors.primary};
     --success: ${colors.success};
     --warning: ${colors.warning};
+    /* Match the EPUB/PDF artifact: serif body for prose, sans for headings/UI. */
+    --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+    --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
     color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
+  html { background: var(--bg); }
+  body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    font-family: var(--serif);
+    font-weight: 400;
     font-size: 16px;
-    line-height: 1.65;
-    padding: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    padding: 20px 18px 40px;
+    /* Cap the line length for a comfortable reading measure (esp. on tablets). */
+    max-width: 42rem;
+    margin: 0 auto;
   }
-  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
-  h2 { font-size: 1.2rem; font-weight: 700; margin: 20px 0 8px; color: var(--text); }
-  h3 { font-size: 1rem; font-weight: 600; margin: 16px 0 6px; color: var(--text2); }
-  h4, h5, h6 { font-size: 0.95rem; font-weight: 600; margin: 12px 0 4px; }
-  p  { margin: 10px 0; }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 8px; color: var(--text); }
+  h2 { font-size: 1.3rem; font-weight: 700; margin: 24px 0 8px; color: var(--text); }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 18px 0 6px; color: var(--text2); }
+  h4, h5, h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
+  p  { margin: 12px 0; }
   ul, ol { padding-left: 22px; margin: 8px 0; }
   li { margin: 4px 0; }
   code {
@@ -191,6 +218,7 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
   td { padding: 7px 12px; border: 1px solid var(--border); color: var(--text2); }
   tr:nth-child(even) td { background: var(--surface); }
   a { color: var(--primary); }
+  img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
   hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
   .synopsis {
     color: var(--text2); font-size: 0.95em;

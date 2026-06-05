@@ -15,7 +15,7 @@ import type {
   TutorialOutput,
 } from "./types";
 import { renderMarkdown } from "./markdown";
-import { escapeHtml, li } from "./html";
+import { escapeHtml, li, stripDuplicateHeading } from "./html";
 import type { DiagramRenderer } from "./diagrams";
 
 const DIVIDER = '<hr class="section-divider"/>';
@@ -28,7 +28,7 @@ export function renderLesson(lesson: LessonOutput, diagrams: DiagramRenderer): s
   for (const s of lesson.sections ?? []) {
     h += DIVIDER;
     h += `<h2>${escapeHtml(s.heading)}</h2>`;
-    h += renderMarkdown(s.body_markdown, diagrams);
+    h += renderMarkdown(stripDuplicateHeading(s.body_markdown, s.heading), diagrams);
   }
   h += DIVIDER;
   h += `<div class="takeaways"><h3>Key takeaways</h3><ul>${li(lesson.key_takeaways)}</ul></div>`;

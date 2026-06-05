@@ -1,0 +1,49 @@
+<svg viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mentible — The Pathway">
+  <defs>
+    <linearGradient id="bl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f86e0"/><stop offset="1" stop-color="#1c63b8"/></linearGradient>
+    <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3dbf6e"/><stop offset="1" stop-color="#239a52"/></linearGradient>
+    <linearGradient id="or" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb24d"/><stop offset="1" stop-color="#ef8a16"/></linearGradient>
+  </defs>
+
+  <!-- ascending journey path -->
+  <path d="M150 350 C170 312 250 318 270 280 C292 238 350 244 372 206 C390 176 420 178 440 150"
+        fill="none" stroke="#1c63b8" stroke-width="14" stroke-linecap="round"
+        stroke-dasharray="2 30" opacity="0.55"/>
+
+  <!-- step 1 (blue) : book -->
+  <g transform="translate(118,300)">
+    <rect width="84" height="84" rx="20" fill="url(#bl)"/>
+    <g fill="#ffffff">
+      <path d="M42 26 C34 20 24 19 18 22 L18 58 C25 55 35 56 42 60 Z"/>
+      <path d="M42 26 C50 20 60 19 66 22 L66 58 C59 55 49 56 42 60 Z"/>
+    </g>
+  </g>
+
+  <!-- step 2 (green) : chat bubble -->
+  <g transform="translate(238,250)">
+    <rect width="84" height="84" rx="20" fill="url(#gr)"/>
+    <path d="M22 26 h40 a8 8 0 0 1 8 8 v18 a8 8 0 0 1 -8 8 h-22 l-14 12 v-12 h-4 a8 8 0 0 1 -8 -8 v-18 a8 8 0 0 1 8 -8 Z" fill="#ffffff"/>
+  </g>
+
+  <!-- step 3 (orange) : screen / play -->
+  <g transform="translate(340,200)">
+    <rect width="84" height="84" rx="20" fill="url(#or)"/>
+    <rect x="20" y="22" width="44" height="32" rx="5" fill="#ffffff"/>
+    <path d="M37 30 L52 38 L37 46 Z" fill="#ef8a16"/>
+    <rect x="34" y="58" width="16" height="6" rx="3" fill="#ffffff"/>
+  </g>
+
+  <!-- summit compass star -->
+  <g transform="translate(452,118)">
+    <circle r="40" fill="url(#bl)"/>
+    <circle r="40" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>
+    <path d="M0 -28 L8 -8 L28 0 L8 8 L0 28 L-8 8 L-28 0 L-8 -8 Z" fill="#ffb24d"/>
+    <circle r="6" fill="#ffffff"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="300" y="452" text-anchor="middle" font-family="DejaVu Serif" font-weight="bold"
+        font-size="78" letter-spacing="2" fill="#16518f">MENTIBLE</text>
+  <text x="300" y="492" text-anchor="middle" font-family="DejaVu Sans" font-weight="bold"
+        font-size="20" letter-spacing="3" fill="#ef8a16">SELF-LEARNER JOURNEY</text>
+</svg>

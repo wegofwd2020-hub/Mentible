@@ -112,15 +112,30 @@ describe("buildPdfHtml — textbook layout", () => {
     empty.content = {};
     expect(() => buildPdfHtml(empty)).toThrow(EmptyBookError);
   });
+
+  it("includes a colophon page (after the cover, before the TOC) from metadata", () => {
+    const b = book();
+    b.metadata = { author: "Jane Doe", publisher: "Mentible", date: "2026", language: "en" };
+    const html = buildPdfHtml(b);
+    expect(html).toContain('class="colophon"');
+    expect(html).toContain("by Jane Doe");
+    expect(html).toContain("Mentible");
+    expect(html).toContain("All rights reserved."); // synthesised from author + year
+    // order in the body: cover-page section → colophon section → toc
+    expect(html.indexOf('class="cover-page"')).toBeLessThan(html.indexOf('class="colophon"'));
+    expect(html.indexOf('class="colophon"')).toBeLessThan(html.indexOf('id="toc"'));
+    expect(html).toContain('<html lang="en">');
+  });
 });
 
 describe("buildPdfHtml — typography & numbering CSS", () => {
   const html = buildPdfHtml(book());
-  it("uses sans-serif headings and counter-based Figure/Table numbering", () => {
-    expect(html).toMatch(/h1, h2, h3[^{]*\{\s*font-family:\s*"Helvetica Neue"/);
-    expect(html).toContain("counter-increment: figure");
-    expect(html).toContain('content: "Figure " counter(figure)');
-    expect(html).toContain("counter-increment: table");
-    expect(html).toContain('content: "Table " counter(table)');
+  it("uses sans-serif headings and per-chapter float numbering + list styles", () => {
+    expect(html).toMatch(/h1, h2, h3[^{]*\{\s*font-family:\s*"Nimbus Sans"/);
+    expect(html).toContain(".toc-part"); // Part labels in the grouped TOC
+    expect(html).toContain("nav.floatlist"); // List of Figures / List of Tables
+    expect(html).toContain(".fnum"); // figure/table number styling
+    // page references (TOC + float lists) resolved by the paged-media engine
+    expect(html).toContain("target-counter(attr(href url), page)");
   });
 });

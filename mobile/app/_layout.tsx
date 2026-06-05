@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default function RootLayout() {
   return (
@@ -22,10 +23,10 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="lesson/[jobId]"
+          name="diagram-types"
           options={{
-            title: "Lesson",
-            headerBackTitle: "Back",
+            title: "Diagram types",
+            headerBackTitle: "Help",
           }}
         />
         <Stack.Screen
@@ -64,6 +65,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      <OnboardingModal />
     </>
   );
 }

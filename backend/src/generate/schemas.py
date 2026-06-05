@@ -19,6 +19,11 @@ Level = Literal["student", "professional", "expert"]
 # Languages (D15). MVP is English-only; v1.1 adds fr/es.
 Language = Literal["en", "fr", "es"]
 
+# Diagram register — the "diagram direction" of the publication. Steers what KIND
+# of diagrams the model produces (see prompt_builder._DIAGRAM_REGISTERS). Mirrors
+# the mobile DiagramRegister type (mobile/src/types/generationParams.ts).
+DiagramRegister = Literal["conceptual", "balanced", "technical"]
+
 
 class GenerateRequest(BaseModel):
     """Body of POST /generate.
@@ -42,6 +47,21 @@ class GenerateRequest(BaseModel):
     prior_knowledge: str | None = Field(default=None, max_length=2000)
     framing: str | None = Field(default=None, max_length=500)
     depth: Literal["quick", "standard", "deep"] = "standard"
+
+    # Diagram direction — what kind of diagrams to favour (conceptual ↔ technical).
+    # Defaults to "balanced" so existing clients are unaffected.
+    diagram_register: DiagramRegister = "balanced"
+
+    # Target length in pages for this lesson's prose (excludes quizzes/answers).
+    # 0 (default) = no explicit target — let depth + the model decide ("as much
+    # as possible"). The mobile client divides a whole-book page target evenly
+    # across topics, so this is the per-lesson share. Upper bound is generous;
+    # the worker clamps the resulting max_tokens to the model ceiling anyway.
+    target_pages: int = Field(default=0, ge=0, le=100)
+
+    # Free-text author guidance applied on (re)generation — e.g. "add a diagram
+    # for the T-shape". Persisted per topic on the client and re-sent each time.
+    instructions: str | None = Field(default=None, max_length=2000)
 
     # BYOK key — sk-ant-... . Validated on length only; format checking
     # happens implicitly when Anthropic rejects malformed keys.
