@@ -124,7 +124,7 @@ The guiding framing for every product decision:
 | D10 | **Auth — email+password AND Sign in with Google** | Both methods at v1 |
 | D11 | **Hosting — share infra with StudyBuddy_OnDemand** | One ops plan, two products; covered by the upcoming hosting cost doc |
 | D12 | **Latency — minutes** | Async generation + FCM push when done |
-| D13 | **Output formats v1 — Lesson / Explanation / Quiz** | Cheatsheet / Worked example / Tutorial / Experiment / Audio = v2+ |
+| D13 | **Output formats v1 — Lesson / Explanation / Quiz** *(amended — ADR-009: now per-topic content within a book; the standalone single-lesson "Query" surface was removed)* | Cheatsheet / Worked example / Tutorial / Experiment / Audio = v2+ |
 | D14 | **Visual aids v1 — all of (b)** | KaTeX + Mermaid + blockquotes + tables + AI-picks. Image gen = v2+ |
 | D15 | **Inputs — refined 7-field list** (Topic / Level / Language / Prior knowledge / Format / Framing / Depth) | Side panel collapsible from default canvas view |
 | D16 | **Layout — single canvas + collapsible side panel** | No wizard |
@@ -260,6 +260,10 @@ for V1 -> Lessons; Eplanation; Quiz;
 ## 7. The core flow (your proposed input list, refined)
 
 ### 7.1 User-proposed flow
+
+> **Historical (amended — ADR-009).** This describes the removed standalone
+> **Query** single-lesson screen. The app is now Books-only; the same scoped-query
+> inputs below are applied **per topic** in the book authoring flow (ADR-003).
 
 1. **Query screen** with prompt fields
 2. Inputs:
