@@ -113,3 +113,14 @@ describe("buildTopicHtml (multi-format topic)", () => {
     expect(lessonOnly).not.toContain("forgetting context");
   });
 });
+
+describe("animated SVG (free animated-visual path)", () => {
+  // The WebView JS can't run in jest, so assert the renderer/CSS are wired —
+  // a ```svg fenced block is dropped inline (animated) instead of a code block.
+  it("wires the svg fenced-block renderer + figure styling", () => {
+    const html = buildHtml(lesson);
+    expect(html).toContain("lang === 'svg'"); // the renderer branch
+    expect(html).toContain("anim-svg"); // figure class + CSS
+    expect(html).toContain("<script[\\s\\S]"); // the <script>-strip regex (not a real tag)
+  });
+});

@@ -74,6 +74,22 @@ Flowchart colour-coding (applies whenever you use a `flowchart`):
   width (~4-9 nodes for a flowchart).
 """
 
+# Optional animated visuals — the "free animated-visual path". The model emits a
+# self-contained SVG and the reader drops it inline so SMIL/CSS animation plays.
+_ANIMATED_SVG_GUIDE = """\
+Animated visuals (optional, use ONLY when motion genuinely aids understanding —
+an orbit, a wave, a cycle, a phase change, one pass of an algorithm):
+- Emit a SELF-CONTAINED SVG inside a ```svg code block. It renders inline and
+  animated in the reader (at most ONE animated figure per lesson).
+- Animate with SMIL (`<animate>`, `<animateMotion>`, `<animateTransform>`) or a
+  `<style>` block using CSS `@keyframes`. NO JavaScript — any `<script>` is
+  stripped and will not run.
+- Keep it small and legible at page width: `viewBox` ≈ `0 0 320 160`, a few
+  shapes, short labels. Use the brand palette where sensible (indigo #6366f1,
+  green #22c55e, slate strokes #334155).
+- Reserve ```svg for genuine MOTION; for static structure prefer a Mermaid diagram.
+"""
+
 # Per-register guidance: what kind of diagrams to produce for this publication.
 _DIAGRAM_REGISTERS: dict[str, str] = {
     "conceptual": """\
@@ -293,6 +309,7 @@ The lesson topic is: "{topic}".
 You MUST respond with ONLY valid JSON — no markdown fences, no extra text, no explanation outside the JSON.
 
 {_FORMATTING_GUIDELINES}
+{_ANIMATED_SVG_GUIDE}
 {_subject_guidelines(subject)}
 {_diagram_guidelines(diagram_register)}
 {_PROSE_QUALITY}

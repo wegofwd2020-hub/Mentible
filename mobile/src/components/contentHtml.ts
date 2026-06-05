@@ -19,6 +19,14 @@ const RENDER_HELPERS_JS = `
   var renderer = new marked.Renderer();
   renderer.code = function (code, lang) {
     if (lang === 'mermaid') return '<div class="mermaid">' + code + '</div>';
+    // Animated educational visuals (free path): the model emits a self-contained
+    // SVG with SMIL (<animate>) or CSS keyframes in an \`\`\`svg block; we drop it
+    // inline so it animates in-page. Strip <script> defensively — animation needs
+    // no JS, and SVG <script> would run in the WebView.
+    if (lang === 'svg') {
+      var safe = String(code).replace(/<script[\\s\\S]*?<\\/script\\s*>/gi, '');
+      return '<figure class="anim-svg">' + safe + '</figure>';
+    }
     return '<pre><code>' + code + '</code></pre>';
   };
   function renderMd(text) { return marked.parse(text || '', { renderer: renderer }); }
@@ -259,6 +267,16 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
   .step .obs { color: var(--text2); font-style: italic; font-size: 0.92em; }
   .mermaid { margin: 12px 0; }
   .mermaid svg { max-width: 100%; }
+  /* Animated SVG figures (free animated-visual path). */
+  .anim-svg {
+    margin: 16px 0;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .anim-svg svg { max-width: 100%; height: auto; }
   .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   .error-banner { background: #7f1d1d; border-radius: 8px; padding: 12px; color: #fca5a5; }
 </style>
