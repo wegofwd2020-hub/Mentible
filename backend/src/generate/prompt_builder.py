@@ -86,8 +86,34 @@ an orbit, a wave, a cycle, a phase change, one pass of an algorithm):
   stripped and will not run.
 - Keep it small and legible at page width: `viewBox` ≈ `0 0 320 160`, a few
   shapes, short labels. Use the brand palette where sensible (indigo #6366f1,
-  green #22c55e, slate strokes #334155).
+  green #22c55e, amber #f59e0b, slate strokes #334155). Keep labels inside the
+  viewBox so they don't crowd the edge.
 - Reserve ```svg for genuine MOTION; for static structure prefer a Mermaid diagram.
+
+WORKED EXAMPLE — motion diagram (a planet orbiting a star). Match this style:
+```svg
+<svg viewBox="0 0 220 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A planet orbiting a star">
+  <ellipse cx="110" cy="75" rx="88" ry="48" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="3 5"/>
+  <circle cx="110" cy="75" r="15" fill="#f59e0b"/>
+  <g><circle r="8" fill="#6366f1"/>
+    <animateMotion dur="6s" repeatCount="indefinite" path="M 198 75 A 88 48 0 1 1 22 75 A 88 48 0 1 1 198 75"/></g>
+</svg>
+```
+
+CHARACTER (people/animals) — ONLY in a narrative/analogy lesson where a friendly
+figure aids the story; never in a technical/reference lesson, and never realistic.
+Flat shapes, a simple face, gentle motion. Example — a bouncing mascot:
+```svg
+<svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A friendly bouncing mascot">
+  <ellipse cx="60" cy="135" rx="30" ry="7" fill="#0b1220">
+    <animate attributeName="rx" values="30;22;30" dur="1.1s" repeatCount="indefinite"/></ellipse>
+  <g><animateTransform attributeName="transform" type="translate" values="0 0;0 -34;0 0" dur="1.1s" repeatCount="indefinite"/>
+    <circle cx="60" cy="92" r="30" fill="#6366f1"/>
+    <circle cx="51" cy="87" r="6" fill="#fff"/><circle cx="69" cy="87" r="6" fill="#fff"/>
+    <circle cx="52" cy="88" r="3" fill="#1f2937"/><circle cx="70" cy="88" r="3" fill="#1f2937"/>
+    <path d="M51 101 q9 8 18 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></g>
+</svg>
+```
 """
 
 # Per-register guidance: what kind of diagrams to produce for this publication.

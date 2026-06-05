@@ -15,7 +15,11 @@ WebView, and it stays in the EPUB/PDF-friendly content model.
 ## How it works (the path)
 1. **Generation** — the prompt (`prompt_builder._ANIMATED_SVG_GUIDE`) tells the
    model it MAY emit a self-contained SVG in a ```svg block, animated with SMIL
-   or CSS `@keyframes`, **no JavaScript**, one per lesson, small + legible.
+   or CSS `@keyframes`, **no JavaScript**, one per lesson, small + legible. It
+   includes two **worked examples** (a motion diagram + a character) so weaker
+   free models have a concrete pattern to follow — few-shot raises the floor.
+   The character example is gated to narrative/analogy lessons only (never a
+   technical/reference lesson; never realistic) per the adult-learner positioning.
 2. **Render** — the reader's `marked` renderer (`contentHtml.ts`) special-cases
    ```svg the same way it does ```mermaid: it drops the SVG inline inside
    `<figure class="anim-svg">` (instead of a `<pre>` code block), so SMIL/CSS
