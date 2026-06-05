@@ -78,13 +78,13 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
-    id: "scoped-queries",
-    title: "How scoped queries work",
-    keywords: ["scope", "query", "level", "depth", "length", "parameters", "chatbot"],
+    id: "scoped-generation",
+    title: "How scoping works",
+    keywords: ["scope", "scoped", "level", "depth", "length", "parameters", "chatbot"],
     blocks: [
       {
         kind: "text",
-        text: "Mentible isn't a chatbot. Every generation is a scoped query tuned by a few dimensions — level, depth, length and diagram register — so you get a real lesson, not a chat reply. Adjust the scope to change the reading level, how deep it goes, and the kind of diagrams it produces.",
+        text: "Mentible isn't a chatbot. Every topic is generated with a scoped request tuned by a few dimensions — level, depth, length and diagram register — a real lesson inside your book, not a chat reply. Adjust the scope to change the reading level, how deep it goes, and the kind of diagrams it produces.",
       },
     ],
   },
@@ -107,7 +107,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "At launch, generations are lessons. Saved content can be compiled into EPUB/PDF books with a branded cover, figures, tables and a glossary, shown on your Library shelf.",
+        text: "Each topic is generated as a lesson and compiled into an EPUB/PDF book with a branded cover, figures, tables and a glossary, shown on your Library shelf.",
       },
     ],
   },
@@ -148,7 +148,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "defs",
         defs: [
           { term: "BYOK", def: "Bring Your Own Key — you supply your Anthropic API key and are billed by Anthropic directly." },
-          { term: "Scoped query", def: "A generation request parametrised by level, depth, length, language and diagram register — the core model of the app." },
+          { term: "Scoped generation", def: "A generation request parametrised by level, depth, length, language and diagram register — the core model of the app." },
           { term: "Diagram register", def: "The chosen direction of a book's visuals: Conceptual, Balanced, or Technical." },
           { term: "EPUB3 / PDF", def: "The compiled book formats Mentible produces, with a cover, figures, tables and a glossary." },
           { term: "KaTeX", def: "The math typesetting used to render formulas in lessons." },

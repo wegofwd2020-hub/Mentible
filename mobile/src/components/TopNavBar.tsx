@@ -77,7 +77,7 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={focused ? cfg.active : cfg.inactive}
                 size={22}
-                color={focused ? colors.primary : colors.textMuted}
+                color={focused ? colors.tileOnGlyph : colors.tileOffGlyph}
               />
               <Text
                 style={[styles.tileLabel, focused && styles.tileLabelActive]}
@@ -95,7 +95,8 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
 
 const styles = StyleSheet.create({
   bar: {
-    backgroundColor: colors.surface,
+    // Darkest token so the lighter tiles read as raised buttons against it.
+    backgroundColor: colors.background,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
   },
@@ -112,29 +113,49 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    backgroundColor: colors.tileOffFace,
+    borderWidth: 2,
+    borderTopColor: colors.tileOffFace,
+    borderLeftColor: colors.tileOffFace,
+    borderBottomColor: colors.tileOffShadow,
+    borderRightColor: colors.tileOffShadow,
     justifyContent: "center",
     alignItems: "center",
     marginRight: spacing.xs,
   },
-  logo: { width: 40, height: 40 },
-  // Square tiles (icon over label) with a clear, rounded border.
+  // Fill the tile's full inner box (64 − 2×2 border = 60). resizeMode="contain"
+  // keeps the mark undistorted; its own transparent padding leaves visual margin.
+  logo: { width: 60, height: 60 },
+  // Square tiles (icon over label) with a beveled edge. Default = raised: a
+  // white face with a light top/left highlight and a grey bottom/right shadow,
+  // so it stands off the dark bar; glyphs are black. Selected (tileActive)
+  // flips the bevel — dark top/left, light bottom/right — over a yellow face
+  // with black glyphs, so the active tile looks pressed in.
   tile: {
     width: 64,
     height: 64,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    backgroundColor: colors.tileOffFace,
+    borderWidth: 2,
+    borderTopColor: colors.tileOffFace,
+    borderLeftColor: colors.tileOffFace,
+    borderBottomColor: colors.tileOffShadow,
+    borderRightColor: colors.tileOffShadow,
     justifyContent: "center",
     alignItems: "center",
     gap: 3,
   },
-  tileActive: { backgroundColor: colors.primary + "22", borderColor: colors.primary },
+  tileActive: {
+    backgroundColor: colors.tileOnFace,
+    borderTopColor: colors.tileOnLo,
+    borderLeftColor: colors.tileOnLo,
+    borderBottomColor: colors.tileOnHi,
+    borderRightColor: colors.tileOnHi,
+  },
   tileLabel: {
     fontSize: typography.sizeXs,
     fontWeight: "600",
-    color: colors.textMuted,
+    color: colors.tileOffGlyph,
   },
-  tileLabelActive: { color: colors.primary },
+  tileLabelActive: { color: colors.tileOnGlyph },
 });
