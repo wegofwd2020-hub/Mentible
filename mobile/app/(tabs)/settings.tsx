@@ -17,7 +17,6 @@ import {
   saveApiKey,
 } from "@/secure/keyStore";
 import { useRouter } from "expo-router";
-import { BRAND_NAME } from "@/constants/brand";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/components/HelpButton";
@@ -169,15 +168,6 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>About</Text>
-      <View style={styles.aboutCard}>
-        <AboutRow label="App" value={BRAND_NAME} />
-        <AboutRow label="Version" value="0.1.0 (MVP)" />
-        <AboutRow label="Key model" value="claude-sonnet-4-6" />
-      </View>
-
-      <View style={styles.divider} />
-
       <Text style={styles.sectionLabel}>Prototypes</Text>
       <Pressable
         style={styles.protoRow}
@@ -190,15 +180,6 @@ export default function SettingsScreen() {
       </Pressable>
       </PageContainer>
     </ScrollView>
-  );
-}
-
-function AboutRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.aboutRow}>
-      <Text style={styles.aboutLabel}>{label}</Text>
-      <Text style={styles.aboutValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -317,13 +298,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
   },
-  aboutCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    overflow: "hidden",
-  },
   protoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -342,21 +316,5 @@ const styles = StyleSheet.create({
   protoChevron: {
     fontSize: typography.sizeMd,
     color: colors.primary,
-  },
-  aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  aboutLabel: {
-    fontSize: typography.sizeSm,
-    color: colors.textSecondary,
-  },
-  aboutValue: {
-    fontSize: typography.sizeSm,
-    color: colors.text,
-    fontWeight: "500",
   },
 });
