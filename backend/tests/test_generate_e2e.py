@@ -298,3 +298,42 @@ async def test_wrong_key_format_for_provider_rejected(client):
     body = _request_body(_FAKE_OPENAI_KEY, provider_id="anthropic")
     submit = await client.post("/api/v1/generate", json=body)
     assert submit.status_code == 422
+
+
+# ── Free providers (Phase 5) ──────────────────────────────────────────────────
+
+_FAKE_GROQ_KEY = "gsk_TEST_FAKE_GROQ_KEY_xxxxxxxxxxxxxxxxxxxxxx"
+
+
+@pytest.mark.asyncio
+async def test_groq_wrong_key_prefix_rejected(client):
+    """Groq keys are gsk_ — an sk- key is rejected for groq (422), no task runs."""
+    body = _request_body(_FAKE_OPENAI_KEY, provider_id="groq")  # sk-, wrong for groq
+    submit = await client.post("/api/v1/generate", json=body)
+    assert submit.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_groq_provider_path_done(client, fake_redis):
+    """A gsk_ key + provider_id=groq passes the shape check and generates through
+    the OpenAI-compatible seam (no network — build_provider is patched)."""
+    provider = _openai_provider_returning(_FAKE_LESSON_JSON)  # any OpenAI-compatible fake
+    with patch("backend.src.generate.tasks.build_provider", return_value=provider):
+        body = _request_body(_FAKE_GROQ_KEY, provider_id="groq")
+        submit = await client.post("/api/v1/generate", json=body)
+        assert submit.status_code == 202
+        result = await _wait_for_status(client, submit.json()["job_id"], "done")
+    assert result["status"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_gemini_accepts_non_sk_key(client, fake_redis):
+    """Gemini keys (AIza…) have no sk- prefix — the request is accepted."""
+    provider = _openai_provider_returning(_FAKE_LESSON_JSON)
+    with patch("backend.src.generate.tasks.build_provider", return_value=provider):
+        body = _request_body("AIzaFAKE_GEMINI_KEY_xxxxxxxxxxxxxxxxxxx", provider_id="gemini")
+        submit = await client.post("/api/v1/generate", json=body)
+        assert submit.status_code == 202
+        # Drive the job to completion inside the patch so no real Gemini call runs.
+        result = await _wait_for_status(client, submit.json()["job_id"], "done")
+    assert result["status"] == "done"

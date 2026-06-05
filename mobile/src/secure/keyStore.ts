@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { providerInfo } from "@/constants/providers";
 
 // Per-provider BYOK keys (Phase 3b). Anthropic keeps the original storage key so
 // existing installs need no migration; other providers are namespaced. The
@@ -48,17 +49,18 @@ export async function deleteApiKey(provider = "anthropic"): Promise<void> {
   }
 }
 
-// Show only the provider prefix + last 4. The provider drives the displayed
-// prefix (anthropic keys are sk-ant-, the OpenAI-compatible providers are sk-).
+// Show only the provider prefix + last 4. The displayed prefix comes from the
+// provider's registry entry (anthropic sk-ant-, openai sk-, groq gsk_, gemini "").
 export function maskApiKey(apiKey: string, provider = "anthropic"): string {
-  const prefix = provider === "anthropic" ? "sk-ant-" : "sk-";
+  const prefix = providerInfo(provider).keyPrefix;
   if (apiKey.length < 8) return `${prefix}...????`;
   return `${prefix}...${apiKey.slice(-4)}`;
 }
 
-// Client-side shape check (the backend re-validates per provider). Anthropic
-// keys are sk-ant-; the OpenAI-compatible providers use sk-.
+// Client-side shape check (the backend re-validates per provider). Each provider
+// declares its key prefix; an empty prefix (e.g. Gemini's AIza… keys) means a
+// length-only check.
 export function isValidApiKey(value: string, provider = "anthropic"): boolean {
-  const prefix = provider === "anthropic" ? "sk-ant-" : "sk-";
+  const prefix = providerInfo(provider).keyPrefix;
   return value.startsWith(prefix) && value.length >= 20;
 }

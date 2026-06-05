@@ -106,8 +106,18 @@ describe("isValidApiKey", () => {
     expect(isValidApiKey("nope-not-a-key-abcdefghij", "openai")).toBe(false);
   });
 
+  it("validates free-provider key prefixes (groq gsk_, gemini length-only)", () => {
+    expect(isValidApiKey("gsk_FAKE_GROQ_KEY_abcdefghij", "groq")).toBe(true);
+    expect(isValidApiKey("sk-not-a-groq-key-abcdefghij", "groq")).toBe(false);
+    // Gemini keys (AIza…) have no sk- prefix → length-only check.
+    expect(isValidApiKey("AIzaFAKE_GEMINI_abcdefghijklmno", "gemini")).toBe(true);
+    expect(isValidApiKey("short", "gemini")).toBe(false);
+  });
+
   it("masks with the provider-appropriate prefix", () => {
     expect(maskApiKey("sk-OPENAIKEYxxxx9876", "openai")).toBe("sk-...9876");
     expect(maskApiKey("sk-ant-api03-xxxx1234")).toBe("sk-ant-...1234");
+    expect(maskApiKey("gsk_FAKEGROQKEYxxxx4321", "groq")).toBe("gsk_...4321");
+    expect(maskApiKey("AIzaFAKEGEMINIxxxx8888", "gemini")).toBe("...8888");
   });
 });

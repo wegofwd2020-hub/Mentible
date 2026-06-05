@@ -20,7 +20,7 @@ from pipeline.providers.registry import (
     validate_selection,
 )
 
-ALL = {"anthropic", "openai", "deepseek", "qwen", "gemma"}
+ALL = {"anthropic", "openai", "deepseek", "qwen", "gemma", "groq", "openrouter", "gemini"}
 
 
 def _mock_client():

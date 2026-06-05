@@ -32,6 +32,31 @@ export const PROVIDERS: ProviderInfo[] = [
     tier: "experimental",
     note: "Wired but conformance not yet measured — treat output as draft-grade.",
   },
+  // ── Free providers (BYOK — get a free key from the vendor) ──────────────────
+  {
+    id: "groq",
+    label: "Groq (free)",
+    keyPrefix: "gsk_",
+    keyHint: "gsk_...",
+    tier: "experimental",
+    note: "Free & fast (open models). Get a key at console.groq.com. Conformance not yet measured — draft-grade.",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter (free models)",
+    keyPrefix: "sk-or-",
+    keyHint: "sk-or-...",
+    tier: "experimental",
+    note: "Free model variants available. Get a key at openrouter.ai. Conformance not yet measured — draft-grade.",
+  },
+  {
+    id: "gemini",
+    label: "Google Gemini (free tier)",
+    keyPrefix: "", // Google keys are AIza… — no sk- prefix
+    keyHint: "AIza...",
+    tier: "experimental",
+    note: "Free tier via Google AI Studio (aistudio.google.com). Conformance not yet measured — draft-grade.",
+  },
 ];
 
 export const DEFAULT_PROVIDER_ID = "anthropic";
