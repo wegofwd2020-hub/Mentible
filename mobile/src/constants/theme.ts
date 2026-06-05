@@ -26,6 +26,9 @@ export const colors = {
   tileOnGlyph: "#111827",
   tileOnHi: "#fde68a",
   tileOnLo: "#a16207",
+  // Secondary line (chip descriptions) on a light tile — dark slate, legible on
+  // both the white and yellow faces.
+  tileSubGlyph: "#475569",
 
   success: "#22c55e",
   error: "#ef4444",
