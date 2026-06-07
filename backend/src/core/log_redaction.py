@@ -93,6 +93,40 @@ def redact_keys(_logger: Any, _method: str, event_dict: dict) -> dict:
     return event_dict
 
 
+def scrub_validation_errors(errors: list[dict]) -> list[dict]:
+    """Redact the BYOK key from a RequestValidationError `.errors()` list before
+    it is returned to the client (ADR-001 — the key must never leave our boundary
+    except on the outbound Anthropic call).
+
+    FastAPI's default 422 handler echoes the offending `input` (and sometimes
+    `ctx`) back in the response body. On `/generate` a *missing-field* error sets
+    `input` to the WHOLE request body — which contains the api_key — so the
+    default handler hands the key straight back in the HTTP response. Each error
+    is scrubbed two ways:
+
+    - **loc-based** — if the error targets a sensitive field (its `loc` ends in
+      `api_key`, `authorization`, …), `input`/`ctx` are redacted wholesale. This
+      catches key formats the value-pattern scrubber can't (a too-short key that
+      fails `min_length`, or a non-`sk-ant-` key).
+    - **value-based** — otherwise `input`/`ctx` are run through `_scrub_value`,
+      which redacts a whole-body dict's `api_key` by field name and any
+      `sk-ant-` token by pattern.
+
+    Returns a new list; the input is not mutated.
+    """
+    scrubbed: list[dict] = []
+    for err in errors:
+        e = dict(err)
+        loc = e.get("loc") or ()
+        field = loc[-1] if loc else None
+        sensitive = isinstance(field, str) and field.lower() in _SENSITIVE_FIELD_NAMES
+        for k in ("input", "ctx"):
+            if k in e:
+                e[k] = _REDACTED_VALUE if sensitive else _scrub_value(e[k])
+        scrubbed.append(e)
+    return scrubbed
+
+
 # ── Logging configuration ─────────────────────────────────────────────────────
 
 

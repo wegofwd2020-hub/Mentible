@@ -25,6 +25,7 @@ from backend.src.core.log_redaction import (
     configure_logging,
     get_logger,
     redact_keys,
+    scrub_validation_errors,
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -81,6 +82,42 @@ class TestRedactionProcessor:
         partial = "sk-ant-abcdefghijkl"
         out = redact_keys(None, "info", {"event": partial})
         assert "sk-ant-" not in out["event"]
+
+
+# ── scrub_validation_errors (422 response redaction) ──────────────────────────
+
+
+def test_scrub_validation_errors_redacts_key_in_echoed_body():
+    """A missing-field error echoes the whole body as `input`; the api_key must be
+    redacted by field name — even for a non-sk key format the regex can't match."""
+    aq_key = "AQ.Ab8RN6Je1o7OYZSxFAKE_non_sk_key_style_xxxxxxxxxxxxx"
+    errors = [
+        {
+            "type": "missing",
+            "loc": ("body", "request_id"),
+            "msg": "Field required",
+            "input": {"topic": "x", "api_key": aq_key},
+        }
+    ]
+    out = scrub_validation_errors(errors)
+    assert aq_key not in json.dumps(out)
+    assert out[0]["loc"] == ("body", "request_id")  # error stays useful
+
+
+def test_scrub_validation_errors_redacts_bare_key_field_input():
+    """A field-level api_key error echoes the bare key as `input`; redact by loc."""
+    sk_key = "sk-ant-FAKE_bare_value_xxxxxxxxxxxxxxxxxxxxxxxx"
+    errors = [{"type": "string_too_short", "loc": ("body", "api_key"), "input": sk_key}]
+    out = scrub_validation_errors(errors)
+    assert sk_key not in json.dumps(out)
+    assert out[0]["input"] == "<redacted>"
+
+
+def test_scrub_validation_errors_preserves_nonsensitive_input():
+    """Non-key inputs are left intact so the error message stays diagnosable."""
+    errors = [{"type": "string_too_short", "loc": ("body", "topic"), "input": ""}]
+    out = scrub_validation_errors(errors)
+    assert out[0]["input"] == ""
 
 
 # ── End-to-end tests via /generate ────────────────────────────────────────────
@@ -162,6 +199,28 @@ async def test_generate_validation_error_does_not_log_key(client, capsys):
     # fields like api_key must NOT be echoed in the response body either.
     assert leaky not in resp.text, "api_key fragment leaked into 422 response body"
     assert leaky not in combined
+
+
+@pytest.mark.asyncio
+async def test_missing_field_422_does_not_echo_key(client):
+    """The real leak vector: a MISSING required field makes pydantic set the error
+    `input` to the WHOLE request body (incl. api_key), which the default 422
+    handler would echo back. Distinct from the empty-topic case above (a
+    field-level error whose input is just ""). The custom handler must redact it."""
+    leaky = "sk-ant-MISSING_FIELD_LEAK_PROBE_xxxxxxxxxxxxxxxxxx"
+    resp = await client.post(
+        "/api/v1/generate",
+        json={  # request_id omitted on purpose
+            "topic": "Anything",
+            "level": "student",
+            "language": "en",
+            "format": "lesson",
+            "api_key": leaky,
+        },
+    )
+    assert resp.status_code == 422
+    assert leaky not in resp.text, "api_key leaked via the missing-field 422 path"
+    assert "request_id" in resp.text  # the error is still useful
 
 
 def test_envelope_does_not_log_key(known_test_api_key, capsys):

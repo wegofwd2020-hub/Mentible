@@ -17,11 +17,22 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette import status as _status
 
 from backend.config import settings
-from backend.src.core.log_redaction import configure_logging, get_logger
+from backend.src.core.log_redaction import (
+    configure_logging,
+    get_logger,
+    scrub_validation_errors,
+)
+
+# Starlette renamed HTTP_422_UNPROCESSABLE_ENTITY → ..._CONTENT; tolerate both.
+_HTTP_422 = getattr(_status, "HTTP_422_UNPROCESSABLE_CONTENT", None) or _status.HTTP_422_UNPROCESSABLE_ENTITY
 from backend.src.export import router as export_router
 from backend.src.generate import router as generate_router
 from backend.src.structure import router as structure_router
@@ -56,6 +67,21 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 handler that scrubs the BYOK key from the echoed request.
+
+    FastAPI's default handler returns the offending `input` in the response body.
+    On `/generate` a missing-field error's input is the whole request body — which
+    contains the api_key — so the default would hand the key back to the caller.
+    We mirror the default 422 shape but run the errors through
+    `scrub_validation_errors` first (ADR-001)."""
+    return JSONResponse(
+        status_code=_HTTP_422,
+        content=jsonable_encoder({"detail": scrub_validation_errors(exc.errors())}),
+    )
+
 
 app.include_router(generate_router.router)
 app.include_router(structure_router.router)
