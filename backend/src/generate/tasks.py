@@ -27,16 +27,17 @@ import uuid
 from typing import Any
 
 import redis.asyncio as redis
+from pipeline.providers.conformance import generate_validated
+from pipeline.providers.contract import LLMRequest
+from pipeline.providers.errors import LLMError, LLMSchemaError
+from pipeline.providers.registry import build_provider, provenance
+
 from backend.config import settings
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
 from backend.src.core.log_redaction import get_logger
 from backend.src.generate.anthropic_caller import parse_json_response
 from backend.src.generate.lesson_schema import LessonOutput
 from backend.src.generate.prompt_builder import build_lesson_prompt
-from pipeline.providers.conformance import generate_validated
-from pipeline.providers.contract import LLMRequest
-from pipeline.providers.errors import LLMError, LLMSchemaError
-from pipeline.providers.registry import build_provider, provenance
 
 log = get_logger("generate.tasks")
 

@@ -22,9 +22,9 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from pipeline.providers.errors import LLMError
 
 from backend.tests.helpers import fake_provider
-from pipeline.providers.errors import LLMError
 
 # A complete, valid LessonOutput used as the mocked Anthropic response.
 _FAKE_LESSON_JSON = json.dumps(
@@ -91,7 +91,10 @@ async def _wait_for_status(client, job_id: str, target: str, timeout: float = 5.
 
 @pytest.mark.asyncio
 async def test_full_loop_done(client, fake_redis, known_test_api_key):
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_FAKE_LESSON_JSON)):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(text=_FAKE_LESSON_JSON),
+    ):
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
         assert submit.status_code == 202
         job_id = submit.json()["job_id"]
@@ -147,7 +150,10 @@ async def test_instructions_threaded_into_prompt(client, fake_redis, known_test_
 @pytest.mark.asyncio
 async def test_envelope_shredded_after_done(client, fake_redis, known_test_api_key):
     """The byok:{job_id} key must be DELETED from Redis after the worker finishes."""
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_FAKE_LESSON_JSON)):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(text=_FAKE_LESSON_JSON),
+    ):
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
         job_id = submit.json()["job_id"]
 
@@ -162,7 +168,10 @@ async def test_envelope_shredded_after_done(client, fake_redis, known_test_api_k
 
 @pytest.mark.asyncio
 async def test_anthropic_failure_marks_job_failed(client, fake_redis, known_test_api_key):
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(side_effect=LLMError("anthropic call failed"))):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(side_effect=LLMError("anthropic call failed")),
+    ):
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
         job_id = submit.json()["job_id"]
 
@@ -175,7 +184,10 @@ async def test_anthropic_failure_marks_job_failed(client, fake_redis, known_test
 
 @pytest.mark.asyncio
 async def test_envelope_shredded_after_failure(client, fake_redis, known_test_api_key):
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(side_effect=LLMError("boom"))):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(side_effect=LLMError("boom")),
+    ):
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
         job_id = submit.json()["job_id"]
         await _wait_for_status(client, job_id, "failed")
@@ -186,7 +198,10 @@ async def test_envelope_shredded_after_failure(client, fake_redis, known_test_ap
 
 @pytest.mark.asyncio
 async def test_invalid_json_marks_failed(client, fake_redis, known_test_api_key):
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(text="not json at all")):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(text="not json at all"),
+    ):
         submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
         job_id = submit.json()["job_id"]
         body = await _wait_for_status(client, job_id, "failed")

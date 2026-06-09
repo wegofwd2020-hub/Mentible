@@ -49,7 +49,9 @@ async def test_duplicate_request_id_returns_same_job_id(client, known_test_api_k
     rid = str(uuid.uuid4())
 
     # Mock the provider to keep the test fast and avoid background-task races.
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_LESSON_JSON)):
+    with patch(
+        "backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_LESSON_JSON)
+    ):
         first = await client.post("/api/v1/generate", json=_request_body(known_test_api_key, rid))
         second = await client.post("/api/v1/generate", json=_request_body(known_test_api_key, rid))
 
@@ -62,7 +64,9 @@ async def test_duplicate_request_id_returns_same_job_id(client, known_test_api_k
 
 @pytest.mark.asyncio
 async def test_different_request_ids_get_different_job_ids(client, known_test_api_key):
-    with patch("backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_LESSON_JSON)):
+    with patch(
+        "backend.src.generate.tasks.build_provider", return_value=fake_provider(text=_LESSON_JSON)
+    ):
         first = await client.post(
             "/api/v1/generate",
             json=_request_body(known_test_api_key, str(uuid.uuid4())),

@@ -14,18 +14,29 @@ from pipeline.providers.contract import LLMResponse
 
 
 def llm_response(
-    text: str, *, in_tok: int = 100, out_tok: int = 500,
-    model: str = "claude-sonnet-4-6", provider: str = "anthropic",
+    text: str,
+    *,
+    in_tok: int = 100,
+    out_tok: int = 500,
+    model: str = "claude-sonnet-4-6",
+    provider: str = "anthropic",
 ) -> LLMResponse:
     return LLMResponse(
-        text=text, provider_id=provider, model=model,
-        input_tokens=in_tok, output_tokens=out_tok,
+        text=text,
+        provider_id=provider,
+        model=model,
+        input_tokens=in_tok,
+        output_tokens=out_tok,
     )
 
 
 def fake_provider(
-    *, text: str | None = None, responses: list[str] | None = None,
-    side_effect=None, model: str = "claude-sonnet-4-6", provider: str = "anthropic",
+    *,
+    text: str | None = None,
+    responses: list[str] | None = None,
+    side_effect=None,
+    model: str = "claude-sonnet-4-6",
+    provider: str = "anthropic",
 ):
     """A MagicMock standing in for a `Provider`, for patching tasks.build_provider.
 
@@ -40,7 +51,9 @@ def fake_provider(
     if side_effect is not None:
         p.generate.side_effect = side_effect
     elif responses is not None:
-        p.generate.side_effect = [llm_response(t, model=model, provider=provider) for t in responses]
+        p.generate.side_effect = [
+            llm_response(t, model=model, provider=provider) for t in responses
+        ]
     else:
         p.generate.return_value = llm_response(text or "", model=model, provider=provider)
     return p
