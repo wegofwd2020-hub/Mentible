@@ -12,7 +12,7 @@ from pipeline.providers.config import (
     is_stale,
     resolve_llm_config,
 )
-from pipeline.providers.errors import LLMConfigurationError, LLMNotAllowedError
+from wegofwd_llm.errors import LLMConfigurationError, LLMNotAllowedError
 
 
 # ── precedence: book > author > role default ─────────────────────────────────

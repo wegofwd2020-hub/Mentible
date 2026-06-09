@@ -8,8 +8,8 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from pipeline.providers.registry import PROVIDER_REGISTRY
 from pydantic import BaseModel, Field, field_validator, model_validator
+from wegofwd_llm.registry import PROVIDER_REGISTRY
 
 # Output formats for v1 (D13). MVP uses only "lesson" — others land in v1.1.
 OutputFormat = Literal["lesson", "explanation", "quiz"]

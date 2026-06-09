@@ -22,7 +22,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from pipeline.providers.errors import LLMError
+from wegofwd_llm.errors import LLMError
 
 from backend.tests.helpers import fake_provider
 
@@ -247,8 +247,8 @@ def _openai_provider_returning(content: str):
     returns `content` as the chat-completion. Used to drive the worker's OpenAI
     path deterministically."""
     import httpx
-    from pipeline.providers.contract import Capabilities
-    from pipeline.providers.openai_compatible import OpenAICompatibleProvider
+    from wegofwd_llm.contract import Capabilities
+    from wegofwd_llm.openai_compatible import OpenAICompatibleProvider
 
     def _handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

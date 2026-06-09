@@ -30,7 +30,7 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from pipeline.providers.registry import (
+from wegofwd_llm.registry import (
     PROVIDER_REGISTRY,
     provenance as _registry_provenance,
     resolve_role,

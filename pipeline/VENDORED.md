@@ -3,6 +3,16 @@
 Files in this directory are copied from `StudyBuddy_OnDemand`. See
 `../docs/adr/ADR-002-repo-structure-and-vendoring.md` for the rationale.
 
+> **The active LLM provider seam is no longer here — it is the `wegofwd-llm`
+> package (ADR-012).** The typed contract, registry, conformance loop, and the
+> Anthropic-tool-use / OpenAI-compatible providers were extracted to
+> `wegofwd-llm` and are consumed as a pinned dependency (see
+> `backend/requirements.txt`). The legacy rows below (`base.py`, `anthropic.py`,
+> `providers/__init__.py`) remain only as a **deprecated rollback path** behind
+> `anthropic_adapter.py`, pending removal once the adapter is retired.
+> `config.py` (author/book LLM config) stays Mentible-owned. Do **not** re-vendor
+> the provider seam — change it in `wegofwd-llm` and bump the pin.
+
 **Source repo:** https://github.com/wegofwd2020-hub/StudyBuddy_OnDemand
 **Last sync:** 2026-04-25 from `0e7ebc06fdf6d14657ed201a1cb1d667fc7a0595`
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 
 from pipeline.providers.anthropic_adapter import AnthropicAdapter
-from pipeline.providers.contract import LLMRequest
+from wegofwd_llm.contract import LLMRequest
 
 from backend.src.core.log_redaction import get_logger
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from pipeline.providers.contract import LLMResponse
+from wegofwd_llm.contract import LLMResponse
 
 
 def llm_response(

@@ -15,8 +15,8 @@ are never chained).
 from __future__ import annotations
 
 from pipeline.providers.anthropic import AnthropicProvider
-from pipeline.providers.contract import Capabilities, LLMRequest, LLMResponse, Provider
-from pipeline.providers.errors import LLMConfigurationError, LLMError, LLMResponseError
+from wegofwd_llm.contract import Capabilities, LLMRequest, LLMResponse, Provider
+from wegofwd_llm.errors import LLMConfigurationError, LLMError, LLMResponseError
 
 
 class AnthropicAdapter(Provider):

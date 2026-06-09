@@ -27,10 +27,10 @@ import uuid
 from typing import Any
 
 import redis.asyncio as redis
-from pipeline.providers.conformance import generate_validated
-from pipeline.providers.contract import LLMRequest
-from pipeline.providers.errors import LLMError, LLMSchemaError
-from pipeline.providers.registry import build_provider, provenance
+from wegofwd_llm.conformance import generate_validated
+from wegofwd_llm.contract import LLMRequest
+from wegofwd_llm.errors import LLMError, LLMSchemaError
+from wegofwd_llm.registry import build_provider, provenance
 
 from backend.config import settings
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key

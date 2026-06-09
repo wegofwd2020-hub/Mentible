@@ -18,7 +18,13 @@ redis==6.4.0
 # Cryptography (BYOK envelope: HKDF + AES-GCM)
 cryptography>=43.0.0
 
-# Anthropic SDK (used by vendored AnthropicProvider)
+# Shared multi-provider LLM seam (ADR-012) — the provider seam lives in its own
+# (public) package now, not vendored. The [anthropic] extra pulls the SDK below.
+# For LOCAL multi-repo dev, prefer an editable install: pip install -e ../wegofwd-llm
+wegofwd-llm[anthropic] @ git+https://github.com/wegofwd2020-hub/wegofwd-llm@v0.1.0
+
+# Anthropic SDK (also pulled by wegofwd-llm[anthropic]; pinned here for the
+# coupled anthropic 0.28.0 ↔ httpx 0.27.2 pair used by the vendored legacy provider)
 anthropic==0.28.0
 
 # ── Dev / test ────────────────────────────────────────────────────────────────
