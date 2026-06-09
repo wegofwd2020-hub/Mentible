@@ -85,12 +85,12 @@ class GenerateRequest(BaseModel):
     @model_validator(mode="after")
     def _api_key_matches_provider(self) -> GenerateRequest:
         # BYOK keys are scoped to their provider — never send the wrong format.
-        # Anthropic keys are sk-ant-; the OpenAI-compatible providers use sk-.
-        if self.provider_id == "anthropic":
-            if not self.api_key.startswith("sk-ant-"):
-                raise ValueError("Anthropic api_key must start with sk-ant-")
-        elif not self.api_key.startswith("sk-"):
-            raise ValueError(f"{self.provider_id} api_key must start with sk-")
+        # Each provider declares its expected key prefix in the registry
+        # (anthropic sk-ant-, openai/deepseek sk-, groq gsk_, openrouter sk-or-,
+        # gemini "" = no prefix check). An empty prefix means length-only.
+        prefix = PROVIDER_REGISTRY[self.provider_id].key_prefix
+        if prefix and not self.api_key.startswith(prefix):
+            raise ValueError(f"{self.provider_id} api_key must start with {prefix}")
         return self
 
 

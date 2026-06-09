@@ -19,8 +19,10 @@ from pipeline.providers.registry import (
 )
 
 
-def test_registry_has_the_five_providers():
-    assert set(available_providers()) == {"anthropic", "openai", "deepseek", "qwen", "gemma"}
+def test_registry_has_the_known_providers():
+    assert set(available_providers()) == {
+        "anthropic", "openai", "deepseek", "qwen", "gemma", "groq", "openrouter", "gemini",
+    }
 
 
 def test_anthropic_default_model_is_sonnet_not_opus():

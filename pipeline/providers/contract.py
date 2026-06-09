@@ -34,6 +34,12 @@ class Capabilities:
     tools: bool = False  # supports tool / function calling (Anthropic's strong path)
     system_prompt: bool = True
     max_context: int = 0  # 0 = unknown
+    # Per-request output-token ceiling. 0 = unknown/uncapped. Free tiers enforce a
+    # tokens-per-request (or per-minute) limit far below our 16384 default and
+    # reject an over-budget request outright (Groq's free tier → HTTP 413), so a
+    # provider whose ceiling we know clamps req.max_tokens down to this. See
+    # openai_compatible.generate / docs/multi-provider-wiring-phase5.md.
+    max_output_tokens: int = 0
     vision: bool = False
 
 

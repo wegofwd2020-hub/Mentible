@@ -73,6 +73,16 @@ class TestRedactionProcessor:
         )
         assert known_test_openai_key not in json.dumps(out)
 
+    def test_free_provider_key_formats_redacted(self):
+        # Groq (gsk_…) and Gemini (AIza…) keys don't start with sk- — the
+        # value-backstop must still catch them (Phase 5).
+        groq = "gsk_FAKE_GROQ_KEY_abcdefghijklmnopqrstuvwxyz"
+        gemini = "AIzaFAKE_GEMINI_KEY_abcdefghijklmnopqrstuv"
+        out = redact_keys(None, "info", {"event": "x", "a": groq, "msg": f"key={gemini} leaked"})
+        dumped = json.dumps(out)
+        assert groq not in dumped
+        assert gemini not in dumped
+
     def test_field_name_redacted(self, known_test_api_key: str):
         out = redact_keys(None, "info", {"event": "x", "api_key": known_test_api_key})
         assert known_test_api_key not in json.dumps(out)

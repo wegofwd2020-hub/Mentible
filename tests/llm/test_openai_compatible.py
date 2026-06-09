@@ -63,6 +63,46 @@ def test_happy_path_parses_text_and_usage():
     assert captured["body"]["max_tokens"] == 100
 
 
+def test_max_tokens_clamped_to_capability_ceiling():
+    # A free tier rejects an over-budget request (Groq → HTTP 413), so the
+    # provider clamps req.max_tokens down to the capability's output ceiling.
+    captured = {}
+
+    def handler(request):
+        captured["body"] = json.loads(request.content)
+        return ok_response("{}")
+
+    p = make_provider(handler, caps=Capabilities(json_object=True, max_output_tokens=8000))
+    p.generate(LLMRequest(prompt="q", max_tokens=16384))
+    assert captured["body"]["max_tokens"] == 8000
+
+
+def test_max_tokens_not_raised_when_request_below_ceiling():
+    # Clamp is a min(), never a floor — a small request is sent unchanged.
+    captured = {}
+
+    def handler(request):
+        captured["body"] = json.loads(request.content)
+        return ok_response("{}")
+
+    p = make_provider(handler, caps=Capabilities(json_object=True, max_output_tokens=8000))
+    p.generate(LLMRequest(prompt="q", max_tokens=2000))
+    assert captured["body"]["max_tokens"] == 2000
+
+
+def test_max_tokens_uncapped_when_capability_zero():
+    # 0 = unknown/uncapped (e.g. OpenAI/Anthropic): pass the request budget through.
+    captured = {}
+
+    def handler(request):
+        captured["body"] = json.loads(request.content)
+        return ok_response("{}")
+
+    p = make_provider(handler, caps=Capabilities(json_object=True))  # max_output_tokens defaults to 0
+    p.generate(LLMRequest(prompt="q", max_tokens=16384))
+    assert captured["body"]["max_tokens"] == 16384
+
+
 def test_system_prompt_and_json_response_format_when_capable():
     captured = {}
 

@@ -44,6 +44,11 @@ _ANTHROPIC_KEY_RE = re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")
 # mentions; over-redaction is the safe direction for a security backstop.
 _PROVIDER_KEY_RE = re.compile(r"sk-[A-Za-z0-9_\-]{16,}")
 
+# Free-provider key formats that DON'T start with sk-: Groq (gsk_…), Google
+# Gemini (AIza…). Other no-prefix keys (e.g. Mistral) can't be pattern-matched —
+# field-name redaction + the no-logging discipline are their backstop.
+_OTHER_KEY_RE = re.compile(r"\b(?:gsk_|AIza)[A-Za-z0-9_\-]{16,}")
+
 # Keys whose VALUE should be redacted regardless of content. Lower-cased
 # field names; comparison is case-insensitive.
 _SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
@@ -80,9 +85,11 @@ def _scrub_value(value: Any) -> Any:
     that would create false-positive risk on long stringified objects).
     """
     if isinstance(value, str):
-        # Anthropic first (keeps its specific label), then the generic backstop.
+        # Anthropic first (keeps its specific label), then the sk- backstop, then
+        # the non-sk free-provider formats (gsk_/AIza).
         scrubbed = _ANTHROPIC_KEY_RE.sub(_REDACTED_KEY_PATTERN, value)
-        return _PROVIDER_KEY_RE.sub(_REDACTED_PROVIDER_KEY, scrubbed)
+        scrubbed = _PROVIDER_KEY_RE.sub(_REDACTED_PROVIDER_KEY, scrubbed)
+        return _OTHER_KEY_RE.sub(_REDACTED_PROVIDER_KEY, scrubbed)
     if isinstance(value, dict):
         return {k: _scrub_dict_field(k, v) for k, v in value.items()}
     if isinstance(value, list):

@@ -79,9 +79,14 @@ class OpenAICompatibleProvider(Provider):
         return None  # capability-gated: fall back to prompt-only JSON
 
     def generate(self, req: LLMRequest) -> LLMResponse:
+        # Clamp to the provider/model's known output ceiling. Our default request
+        # budget (16384) exceeds free-tier per-request limits, which reject the
+        # call outright (Groq → HTTP 413) rather than truncating. 0 = uncapped.
+        cap = self.capabilities.max_output_tokens
+        max_tokens = min(req.max_tokens, cap) if cap > 0 else req.max_tokens
         body: dict = {
             "model": self._model,
-            "max_tokens": req.max_tokens,
+            "max_tokens": max_tokens,
             "temperature": req.temperature,
             "messages": self._messages(req),
         }

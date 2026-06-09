@@ -29,6 +29,10 @@ class ProviderSpec:
     base_url: str | None = None  # None for providers with their own SDK (Anthropic)
     managed_env_key: str = ""  # env var for the MANAGED key (unused on the BYOK path)
     model_verified: bool = False
+    # Expected BYOK key prefix for client/server shape-checks. Not every vendor
+    # uses "sk-" (Groq = gsk_, Gemini = AIza, …); "" means no prefix check (length
+    # only). The vendor still rejects truly invalid keys.
+    key_prefix: str = "sk-"
     # Version of OUR integration for this provider (request shaping, JSON mode,
     # prompt shims). Bump when we change HOW we call the vendor — independent of
     # the model id and the contract version. Recorded in provenance().
@@ -46,6 +50,7 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
         ),
         managed_env_key="ANTHROPIC_API_KEY",
         model_verified=True,
+        key_prefix="sk-ant-",
     ),
     "openai": ProviderSpec(
         provider_id="openai",
@@ -56,6 +61,50 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
             json_object=True, json_schema=True, tools=True, max_context=128_000
         ),
         managed_env_key="OPENAI_API_KEY",
+        key_prefix="sk-",
+    ),
+    # ── Free OpenAI-compatible providers (BYOK; get a free key) ─────────────────
+    # base_url + default_model verified against vendor docs 2026-06-05; re-check
+    # periodically as vendors rotate free models.
+    "groq": ProviderSpec(
+        provider_id="groq",
+        openai_compatible=True,
+        base_url="https://api.groq.com/openai/v1",
+        default_model="llama-3.3-70b-versatile",  # current Groq production model
+        # Free tier enforces a per-request/TPM token limit (~12k); 16384 → HTTP 413.
+        # Cap output so input+output stays under it. Verified 2026-06-07.
+        capabilities=Capabilities(
+            json_object=True, max_context=128_000, max_output_tokens=8000
+        ),
+        managed_env_key="GROQ_API_KEY",
+        model_verified=True,
+        key_prefix="gsk_",  # Groq keys start with gsk_
+    ),
+    "openrouter": ProviderSpec(
+        provider_id="openrouter",
+        openai_compatible=True,
+        base_url="https://openrouter.ai/api/v1",
+        default_model="meta-llama/llama-3.3-70b-instruct:free",  # a current :free model
+        # :free model variants cap completion length; keep output modest.
+        capabilities=Capabilities(
+            json_object=True, max_context=128_000, max_output_tokens=8000
+        ),
+        managed_env_key="OPENROUTER_API_KEY",
+        model_verified=True,
+        key_prefix="sk-or-",  # OpenRouter keys start with sk-or-
+    ),
+    "gemini": ProviderSpec(
+        provider_id="gemini",
+        openai_compatible=True,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        default_model="gemini-2.0-flash",  # current stable flash (1.5 retired)
+        # gemini-2.0-flash max output is 8192.
+        capabilities=Capabilities(
+            json_object=True, max_context=1_000_000, max_output_tokens=8192
+        ),
+        managed_env_key="GEMINI_API_KEY",
+        model_verified=True,
+        key_prefix="",  # Google keys are AIza… — no sk-; skip the prefix check
     ),
     "deepseek": ProviderSpec(
         provider_id="deepseek",
