@@ -7,6 +7,12 @@
 and Pramana's `docs/03_ai_drafted_human_approved_content.md`.
 **Authoritative for:** the Mentible→Pramana **handoff contract**. Pramana consumes
 this definition (it is the source of truth for the package format + flow).
+**Amended by:** **ADR-013** — §3.1/§8's *"Pramana never generates content"* is
+**narrowed**: Pramana may generate a defined class of **text-first compliance
+artifacts in-process** (clause summaries, quiz items, control/attestation text)
+via the shared `wegofwd-llm` seam, behind the **same** approval gate. Mentible
+remains the sole producer of the **packaged learner consumable** (§4). Read ADR-013
+alongside §3 and §8.
 
 ---
 
