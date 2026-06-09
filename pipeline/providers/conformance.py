@@ -33,7 +33,9 @@ class ConformanceResult:
     total_output_tokens: int
 
 
-def _repair_prompt(original: str, error: str, bad_text: str, *, max_echo: int = 4000) -> str:
+def _repair_prompt(
+    original: str, error: str, bad_text: str, *, max_echo: int = 4000
+) -> str:
     return (
         f"{original}\n\n"
         f"--- Your previous response was INVALID ---\n"
@@ -70,7 +72,9 @@ def generate_validated(
             parsed = validate(resp.text)
         except Exception as exc:  # validator decides what "invalid" means
             last_error = exc
-            current = replace(current, prompt=_repair_prompt(req.prompt, str(exc), resp.text))
+            current = replace(
+                current, prompt=_repair_prompt(req.prompt, str(exc), resp.text)
+            )
             continue
         return ConformanceResult(
             parsed=parsed,

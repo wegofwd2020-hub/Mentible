@@ -67,7 +67,9 @@ class TestRedactionProcessor:
         assert "<redacted-provider-key>" in json.dumps(out)
 
     def test_openai_key_embedded_in_message(self, known_test_openai_key: str):
-        out = redact_keys(None, "info", {"event": f"upstream rejected {known_test_openai_key} oops"})
+        out = redact_keys(
+            None, "info", {"event": f"upstream rejected {known_test_openai_key} oops"}
+        )
         assert known_test_openai_key not in json.dumps(out)
 
     def test_field_name_redacted(self, known_test_api_key: str):

@@ -41,7 +41,9 @@ class AnthropicAdapter(Provider):
 
     def generate(self, req: LLMRequest) -> LLMResponse:
         try:
-            text, in_tok, out_tok = self._inner.generate(req.prompt, max_tokens=req.max_tokens)
+            text, in_tok, out_tok = self._inner.generate(
+                req.prompt, max_tokens=req.max_tokens
+            )
         except Exception:
             # Never chain: SDK exceptions may include the api_key in their repr.
             raise LLMError("anthropic call failed") from None

@@ -43,7 +43,9 @@ class LLMConfig:
     """LLM preferences at one level (author OR book). `version` is assigned by
     the app and bumped whenever the level's config is edited."""
 
-    allowed: frozenset[str] | None = None  # provider include-set; None = inherit / unrestricted
+    allowed: frozenset[str] | None = (
+        None  # provider include-set; None = inherit / unrestricted
+    )
     provider: str | None = None  # preferred default provider
     model: str | None = None  # preferred default model
     version: int = 0  # app-assigned; bump on edit

@@ -8,9 +8,8 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
-
 from pipeline.providers.registry import PROVIDER_REGISTRY
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Output formats for v1 (D13). MVP uses only "lesson" — others land in v1.1.
 OutputFormat = Literal["lesson", "explanation", "quiz"]
@@ -84,7 +83,7 @@ class GenerateRequest(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _api_key_matches_provider(self) -> "GenerateRequest":
+    def _api_key_matches_provider(self) -> GenerateRequest:
         # BYOK keys are scoped to their provider — never send the wrong format.
         # Anthropic keys are sk-ant-; the OpenAI-compatible providers use sk-.
         if self.provider_id == "anthropic":

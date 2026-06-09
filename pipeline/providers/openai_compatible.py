@@ -40,7 +40,9 @@ class OpenAICompatibleProvider(Provider):
         client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
-            raise LLMConfigurationError(f"{provider_id} provider requires a non-empty api_key (BYOK)")
+            raise LLMConfigurationError(
+                f"{provider_id} provider requires a non-empty api_key (BYOK)"
+            )
         if not base_url:
             raise LLMConfigurationError(f"{provider_id} provider requires a base_url")
         self.provider_id = provider_id
@@ -63,9 +65,16 @@ class OpenAICompatibleProvider(Provider):
         return msgs
 
     def _response_format(self, req: LLMRequest) -> dict | None:
-        if req.response_format == "json_schema" and self.capabilities.json_schema and req.json_schema:
+        if (
+            req.response_format == "json_schema"
+            and self.capabilities.json_schema
+            and req.json_schema
+        ):
             return {"type": "json_schema", "json_schema": req.json_schema}
-        if req.response_format in ("json", "json_schema") and self.capabilities.json_object:
+        if (
+            req.response_format in ("json", "json_schema")
+            and self.capabilities.json_object
+        ):
             return {"type": "json_object"}
         return None  # capability-gated: fall back to prompt-only JSON
 
@@ -100,13 +109,17 @@ class OpenAICompatibleProvider(Provider):
         if resp.status_code == 429:
             raise LLMRateLimitError(f"{self.provider_id} rate limited")
         if resp.status_code >= 400:
-            raise LLMResponseError(f"{self.provider_id} returned HTTP {resp.status_code}")
+            raise LLMResponseError(
+                f"{self.provider_id} returned HTTP {resp.status_code}"
+            )
 
         try:
             data = resp.json()
             text = data["choices"][0]["message"]["content"] or ""
         except (ValueError, KeyError, IndexError, TypeError):
-            raise LLMResponseError(f"{self.provider_id} returned a malformed payload") from None
+            raise LLMResponseError(
+                f"{self.provider_id} returned a malformed payload"
+            ) from None
         if not text.strip():
             raise LLMResponseError(f"{self.provider_id} returned an empty response")
 

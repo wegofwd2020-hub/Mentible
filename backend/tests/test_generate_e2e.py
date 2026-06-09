@@ -232,7 +232,6 @@ def _openai_provider_returning(content: str):
     returns `content` as the chat-completion. Used to drive the worker's OpenAI
     path deterministically."""
     import httpx
-
     from pipeline.providers.contract import Capabilities
     from pipeline.providers.openai_compatible import OpenAICompatibleProvider
 

@@ -33,9 +33,13 @@ class AnthropicNativeProvider(Provider):
         json_object=True, json_schema=True, tools=True, max_context=200_000
     )
 
-    def __init__(self, *, api_key: str, model: str = "claude-sonnet-4-6", client=None) -> None:
+    def __init__(
+        self, *, api_key: str, model: str = "claude-sonnet-4-6", client=None
+    ) -> None:
         if not api_key:
-            raise LLMConfigurationError("anthropic provider requires a non-empty api_key (BYOK)")
+            raise LLMConfigurationError(
+                "anthropic provider requires a non-empty api_key (BYOK)"
+            )
         if client is not None:
             self._client = client
         else:
