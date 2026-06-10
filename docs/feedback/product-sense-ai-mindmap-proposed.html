@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Proposed mindmap — Product Sense and AI</title>
+<style>
+ :root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--text:#f1f5f9;--muted:#94a3b8;--faint:#64748b;--border:#334155;}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ header{padding:20px 28px 6px}
+ h1{margin:0 0 2px;font-size:20px}
+ .pill{display:inline-block;font-size:11px;font-weight:700;color:#0f172a;background:#ef8a16;border-radius:6px;padding:2px 8px;vertical-align:middle;margin-left:8px}
+ .sub{color:var(--muted);font-size:13px;margin:2px 0}
+ .stats{color:var(--faint);font-size:12px}
+ .legend{padding:6px 28px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+ .lg{font-size:11px;border-radius:6px;padding:2px 8px;font-weight:700;color:#0f172a}
+ .controls{padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}
+ .btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+ .btn:hover{background:var(--surface2)}
+ .map{padding:8px 28px 30px}
+ ul{list-style:none;margin:0;padding-left:26px;position:relative}
+ li{position:relative;margin:6px 0}
+ ul::before{content:"";position:absolute;top:0;bottom:14px;left:10px;width:2px;background:var(--border)}
+ li::before{content:"";position:absolute;top:16px;left:-16px;width:14px;height:2px;background:var(--border)}
+ .root>.node{font-size:18px;font-weight:800}
+ .node{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:7px 12px;cursor:pointer;user-select:none;max-width:820px;flex-wrap:wrap}
+ .node:hover{border-color:var(--faint)}
+ .tw{font-weight:600}
+ .leaf>.node{cursor:default;background:transparent;border-style:dashed;font-weight:400;color:var(--muted)}
+ .leaf.new>.node{border-color:#22c55e;color:#bbf7d0}
+ .mk{font-size:10px;font-weight:800;border-radius:5px;padding:1px 6px;color:#0f172a}
+ .mk.P{background:#f87171}.mk.R{background:#34d399}.mk.C{background:#93c5fd}
+ .tag{font-size:10px;font-weight:700;border-radius:5px;padding:1px 6px;color:#0f172a}
+ .chip{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;color:#0f172a;background:#22c55e}
+ .twist{width:14px;display:inline-block;color:var(--faint);font-size:11px;transition:transform .12s}
+ .collapsed>ul{display:none}.collapsed .twist{transform:rotate(-90deg)}
+ .count{color:var(--faint);font-size:11px;margin-left:2px}
+ .pnote{color:var(--faint);font-size:11px;margin:2px 0 2px 2px;max-width:760px}
+ .global{margin:14px 28px 50px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:820px}
+ .global h3{margin:0 0 6px;font-size:13px;color:var(--muted)}
+ .global div{font-size:12px;color:var(--muted);margin:4px 0}
+ .global b{color:#fbbf24}
+</style></head><body>
+<header>
+ <h1>Product Sense and AI<span class="pill">PROPOSED</span></h1>
+ <p class="sub">A Practical Guide for Experienced Product Managers</p>
+ <p class="sub" style="color:#94a3b8">Reviewer-driven restructure (Sridhar, feedback #01). Derived from the critique — <b>not yet ratified</b>. Each change is tagged to its item.</p>
+ <p class="stats">6 parts · 13 chapters · 59 leaves &nbsp;|&nbsp; was 7 parts · 15 chapters</p>
+</header>
+<div class="legend" id="legend"><span class="stats" style="margin-right:4px">changes:</span></div>
+<div class="controls">
+ <button class="btn" onclick="setAll(false)">Expand all</button>
+ <button class="btn" onclick="setAll(true)">Collapse all</button>
+ <button class="btn" onclick="setLevel(2)">Parts + chapters only</button>
+</div>
+<div class="map" id="map"></div>
+<div class="global" id="global"></div>
+<script>
+const DATA={"title": "Product Sense and AI", "subtitle": "A Practical Guide for Experienced Product Managers", "parts": [{"part": "Part 1 \u00b7 Why AI Feels Different", "color": "#6366f1", "note": "Sets up the problem (kept).", "chapters": [{"m": "P", "title": "Why Experienced PMs Are Worried", "tags": [{"code": "C1", "label": "reframed\u2192PMs", "kind": "reframed"}], "subs": [{"t": "Career uncertainty in the AI era", "k": null}, {"t": "\u201cWill AI make my experience less valuable?\u201d", "k": null}, {"t": "Separating hype from reality", "k": null}, {"t": "Why this transition feels different from past tech shifts", "k": null}]}, {"m": "C", "title": "Why Experience Still Matters", "tags": [], "subs": [{"t": "Knowledge versus judgment", "k": null}, {"t": "Why AI changes the value of expertise", "k": null}, {"t": "The rise of human-in-the-loop systems", "k": null}, {"t": "Why Product Sense still wins", "k": null}]}], "tags_part": []}, {"part": "Part 2 \u00b7 Why AI Fails, and How to Optimise for It", "color": "#06b6d4", "note": "Reordered so the PROBLEM leads, then one 'how to optimise' chapter absorbs both context chapters.", "tags_part": [{"code": "C3", "label": "reordered + merged", "kind": "reordered"}], "chapters": [{"m": "P", "title": "Why AI Fails", "tags": [{"code": "C6", "label": "expand 4 root causes", "kind": "expanded"}, {"code": "C7", "label": "add Jagged Frontier", "kind": "expanded"}], "subs": [{"t": "Root cause 1 \u2014 Hallucinations", "k": null}, {"t": "Root cause 2 \u2014 Missing information", "k": null}, {"t": "Root cause 3 \u2014 Missing constraints", "k": null}, {"t": "Root cause 4 \u2014 Missing business / organizational context", "k": null}, {"t": "The Jagged Frontier (Dell'Acqua / BCG 2023)", "k": "new"}, {"t": "Inside vs outside the frontier (+12% vs \u221219pp)", "k": "new"}, {"t": "Confident, plausible failure that's hard to detect", "k": "new"}]}, {"m": "R", "title": "How Experienced PMs Optimise for AI Failure", "tags": [{"code": "C3", "label": "new umbrella \u00b7 'better language'", "kind": "merged"}], "subs": [{"t": "Context Architecture \u2014 design environments, not tasks  \u2190 old Ch04", "k": "merged"}, {"t": "Context Engineering \u2014 from prompts to systems  \u2190 old Ch06", "k": "merged"}, {"t": "Enterprise Context Layers L1\u2013L5 (L3 business often missing)  \u2190 old Ch07", "k": "merged"}, {"t": "The six dimensions of context (user, business, workflow, history, governance, tools)", "k": null}]}]}, {"part": "Part 3 \u00b7 Spec-Driven Development", "color": "#eab308", "note": "Thickened for a PM audience (was thin at ch08/09).", "tags_part": [{"code": "C8", "label": "thickened for PMs", "kind": "thickened"}], "chapters": [{"m": "P", "title": "Why Requirements Fail", "tags": [{"code": "C8", "label": "the 4 root causes + 4 components", "kind": "thickened"}], "subs": [{"t": "Ambiguity", "k": null}, {"t": "Interpretation gaps", "k": null}, {"t": "Tribal knowledge", "k": null}, {"t": "Misaligned expectations", "k": null}]}, {"m": "R", "title": "What Is Spec-Driven Development?", "tags": [{"code": "C8", "label": "thicken", "kind": "thickened"}], "subs": [{"t": "Why specifications matter", "k": null}, {"t": "Specification as the source of truth", "k": null}, {"t": "The rise of AI-assisted development", "k": null}, {"t": "The evolution of software delivery", "k": null}]}, {"m": "R", "title": "The SDD Lifecycle", "tags": [], "subs": [{"t": "Discovery", "k": null}, {"t": "Context", "k": null}, {"t": "Specifications", "k": null}, {"t": "Build", "k": null}, {"t": "Validate", "k": null}, {"t": "Learn", "k": null}, {"t": "Improve", "k": null}]}]}, {"part": "Part 4 \u00b7 Product Sense Still Wins", "color": "#22c55e", "note": "Kept.", "chapters": [{"m": "R", "title": "Product Managers as Context Architects", "tags": [], "subs": [{"t": "The changing role of the PM", "k": null}, {"t": "Designing context", "k": null}, {"t": "Defining intent", "k": null}, {"t": "Aligning AI with business outcomes", "k": null}]}, {"m": "C", "title": "Human Judgment Still Wins", "tags": [], "subs": [{"t": "Ethical decision-making", "k": null}, {"t": "Tradeoffs", "k": null}, {"t": "Ambiguity", "k": null}, {"t": "Accountability and governance", "k": null}]}], "tags_part": []}, {"part": "Part 5 \u00b7 Claude, Copilot & Enterprise AI", "color": "#a855f7", "note": "Kept.", "chapters": [{"m": "R", "title": "Understanding the AI Tool Landscape", "tags": [], "subs": [{"t": "AI assistants", "k": null}, {"t": "AI agents", "k": null}, {"t": "Enterprise AI platforms", "k": null}, {"t": "Selecting the right tool", "k": null}]}, {"m": "R", "title": "Claude, GitHub Copilot & Microsoft Copilot", "tags": [], "subs": [{"t": "Claude \u2014 long-context reasoning, specs, business context", "k": null}, {"t": "GitHub Copilot \u2014 repository context", "k": null}, {"t": "Microsoft Copilot \u2014 Microsoft Graph & enterprise knowledge", "k": null}, {"t": "Mapping each tool to the context layer it serves", "k": null}]}], "tags_part": []}, {"part": "Part 6 \u00b7 Becoming the AI-Native PM", "color": "#ef8a16", "note": "Closing part \u2014 T-Shaped chapter moved here from the front.", "tags_part": [{"code": "C4", "label": "T-Shaped moved to end", "kind": "moved"}], "chapters": [{"m": "R", "title": "The New T-Shaped Professional", "tags": [{"code": "C4", "label": "moved from Ch03 \u2192 near end", "kind": "moved"}], "subs": [{"t": "Broad AI fluency", "k": null}, {"t": "Deep domain expertise", "k": null}, {"t": "Why both matter", "k": null}, {"t": "Building your personal AI strategy", "k": null}]}, {"m": "R", "title": "Staying Relevant for the Next Decade", "tags": [], "subs": [{"t": "Continuous learning", "k": null}, {"t": "Mentorship", "k": null}, {"t": "Advisory work", "k": null}, {"t": "Fractional leadership", "k": null}, {"t": "Building a meaningful legacy", "k": null}]}]}], "global": [["C2", "Tag every chapter Problem vs Recommendation throughout (shown by the P / R markers). Alternative: front-load ALL problems + context, then ALL actions at the end."], ["C5", "Revisit whether 'learning objectives' is the right per-chapter construct for a practical guide."]]}, KIND={"reframed": "#a855f7", "reordered": "#06b6d4", "merged": "#6366f1", "expanded": "#22c55e", "thickened": "#eab308", "moved": "#ef8a16", "new": "#22c55e", "kept": "#64748b"};
+const map=document.getElementById('map');
+// legend
+const LB={reframed:'C1 reframed',reordered:'C3 reordered',merged:'C3 merged',expanded:'C6/C7 expanded',thickened:'C8 thickened',moved:'C4 moved',new:'new content'};
+const leg=document.getElementById('legend');
+Object.entries(LB).forEach(([k,v])=>{const s=document.createElement('span');s.className='lg';s.textContent=v;s.style.background=KIND[k]||'#64748b';leg.appendChild(s);});
+
+function chips(node, tags){ (tags||[]).forEach(t=>{const c=document.createElement('span');c.className='tag';c.style.background=KIND[t.kind]||'#64748b';c.textContent=t.code+' '+t.label;node.appendChild(c);}); }
+
+function mk(text,{cls='',color=null,marker=null,tags=null,twist=false,count=null,newchip=false}={}) {
+  const li=document.createElement('li'); if(cls)li.className=cls;
+  const node=document.createElement('span'); node.className='node'; if(color)node.style.borderLeftColor=color;
+  if(twist){const t=document.createElement('span');t.className='twist';t.textContent='\u25BC';node.appendChild(t);}
+  if(marker){const m=document.createElement('span');m.className='mk '+marker;m.textContent=marker;node.appendChild(m);}
+  const tw=document.createElement('span');tw.className='tw';tw.textContent=text;node.appendChild(tw);
+  if(count!=null){const c=document.createElement('span');c.className='count';c.textContent='('+count+')';node.appendChild(c);}
+  if(tags)chips(node,tags);
+  if(newchip){const c=document.createElement('span');c.className='chip';c.textContent='new';node.appendChild(c);}
+  li.appendChild(node); return {li,node};
+}
+
+function build(){
+  const rootUl=document.createElement('ul');
+  const {li:rootLi}=mk(DATA.title+' — '+DATA.subtitle,{cls:'root',color:'#f1f5f9',twist:true,count:DATA.parts.length});
+  const partsUl=document.createElement('ul');
+  DATA.parts.forEach(p=>{
+    const {li:partLi}=mk(p.part,{color:p.color,twist:true,count:p.chapters.length,tags:p.tags_part});
+    if(p.note){const n=document.createElement('div');n.className='pnote';n.textContent=p.note;partLi.appendChild(n);}
+    const chUl=document.createElement('ul');
+    p.chapters.forEach(c=>{
+      const {li:chLi}=mk(c.title,{color:p.color,marker:c.m,tags:c.tags,twist:c.subs.length>0,count:c.subs.length||null});
+      if(c.subs.length){const sUl=document.createElement('ul');
+        c.subs.forEach(s=>{const isNew=s.k==='new';sUl.appendChild(mk(s.t,{cls:'leaf'+(isNew?' new':''),newchip:isNew}).li);});
+        chLi.appendChild(sUl);} else chLi.classList.add('leaf');
+      chUl.appendChild(chLi);
+    });
+    partLi.appendChild(chUl); partsUl.appendChild(partLi);
+  });
+  rootLi.appendChild(partsUl); rootUl.appendChild(rootLi); map.appendChild(rootUl);
+  map.querySelectorAll('.node').forEach(n=>{const li=n.parentElement;
+    if(li.querySelector(':scope > ul')) n.addEventListener('click',e=>{e.stopPropagation();li.classList.toggle('collapsed');});});
+  // global notes
+  const g=document.getElementById('global'); const h=document.createElement('h3'); h.textContent='Cross-cutting (not nodes)'; g.appendChild(h);
+  DATA.global.forEach(([code,txt])=>{const d=document.createElement('div');d.innerHTML='<b>'+code+'</b> — '+txt;g.appendChild(d);});
+}
+function setAll(c){map.querySelectorAll('li').forEach(li=>{if(li.querySelector(':scope > ul'))li.classList.toggle('collapsed',c);});map.querySelector('.root').classList.remove('collapsed');}
+function setLevel(depth){setAll(false);map.querySelectorAll('li').forEach(li=>{let d=0,p=li;while(p&&p!==map){if(p.tagName==='LI')d++;p=p.parentElement;}if(d>=depth&&li.querySelector(':scope > ul'))li.classList.add('collapsed');});}
+build();
+</script></body></html>
