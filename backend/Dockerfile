@@ -36,7 +36,9 @@ COPY --from=node:20-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 RUN node --version
 
 # Headless Chromium + fonts for Vivliostyle (PDF) and Mermaid (diagrams).
+# git is required by pip to clone the wegofwd-llm git+https dependency (ADR-012).
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      git \
       chromium fonts-liberation fonts-noto fonts-noto-color-emoji \
       libnss3 libatk-bridge2.0-0 libgbm1 libasound2 libxkbcommon0 \
       libxdamage1 libxcomposite1 libxrandr2 libgtk-3-0 \
