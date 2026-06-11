@@ -1,0 +1,87 @@
+# =============================================================================
+# docker-compose.demo.yml — Mentible backend, production-shaped for the shared
+# Hetzner VPS that also hosts mambakkam.net + the StudyBuddy demo.
+#
+# Used ALONE (not layered on docker-compose.yml — the dev one publishes
+# 0.0.0.0:8001, mounts source, and runs uvicorn --reload, none of which are
+# safe on a public box).
+#
+# Fronted by the mambakkam.net host nginx: it proxies the same-origin path
+#   https://mambakkam.net/mentible-api/  →  127.0.0.1:8092  (this api container)
+# so there is NO new subdomain, DNS record, Origin Cert SAN, or CORS to manage.
+# See mambakkam-net/infra/nginx/mambakkam.net.conf (location /mentible-api/)
+# and the runbook mambakkam-net/docs/DEMO_mentible_lite.md.
+#
+# Run on the VPS as:
+#   docker compose -f docker-compose.demo.yml --env-file .env.demo \
+#     up -d --build --remove-orphans
+#
+# .env.demo must set BYOK_MASTER_KEY (64 hex chars). Generate once with:
+#   openssl rand -hex 32
+# =============================================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: mentible-redis
+    restart: always
+    # No host port published — only the api container (same compose network)
+    # reaches it. Keeps Redis off the public interface entirely.
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 96M
+
+  api:
+    image: mentible-backend:latest
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mentible-api
+    restart: always
+    ports:
+      # Bind to localhost ONLY — the host nginx terminates TLS and proxies in.
+      # Never publish to 0.0.0.0 (that would bypass Cloudflare + host nginx).
+      - '127.0.0.1:8092:8000'
+    environment:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      # Required — encrypts server-side BYOK material. No insecure default here
+      # (the dev compose ships a zero key; production must supply a real one).
+      BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?set BYOK_MASTER_KEY in .env.demo (openssl rand -hex 32)}
+      ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Uses the image's default CMD (uvicorn ... :8000, no --reload).
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        # Capped so a runaway render can't starve the co-tenant village +
+        # StudyBuddy stacks on the small shared box.
+        limits:
+          cpus: '0.5'
+          memory: 384M
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
