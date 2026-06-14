@@ -7,7 +7,7 @@ walks every topic and content shape and tags each warning with its topic.
 
 from __future__ import annotations
 
-from backend.src.core.format_scan import book_warnings, lesson_warnings
+from backend.src.core.format_scan import book_warnings, lesson_warnings, package_warnings
 
 
 def _book(content: dict) -> dict:
@@ -80,6 +80,49 @@ def test_missing_or_malformed_content_is_safe():
 
 
 def test_lesson_warnings_handles_missing_sections():
+    assert lesson_warnings(None) == []  # type: ignore[arg-type]
     assert lesson_warnings({}) == []
     assert lesson_warnings({"sections": None}) == []
     assert lesson_warnings({"sections": ["not a dict"]}) == []
+
+
+# ── package_warnings — ADR-011 Consumable Package manifest (modules[]) ─────────
+def test_package_warnings_flags_module_drift_and_tags_module():
+    manifest = {
+        "package_id": "p1",
+        "title": "SOX 404 Controls",
+        "modules": [
+            # tabular-by-title module with no GFM table
+            {"order": 0, "heading": "Control Balance Sheet", "body_markdown": "Prose, no table."},
+            # formula-by-title module with no KaTeX
+            {"order": 1, "heading": "Risk Equation", "body_markdown": "Plain text, no math."},
+            # clean module
+            {"order": 2, "heading": "Overview", "body_markdown": "Just an intro."},
+        ],
+    }
+
+    warnings = package_warnings(manifest)
+    rules = {(w["rule"], w["module_order"]) for w in warnings}
+    assert rules == {("expected_table", 0), ("expected_formula", 1)}
+    assert all(w["content_type"] == "module" for w in warnings)
+    table = next(w for w in warnings if w["rule"] == "expected_table")
+    assert table["module_heading"] == "Control Balance Sheet"
+
+
+def test_package_warnings_clean_manifest():
+    manifest = {
+        "modules": [
+            {
+                "order": 0,
+                "heading": "Balance Sheet",
+                "body_markdown": "| A | B |\n|---|---|\n| 1 | 2 |",
+            }
+        ]
+    }
+    assert package_warnings(manifest) == []
+
+
+def test_package_warnings_malformed_is_safe():
+    assert package_warnings({}) == []
+    assert package_warnings({"modules": "not a list"}) == []
+    assert package_warnings({"modules": ["not a dict"]}) == []

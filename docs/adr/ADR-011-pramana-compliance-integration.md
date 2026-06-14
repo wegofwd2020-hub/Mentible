@@ -172,6 +172,18 @@ flowchart TD
   MAN --> QZ["quiz (questions + pass threshold)"]
 ```
 
+### Gate 3 (format-drift) before signing
+
+Before the manifest is hashed + signed (§6), the packager runs the shared
+**gate 3** format-drift scan over `modules[]`
+(`backend/src/core/format_scan.py::package_warnings`) — the same heuristic that
+guards the lesson worker and the export book-scan (see
+`docs/QUALITY_GATES.md` §1 gate 3). It is **non-fatal**: warnings are recorded in
+the package's review evidence so the human approver (§7 / ADR-013 D4) sees them,
+but they never block packaging. The helper is staged and tested; the wiring is a
+single call once the packager is implemented (ADR-011 is Proposed — no builder
+exists yet).
+
 ### The Package Request (Pramana → Mentible) — the reverse direction
 
 The package above is Mentible's **output**. The **input** that commissions it is a

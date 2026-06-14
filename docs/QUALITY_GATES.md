@@ -113,9 +113,12 @@ engineering reality stay in lockstep.
   only place tutorial/experiment content meets gate 3, since native generation
   emits only lessons. The validator's lesson path is a no-op upstream, so we adapt
   lesson sections (`heading`/`body_markdown`) to the tutorial shape it checks
-  rather than edit the vendored file (ADR-002). **Still pending:** the
-  Pramana Consumable Package surface (ADR-011) — gate 3 should run before a
-  package is signed + pushed.
+  rather than edit the vendored file (ADR-002). The **Pramana Consumable Package**
+  surface (ADR-011) has a **staged, tested helper ready** —
+  `core.format_scan.package_warnings` over the manifest's `modules[]` — but it is
+  not yet *called*, because the package builder itself doesn't exist (ADR-011 is
+  Proposed). Wiring is a single pre-sign call once the builder lands (ADR-011 §4
+  "Gate 3 before signing").
 - **Experimental providers are unmeasured.** The `experimental` tier providers
   have no measured conformance tier yet (Phase 5). Until then their output is
   honestly draft-grade — the picker says so; the colophon/report must not imply
