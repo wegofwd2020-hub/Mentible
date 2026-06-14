@@ -148,14 +148,20 @@ still the main thing that hasn't been *proven* end-to-end.
 | 012 | Shared `wegofwd-llm` LLM seam | Accepted |
 | 013 | Pramana in-process generation | Accepted |
 | 014 | User accounts + per-provider credential set | Proposed |
+| 015 | Content Trust Manifest | Proposed |
+| 016 | One provider per content + visible provenance | Proposed |
 
 ---
 
 ## Not yet done
 
-### In flight (drafted, not yet on `main`)
-- A **Content Trust Manifest** (ADR-015) + trust-badge UI is untracked WIP in the
-  tree, not committed. (ADR-014 — user accounts — is now merged; see the ledger.)
+### In flight (partly on `main`)
+- **Content Trust Manifest** (ADR-015) — the manifest shape + the per-unit
+  **TrustBadge** (mobile, incl. ADR-016 D6/D7 visible provenance) are **merged**
+  (PR #106). Still to land: the **backend packager** that stamps `engine_trust`
+  onto each generation (blocked on `wegofwd-llm` ≥ v0.2.0), feeding the D7
+  **staleness** hint (needs the registry's current-default model exposed
+  client-side), and export-time `compliance`/`integrity` (**SBQ-TRUST-002**).
 
 ### Managed identity & billing (ADR-005 pulled these to MVP)
 - Accounts/auth (email + Google/Apple), per-user usage metering, plan caps, the
@@ -213,4 +219,5 @@ proven in CI.
 4. **Pramana slice** (when prioritised): the package builder + signing to make
    ADR-011 real (one framework, full receive→approve→publish path).
 5. Resolve the open ADRs: **010** (narrative mode), **trademark** clearance for
-   **006**, and the **trust-manifest** direction.
+   **006**, and accept/iterate **015/016** (trust manifest — mobile surface shipped
+   in PR #106; backend packager + export attach remain — **SBQ-TRUST-001/002**).
