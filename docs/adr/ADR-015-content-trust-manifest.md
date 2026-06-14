@@ -1,0 +1,157 @@
+# ADR-015 — The Content Trust Manifest (one trust contract, many front-ends)
+
+**Status:** Proposed — 2026-06-14 (awaiting decision)
+**Decision-maker:** Sivakumar Mambakkam / WeGoFwd
+**Relates to:** ADR-012 (shared `wegofwd-llm` seam), ADR-011 (Mentible⇄Pramana
+Consumable Package), ADR-001 (BYOK security model), ADR-016 (one provider per piece
+of content — its **D6/D7** make this badge a *requirement* of the multi-provider
+policy and pin its content: per-unit display, an LLM-version staleness hint, and a
+content-version line; see the reconciliation note in §8), `PARAMETERS.md §5` (safety
+boundaries), `SBQ-UI-002` (About page), and the format-compliance check in
+`docs/comparisons/product-sense-ai_format-compliance.md`.
+**Authoritative for:** the *shape* of the customer-facing trust record stamped on
+every unit of curated content. The shape is owned by `wegofwd-llm`; this ADR is
+the rationale.
+**Code:** `wegofwd_llm/trust.py` · `wegofwd-llm/schema/content-trust-manifest.v1.json`
+
+---
+
+## 1. Context
+
+We enforce real quality and compliance gates on the content we curate, but they
+live in three disconnected layers and **none reach the customer in a unified way**:
+
+| Layer | Where | Gate |
+|---|---|---|
+| Engine (`wegofwd-llm`) | `registry.provenance()`, `conformance.generate_validated` | Which *verified* model produced it; schema validate→repair; provider allow-list; BYOK key-never-leaks |
+| Content compliance (Mentible) | format-compliance check (13 A/B/C params vs `doc format.xlsx`); ADR-011 manifest | Format/brand compliance score; `content_hash` + signature; source-citation traceability; human approval (SoD) |
+| Front-end | `SBQ-UI-002` About page, `PARAMETERS.md §5` M1–M5 | Ethics boundaries, BYOK statement, AUP, moderation pass |
+
+The seam already emits a `provenance` dict; ADR-011 already defines a package
+`provenance` + `content_hash`. They were never unified, and each consuming product
+(Mentible, StudyBuddy OnDemand, Kathai Chithiram, Pramana) would otherwise invent
+its own trust payload and wording.
+
+`wegofwd-llm` is used across the portfolio (ADR-012). The two hardest-to-fake
+trust signals — *a verified model produced this* and *it passed schema
+conformance* — are known **only inside the seam**. That makes the seam the right
+home for the trust **contract**.
+
+## 2. Decision
+
+1. **Define one `ContentTrustManifest` shape in `wegofwd-llm`** (`trust.py` +
+   `content-trust-manifest.v1.json`), versioned by `TRUST_MANIFEST_VERSION`.
+2. **The seam fills only the blocks it can vouch for** — `provenance`
+   (reused from `registry.provenance()`, so model-verification stays single-sourced)
+   and `validation` (the conformance-loop outcome) — via `engine_trust(...)`.
+3. **The product packager attaches the rest** (`compliance`, `integrity`,
+   `sourcing`, `review`, `policy`) with `dataclasses.replace`. A block left unset
+   is rendered "not assessed" — never as a pass.
+4. **The manifest is the contract; rendering is per-product.** No shared UI: the
+   three stacks (React Native, Kivy, web) each render the same manifest with their
+   own design system. This mirrors ADR-012 D8 — *library, not a service*.
+5. **The manifest carries no secret material.** No field can hold a key, prompt,
+   or raw payload; `to_public_dict()` is the only sanctioned serialisation
+   boundary and is safe to embed in a client payload.
+6. **First surface is the per-artefact Trust Badge** (per the 2026-06-14 scoping
+   decision), program-level Trust Page second.
+
+## 3. The manifest
+
+```jsonc
+{
+  "trust_manifest_version": 1,
+  "provenance": {                       // SEAM — registry.provenance()
+    "provider": "anthropic", "model": "claude-sonnet-4-6",
+    "model_verified": true, "integration_version": 1, "contract_version": 1,
+    "generated_at": "2026-06-14T12:00:00Z"   // caller-stamped; seam owns no clock
+  },
+  "validation": {                       // SEAM — generate_validated outcome
+    "schema_validated": true, "repair_attempts": 0, "schema_id": "lesson@1"
+  },
+  "compliance": {                       // PRODUCT — format/brand check
+    "ruleset": "mentible-professional@1.0",
+    "checks_passed": 11, "checks_total": 13, "status": "pass_with_notes"
+  },
+  "integrity":  { "content_hash": "sha256:…", "signed": true },           // PRODUCT (ADR-011)
+  "sourcing":   { "every_claim_cited": true, "source_refs": 3 },          // PRODUCT
+  "review":     { "human_approved": true, "approver_distinct_from_generator": true }, // PRODUCT (ADR-011 §7 SoD)
+  "policy":     { "byok": true, "prompts_stored": false, "key_stored": false }        // PRODUCT (PARAMETERS §5 / ADR-001)
+}
+```
+
+Every field has an existing producer in the codebase — this is assembly, not
+invention.
+
+## 4. Field → customer-facing copy (Trust Badge)
+
+The front-end maps facts to plain language; it never invents the facts.
+
+| Block · field | Badge line (example) |
+|---|---|
+| `provenance.model` + `model_verified` | "Generated by Claude Sonnet 4.6 (verified model)" |
+| `validation.schema_validated` | "Structure-validated against our lesson template" |
+| `compliance.checks_passed/total` + `status` | "Passed 11/13 format checks" |
+| `sourcing.every_claim_cited` + `source_refs` | "Every claim cited · 3 sources" |
+| `review.human_approved` (+ SoD) | "Human-approved by a reviewer (not the author)" |
+| `integrity.content_hash` | "Tamper-evident · content fingerprint" |
+| `policy.byok` / `prompts_stored` / `key_stored` | "Your key is yours · we don't store prompts" |
+
+## 5. Why this altitude (portfolio-specific)
+
+Pramana **is** a compliance product: for it the manifest is not marketing, it is
+audit evidence — `integrity.content_hash`, `review.approver_distinct_from_generator`
+(SoD), and `sourcing` are exactly what an auditor checks (ADR-011 §7–8). The same
+manifest that reassures a StudyBuddy parent is the SOX audit trail for a Pramana
+customer. **One contract serves trust-marketing and compliance-evidence at once** —
+the reason to build it shared rather than per-product.
+
+## 6. Consequences
+
+- **Good:** single source of truth; identical serialisation across products and
+  stacks; the seam's existing `provenance`/conformance work is reused, not
+  duplicated; Pramana's ADR-011 package can carry the same block.
+- **Cost:** a new versioned shape to maintain; products must wire the packager to
+  attach their blocks; front-ends must build a renderer (no shared component).
+- **Bumps `wegofwd-llm` minor version** (0.1.2 → 0.2.0) — additive, no breaking
+  change to the request/response seam. Consumers opt in by importing `engine_trust`.
+
+## 7. Rollout (each step ships value alone)
+
+1. **Contract** — `trust.py` + JSON schema + tests in `wegofwd-llm`, tag `v0.2.0`. *(this ADR's code is drafted)*
+2. **Emit** — stamp `engine_trust(...)` onto every `generate_validated` result in Mentible's worker.
+3. **Surface 1 (badge)** — Mentible first (its format-compliance check already
+   yields the `compliance` numbers); render `<TrustBadge>` on each lesson/book.
+4. **Surface 2 (page)** — generalise `SBQ-UI-002`'s ethics-content file into a
+   shared `trust-content` schema; reuse in OnDemand + Kathai Chithiram.
+5. **Pramana** — fold the manifest into the ADR-011 Consumable Package as the
+   audit-evidence record.
+
+## 8. Open questions
+
+- **`generated_at` source** — caller-stamped (decided: seam owns no clock); which
+  layer is canonical, the engine call site or the packager?
+- **Signing of the manifest itself** vs only `content_hash` (defer to ADR-011 §10
+  signing-scheme decision).
+- **Trust Page content** — bundled-at-build (per `SBQ-UI-002`) vs a shared
+  remote-fetched `trust-content` doc once there are 3+ consumers.
+- **Where the `compliance` ruleset id lives** — Mentible owns `mentible-professional@1.0`;
+  does the seam need a registry of ruleset ids, or is it an opaque product string? (Lean: opaque.)
+- **ADR-016 D6/D7 reconciliation** — the multi-provider policy adds three requirements
+  to this badge: (a) **per-unit** rendering (topic/chapter), not only per-book — a book
+  can carry **mixed provenance** (per-topic provider choice, explicit fallback, or
+  compare-keep), so "per-artefact" in §2.6 must resolve to the unit; (b) a **staleness
+  hint** when `provenance.integration_version`/`model` is older than the registry
+  default ("made with an older model — regenerate?") — drives the regenerate affordance
+  ADR-012 provenance was designed for; (c) a **content-version** line, which the manifest
+  does **not** currently carry — ADR-016 D7 wants the unit's `generated_at` + a regen
+  count shown (rolled up by the book's `version`/`revisionHistory`). Decide whether the
+  badge reads content version from book/topic metadata or the manifest gains a
+  `content: { version, revision }` block alongside `provenance`.
+
+## 9. Recommendation
+
+Adopt the `ContentTrustManifest` as the single trust contract, owned in
+`wegofwd-llm`, seam-filled for provenance+validation and product-completed for the
+rest. Ship the per-artefact Trust Badge in Mentible first against the drafted
+`trust.py`; generalise the Trust Page from `SBQ-UI-002` second.

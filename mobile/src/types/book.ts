@@ -3,6 +3,7 @@
 
 import type { LessonOutput, Provenance } from "@/types/lesson";
 import type { GenerationParams } from "@/types/generationParams";
+import type { TrustManifest } from "@/types/trust";
 
 export interface TopicNode {
   // Client-assigned stable id (kept across edits/reorders so generated content
@@ -127,6 +128,13 @@ export interface GeneratedTopic {
   // Which provider/model + versions produced this content (when known). Absent
   // on pre-Phase-3c units and on imported books.
   provenance?: Provenance;
+  // Content Trust Manifest (ADR-015) persisted by the backend once SBQ-TRUST-001's
+  // worker wiring lands. Until then it's absent and the badge is built from
+  // `provenance` + `generatedAt` (ADR-016 D7 — no new generation data required).
+  trust?: TrustManifest;
+  // Monotonic regeneration count for this unit (ADR-016 D7 content version).
+  // Bumped by setTopicContent on every overwrite; absent/0 = original generation.
+  revisionCount?: number;
 }
 
 // Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on

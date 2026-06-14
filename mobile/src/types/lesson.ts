@@ -1,3 +1,7 @@
+// Type-only import — erased at compile, so the trust.ts↔lesson.ts cycle
+// (trust.ts imports Provenance from here) is harmless.
+import type { TrustManifest } from "@/types/trust";
+
 export interface LessonSection {
   heading: string;
   body_markdown: string;
@@ -32,6 +36,10 @@ export interface JobResponse {
   status: JobStatus;
   result?: LessonOutput;
   provenance?: Provenance;
+  // Content Trust Manifest (ADR-015 / SBQ-TRUST-001): provenance + validation +
+  // policy at generation; compliance + integrity attach at export. Carries no
+  // key material. `provenance` above stays for back-compat with pre-trust jobs.
+  trust?: TrustManifest;
   error?: string;
 }
 

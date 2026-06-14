@@ -34,9 +34,15 @@ function topicIds(toc: StructuredTOC): Set<string> {
 // Attach/replace one topic's generated content, returning a new Book. Bumps
 // updatedAt so the index reflects the change.
 export function setTopicContent(book: Book, gen: GeneratedTopic): Book {
+  const prior = book.content?.[gen.topicId];
+  // Monotonic per-unit regeneration count (ADR-016 D7 content version): bump on
+  // every overwrite of existing content; a first generation keeps the caller's
+  // value (normally absent ⇒ original). The pair (content version ↔ provenance)
+  // stays consistent because the caller re-stamps provenance on the same gen.
+  const revisionCount = prior ? (prior.revisionCount ?? 0) + 1 : gen.revisionCount;
   return {
     ...book,
-    content: { ...(book.content ?? {}), [gen.topicId]: gen },
+    content: { ...(book.content ?? {}), [gen.topicId]: { ...gen, revisionCount } },
     updatedAt: new Date().toISOString(),
   };
 }

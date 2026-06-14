@@ -11,6 +11,8 @@ import { useLocalSearchParams } from "expo-router";
 import { loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { TopicRenderer } from "@/components/LessonRenderer";
+import { TrustBadge } from "@/components/TrustBadge";
+import { trustManifestFromTopic } from "@/lib/topicTrust";
 import { useGenerateTopic } from "@/hooks/useGenerateTopic";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -136,6 +138,11 @@ export default function BookTopicScreen() {
   const hasContent = Boolean(topic);
   const topicTitle = node?.title ?? topic?.title ?? "Topic";
 
+  // Per-unit trust + provenance indicator (ADR-016 D6 — visible per topic, so a
+  // book may legitimately show mixed provenance). Built from the topic's stored
+  // provenance/generatedAt; null (badge omitted) when there's nothing to show.
+  const trustManifest = topic ? trustManifestFromTopic(topic) : null;
+
   return (
     <View style={styles.screen}>
       {/* Regenerate bar — collapsed to a single action; expands to a level
@@ -204,6 +211,12 @@ export default function BookTopicScreen() {
         </View>
       )}
 
+      {trustManifest && (
+        <View style={styles.trust}>
+          <TrustBadge manifest={trustManifest} revisionCount={topic?.revisionCount} />
+        </View>
+      )}
+
       <View style={styles.body}>
         {topic ? (
           <TopicRenderer topic={topic} />
@@ -219,6 +232,7 @@ export default function BookTopicScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  trust: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   body: { flex: 1 },
   centered: {
     flex: 1,
