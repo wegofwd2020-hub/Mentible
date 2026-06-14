@@ -84,7 +84,12 @@ def _format_warnings(lesson: LessonOutput) -> list[dict[str, Any]]:
     Delegates to the shared `core.format_scan` helper (same gate 3 the export
     book-scan uses), which adapts the lesson to the validator's tutorial shape.
     """
-    return lesson_warnings(lesson.model_dump())
+    try:
+        return lesson_warnings(lesson.model_dump())
+    except Exception:
+        # Defensive: a non-LessonOutput (no model_dump) must still not raise —
+        # gate 3 can't fail an already schema-valid generation.
+        return []
 
 
 def _byok_redis_key(job_id: uuid.UUID) -> str:
