@@ -27,6 +27,7 @@ import uuid
 from typing import Any
 
 import redis.asyncio as redis
+from pipeline.content_format_validator import check_content
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.errors import LLMError, LLMSchemaError
@@ -71,6 +72,36 @@ def _max_tokens_for_pages(target_pages: int) -> int:
     return max(_DEFAULT_MAX_TOKENS, min(target_pages * _TOKENS_PER_PAGE, _MODEL_MAX_TOKENS))
 
 
+def _format_warnings(lesson: LessonOutput) -> list[dict[str, Any]]:
+    """Gate 3 — non-fatal format-drift heuristics over the validated lesson.
+
+    Schema validation (gate 1) guarantees structure but cannot see that a section
+    titled "Balance Sheet" rendered no table, or a "Quadratic Formula" section
+    carries no KaTeX. `check_content` flags that drift as warnings that ride along
+    on the job's status row (a review-queue / prompt-drift signal — see
+    docs/QUALITY_GATES.md §1 gate 3, §2a). Warnings NEVER fail the job: the
+    content is already schema-valid.
+
+    The vendored validator's rich per-section checks key on a tutorial's
+    `{title, content}` shape; a lesson's sections carry the same information under
+    `{heading, body_markdown}`. We adapt here rather than edit the vendored file
+    (ADR-002), then relabel the warnings back to content_type "lesson".
+
+    Defensive: any failure returns [] — gate 3 must not break a good generation.
+    """
+    try:
+        adapted = {
+            "sections": [
+                {"title": s.heading, "content": s.body_markdown} for s in lesson.sections
+            ]
+        }
+        return [
+            {**w.as_dict(), "content_type": "lesson"} for w in check_content("tutorial", adapted)
+        ]
+    except Exception:
+        return []
+
+
 def _byok_redis_key(job_id: uuid.UUID) -> str:
     return f"byok:{job_id}"
 
@@ -87,6 +118,7 @@ async def _write_status(
     error: str | None = None,
     result: dict[str, Any] | None = None,
     provenance: dict[str, Any] | None = None,
+    warnings: list[dict[str, Any]] | None = None,
 ) -> None:
     payload: dict[str, Any] = {"status": status}
     if error is not None:
@@ -95,6 +127,8 @@ async def _write_status(
         payload["result"] = result
     if provenance is not None:
         payload["provenance"] = provenance
+    if warnings:
+        payload["warnings"] = warnings
     await r.setex(
         _job_status_redis_key(job_id),
         settings.byok_redis_ttl_seconds * 10,  # status row outlives the envelope
@@ -257,11 +291,26 @@ async def run_generation(
         await _write_status(redis_client, job_id, "failed", error=last_error)
         return
 
+    # Gate 3: non-fatal format-drift heuristics. Warnings attach to the status row
+    # (review-queue signal) and never change the done/failed outcome. The per-
+    # provider warning rate is the multi-provider consistency metric (QUALITY_GATES
+    # §2a), so the structured log carries the provider for aggregation.
+    format_warnings = _format_warnings(lesson)
+    if format_warnings:
+        log.warning(
+            "format_warnings",
+            job_id=str(job_id),
+            provider=provider_id,
+            count=len(format_warnings),
+            rules=sorted({w["rule"] for w in format_warnings}),
+        )
+
     await _write_status(
         redis_client,
         job_id,
         "done",
         result=lesson.model_dump(),
         provenance=prov,
+        warnings=format_warnings,
     )
     log.info("generation_done", job_id=str(job_id))

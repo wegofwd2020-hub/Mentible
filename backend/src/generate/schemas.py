@@ -118,3 +118,7 @@ class JobStatusResponse(BaseModel):
     # (present on a done job). Lets the client detect content made with an
     # outdated model/integration and offer to regenerate. See registry.provenance.
     provenance: dict | None = None
+    # Non-fatal format-drift warnings from gate 3 (content_format_validator). A
+    # done job with warnings is still valid content; the warnings are a review /
+    # prompt-drift signal. Absent or empty when the content looks clean.
+    warnings: list[dict] | None = None

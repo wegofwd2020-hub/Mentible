@@ -10,6 +10,7 @@ Project documentation for **StudyBuddy Q**.
 | `../CLAUDE.md` | Durable spec — repo conventions, layer rules, pitfalls |
 | `MVP_v1.md` | What's actually being built first |
 | `STATUS.md` | What's actually built so far (progress vs. the plan) |
+| `QUALITY_GATES.md` | The compliance + quality gates we enforce on curated content, and where each is surfaced (reader · auditor · product) |
 | `adr/ADR-001-byok-security-model.md` | Before touching any code that handles the API key |
 | `adr/ADR-002-repo-structure-and-vendoring.md` | Before importing or copying from StudyBuddy_OnDemand |
 
