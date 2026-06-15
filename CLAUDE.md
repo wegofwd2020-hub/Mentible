@@ -308,6 +308,7 @@ Pipeline: pytest with mocked Anthropic SDK
 4. **Forgetting `expo-secure-store` is async.** Mobile UX must handle the async key-fetch on Settings load.
 5. **Treating this as "another StudyBuddy".** It isn't. No multi-tenancy. No RLS. No FERPA. No school anything. If you find yourself porting a school concept, stop.
 6. **Skipping the trademark check.** Before alpha release, search USPTO TESS, Google Play, App Store for "StudyBuddy Q" and watch for **Amazon Q** trademark issues. Never collapse to bare "Q" in marketing.
+7. **Signing the default library with a real owner secret.** Publishing a default-library book (`owner_cli publish <id>`, ADR-018) HMAC-signs its manifest entry with `SYSTEM_OWNER_SECRET`. In the repo and CI that secret is the **dev constant `"1"×64`** — hardcoded in `.github/workflows/ci.yml` and `backend/tests/conftest.py`, and the `Backend — Tests` gate (`test_committed_default_library_manifest_is_valid`) verifies every *published* book's signature against it. So you **must** publish/re-sign with `SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64})`, **not** a real `.env` secret — signing with anything else makes the committed signatures fail verification and turns `main` red. The committed signature is therefore **tamper-evidence within the repo only** (the constant is public); real anti-forgery signing with a true out-of-band owner secret is deferred to the #112 release-build step. Also re-sign the mirrored `mobile/assets/library/manifest.json` to match.
 
 ---
 
