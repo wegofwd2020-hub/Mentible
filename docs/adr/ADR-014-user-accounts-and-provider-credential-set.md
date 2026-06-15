@@ -51,6 +51,17 @@ verification (no auth DB). The client stores the IdP session token in
 This upholds the existing rule (`CLAUDE.md`): **the session JWT is OUR token; it is
 never the user's LLM key.**
 
+> **No local user-account or auth management (directive, 2026-06-15).** This is a
+> hard line, not just a lean: we manage **no** user authentication locally — no
+> passwords, no credential verification, no OAuth/OIDC plumbing of our own, no
+> refresh-token rotation, no auth/credentials DB. The IdP owns all of it; we only
+> verify its JWT via JWKS. The **sole** locally-defined principal is the
+> **ADR-018 super-admin** (a config-based principal, not an account). The only
+> user-side persistence we ever take on is the minimal sync record of **D8**
+> (keyed by IdP `sub`, holding **no credentials**) — and that exists only with
+> **v1.1+ sync**; MVP is verify-JWT-per-request with no user storage at all.
+> Implementation: see issue #121.
+
 > IdP vendor is an open decision — see **O1**.
 
 ### D2 — The account owns a _credential set_, not a key
