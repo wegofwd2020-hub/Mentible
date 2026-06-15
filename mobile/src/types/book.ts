@@ -179,6 +179,12 @@ export interface BookAccessibility {
   certifiedBy?: string; // a11y:certifiedBy
 }
 
+// Provenance of a stored book. "bundled" = seeded read-only from the default
+// shareable library (ADR-017); absent/"user" = authored or imported by the user.
+// Editing a bundled book forks a user-owned copy (copy-on-write, ADR-017 D3), and
+// bundled books are excluded from the D18 fair-use cap once that cap exists.
+export type BookSource = "bundled" | "user";
+
 // A book persisted on the device (local-first, per ADR-003 D1).
 export interface Book {
   id: string;
@@ -186,6 +192,9 @@ export interface Book {
   toc: StructuredTOC;
   createdAt: string;
   updatedAt: string;
+  // Where this book came from. Absent ⇒ user-authored/imported (treated as
+  // "user"). "bundled" marks a seeded default-library book (ADR-017).
+  source?: BookSource;
   // Per-topic generated content, keyed by TopicNode.id. Absent until the user
   // runs "generate all". Orphaned entries (topic removed) are pruned on save.
   content?: Record<string, GeneratedTopic>;
@@ -207,4 +216,7 @@ export interface BookMeta {
   // Number of topics with generated content (for the books-list progress
   // readout). Absent on books saved before this field existed.
   generatedCount?: number;
+  // Mirrors Book.source so the books list can badge/guard bundled books
+  // without loading each full book (ADR-017).
+  source?: BookSource;
 }

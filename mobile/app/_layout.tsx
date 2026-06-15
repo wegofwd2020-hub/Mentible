@@ -1,8 +1,11 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
 
 export default function RootLayout() {
+  // Seed the default shareable library on first run (ADR-017, #111).
+  useSeedDefaultLibrary();
   return (
     <>
       <StatusBar style="light" />
