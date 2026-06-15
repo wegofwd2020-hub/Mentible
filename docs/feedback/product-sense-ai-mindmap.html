@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mindmap — Product Sense and AI</title>
+<style>
+  :root { --bg:#0f172a; --surface:#1e293b; --surface2:#334155; --text:#f1f5f9;
+          --muted:#94a3b8; --faint:#64748b; --border:#334155; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  header { padding:20px 28px 8px; }
+  h1 { margin:0 0 2px; font-size:20px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 4px; }
+  .stats { color:var(--faint); font-size:12px; }
+  .controls { padding:10px 28px; display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { background:var(--surface); border:1px solid var(--border); color:var(--text);
+         border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  .btn:hover { background:var(--surface2); }
+  .map { padding:8px 28px 60px; }
+  ul { list-style:none; margin:0; padding-left:26px; position:relative; }
+  li { position:relative; margin:6px 0; }
+  /* connector lines */
+  ul::before { content:""; position:absolute; top:0; bottom:14px; left:10px; width:2px; background:var(--border); }
+  li::before { content:""; position:absolute; top:16px; left:-16px; width:14px; height:2px; background:var(--border); }
+  .root > .node { font-size:18px; font-weight:800; }
+  .node { display:inline-flex; align-items:center; gap:8px; background:var(--surface);
+          border:1px solid var(--border); border-left-width:4px; border-radius:10px;
+          padding:7px 12px; cursor:pointer; user-select:none; max-width:760px; }
+  .node:hover { border-color:var(--faint); }
+  .node .tw { font-weight:600; }
+  .leaf > .node { cursor:default; background:transparent; border-style:dashed; font-weight:400; color:var(--muted); }
+  .leaf > .node:hover { border-color:var(--border); }
+  .badge { font-size:10px; font-weight:700; color:#0f172a; background:var(--muted);
+           border-radius:5px; padding:1px 5px; letter-spacing:.02em; }
+  .twist { width:14px; display:inline-block; color:var(--faint); font-size:11px; transition:transform .12s; }
+  .collapsed > ul { display:none; }
+  .collapsed .twist { transform:rotate(-90deg); }
+  .count { color:var(--faint); font-size:11px; margin-left:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Product Sense and AI: A Practical Guide for Experienced Professionals in the AI Era</h1>
+  <p class="sub">Book structure mindmap · the 15-chapter / 7-part cut</p>
+  <p class="stats">7 parts · 15 chapters · 67 subtopics</p>
+</header>
+<div class="controls">
+  <button class="btn" onclick="setAll(false)">Expand all</button>
+  <button class="btn" onclick="setAll(true)">Collapse all</button>
+  <button class="btn" onclick="setLevel(2)">Parts + chapters only</button>
+</div>
+<div class="map" id="map"></div>
+<script>
+const DATA = {"title": "Product Sense and AI: A Practical Guide for Experienced Professionals in the AI Era", "parts": [{"part": "Part I \u2014 Why AI Feels Different", "chapters": [{"id": "psai-ch01", "title": "Why Experienced Professionals Are Worried", "subtopics": ["Career uncertainty in the AI era", "\"Will AI make my experience less valuable?\"", "Separating hype from reality", "Why this transition feels different from past tech shifts"]}, {"id": "psai-ch02", "title": "Why Experience Still Matters", "subtopics": ["Knowledge versus judgment", "Why AI changes the value of expertise", "The rise of human-in-the-loop systems", "Why Product Sense still wins"]}]}, {"part": "Part II \u2014 The AI-Native Professional", "chapters": [{"id": "psai-ch03", "title": "The New T-Shaped Professional", "subtopics": ["Broad AI fluency", "Deep domain expertise", "Why both matter", "Building your personal AI strategy"]}, {"id": "psai-ch04", "title": "From Expert to Context Architect", "subtopics": ["The evolution of knowledge work", "Designing environments instead of tasks", "Helping humans and AI work together", "The emerging role of the Context Architect"]}]}, {"part": "Part III \u2014 Context Engineering", "chapters": [{"id": "psai-ch05", "title": "Why AI Fails", "subtopics": ["Hallucinations", "Missing information", "Missing constraints", "Missing business context", "Missing organizational memory"]}, {"id": "psai-ch06", "title": "What Is Context Engineering?", "subtopics": ["Prompt Engineering versus Context Engineering", "Why context matters", "Context as a strategic asset", "The evolution from prompts to systems"]}, {"id": "psai-ch07", "title": "Enterprise Context Layers", "subtopics": ["The six dimensions of context (user, business, workflow, history, governance, tools)", "L1 Mission & Principles", "L2 Enterprise Standards", "L3 Business Context (often missing)", "L4 Repository Context", "L5 Runtime Context"]}]}, {"part": "Part IV \u2014 Spec-Driven Development", "chapters": [{"id": "psai-ch08", "title": "Why Requirements Fail", "subtopics": ["Ambiguity", "Interpretation gaps", "Tribal knowledge", "Misaligned expectations"]}, {"id": "psai-ch09", "title": "What Is Spec-Driven Development?", "subtopics": ["The evolution of software delivery", "Why specifications matter", "The rise of AI-assisted development", "Specification as the source of truth"]}, {"id": "psai-ch10", "title": "The SDD Lifecycle", "subtopics": ["Discovery", "Context", "Specifications", "Build", "Validate", "Learn", "Improve"]}]}, {"part": "Part V \u2014 Product Sense Still Wins", "chapters": [{"id": "psai-ch11", "title": "Product Managers as Context Architects", "subtopics": ["The changing role of the PM", "Designing context", "Defining intent", "Aligning AI with business outcomes"]}, {"id": "psai-ch12", "title": "Human Judgment Still Wins", "subtopics": ["Ethical decision-making", "Tradeoffs", "Ambiguity", "Accountability and governance"]}]}, {"part": "Part VI \u2014 Claude, Copilot & Enterprise AI", "chapters": [{"id": "psai-ch13", "title": "Understanding the AI Tool Landscape", "subtopics": ["AI assistants", "AI agents", "Enterprise AI platforms", "Selecting the right tool"]}, {"id": "psai-ch14", "title": "Claude, GitHub Copilot & Microsoft Copilot", "subtopics": ["Claude \u2014 long-context reasoning, specifications, business context", "GitHub Copilot \u2014 repository context and AI-assisted engineering", "Microsoft Copilot \u2014 Microsoft Graph and enterprise knowledge", "Mapping each tool to the context layer it serves"]}]}, {"part": "Part VII \u2014 The Future", "chapters": [{"id": "psai-ch15", "title": "Staying Relevant for the Next Decade", "subtopics": ["Continuous learning", "Mentorship", "Advisory work", "Fractional leadership", "Building a meaningful legacy"]}]}]};
+const PALETTE = ["#6366f1", "#ef8a16", "#22c55e", "#06b6d4", "#a855f7", "#f43f5e", "#eab308"];
+const map = document.getElementById('map');
+
+function nodeEl(text, {cls='', color=null, badge=null, twist=false, count=null}={}) {
+  const li = document.createElement('li');
+  if (cls) li.className = cls;
+  const node = document.createElement('span');
+  node.className = 'node';
+  if (color) node.style.borderLeftColor = color;
+  if (twist) { const t=document.createElement('span'); t.className='twist'; t.textContent='\u25BC'; node.appendChild(t); }
+  if (badge) { const b=document.createElement('span'); b.className='badge'; b.textContent=badge; if(color)b.style.background=color; node.appendChild(b); }
+  const tw = document.createElement('span'); tw.className='tw'; tw.textContent=text; node.appendChild(tw);
+  if (count!=null) { const c=document.createElement('span'); c.className='count'; c.textContent='('+count+')'; node.appendChild(c); }
+  li.appendChild(node);
+  return {li, node};
+}
+
+function build() {
+  const rootUl = document.createElement('ul');
+  const {li:rootLi, node:rootNode} = nodeEl(DATA.title, {cls:'root', color:'#f1f5f9', twist:true, count:DATA.parts.length});
+  const partsUl = document.createElement('ul');
+  DATA.parts.forEach((p, i) => {
+    const color = PALETTE[i % PALETTE.length];
+    const {li:partLi} = nodeEl(p.part, {color, twist:true, count:p.chapters.length});
+    const chUl = document.createElement('ul');
+    p.chapters.forEach(c => {
+      const id = (c.id||'').replace(/^psai-/,'').toUpperCase();
+      const subs = c.subtopics||[];
+      const {li:chLi} = nodeEl(c.title, {color, badge:id, twist:subs.length>0, count:subs.length||null});
+      if (subs.length) {
+        const sUl = document.createElement('ul');
+        subs.forEach(s => sUl.appendChild(nodeEl(s, {cls:'leaf'}).li));
+        chLi.appendChild(sUl);
+      } else { chLi.classList.add('leaf'); }
+      chUl.appendChild(chLi);
+    });
+    partLi.appendChild(chUl);
+    partsUl.appendChild(partLi);
+  });
+  rootLi.appendChild(partsUl);
+  rootUl.appendChild(rootLi);
+  map.appendChild(rootUl);
+  // toggle behaviour
+  map.querySelectorAll('.node').forEach(n => {
+    const li = n.parentElement;
+    if (li.querySelector(':scope > ul')) {
+      n.addEventListener('click', e => { e.stopPropagation(); li.classList.toggle('collapsed'); });
+    }
+  });
+}
+
+function setAll(collapsed) {
+  map.querySelectorAll('li').forEach(li => {
+    if (li.querySelector(':scope > ul')) li.classList.toggle('collapsed', collapsed);
+  });
+  map.querySelector('.root').classList.remove('collapsed');
+}
+function setLevel(depth) {
+  // collapse everything below `depth` (root=0, part=1, chapter=2)
+  setAll(false);
+  map.querySelectorAll('li').forEach(li => {
+    let d=0, p=li; while(p && p!==map){ if(p.tagName==='LI') d++; p=p.parentElement; }
+    if (d>=depth && li.querySelector(':scope > ul')) li.classList.add('collapsed');
+  });
+}
+build();
+</script>
+</body>
+</html>
