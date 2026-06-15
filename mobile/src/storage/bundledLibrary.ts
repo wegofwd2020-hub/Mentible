@@ -1,5 +1,6 @@
 import manifest from "../../assets/library/manifest.json";
 import certArchitectFoundations from "../../assets/library/books/claude-certified-architect-foundations.book.json";
+import productSenseAndAi from "../../assets/library/books/product-sense-and-ai.book.json";
 
 // Registry of the bundled default library (ADR-017). The book .json files live
 // under assets/library/ so Expo/Metro bundles them; this module exposes them as
@@ -31,6 +32,7 @@ interface ManifestEntry {
 // manifest.file → imported JSON module. Keep in sync when adding a book.
 const FILE_MODULES: Record<string, unknown> = {
   "books/claude-certified-architect-foundations.book.json": certArchitectFoundations,
+  "books/product-sense-and-ai.book.json": productSenseAndAi,
 };
 
 function toBundled(entry: ManifestEntry): BundledBook | null {

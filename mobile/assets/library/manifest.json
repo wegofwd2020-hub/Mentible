@@ -12,12 +12,26 @@
       "title": "Claude Certified Architect — Foundations: Study Guide",
       "file": "books/claude-certified-architect-foundations.book.json",
       "version": "0.1",
-      "status": "draft",
+      "status": "published",
       "subjectCount": 5,
       "unitCount": 30,
-      "generatedCount": 0,
-      "sha256": "e187ad5123c6231b094f0584ef9aad7c83a83b1de1e0b9ed04c4d2feefe34d06",
-      "bytes": 54096
+      "generatedCount": 30,
+      "sha256": "5c676502addda725cbd054723295731e4a774f3391896d08e230739d56dfcdf6",
+      "bytes": 1060168,
+      "signature": "5dd298e368c7bbd666b060c688b1d3d1d96d79f2d77dbb6086377f347b932105"
+    },
+    {
+      "id": "product-sense-and-ai",
+      "title": "Product Sense and AI: A Practical Guide for Experienced Professionals in the AI Era",
+      "file": "books/product-sense-and-ai.book.json",
+      "version": "1.0",
+      "status": "published",
+      "subjectCount": 7,
+      "unitCount": 15,
+      "generatedCount": 15,
+      "sha256": "353fb741bde41b6e1ae40b4f842942266f83fdcdf7ab393bfb1f660e42e05f0a",
+      "bytes": 175146,
+      "signature": "887dc331b6a9b742f26b2c43ff71dabda7c6083bf49410b257ed0716e0d15dd1"
     }
   ]
 }
