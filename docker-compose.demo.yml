@@ -56,6 +56,9 @@ services:
       # Required — encrypts server-side BYOK material. No insecure default here
       # (the dev compose ships a zero key; production must supply a real one).
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?set BYOK_MASTER_KEY in .env.demo (openssl rand -hex 32)}
+      # Required — system-owner secret (ADR-018). No insecure default; production
+      # must supply a real one.
+      SYSTEM_OWNER_SECRET: ${SYSTEM_OWNER_SECRET:?set SYSTEM_OWNER_SECRET in .env.demo (openssl rand -hex 32)}
       ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
     depends_on:
       redis:

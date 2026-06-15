@@ -67,6 +67,12 @@ _SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
         "secret",
         "password",
         "token",
+        # System-owner credential (ADR-018 D6). "secret" above already catches a
+        # bare `secret` field; these cover the explicit config/field names so an
+        # owner secret logged under its own name is redacted too.
+        "system_owner_secret",
+        "owner_secret",
+        "system_owner_key",
     }
 )
 

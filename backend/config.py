@@ -41,6 +41,22 @@ class Settings(BaseSettings):
     # 120 s is plenty for an Anthropic call (Sonnet 4.6 latency p95 ~30 s).
     byok_redis_ttl_seconds: int = Field(default=120, ge=10, le=600)
 
+    # ── System owner (super-admin) principal — ADR-018 ────────────────────────
+    # A single privileged principal that owns the default application + library
+    # (ADR-017) and may publish/curate it. It is NOT a user account and NOT a role
+    # on the user IdP (ADR-018 D1) — it is bootstrapped here from env config.
+    #
+    # Stable identifier used as the default library's publisher/owner of record
+    # and as the actor in owner-action audit logs (ADR-018 D2/D6). Non-secret, so
+    # a default is fine; override per environment.
+    system_owner_id: str = Field(default="mentible-system-owner")
+    # Owner auth secret / signing key for owner-only actions (publishing a book
+    # into the default set, vault ops). 64-hex (32 bytes) — same shape as
+    # byok_master_key; generate with `openssl rand -hex 32`. SECRET: no default,
+    # so startup MUST fail if unset (fail-fast, ADR-018 D1). Redacted in logs and
+    # never persisted in the clear (ADR-018 D6 / ADR-001 discipline).
+    system_owner_secret: str = Field(min_length=64, max_length=64)
+
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
 

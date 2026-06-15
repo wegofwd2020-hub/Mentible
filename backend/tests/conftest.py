@@ -18,6 +18,9 @@ from httpx import ASGITransport, AsyncClient
 # Provide a deterministic master key for tests BEFORE importing config.
 # Real deployments load BYOK_MASTER_KEY from env; tests fix it here.
 os.environ.setdefault("BYOK_MASTER_KEY", "0" * 64)
+# System-owner secret (ADR-018) — required at startup like the master key; tests
+# fix a deterministic value here before config.Settings() runs.
+os.environ.setdefault("SYSTEM_OWNER_SECRET", "1" * 64)
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("LOG_LEVEL", "INFO")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")

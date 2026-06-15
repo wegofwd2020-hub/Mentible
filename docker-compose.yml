@@ -23,6 +23,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       # Local-only fixed master key — DO NOT use in production.
       BYOK_MASTER_KEY: "${BYOK_MASTER_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+      # Local-only fixed system-owner secret (ADR-018) — DO NOT use in production.
+      SYSTEM_OWNER_SECRET: "${SYSTEM_OWNER_SECRET:-1111111111111111111111111111111111111111111111111111111111111111}"
       ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
     depends_on:
       redis:
