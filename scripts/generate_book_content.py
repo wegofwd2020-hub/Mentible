@@ -11,10 +11,17 @@ Resumable: content is checkpointed to disk after every topic, and topics that
 already have content are skipped — so a rate-limit/interrupt mid-run is safe to
 re-run.
 
+Provider is chosen by --provider, else book.generationParams.provider, else
+anthropic. The key is read from the provider's env var (ANTHROPIC_API_KEY,
+GEMINI_API_KEY, …) or a gitignored --key-file.
+
 Usage:
-    # key from a gitignored file (preferred — keeps it out of shell history/logs)
+    # Anthropic (default) — key from a gitignored file (keeps it out of shell history/logs)
     python scripts/generate_book_content.py library/books/<book>.book.json --key-file .anthropic_key.local
-    # or from the environment
+    # Gemini (or any registry provider) — provider override + its own key file
+    python scripts/generate_book_content.py library/books/<book>.book.json \
+        --provider gemini --key-file .gemini_key.local
+    # or from the environment (env var name depends on the provider)
     ANTHROPIC_API_KEY=sk-ant-... python scripts/generate_book_content.py library/books/<book>.book.json
 
 Then publish with the owner CLI:
@@ -46,7 +53,7 @@ from wegofwd_llm.errors import (  # noqa: E402
     LLMNotAllowedError,
     LLMSchemaError,
 )
-from wegofwd_llm.registry import build_provider, provenance  # noqa: E402
+from wegofwd_llm.registry import PROVIDER_REGISTRY, build_provider, provenance  # noqa: E402
 
 from backend.src.generate.anthropic_caller import parse_json_response  # noqa: E402
 from backend.src.generate.lesson_schema import LessonOutput  # noqa: E402
@@ -88,9 +95,10 @@ def _generate_one(provider, req, validate):
             time.sleep(wait)
 
 
-def _read_key(key_file: str | None) -> str:
-    """Anthropic key from env or a gitignored file. Never echoed."""
-    env_key = os.environ.get("ANTHROPIC_API_KEY")
+def _read_key(key_file: str | None, env_var: str) -> str:
+    """Provider key from env (`env_var`, e.g. ANTHROPIC_API_KEY / GEMINI_API_KEY)
+    or a gitignored file. Never echoed."""
+    env_key = os.environ.get(env_var)
     if env_key:
         return env_key.strip()
     if key_file:
@@ -98,7 +106,7 @@ def _read_key(key_file: str | None) -> str:
         if p.is_file():
             return p.read_text(encoding="utf-8").strip()
     raise SystemExit(
-        "no Anthropic key found — set ANTHROPIC_API_KEY or pass --key-file <gitignored file>"
+        f"no key found — set {env_var} or pass --key-file <gitignored file>"
     )
 
 
@@ -122,7 +130,12 @@ def _now() -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Generate per-topic lesson content for a book.json")
     ap.add_argument("book", help="path to the .book.json to fill")
-    ap.add_argument("--key-file", default=None, help="file containing the Anthropic key (gitignored)")
+    ap.add_argument(
+        "--provider",
+        default=None,
+        help="provider id (e.g. anthropic, gemini). Default: book.generationParams.provider, else anthropic",
+    )
+    ap.add_argument("--key-file", default=None, help="file containing the provider key (gitignored)")
     ap.add_argument("--limit", type=int, default=0, help="generate at most N topics this run (0 = all)")
     args = ap.parse_args(argv)
 
@@ -133,9 +146,16 @@ def main(argv: list[str] | None = None) -> int:
     language = params.get("language", "en")
     depth = params.get("depth", "deep")
     diagram_register = params.get("diagramRegister", "technical")
-    model = params.get("model")  # None → provider default (settings.anthropic_default_model)
+    model = params.get("model")  # None → provider default (the spec's default_model)
 
-    api_key = _read_key(args.key_file)
+    # Provider: CLI flag wins, else the book's saved provider, else anthropic.
+    provider_id = args.provider or params.get("provider") or "anthropic"
+    spec = PROVIDER_REGISTRY.get(provider_id)
+    if spec is None:
+        raise SystemExit(
+            f"unknown provider {provider_id!r}; known: {', '.join(sorted(PROVIDER_REGISTRY))}"
+        )
+    api_key = _read_key(args.key_file, spec.managed_env_key or "ANTHROPIC_API_KEY")
     content: dict = book.setdefault("content", {})
 
     todo = [u for u in _iter_units(book) if u.get("id") and u["id"] not in content]
@@ -147,7 +167,8 @@ def main(argv: list[str] | None = None) -> int:
     if not todo:
         return 0
 
-    provider = build_provider("anthropic", api_key=api_key, model=model)
+    provider = build_provider(provider_id, api_key=api_key, model=model)
+    print(f"provider: {provider_id} / {provider.model}", flush=True)
 
     def _validate(text: str) -> LessonOutput:
         return LessonOutput.model_validate(parse_json_response(text))
@@ -181,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             "title": title,
             "lesson": result.parsed.model_dump(),
             "generatedAt": _now(),
-            "provenance": provenance("anthropic", provider.model),
+            "provenance": provenance(provider_id, provider.model),
         }
         book["updatedAt"] = _now()
         # Checkpoint after every topic so an interrupt loses at most one lesson.
