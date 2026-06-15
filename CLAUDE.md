@@ -31,6 +31,30 @@ educational artefact.
 > "Lesson view", or single-lesson output (D13, D16) are historical; **ADR-009**
 > takes precedence.
 
+> **Provider-agnostic + hybrid keys + accounts at MVP (amended 2026-05-29 / 2026-06-11
+> — see ADR-005 and ADR-014).** Two reframes post-date the BYOK-only, accountless
+> framing in this file:
+> - **Provider-agnostic, hybrid key handling (ADR-005, Accepted).** The product is no
+>   longer an *Anthropic-only* client and BYOK is no longer the *only* key model. Key
+>   handling is **hybrid**: a **managed-key vault is the default** ("subscribe and it
+>   just works"; we hold provider keys and carry the token cost under a metered plan
+>   allowance), with **BYOK as an optional power-user path** (ADR-001 passthrough
+>   discipline, now per provider). This **reverses** the "user pays Anthropic / we have
+>   no commercial relationship for token usage" statements below for managed users
+>   (they still hold for BYOK users). ADR-005 also **pulls accounts/auth + usage
+>   metering forward from v1.1+ to MVP**, because managed billing cannot be anonymous.
+> - **Account model (ADR-014, Proposed).** Identity is via an **external IdP verified
+>   statelessly by JWKS** — we do **not** build password/refresh-token machinery (this
+>   supersedes the bcrypt + refresh-token-in-Redis details below). The account owns a
+>   **per-provider credential set** (registry-keyed, custody per entry: device-local /
+>   synced-e2e / managed-vault), not "the user's key". Keys stay **device-local by
+>   default**; sync is opt-in and zero-knowledge. As ADR-014 is *Proposed*, its
+>   specifics (IdP vendor, encryption stance, DB choice) are not yet locked.
+>
+> Where this file's D1 / D4 / D9 / D10 / D17 / D18, the "Authentication (v1.1+)"
+> rules, and the compliance/PII notes differ, **ADR-005 (accepted) and ADR-014
+> (proposed) take precedence.**
+
 ---
 
 ## Mental model — "scoped retrieval over the world of knowledge"
@@ -66,7 +90,9 @@ Read these in order:
 | `docs/adr/ADR-003-book-authoring.md` | Before touching book authoring (TOC structuring, topic tree, generate-all) |
 | `docs/adr/ADR-004-two-product-split-and-artifacts.md` | Before touching artifact export (EPUB3/PDF), the money model, or anything reader-facing |
 | `docs/ARTIFACT_PIPELINE.md` | With ADR-004 — the content→EPUB3/PDF compile flow and the interactive-vs-static matrix |
+| `docs/adr/ADR-005-multi-provider-llm-support.md` | Before touching key handling, the provider seam, or the money model — BYOK is now one of two paths (managed-key vault is the default); accounts/auth + metering moved to MVP (amends D1/D9, ADR-001, ADR-004 D6) |
 | `docs/adr/ADR-009-books-only-remove-query.md` | Before adding any generation surface — the app is Books-only; the Query single-lesson screen was removed (amends D13/D16) |
+| `docs/adr/ADR-014-user-accounts-and-provider-credential-set.md` | Before touching accounts/auth or the Settings key UI — identity is an external IdP verified by JWKS (no password machinery); the account owns a per-provider credential set, keys device-local by default (proposed; amends D10 and the Authentication rules) |
 
 The parent product's docs (`StudyBuddy_OnDemand/CLAUDE.md` and the
 `studybuddy-docs` repo) are useful background but **do not apply** to this repo.
@@ -78,24 +104,24 @@ This is a separate product with separate compliance, infra, and audience.
 
 | | Decision |
 |---|---|
-| D1 | BYOK — user pays Anthropic directly |
+| D1 | *(amended — ADR-005)* **Hybrid key handling**: managed-key vault is the **default** (we hold provider keys, carry token cost under a metered plan allowance); **BYOK is the optional power-user path** (user pays the vendor directly). BYOK-only "user pays Anthropic" now describes the BYOK path, not the whole product |
 | D2 | Async generation + push (FCM) when done; polling at MVP |
 | D3 | Android first (iOS later) |
-| D4 | Cloud sync at v1.1+; local-only at MVP |
+| D4 | *(clarified — ADR-005)* Cloud **library sync** stays v1.1+; library is local-first at MVP. But **accounts/auth move to MVP** (ADR-005 decouples accounts from sync — managed billing needs identity) |
 | D5 | New repo `StudyBuddy_SelfLearner`; brand "StudyBuddy Q" |
 | D6 | Standalone — no funnel back to school SKU |
 | D7 | Demo / quality-first, not scale-first |
 | D8 | React Native + Expo |
-| D9 | Key handling Pattern B — per-request passthrough |
-| D10 | Auth: email+password AND Sign in with Google |
+| D9 | *(amended — ADR-005)* Pattern B (per-request passthrough) is now **one of two** key paths — it is the **BYOK** path; the **managed** path adds a separate at-rest vault regime. Generalised to a **per-provider credential set** (ADR-014) |
+| D10 | *(amended — ADR-005/014)* Auth moved to **MVP** (was v1.1+). Methods: email + Google (+ Apple on iOS). **Via an external IdP verified by JWKS — we don't build password/refresh machinery** (ADR-014, proposed) |
 | D11 | Hosting: shared infra with StudyBuddy_OnDemand |
 | D12 | Latency target: minutes, not seconds-with-stream |
 | D13 | *(amended — ADR-009)* Output formats: Lesson / Explanation / Quiz — as **per-topic content within a book**; no standalone single-lesson generator (`lesson` wired at MVP) |
 | D14 | v1 visual aids: KaTeX + Mermaid + blockquotes + tables + AI-picks |
 | D15 | Refined 7-field input list |
 | D16 | *(superseded — ADR-009)* Described the Query screen (removed). Authoring uses New Book → structure → editable topic tree → generate → publish (ADR-003) |
-| D17 | *(amended — ADR-004)* Paid authoring app (subscription/purchase, covers app+upkeep only) + free reader app; author still BYOK |
-| D18 | v1 storage: ~100-lesson fair-use cap |
+| D17 | *(amended — ADR-004, then ADR-005)* Paid authoring app (subscription/purchase) + free reader app. The fee covers app+upkeep only for **BYOK** users; for **managed** users the subscription **also includes a metered token allowance** (we carry the vendor cost), so pricing is margin-aware with per-plan caps (ADR-005 D4 amends ADR-004 D6) |
+| D18 | *(reinterpreted — ADR-005)* ~100-unit fair-use cap — now also a **cost-control lever** for managed token spend, not just a storage limit |
 | D19 | Brand "StudyBuddy Q" |
 
 ---
@@ -118,7 +144,7 @@ StudyBuddy_SelfLearner/
   backend/             ← FastAPI
     main.py
     src/
-      auth/            ← Account creation · sign in · refresh (v1.1+)
+      auth/            ← IdP JWT verify via JWKS (MVP — ADR-005/014; not yet built)
       generate/        ← POST /generate · GET /jobs/{id} · push
       library/         ← v1.1+ — saved lessons
       sync/            ← v1.1+ — cloud sync
@@ -153,14 +179,20 @@ StudyBuddy_SelfLearner/
    - Renders Markdown + KaTeX + Mermaid
 
 2. Backend API (FastAPI)
-   - Stateless except for: user accounts (v1.1+) and library (v1.1+)
+   - Stateless except for: user accounts (MVP — ADR-005) and library (v1.1+).
+     Accounts verify an external-IdP JWT via JWKS; no auth DB for credentials
+     themselves (ADR-014, proposed)
    - Async job queue (Celery + Redis)
-   - Calls Anthropic on user's behalf with passthrough key
-   - NEVER logs the key. Encrypts in Redis with TTL = job timeout. Shreds after use
+   - Calls the LLM on the user's behalf: BYOK passthrough key, OR our managed
+     vault key for managed plans (ADR-005)
+   - NEVER logs the key — ours or the user's. Encrypts in Redis with TTL = job
+     timeout. Shreds after use
 
-3. Anthropic API
-   - Billed directly to user's account (BYOK)
-   - We have no commercial relationship for token usage
+3. LLM provider API (Anthropic + others — ADR-005)
+   - BYOK path: billed directly to the user's vendor account; no commercial
+     relationship for token usage
+   - Managed path (default): billed to us, covered by the plan's metered token
+     allowance — this is a commercial relationship with the vendor (ADR-005 D4)
 ```
 
 ---
@@ -176,7 +208,7 @@ mobile/app/secure/     → expo-secure-store
 backend/src/generate/  → backend/src/core/ + pipeline/
 backend/src/library/   → backend/src/core/  (v1.1+)
 backend/src/sync/      → backend/src/library/  (v1.1+)
-backend/src/auth/      → backend/src/core/  (v1.1+)
+backend/src/auth/      → backend/src/core/  (MVP — ADR-005/014; not yet built)
 
 pipeline/              → Anthropic SDK (no backend imports — keep portable)
 ```
@@ -199,7 +231,7 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 
 - **All secrets from env vars; no hardcoded defaults.** `pydantic-settings`. Fail fast at startup.
 - **TLS-only.** No plaintext HTTP for `/generate` or any endpoint that touches the key.
-- **No key in URL params, query strings, or `Authorization` headers we own.** The user's Anthropic key goes in the request body of `/generate`. The `Authorization` header carries our session JWT (v1.1+), never the BYOK key.
+- **No key in URL params, query strings, or `Authorization` headers we own.** The user's BYOK key goes in the request body of `/generate`. The `Authorization` header carries the IdP session JWT (MVP — ADR-005/014), never the BYOK key.
 - **CSP / referrer policy** on any web admin surface (none planned at MVP, but if it materialises).
 - **Adult-only product.** No COPPA / FERPA logic. Sign-up requires self-attestation of age ≥ 18 (v1.1+).
 
@@ -221,11 +253,20 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 - `pydantic-settings`; env vars only. `config.py` is the single import point.
 - Required at startup: `REDIS_URL`, `ANTHROPIC_DEFAULT_MODEL`, `ENCRYPTION_KEY` (for per-job key encryption envelope).
 
-### Authentication (v1.1+)
-- Email+password (bcrypt) + Sign in with Google.
-- JWT in `Authorization: Bearer <token>`.
-- Refresh tokens in Redis, 30-day TTL.
-- **Session JWT is OUR token.** It is NOT the user's Anthropic key.
+### Authentication (MVP — ADR-005; model per ADR-014, proposed)
+- **External IdP, verified statelessly via JWKS.** We do NOT build password
+  storage, reset flows, OAuth plumbing, or refresh-token rotation — the IdP owns
+  them (ADR-014 D1). The bcrypt + Redis-refresh-token design previously described
+  here is superseded.
+- Methods: email + Google (+ Apple on iOS). IdP vendor is an open decision
+  (ADR-014 O1).
+- IdP session JWT in `Authorization: Bearer <token>`; backend verifies the
+  signature against the IdP's JWKS (no auth DB for it).
+- **Session JWT is OUR/the IdP's token.** It is NEVER the user's LLM key — the
+  BYOK key still travels only in the `/generate` request body (ADR-001).
+- The account owns a **per-provider credential set** (registry-keyed; custody
+  per entry: device-local / synced-e2e / managed-vault), not "the user's key"
+  (ADR-014 D2–D5).
 
 ### Logging
 - `structlog` JSON output.
@@ -291,7 +332,7 @@ populates the directories.)
 ## Compliance
 
 - **Adults only.** No COPPA. No FERPA.
-- **No PII collected at MVP.** Only an email address (v1.1+ when accounts arrive).
-- **The user's Anthropic API key is the user's property.** We touch it transiently per request, never persist it, and never display it (settings shows last-4 only).
-- **The user's lessons are the user's property.** Cloud library at v1.1+ — store with same care as PII; user can wipe their library at any time.
-- **GDPR posture (v1.1+):** account deletion within 30 days; library purged immediately on request.
+- **Minimal PII at MVP (amended — ADR-005/014).** Accounts arrive at MVP (ADR-005), so an **IdP identity reference** (`sub`, email) is collected at MVP. The account row stores only that, credential-set metadata, and a pointer to the synced library — **nothing about what the user generates** (ADR-014 D8). The anonymous / device-local mode remains the zero-account baseline (and the public demo's mode).
+- **The user's LLM API key is the user's property.** BYOK keys are device-local by default; we touch a BYOK key transiently per request, never persist it, and never display it (settings shows prefix + last-4 only). **Managed** keys are *ours*, held in a vault (ADR-005) — a BYOK key is never silently promoted to managed (ADR-014 D3).
+- **The user's lessons are the user's property.** Cloud library at v1.1+ — store with same care as PII; optional sync is opt-in and zero-knowledge by default (ADR-014 D5); user can wipe their library at any time.
+- **GDPR posture:** account deletion purges on the documented schedule (within 30 days; library purged immediately on request) (ADR-014 D8).

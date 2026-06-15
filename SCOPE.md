@@ -48,9 +48,9 @@ Quality over scale. The product *is* the proof of the IP.
 | Audience | Schools, teachers, districts | Self-motivated adult learners |
 | GTM | B2B sales | App store distribution |
 | Compliance | FERPA + COPPA | Adult-only — neither |
-| Auth | Auth0 + local + admin | Email/password or Sign in with Google |
+| Auth | Auth0 + local + admin | External IdP (email / Google / Apple) verified by JWKS — ADR-005/014 |
 | Backend | Multi-tenant FastAPI + RLS + Stripe | Single-tenant FastAPI + sync + push |
-| Token spend | StudyBuddy pays Anthropic | **User pays Anthropic (BYOK)** |
+| Token spend | StudyBuddy pays Anthropic | **Hybrid (ADR-005): we pay on managed plans; user pays on BYOK** |
 | Value prop | Governance, audit, curriculum lifecycle | Quality scoping, education-grade rendering |
 
 **No funnel between the two.** Self-learner is not a school upsell. The school
@@ -101,35 +101,45 @@ The guiding framing for every product decision:
 ## 5. Decisions locked in
 
 > **Amended since lock — read the ADRs first.** The product has evolved past the
-> original single-app framing below:
+> original single-app, Anthropic-only, BYOK-only framing below:
 > - **ADR-003** adds **book authoring** and makes books **local-first** (revising D4).
 > - **ADR-004** splits this into **two products** — a **paid authoring app** (this
 >   repo) and a **free, offline reader app** (separate repo) — with content
 >   delivered as **artifacts (EPUB3 flagship / PDF print)**, and **amends D17** (the
->   authoring app is now paid). **D1 (BYOK) is reaffirmed.**
+>   authoring app is now paid).
+> - **ADR-005 (Accepted)** makes the product **provider-agnostic** and key handling
+>   **hybrid**: a **managed-key vault is the default** (we hold keys, carry token cost
+>   under a metered plan allowance), **BYOK is the optional power-user path**. This
+>   **revises D1** (BYOK is no longer the only model — it is **not** simply
+>   "reaffirmed") **and D9** (passthrough is now one of two key paths), and **pulls
+>   accounts/auth + metering from v1.1+ to MVP**.
+> - **ADR-014 (Proposed)** specifies the account model: identity via an **external IdP
+>   verified by JWKS** (no password machinery), the account owning a **per-provider
+>   credential set** with keys **device-local by default**, sync opt-in and
+>   zero-knowledge. Amends **D10** and the §6.3 auth model.
 >
 > Where an ADR differs from a row below, the ADR wins.
 
 | # | Decision | Notes |
 |---|---|---|
-| D1 | **BYOK** (Bring Your Own Key) | User pastes Anthropic API key; StudyBuddy never has a token bill |
+| D1 | **Hybrid keys — managed default + optional BYOK** *(amended — ADR-005)* | Managed-key vault is the default (we hold keys, carry token cost under a metered plan allowance); **BYOK** (paste your own key, pay the vendor directly) is the optional power-user path. The original "BYOK-only, never a token bill" holds only for BYOK users |
 | D2 | **Async generation + push to device** | Backend completes work, FCM push delivers result |
 | D3 | **Android first** | Native vs cross-platform still open — see §7.1 |
-| D4 | **Cloud sync** (not local-only) | Library syncs across devices; requires user account + backend storage |
+| D4 | **Cloud sync** (not local-only) *(amended — ADR-003/005)* | Library is **local-first** at MVP (ADR-003); cloud **sync** stays v1.1+. But **accounts/auth move to MVP** (ADR-005 — managed billing needs identity), decoupled from sync |
 | D5 | **New repo `StudyBuddy_SelfLearner`** | Vendor prompts from existing repo; no shared runtime |
 | D6 | **Standalone product** — no link back to school SKU | No shared customer ID, no upsell, no funnel |
 | D7 | **Demo / quality-first**, not scale-first | Optimise for output quality per request, not install count |
 | D8 | **Stack — React Native / Expo** | Cross-platform path; iOS comes later for free; matches Epic 3 Path B |
-| D9 | **Key handling — Pattern B (per-request passthrough)** | App holds key in `expo-secure-store`; sent per request; backend never persists |
-| D10 | **Auth — email+password AND Sign in with Google** | Both methods at v1 |
+| D9 | **Key handling — Pattern B (per-request passthrough)** *(amended — ADR-005)* | Pattern B is now the **BYOK** path (key in `expo-secure-store`, sent per request, never persisted); the **managed** path adds a separate at-rest vault regime. Generalised to a **per-provider credential set** (ADR-014) |
+| D10 | **Auth — email + Google (+ Apple on iOS)** *(amended — ADR-005/014)* | Moved to **MVP** (was v1.1+). Via an **external IdP verified by JWKS** — we don't build password/refresh machinery (ADR-014, proposed; IdP vendor still open) |
 | D11 | **Hosting — share infra with StudyBuddy_OnDemand** | One ops plan, two products; covered by the upcoming hosting cost doc |
 | D12 | **Latency — minutes** | Async generation + FCM push when done |
 | D13 | **Output formats v1 — Lesson / Explanation / Quiz** *(amended — ADR-009: now per-topic content within a book; the standalone single-lesson "Query" surface was removed)* | Cheatsheet / Worked example / Tutorial / Experiment / Audio = v2+ |
 | D14 | **Visual aids v1 — all of (b)** | KaTeX + Mermaid + blockquotes + tables + AI-picks. Image gen = v2+ |
 | D15 | **Inputs — refined 7-field list** (Topic / Level / Language / Prior knowledge / Format / Framing / Depth) | Side panel collapsible from default canvas view |
 | D16 | **Layout — single canvas + collapsible side panel** | No wizard |
-| D17 | **App fee model — paid authoring app (subscription/purchase) + free reader** *(amended — ADR-004)* | Fee covers the **authoring app + upkeep only, never Anthropic tokens** — author still **BYOK** (D1). The separate **reader app is a free download**. Supersedes the original "free download, BYOK only, no IAP, pro tier deferred to v2." |
-| D18 | **v1 storage — fair-use soft cap (~100 lessons / account)** | Abuse prevention, not monetization |
+| D17 | **App fee model — paid authoring app (subscription/purchase) + free reader** *(amended — ADR-004, then ADR-005)* | Fee covers app + upkeep for **BYOK** users (author pays the vendor). For **managed** users the subscription **also includes a metered token allowance** — we carry the vendor cost, so pricing is margin-aware with per-plan caps (ADR-005 D4). The separate **reader app is a free download** |
+| D18 | **v1 storage — fair-use soft cap (~100 units / account)** *(reinterpreted — ADR-005)* | Abuse prevention **and** a cost-control lever for managed token spend, not monetization |
 | D19 | **Brand — "StudyBuddy Q"** (Q = Query) | Repo stays `StudyBuddy_SelfLearner`; public-facing brand is "StudyBuddy Q" |
 
 ---
@@ -149,6 +159,13 @@ These are the real choices that drive architecture. **None are decided yet.**
 **Open question: A, B, or C?**
 *(Recommend B as default unless UX of A is judged more important than the security/liability surface.)*
 Let us go with B
+
+> **Amended — ADR-005.** B (passthrough) remains the **BYOK** path, but key handling
+> is now **hybrid**: a **managed-key vault is the default** (closer to A — we hold
+> keys at rest, but they are *our* provider keys, not the user's), with BYOK-B as the
+> opt-in power-user path. The managed vault is a distinct at-rest regime (secrets
+> manager + rotation), separate from ADR-001's transient passthrough. Custody is now
+> **per provider** (ADR-014), not a single product-wide choice.
 
 
 ### 6.2 Mobile stack
@@ -175,6 +192,12 @@ Let us work with React Native / Expo
 
 **Open question: which auth methods at v1?**
 Let us go with Both
+
+> **Amended — ADR-005/014.** Auth is no longer v1.1+; it moves to **MVP** (ADR-005,
+> managed billing needs identity). "Both" becomes **email + Google (+ Apple on iOS)**
+> delivered through an **external IdP verified by JWKS** — we don't build the
+> password-reset / refresh-token machinery this table assumed (ADR-014, proposed). The
+> account owns a **per-provider credential set**, not a single login-plus-key.
 
 ### 6.4 Backend hosting
 
@@ -371,7 +394,7 @@ StudyBuddy_SelfLearner/
 
 | Term | Definition |
 |---|---|
-| **BYOK** | Bring Your Own Key — user supplies their own Anthropic API key, app uses it on the user's behalf, user pays Anthropic directly. App developer has zero token cost |
+| **BYOK** | Bring Your Own Key — user supplies their own provider API key, app uses it on the user's behalf, user pays the vendor directly; zero token cost to us. *(ADR-005: BYOK is now the optional power-user path; the default is a **managed-key vault** where we hold keys and carry the token cost under a metered plan.)* |
 | **Scope dimensions** | The 6 IP dimensions every content generation is parametrised by: topic / grade / language / curriculum context / format / real-world framing |
 | **Vendoring** | Copying source code from another repo into yours rather than depending on it as a package — preserves IP without coupling runtimes |
 | **FCM** | Firebase Cloud Messaging — Google's push-notification service for Android |
