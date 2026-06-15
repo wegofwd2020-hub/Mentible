@@ -54,7 +54,11 @@ jobs:
       - name: Run tests
         env:
           BYOK_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
-          SYSTEM_OWNER_SECRET: "1111111111111111111111111111111111111111111111111111111111111111"
+          # The owner secret that signs the shipped default library (ADR-018). Must
+          # match the .env value used by `owner_cli publish`, so the committed
+          # manifest's published-book signatures verify here. Set as a repo secret;
+          # do NOT hardcode it (a public constant would make signatures forgeable).
+          SYSTEM_OWNER_SECRET: ${{ secrets.SYSTEM_OWNER_SECRET }}
           REDIS_URL: redis://localhost:6379/0
           APP_ENV: test
           LOG_LEVEL: INFO
