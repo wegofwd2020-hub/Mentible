@@ -35,8 +35,11 @@ from pathlib import Path
 os.environ.setdefault("BYOK_MASTER_KEY", "0" * 64)
 os.environ.setdefault("SYSTEM_OWNER_SECRET", "0" * 64)
 
+import time  # noqa: E402
+
 from wegofwd_llm.conformance import generate_validated  # noqa: E402
 from wegofwd_llm.contract import LLMRequest  # noqa: E402
+from wegofwd_llm.errors import LLMError, LLMSchemaError  # noqa: E402
 from wegofwd_llm.registry import build_provider, provenance  # noqa: E402
 
 from backend.src.generate.anthropic_caller import parse_json_response  # noqa: E402
@@ -45,6 +48,31 @@ from backend.src.generate.prompt_builder import build_lesson_prompt  # noqa: E40
 
 _MAX_TOKENS = 16384  # matches tasks._DEFAULT_MAX_TOKENS for a no-page-target lesson
 _MAX_REPAIRS = 2  # matches tasks._MAX_REPAIRS (1 call + 2 targeted repairs)
+# Seconds to wait before each retry of a transient provider error (429/529/timeout).
+# The native adapter collapses all transients to a bare LLMError, and a 30-call
+# batch will hit at least one — so unlike the single-shot backend path (which
+# fails fast), the batch runner retries with backoff.
+_RETRY_BACKOFFS = (5, 15, 45)
+
+
+def _generate_one(provider, req, validate):
+    """generate_validated with backoff on transient provider errors. Schema
+    failures (repair budget already exhausted) are not retried — a re-roll rarely
+    helps and costs tokens."""
+    for attempt in range(len(_RETRY_BACKOFFS) + 1):
+        try:
+            return generate_validated(provider, req, validate, max_repairs=_MAX_REPAIRS)
+        except LLMSchemaError:
+            raise
+        except LLMError as err:
+            if attempt == len(_RETRY_BACKOFFS):
+                raise
+            wait = _RETRY_BACKOFFS[attempt]
+            print(
+                f"  transient {type(err).__name__}; retry {attempt + 1}/{len(_RETRY_BACKOFFS)} in {wait}s",
+                flush=True,
+            )
+            time.sleep(wait)
 
 
 def _read_key(key_file: str | None) -> str:
@@ -111,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     def _validate(text: str) -> LessonOutput:
         return LessonOutput.model_validate(parse_json_response(text))
 
+    failures: list[tuple[str, str, str]] = []
     for i, unit in enumerate(todo, 1):
         tid, title = unit["id"], unit["title"]
         print(f"[{i}/{len(todo)}] {title[:70]}", flush=True)
@@ -127,10 +156,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
         try:
-            result = generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
-        except Exception as err:  # never print the key; type only
-            print(f"  failed: {type(err).__name__} — stopping. Re-run to resume.", file=sys.stderr)
-            return 1
+            result = _generate_one(provider, req, _validate)
+        except (LLMError, ValueError) as err:  # never print the key; type only
+            # One topic's exhausted retries/validation shouldn't kill the batch —
+            # record it and move on. A later re-run retries only the unfilled ones.
+            print(f"  giving up on this topic: {type(err).__name__}", file=sys.stderr, flush=True)
+            failures.append((tid, title, type(err).__name__))
+            continue
         content[tid] = {
             "topicId": tid,
             "title": title,
@@ -142,8 +174,10 @@ def main(argv: list[str] | None = None) -> int:
         # Checkpoint after every topic so an interrupt loses at most one lesson.
         book_path.write_text(json.dumps(book, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    print(f"done — {len(content)}/{total} topics now have content")
-    return 0
+    print(f"done — {len(content)}/{total} topics now have content; {len(failures)} failed this run")
+    for tid, title, err in failures:
+        print(f"  FAILED {tid}: {title[:50]} ({err}) — re-run to retry", file=sys.stderr)
+    return 0 if not failures else 1
 
 
 if __name__ == "__main__":
