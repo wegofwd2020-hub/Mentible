@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "library": {
+    "id": "mentible-default-library",
+    "title": "Mentible Default Library",
+    "description": "Curated, shareable books that ship with the app and seed a new device's library on first run. See docs/adr/ADR-017-default-shareable-library.md.",
+    "publisher": "Mentible"
+  },
+  "books": [
+    {
+      "id": "claude-cert-architect-foundations",
+      "title": "Claude Certified Architect — Foundations: Study Guide",
+      "file": "books/claude-certified-architect-foundations.book.json",
+      "version": "0.1",
+      "status": "draft",
+      "subjectCount": 5,
+      "unitCount": 30,
+      "generatedCount": 0,
+      "sha256": "e187ad5123c6231b094f0584ef9aad7c83a83b1de1e0b9ed04c4d2feefe34d06",
+      "bytes": 54096
+    }
+  ]
+}
