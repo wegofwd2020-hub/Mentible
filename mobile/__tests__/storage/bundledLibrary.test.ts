@@ -15,9 +15,11 @@ describe("bundledLibrary registry", () => {
     }
   });
 
-  it("ships the Claude Certified Architect guide as a draft (not yet a default)", () => {
-    const cert = bundledBooks.find((b) => b.id === "claude-cert-architect-foundations");
-    expect(cert).toBeDefined();
-    expect(cert?.status).toBe("draft");
+  it("ships both default books as published", () => {
+    const ids = bundledBooks.map((b) => b.id).sort();
+    expect(ids).toEqual(["claude-cert-architect-foundations", "product-sense-and-ai"]);
+    for (const b of bundledBooks) {
+      expect(b.status).toBe("published");
+    }
   });
 });
