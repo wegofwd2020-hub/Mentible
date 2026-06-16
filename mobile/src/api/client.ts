@@ -15,7 +15,7 @@ import type {
 // On web (Expo browser preview), 10.0.2.2 is the Android emulator loopback
 // address — unreachable from a real browser. Transparently swap it for
 // localhost so the web preview works without touching .env.local.
-function resolveBaseUrl(): string {
+export function resolveBaseUrl(): string {
   const url =
     process.env["EXPO_PUBLIC_API_BASE_URL"] ??
     (Platform.OS === "web" ? "http://localhost:8001" : "http://10.0.2.2:8001");
