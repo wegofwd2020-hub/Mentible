@@ -38,6 +38,23 @@ jobs:
     name: Backend — Tests (incl. mandatory no-key-in-logs gate)
     runs-on: ubuntu-latest
     needs: backend-lint
+    # Ephemeral Postgres for the account-store tests (ADR-014). Local to the CI
+    # runner — not an external service (CLAUDE.md testing rule).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mentible_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mentible_test
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python 3.11
@@ -50,6 +67,10 @@ jobs:
       - name: Install backend deps
         working-directory: backend
         run: pip install -r requirements.txt
+
+      - name: Run DB migrations
+        working-directory: backend
+        run: alembic upgrade head
 
       - name: Run tests
         env:
