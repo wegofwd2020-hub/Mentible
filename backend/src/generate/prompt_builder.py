@@ -116,6 +116,14 @@ Flat shapes, a simple face, gentle motion. Example — a bouncing mascot:
 ```
 """
 
+# Used in place of _ANIMATED_SVG_GUIDE when include_svg=False. Some models loop
+# on SVG path data; forbidding raw SVG keeps their output valid (Mermaid only).
+_NO_SVG_GUIDE = """\
+Diagrams — no raw SVG:
+- Do NOT output any ```svg blocks or raw <svg>/path data. For every diagram use
+  a ```mermaid block instead. Keep diagrams simple and well-formed.
+"""
+
 # Per-register guidance: what kind of diagrams to produce for this publication.
 _DIAGRAM_REGISTERS: dict[str, str] = {
     "conceptual": """\
@@ -289,6 +297,7 @@ def build_lesson_prompt(
     prior_knowledge: str | None = None,
     framing: str | None = None,
     instructions: str | None = None,
+    include_svg: bool = True,
 ) -> str:
     """Return the prompt for generating a self-learner lesson.
 
@@ -299,6 +308,11 @@ def build_lesson_prompt(
 
     diagram_register: the "diagram direction" (conceptual / balanced / technical)
     — selects what kind of diagrams the model should favour.
+
+    include_svg: when False, drop the animated-SVG guidance and forbid raw
+    ```svg``` blocks (Mermaid-only). Default True. Some models (e.g.
+    gemini-2.5-flash) degenerate into a repetition loop on SVG path data and
+    produce unterminated JSON; turning SVG off keeps their prose usable.
 
     instructions: free-text author guidance applied to this (re)generation —
     e.g. "add a diagram for the T-shape".
@@ -325,6 +339,8 @@ def build_lesson_prompt(
             f"lesson: {instructions.strip()}\n"
         )
 
+    svg_block = _ANIMATED_SVG_GUIDE if include_svg else _NO_SVG_GUIDE
+
     return f"""You are an expert educator preparing a self-study lesson for {audience}.
 
 {lang_instruction}
@@ -335,7 +351,7 @@ The lesson topic is: "{topic}".
 You MUST respond with ONLY valid JSON — no markdown fences, no extra text, no explanation outside the JSON.
 
 {_FORMATTING_GUIDELINES}
-{_ANIMATED_SVG_GUIDE}
+{svg_block}
 {_subject_guidelines(subject)}
 {_diagram_guidelines(diagram_register)}
 {_PROSE_QUALITY}

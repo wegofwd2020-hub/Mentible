@@ -80,3 +80,4 @@ TRASH-FILES.md
 # Local secrets — never commit (ADR-001). Used by scripts/generate_book_content.py
 .anthropic_key.local
 *.key.local
+*_key.local
