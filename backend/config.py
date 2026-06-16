@@ -57,6 +57,22 @@ class Settings(BaseSettings):
     # never persisted in the clear (ADR-018 D6 / ADR-001 discipline).
     system_owner_secret: str = Field(min_length=64, max_length=64)
 
+    # ── User identity (ADR-014 D1) — external IdP verified by JWKS ─────────────
+    # We build NO authentication: login is the IdP's job (O1 → Supabase), and the
+    # backend only *verifies* its JWT statelessly via JWKS. No auth DB, no secret.
+    # Identity is OPTIONAL at MVP — the anonymous demo runs with these unset, and
+    # the auth dependencies treat "no issuer configured" as anonymous (never a
+    # startup failure). Set them to turn identity on for a deployment.
+    #
+    # Supabase: issuer = https://<project-ref>.supabase.co/auth/v1 ; the default
+    # access-token audience is "authenticated". JWKS is discovered at
+    # <issuer>/.well-known/jwks.json unless oidc_jwks_url overrides it.
+    oidc_issuer: str = Field(default="", description="OIDC issuer URL; empty = identity disabled")
+    oidc_audience: str = Field(default="authenticated", description="expected JWT aud claim")
+    oidc_jwks_url: str = Field(
+        default="", description="override JWKS URL; empty = derive from issuer"
+    )
+
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
 

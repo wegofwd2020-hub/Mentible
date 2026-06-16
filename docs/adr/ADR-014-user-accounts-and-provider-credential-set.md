@@ -1,7 +1,14 @@
 # ADR-014 — User accounts & the per-provider credential set (BYOK-first identity)
 
-**Status:** Proposed — 2026-06-11
+**Status:** Proposed — 2026-06-11 · _O1/O5 resolved 2026-06-16; ticket #1 (JWKS verify) implemented_
 **Decision-maker:** Sivakumar Mambakkam
+
+> **Decisions made (2026-06-16).** **O1 → Supabase** (bundles auth + the synced-library
+> Postgres + per-user RLS — "one user = one isolated library" is a textbook single-table
+> RLS case), which also settles **O5 → Supabase Postgres**. The vendor-agnostic backend
+> **JWKS verify → `Principal`** (follow-up ticket #1, D1) is built in `backend/src/auth/`
+> (config-driven, no DB, identity-optional for the anonymous demo). O2/O3/O4 (sync
+> encryption, ship-key-sync timing, recovery) remain open.
 **Resolves:** [#90](https://github.com/wegofwd2020-hub/StudyBuddy_SelfLearner/issues/90)
 **Builds on:** **ADR-005** (hybrid managed + BYOK key handling; it pulled
 accounts/auth + metering forward to MVP but did not specify _how_ accounts work —
@@ -138,11 +145,12 @@ IP for the anonymous demo). _Needs confirmation — see O-section._
 
 ## Open decisions (for the decision-maker)
 
-- **O1 — IdP vendor.** Auth0 (max reuse of OnDemand know-how) · Clerk (best Expo/RN
-  SDK + drop-in UI) · **Supabase** (collapses auth **and** the synced-library Postgres
-  **and** per-user RLS into one dependency — and "one user = one isolated library",
-  `CLAUDE.md`, is a textbook single-table-RLS case, far simpler than OnDemand's
-  `school_id` dance).
+- **O1 — IdP vendor. ✅ RESOLVED 2026-06-16 → Supabase.** (Considered: Auth0 — max reuse
+  of OnDemand know-how; Clerk — best Expo/RN SDK + drop-in UI.) Supabase collapses auth
+  **and** the synced-library Postgres **and** per-user RLS into one dependency — and "one
+  user = one isolated library" (`CLAUDE.md`) is a textbook single-table-RLS case, far
+  simpler than OnDemand's `school_id` dance. The backend verify seam is vendor-agnostic
+  regardless (config: issuer + audience + JWKS URL).
 - **O2 — Library sync encryption (the crux).** Plaintext (we can read user content;
   simpler; enables server-side/web features) vs client-encrypted **zero-knowledge**
   (true "your content is yours"; harder recovery). Note: zero-knowledge needs a
@@ -150,8 +158,9 @@ IP for the anonymous demo). _Needs confirmation — see O-section._
   can't read.
 - **O3 — Ship key sync (D5) at v1.1, or defer** and start device-local-only?
 - **O4 — Recovery story** if we go zero-knowledge: lost passphrase = lost synced data?
-- **O5 — DB choice:** `asyncpg` + Alembic (the `CLAUDE.md`-implied path) vs Supabase
-  Postgres (bundled with O1).
+- **O5 — DB choice. ✅ RESOLVED 2026-06-16 → Supabase Postgres** (follows O1; bundled
+  with the IdP + RLS rather than a standalone `asyncpg` + Alembic stack). The first
+  migration arrives with follow-up ticket #2, not #1 (D1 verify needs no DB).
 
 ## Consequences
 
