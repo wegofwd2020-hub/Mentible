@@ -73,6 +73,14 @@ class Settings(BaseSettings):
         default="", description="override JWKS URL; empty = derive from issuer"
     )
 
+    # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
+    # The account + per-provider credential-set DB. OPTIONAL, like identity: empty
+    # = no DB (anonymous demo; the pool is None and account routes are unavailable),
+    # never a startup failure. asyncpg DSN, e.g. postgresql://user:pass@host/db.
+    # Isolation is app-level (WHERE idp_sub = principal.sub), not RLS — the backend
+    # is the single data path and already verifies the JWT (CLAUDE.md rule 4).
+    database_url: str = Field(default="", description="asyncpg DSN; empty = DB disabled")
+
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
 
