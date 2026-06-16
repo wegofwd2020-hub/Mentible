@@ -82,6 +82,7 @@ export function CheckoutButton({ book }: { book: Book }) {
 
 function messageFor(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.status === 429) return err.userMessage();
     if (err.status === 422) {
       try {
         const detail = JSON.parse(err.body)?.detail;

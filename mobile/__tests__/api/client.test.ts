@@ -157,3 +157,66 @@ describe("exportBook", () => {
     await expect(exportBook(book)).rejects.toBeInstanceOf(ApiError);
   });
 });
+
+// ── Rate limiting (SBQ-RL): 429 → friendly Retry-After messaging ───────────────
+
+describe("ApiError.userMessage — 429 rate limit", () => {
+  it("phrases a short Retry-After in seconds (burst guard)", () => {
+    const msg = new ApiError(429, "", 15).userMessage();
+    expect(msg).toContain("15 second");
+    expect(msg.toLowerCase()).toContain("too fast");
+  });
+
+  it("uses singular 'second' for 1", () => {
+    expect(new ApiError(429, "", 1).userMessage()).toContain("1 second.");
+  });
+
+  it("phrases a minutes-scale wait", () => {
+    expect(new ApiError(429, "", 150).userMessage()).toContain("3 minute"); // ceil(2.5)
+  });
+
+  it("phrases a long wait as today's limit in hours (daily cap)", () => {
+    const msg = new ApiError(429, "", 7200).userMessage(); // 2h
+    expect(msg.toLowerCase()).toContain("today");
+    expect(msg).toContain("2 hour");
+  });
+
+  it("falls back to a generic wait when Retry-After is absent", () => {
+    expect(new ApiError(429, "").userMessage().toLowerCase()).toContain("wait a moment");
+  });
+});
+
+describe("ApiError.userMessage — other statuses", () => {
+  it("surfaces the server's detail string", () => {
+    const body = JSON.stringify({ detail: "this book has no content" });
+    expect(new ApiError(422, body).userMessage()).toBe("this book has no content");
+  });
+
+  it("falls back to a generic line when the body isn't JSON", () => {
+    expect(new ApiError(500, "<html>oops</html>").userMessage()).toBe(
+      "Something went wrong. Please try again.",
+    );
+  });
+});
+
+describe("submit — Retry-After capture", () => {
+  it("captures the Retry-After header into ApiError.retryAfter on a 429", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      headers: { get: (h: string) => (h === "Retry-After" ? "42" : null) },
+      text: async () => JSON.stringify({ detail: "rate limit exceeded; slow down" }),
+    });
+
+    await expect(
+      submitGenerate({
+        request_id: "r1",
+        topic: "x",
+        level: "high_school",
+        language: "en",
+        format: "lesson",
+        api_key: "sk-ant-FAKE",
+      }),
+    ).rejects.toMatchObject({ status: 429, retryAfter: 42 });
+  });
+});

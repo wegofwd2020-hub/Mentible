@@ -27,6 +27,18 @@ const BASE_URL = resolveBaseUrl();
 const POLL_INTERVAL_MS = 3_000;
 const POLL_TIMEOUT_MS = 120_000;
 
+// Parse a Retry-After header (our backend sends integer seconds). Returns
+// undefined for an absent/non-numeric value (we don't handle the HTTP-date form
+// since the backend never sends it).
+function retryAfterSeconds(res: Response): number | undefined {
+  // Optional-chained: a real Response always has headers, but guard so a partial
+  // mock or a non-standard error response can't throw past the real failure.
+  const raw = res.headers?.get?.("Retry-After");
+  if (!raw) return undefined;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 async function apiFetch<T>(
   path: string,
   options?: RequestInit,
@@ -37,18 +49,50 @@ async function apiFetch<T>(
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body);
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
   }
   return res.json() as Promise<T>;
+}
+
+// Friendly phrasing for a 429, scaled by how long the caller must wait: a short
+// Retry-After is the per-minute burst guard; a long one is the per-day cap.
+function rateLimitMessage(retryAfter?: number): string {
+  if (retryAfter && retryAfter > 3600) {
+    const hours = Math.ceil(retryAfter / 3600);
+    return `You’ve reached today’s generation limit. It resets in about ${hours} hour${hours === 1 ? "" : "s"}.`;
+  }
+  if (retryAfter && retryAfter > 60) {
+    const mins = Math.ceil(retryAfter / 60);
+    return `You’re generating too fast. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`;
+  }
+  if (retryAfter && retryAfter > 0) {
+    return `You’re generating too fast. Try again in ${retryAfter} second${retryAfter === 1 ? "" : "s"}.`;
+  }
+  return "You’re generating too fast. Please wait a moment and try again.";
 }
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: string,
+    // Seconds to wait before retrying, from the Retry-After header (429 only).
+    public readonly retryAfter?: number,
   ) {
     super(`API error ${status}`);
     this.name = "ApiError";
+  }
+
+  // A user-facing message. 429 (rate limited) is phrased by wait magnitude;
+  // other statuses surface the server's `detail` string, then a generic line.
+  userMessage(): string {
+    if (this.status === 429) return rateLimitMessage(this.retryAfter);
+    try {
+      const detail = JSON.parse(this.body)?.detail;
+      if (typeof detail === "string") return detail;
+    } catch {
+      /* body not JSON */
+    }
+    return "Something went wrong. Please try again.";
   }
 }
 
@@ -118,7 +162,7 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body);
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
   }
   return res.arrayBuffer();
 }

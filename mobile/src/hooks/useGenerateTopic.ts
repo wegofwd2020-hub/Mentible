@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { pollUntilDone, submitGenerate } from "@/api/client";
+import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
@@ -87,7 +87,13 @@ export function useGenerateTopic({
         setStatus("failed");
         return null;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Generation failed");
+        setError(
+          err instanceof ApiError
+            ? err.userMessage()
+            : err instanceof Error
+              ? err.message
+              : "Generation failed",
+        );
         setStatus("failed");
         return null;
       }

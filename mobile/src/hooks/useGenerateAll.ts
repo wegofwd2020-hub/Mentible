@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { pollUntilDone, submitGenerate } from "@/api/client";
+import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
@@ -177,7 +177,24 @@ export function useGenerateAll({
           }
         } catch (err) {
           if (cancelledRef.current) break;
-          setStatus(t.topicId, "failed", err instanceof Error ? err.message : "Generation failed");
+          // A 429 means we've hit the rate limit — stop the batch rather than
+          // hammer it for every remaining topic (each retry only pushes the
+          // window further out). Surface the friendly wait message once.
+          if (err instanceof ApiError && err.status === 429) {
+            const msg = err.userMessage();
+            setStatus(t.topicId, "failed", msg);
+            setErrorMsg(msg);
+            break;
+          }
+          setStatus(
+            t.topicId,
+            "failed",
+            err instanceof ApiError
+              ? err.userMessage()
+              : err instanceof Error
+                ? err.message
+                : "Generation failed",
+          );
         }
       }
 
