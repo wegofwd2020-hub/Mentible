@@ -26,6 +26,11 @@ services:
       # Local-only fixed system-owner secret (ADR-018) — DO NOT use in production.
       SYSTEM_OWNER_SECRET: "${SYSTEM_OWNER_SECRET:-1111111111111111111111111111111111111111111111111111111111111111}"
       ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
+      # User identity + account store (ADR-014). Set OIDC_ISSUER + DATABASE_URL in a
+      # root .env to enable accounts; unset = anonymous demo (no DB, no auth).
+      OIDC_ISSUER: "${OIDC_ISSUER:-}"
+      OIDC_AUDIENCE: "${OIDC_AUDIENCE:-authenticated}"
+      DATABASE_URL: "${DATABASE_URL:-}"
     depends_on:
       redis:
         condition: service_healthy
