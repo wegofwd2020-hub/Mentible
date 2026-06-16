@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { submitStructure } from "@/api/client";
+import { ApiError, submitStructure } from "@/api/client";
 import { useStructureJob } from "@/hooks/useStructureJob";
 import { loadApiKey } from "@/secure/keyStore";
 import { ensureTopicIds } from "@/storage/bookStore";
@@ -75,7 +75,13 @@ export default function NewBookScreen() {
       setJobId(res.job_id);
       setPhase("submitted");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Could not reach server");
+      setErrorMsg(
+        err instanceof ApiError
+          ? err.userMessage()
+          : err instanceof Error
+            ? err.message
+            : "Could not reach server",
+      );
     }
   }, [rawToc]);
 
