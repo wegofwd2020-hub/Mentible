@@ -114,6 +114,29 @@ async def test_full_loop_done(client, fake_redis, known_test_api_key):
         "$x = " in result["sections"][1]["body_markdown"]
         or "x =" in result["sections"][1]["body_markdown"]
     )
+    # Observed token usage rides the done row (SBQ-USAGE-001) — metadata only.
+    usage = body["usage"]
+    assert usage["provider"] == "anthropic"
+    assert usage["model"]
+    assert usage["input_tokens"] == 100  # fake_provider: 100 in / 500 out per call
+    assert usage["output_tokens"] == 500
+    assert usage["attempts"] == 1
+    assert usage["tokens_estimated"] is False
+
+
+@pytest.mark.asyncio
+async def test_usage_sums_across_repairs(client, fake_redis, known_test_api_key):
+    """Token usage reflects REAL spend: repair-loop calls are summed, not just the
+    accepted lesson (SBQ-USAGE-001 — "repairs count")."""
+    fake = fake_provider(responses=["not json at all", _FAKE_LESSON_JSON])
+    with patch("backend.src.generate.tasks.build_provider", return_value=fake):
+        submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
+        body = await _wait_for_status(client, submit.json()["job_id"], "done")
+
+    usage = body["usage"]
+    assert usage["attempts"] == 2  # one repair
+    assert usage["input_tokens"] == 200  # 2 calls × 100
+    assert usage["output_tokens"] == 1000  # 2 calls × 500
 
 
 @pytest.mark.asyncio

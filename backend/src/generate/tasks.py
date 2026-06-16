@@ -109,6 +109,7 @@ async def _write_status(
     result: dict[str, Any] | None = None,
     provenance: dict[str, Any] | None = None,
     warnings: list[dict[str, Any]] | None = None,
+    usage: dict[str, Any] | None = None,
 ) -> None:
     payload: dict[str, Any] = {"status": status}
     if error is not None:
@@ -119,6 +120,8 @@ async def _write_status(
         payload["provenance"] = provenance
     if warnings:
         payload["warnings"] = warnings
+    if usage is not None:
+        payload["usage"] = usage
     await r.setex(
         _job_status_redis_key(job_id),
         settings.byok_redis_ttl_seconds * 10,  # status row outlives the envelope
@@ -226,6 +229,7 @@ async def run_generation(
     # is the job's lifetime, not a single attempt.
     lesson: LessonOutput | None = None
     prov: dict | None = None  # which provider/model/versions produced this unit
+    usage: dict[str, Any] | None = None  # observed token counts (SBQ-USAGE-001)
     last_error = "generation failed"
 
     def _validate(text: str) -> LessonOutput:
@@ -254,6 +258,19 @@ async def run_generation(
         # Stamp which provider/model + integration/contract versions produced this
         # unit (the resolved model, which may differ from what was requested).
         prov = provenance(provider_id, provider.model)
+        # Observed token usage (SBQ-USAGE-001). The provider hands us exact counts
+        # on every call; generate_validated sums them ACROSS repair attempts, so this
+        # reflects real spend, not just the accepted lesson. Metadata only — no key,
+        # no content (ADR-001 holds). The device attributes it to the requesting
+        # book/topic in its local ledger; we persist nothing server-side here.
+        usage = {
+            "provider": provider_id,
+            "model": provider.model,
+            "input_tokens": result.total_input_tokens,
+            "output_tokens": result.total_output_tokens,
+            "tokens_estimated": result.response.tokens_estimated,
+            "attempts": result.attempts,
+        }
         if result.repaired:
             log.info("generation_repaired", job_id=str(job_id), attempts=result.attempts)
     except LLMSchemaError:
@@ -302,5 +319,6 @@ async def run_generation(
         result=lesson.model_dump(),
         provenance=prov,
         warnings=format_warnings,
+        usage=usage,
     )
     log.info("generation_done", job_id=str(job_id))

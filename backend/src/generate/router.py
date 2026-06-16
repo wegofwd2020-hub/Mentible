@@ -209,4 +209,5 @@ async def get_job_status(
         result=payload.get("result"),
         provenance=payload.get("provenance"),
         warnings=payload.get("warnings"),
+        usage=payload.get("usage"),
     )

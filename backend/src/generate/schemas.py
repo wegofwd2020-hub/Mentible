@@ -122,3 +122,8 @@ class JobStatusResponse(BaseModel):
     # done job with warnings is still valid content; the warnings are a review /
     # prompt-drift signal. Absent or empty when the content looks clean.
     warnings: list[dict] | None = None
+    # Observed token usage for this generation (SBQ-USAGE-001). Metadata only — no
+    # key, no content. Keys: provider, model, input_tokens, output_tokens (summed
+    # across repair attempts), tokens_estimated, attempts. The client appends this
+    # to a device-local usage ledger; nothing is persisted server-side.
+    usage: dict | None = None
