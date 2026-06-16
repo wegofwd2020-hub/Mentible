@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from backend.src.core.log_redaction import get_logger
+from backend.src.core.rate_limit import enforce_rate_limit
 from backend.src.export import compiler
 
 router = APIRouter(prefix="/api/v1", tags=["export"])
@@ -41,7 +42,7 @@ def _filename(title: str, ext: str) -> str:
     return f"{slug[:60]}.{ext}"
 
 
-@router.post("/export")
+@router.post("/export", dependencies=[Depends(enforce_rate_limit)])
 async def export_book(
     request: Request,
     format: str = "epub",

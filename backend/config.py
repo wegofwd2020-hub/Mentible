@@ -96,5 +96,19 @@ class Settings(BaseSettings):
     # diagram-laden book takes minutes — give that path a much longer ceiling.
     export_diagram_timeout_seconds: int = Field(default=1200, ge=5, le=3600)
 
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    # Fixed-window per-identity limits on the expensive endpoints (/generate,
+    # /structure, /export). Keyed on the auth principal (sub) when present, else
+    # the client IP. Both an abuse guard and a cost-control lever for managed
+    # token spend (ADR-005). Disable for load tests with rate_limit_enabled=False
+    # (or set a limit to 0). Counters live in Redis with TTL = the window.
+    rate_limit_enabled: bool = Field(default=True)
+    # Burst guard. A sequential generate-all stays well under this (each topic is
+    # a multi-second job), so it only trips scripted abuse.
+    rate_limit_per_minute: int = Field(default=20, ge=0)
+    # Daily cap (cost-control). ~16 full 30-topic books/day; well within the D18
+    # ~100-unit fair-use posture while allowing regeneration/iteration.
+    rate_limit_per_day: int = Field(default=500, ge=0)
+
 
 settings = Settings()  # type: ignore[call-arg]

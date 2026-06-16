@@ -112,7 +112,9 @@ These gaps are **by design** — they belong to v1.1+, not MVP:
 
 - No retry on Anthropic timeout — let it fail, surface the error
 - No queue depth limit — we trust low traffic during the demo phase
-- No rate limiting on API endpoints
+- ~~No rate limiting on API endpoints~~ — **added** (`core/rate_limit.py`): a
+  fixed-window per-identity (auth sub / IP) limiter on `/generate`, `/structure`,
+  `/export`; an abuse guard + cost-control lever for managed token spend (ADR-005)
 - No analytics or telemetry beyond basic `structlog`
 - No accounts or multi-device sync — each install is its own world
 - No graceful key-rotation flow — the user re-pastes if their key changes

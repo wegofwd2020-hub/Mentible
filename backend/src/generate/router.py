@@ -25,6 +25,8 @@ from wegofwd_llm.registry import PROVIDER_REGISTRY, provenance
 from backend.config import settings
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.core.log_redaction import get_logger
+from backend.src.core.rate_limit import enforce_rate_limit
+from backend.src.core.redis_dep import get_redis
 from backend.src.generate.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -35,15 +37,10 @@ from backend.src.generate.tasks import run_generation
 router = APIRouter(prefix="/api/v1", tags=["generate"])
 log = get_logger("generate")
 
-
-# ── Redis dependency ──────────────────────────────────────────────────────────
-
-
-async def get_redis() -> redis.Redis:
-    """Return a Redis client. In production this is overridden by the
-    lifespan-managed pool; the default is fine for local dev and tests
-    that fall through to a real fakeredis-backed client."""
-    return redis.from_url(settings.redis_url, decode_responses=False)
+# Re-exported for back-compat: callers (structure router, conftest) import
+# `get_redis` from here. The definition now lives in core.redis_dep so the
+# rate-limit dependency can share it without an import cycle.
+__all__ = ["get_redis", "router"]
 
 
 # ── Redis key helpers ─────────────────────────────────────────────────────────
@@ -74,6 +71,7 @@ def _idempotency_redis_key(request_id: uuid.UUID) -> str:
     "/generate",
     response_model=GenerateResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
 )
 async def submit_generate(
     body: GenerateRequest,

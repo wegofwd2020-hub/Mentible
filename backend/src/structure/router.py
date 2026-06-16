@@ -23,11 +23,12 @@ from backend.src.core.log_redaction import get_logger
 
 # Reuse the generate router's Redis dependency so a single override (tests) and
 # a single lifespan-managed pool cover both endpoints.
+from backend.src.core.rate_limit import enforce_rate_limit
+from backend.src.core.redis_dep import get_redis
 from backend.src.generate.router import (
     _byok_redis_key,
     _idempotency_redis_key,
     _job_status_redis_key,
-    get_redis,
 )
 from backend.src.structure.schemas import StructureRequest, StructureResponse
 from backend.src.structure.tasks import run_structure
@@ -40,6 +41,7 @@ log = get_logger("structure")
     "/structure",
     response_model=StructureResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
 )
 async def submit_structure(
     body: StructureRequest,
