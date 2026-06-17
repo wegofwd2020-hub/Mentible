@@ -16,7 +16,13 @@ from __future__ import annotations
 
 from pipeline.providers.anthropic import AnthropicProvider
 from wegofwd_llm.contract import Capabilities, LLMRequest, LLMResponse, Provider
-from wegofwd_llm.errors import LLMConfigurationError, LLMError, LLMResponseError
+from wegofwd_llm.errors import (
+    LLMAuthError,
+    LLMConfigurationError,
+    LLMError,
+    LLMRateLimitError,
+    LLMResponseError,
+)
 
 
 class AnthropicAdapter(Provider):
@@ -44,8 +50,16 @@ class AnthropicAdapter(Provider):
             text, in_tok, out_tok = self._inner.generate(
                 req.prompt, max_tokens=req.max_tokens
             )
-        except Exception:
-            # Never chain: SDK exceptions may include the api_key in their repr.
+        except Exception as exc:
+            # Map the SDK's HTTP status to a typed, key-free error so callers can
+            # tell "your key was rejected" (401/403) and "rate limited" (429) apart
+            # from a generic failure. We read ONLY the integer status_code — never
+            # stringify or chain the SDK exception, whose repr can carry the api_key.
+            status = getattr(exc, "status_code", None)
+            if status in (401, 403):
+                raise LLMAuthError("anthropic authentication failed") from None
+            if status == 429:
+                raise LLMRateLimitError("anthropic rate limit") from None
             raise LLMError("anthropic call failed") from None
         if not text:
             raise LLMResponseError("anthropic returned an empty response")

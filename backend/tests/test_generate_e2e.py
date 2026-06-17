@@ -22,7 +22,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from wegofwd_llm.errors import LLMError
+from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError
 
 from backend.tests.helpers import fake_provider
 
@@ -203,6 +203,39 @@ async def test_anthropic_failure_marks_job_failed(client, fake_redis, known_test
     assert body["status"] == "failed"
     # Transient/provider errors fail fast with a generic, key-free message.
     assert body["error"]
+
+
+@pytest.mark.asyncio
+async def test_auth_failure_surfaces_actionable_message(client, fake_redis, known_test_api_key):
+    """A rejected key (401/403 → LLMAuthError) tells the user to check Settings,
+    rather than a generic "generation failed"."""
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(side_effect=LLMAuthError("anthropic authentication failed")),
+    ):
+        submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
+        job_id = submit.json()["job_id"]
+        body = await _wait_for_status(client, job_id, "failed")
+
+    assert body["status"] == "failed"
+    assert "rejected" in body["error"].lower()
+    assert "settings" in body["error"].lower()
+    # Never leaks the key.
+    assert known_test_api_key not in body["error"]
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_surfaces_actionable_message(client, fake_redis, known_test_api_key):
+    with patch(
+        "backend.src.generate.tasks.build_provider",
+        return_value=fake_provider(side_effect=LLMRateLimitError("anthropic rate limit")),
+    ):
+        submit = await client.post("/api/v1/generate", json=_request_body(known_test_api_key))
+        job_id = submit.json()["job_id"]
+        body = await _wait_for_status(client, job_id, "failed")
+
+    assert body["status"] == "failed"
+    assert "rate" in body["error"].lower()
 
 
 @pytest.mark.asyncio

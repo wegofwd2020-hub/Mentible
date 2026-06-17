@@ -29,7 +29,7 @@ from typing import Any
 import redis.asyncio as redis
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
-from wegofwd_llm.errors import LLMError, LLMSchemaError
+from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSchemaError
 from wegofwd_llm.registry import build_provider, provenance
 
 from backend.config import settings
@@ -276,8 +276,19 @@ async def run_generation(
     except LLMSchemaError:
         last_error = "generated content failed validation"
         log.warning("generation_failed", job_id=str(job_id), reason="schema")
+    except LLMAuthError:
+        # The provider rejected the key (401/403). Actionable for the user — point
+        # them at Settings. Message is key-free.
+        last_error = (
+            "Your API key was rejected by the provider. Check it in Settings — it may be "
+            "invalid, revoked, or out of credit."
+        )
+        log.warning("generation_failed", job_id=str(job_id), reason="auth")
+    except LLMRateLimitError:
+        last_error = "The provider is rate-limiting requests. Wait a moment and try again."
+        log.warning("generation_failed", job_id=str(job_id), reason="rate_limit")
     except LLMError:
-        # Auth / rate-limit / timeout / transport — fail fast. Log type only.
+        # Other LLM failure (timeout / transport / unexpected status). Fail fast.
         last_error = "generation failed"
         log.warning("generation_failed", job_id=str(job_id), reason="llm_error")
     except Exception:
