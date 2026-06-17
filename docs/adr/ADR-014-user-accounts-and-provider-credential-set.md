@@ -1,14 +1,31 @@
 # ADR-014 — User accounts & the per-provider credential set (BYOK-first identity)
 
-**Status:** Proposed — 2026-06-11 · _O1/O5 resolved 2026-06-16; ticket #1 (JWKS verify) implemented_
+**Status:** Proposed — 2026-06-11 · _O1/O5 resolved 2026-06-16; O2/O3/O4 resolved 2026-06-17; ticket #1 (JWKS verify) implemented_
 **Decision-maker:** Sivakumar Mambakkam
 
 > **Decisions made (2026-06-16).** **O1 → Supabase** (bundles auth + the synced-library
 > Postgres + per-user RLS — "one user = one isolated library" is a textbook single-table
 > RLS case), which also settles **O5 → Supabase Postgres**. The vendor-agnostic backend
 > **JWKS verify → `Principal`** (follow-up ticket #1, D1) is built in `backend/src/auth/`
-> (config-driven, no DB, identity-optional for the anonymous demo). O2/O3/O4 (sync
-> encryption, ship-key-sync timing, recovery) remain open.
+> (config-driven, no DB, identity-optional for the anonymous demo).
+
+> **Decisions made (2026-06-17).** **O2 → zero-knowledge** (library *content* sync is
+> client-encrypted under a user-held secret we cannot read — same custody as keys under
+> D5; this keeps the "your content is yours" promise intact across the whole product and
+> keeps us out of content-liability/GDPR scope). Plaintext was rejected because its only
+> real upside (server-side/web rendering + search) is **already deferred by ADR-004**
+> (the reader is a separate, offline, client-side app), so plaintext would spend the
+> brand promise to buy features we've explicitly chosen not to build. **O3 → defer key +
+> content sync past v1.1** (per D7, demo/quality-first): ship **device-local only** now —
+> keys re-entered per device, the library is local plus the **exported EPUB/PDF artifact**
+> as the cross-device story. The zero-knowledge *stance* is locked regardless, so no
+> rework when sync does land. **O4 → recovery direction** follows from zero-knowledge:
+> a **one-time recovery key shown at sync setup** (1Password-style) **plus the export
+> artifact as the standing fallback** (the synced library is a convenience copy, not the
+> only copy) — detailed design deferred with the sync build (ticket #4). The crypto
+> model and sharing story these imply are now written down as **D10** (per-user envelope
+> encryption: per-user LMK → per-book Data Keys) and **D11** (sharing = export artifact
+> first; public-key per-book-DK wrapping only if live shared libraries are requested).
 **Resolves:** [#90](https://github.com/wegofwd2020-hub/StudyBuddy_SelfLearner/issues/90)
 **Builds on:** **ADR-005** (hybrid managed + BYOK key handling; it pulled
 accounts/auth + metering forward to MVP but did not specify _how_ accounts work —
@@ -143,6 +160,58 @@ Because the backend proxies even BYOK calls and runs Chromium for exports, abuse
 possible regardless of who pays for tokens. Throttle on **account** (falling back to
 IP for the anonymous demo). _Needs confirmation — see O-section._
 
+### D10 — Content is secured per-user via envelope encryption (added 2026-06-17)
+
+The O2 "user-held secret" is **account-level, not device-level** — sync only works if
+the same user can decrypt on a new device, so the encryption cannot be bound to a
+device. The model is envelope encryption:
+
+```
+passphrase / recovery key  ──KDF──▶  KEK
+KEK  ──wraps──▶  Library Master Key (LMK — random, per-user, generated once)
+LMK  ──wraps──▶  per-book Data Keys (DK)
+DK   ──encrypts──▶  book content
+```
+
+- The **LMK is per-user**. The server stores only the **wrapped** LMK so any device can
+  fetch and unwrap it with the passphrase; the server never sees the unwrapped LMK.
+- **New device:** enter passphrase / recovery key → derive KEK → unwrap LMK → decrypt
+  library. The device then caches the LMK in `expo-secure-store` so it isn't re-entered
+  each launch — **that cached copy is the only per-device artifact**, the same logical
+  user key, not a distinct per-device key.
+- Deliberate asymmetry with the credential set: **content is per-user; BYOK keys stay
+  per-device by default** (D4/D5) unless the user opts into key sync.
+- **Content is encrypted under per-book Data Keys, not directly under the LMK.** This
+  costs nothing extra and is the precondition for sharing a single book (D11) without
+  exposing the rest of the library.
+
+### D11 — Sharing model: artifact-first, public-key wrapping later (added 2026-06-17)
+
+**Near-term (v1.1, recommended): share the exported artifact.** Sharing a book = export
+the EPUB/PDF (ADR-004 already makes the artifact the unit of delivery; the free reader
+app lights up our books) and send it. Zero new crypto, zero server sharing infra, fully
+on the existing rails. It is a **static snapshot** that leaves our envelope once sent —
+the user's choice, the same as emailing any file. This keeps sharing **entirely out of
+the deferred sync build (O3)**.
+
+**Later (only if live shared/synced books are requested): per-book DK wrapping with
+public-key crypto**, preserving zero-knowledge:
+
+1. Each account gets an asymmetric **keypair** at setup. The **public key is published**
+   to the server; the **private key is held zero-knowledge** — wrapped under the same
+   passphrase that wraps the LMK, so O4's recovery story covers it too.
+2. To share book B with Bob, Alice's client fetches **Bob's public key**, computes
+   `wrapped_DK_for_Bob = encrypt(DK_B, Bob_pub)`, and uploads `{ciphertext, wrapped_DK_for_Bob}`.
+3. Bob unwraps `DK_B` with his private key and decrypts. The server only ever holds
+   ciphertext, public keys, and DKs-wrapped-to-recipients — it still cannot read content.
+
+Known limitations of the public-key tier (recorded, not solved now): **key-trust/MITM** —
+the server hands out recipients' public keys, so trust-on-first-use is the pragmatic
+v1.1+ stance, with Signal-style safety-number verification as later hardening;
+**revocation** — once a recipient decrypts they hold plaintext, so revoking *future*
+access means rotating the book's DK, re-encrypting, and re-wrapping to remaining
+recipients.
+
 ## Open decisions (for the decision-maker)
 
 - **O1 — IdP vendor. ✅ RESOLVED 2026-06-16 → Supabase.** (Considered: Auth0 — max reuse
@@ -151,13 +220,21 @@ IP for the anonymous demo). _Needs confirmation — see O-section._
   user = one isolated library" (`CLAUDE.md`) is a textbook single-table-RLS case, far
   simpler than OnDemand's `school_id` dance. The backend verify seam is vendor-agnostic
   regardless (config: issuer + audience + JWKS URL).
-- **O2 — Library sync encryption (the crux).** Plaintext (we can read user content;
-  simpler; enables server-side/web features) vs client-encrypted **zero-knowledge**
-  (true "your content is yours"; harder recovery). Note: zero-knowledge needs a
-  user-held secret **regardless of the IdP** — an IdP login alone gives us no key we
-  can't read.
-- **O3 — Ship key sync (D5) at v1.1, or defer** and start device-local-only?
-- **O4 — Recovery story** if we go zero-knowledge: lost passphrase = lost synced data?
+- **O2 — Library sync encryption (the crux). ✅ RESOLVED 2026-06-17 → zero-knowledge.**
+  Library *content* sync is client-encrypted under a user-held secret we cannot read —
+  the same custody as keys (D5). Plaintext was rejected: its only real upside
+  (server-side/web rendering + search) is already deferred by ADR-004 (the reader is a
+  separate offline client-side app), so plaintext would erode "your content is yours"
+  to buy features we've chosen not to build. Note: zero-knowledge needs a user-held
+  secret **regardless of the IdP** — an IdP login alone gives us no key we can't read.
+- **O3 — Ship key sync (D5) at v1.1, or defer? ✅ RESOLVED 2026-06-17 → defer past v1.1.**
+  Per D7 (demo/quality-first), ship **device-local only** now: keys re-entered per
+  device; the library is local plus the exported EPUB/PDF artifact as the cross-device
+  story. The O2 stance is locked regardless, so deferring the build incurs no rework.
+- **O4 — Recovery story (zero-knowledge). ✅ RESOLVED 2026-06-17 → recovery key + export
+  fallback.** A **one-time recovery key shown at sync setup** (1Password-style) plus the
+  **exported artifact as the standing fallback** (the synced library is a convenience
+  copy, not the only copy). Detailed design deferred with the sync build (ticket #4).
 - **O5 — DB choice. ✅ RESOLVED 2026-06-16 → Supabase Postgres** (follows O1; bundled
   with the IdP + RLS rather than a standalone `asyncpg` + Alembic stack). The first
   migration arrives with follow-up ticket #2, not #1 (D1 verify needs no DB).
@@ -189,6 +266,9 @@ the Open Decisions section are deliberately left to the decision-maker.
 1. IdP integration + backend JWKS verify (D1)
 2. First DB + migration `0001` (O5) — account + credential-set tables
 3. Credential-set storage + multi-provider Settings UI (D2–D4)
-4. Library sync API + encryption stance (O2)
-5. Provenance-driven degradation UX (D6)
+4. Library sync API + zero-knowledge envelope encryption (D10) + recovery-key UX (O2/O4)
+   — **deferred past v1.1 (O3)**; device-local-only until then
+5. Provenance-driven degradation UX (D6) — only meaningful once sync (ticket #4) lands
 6. Rate limiting (D9)
+7. Book sharing (D11) — artifact-export path rides ADR-004 (no new ticket); the
+   public-key per-book-DK tier is a *later* ticket, only if live shared libraries land
