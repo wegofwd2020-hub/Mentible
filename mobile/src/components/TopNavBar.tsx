@@ -54,7 +54,8 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
           onPress={() => go("library")}
           accessibilityRole="button"
           accessibilityLabel="Mentible — go to Library (home)"
-          style={styles.logoBtn}
+          // Press feedback so a tap always registers, even when already on Library.
+          style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
         >
           <Image
             source={require("../../assets/brand/mentible-icon-1024-redorange.png")}
@@ -125,6 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: spacing.xs,
   },
+  logoBtnPressed: { opacity: 0.6, transform: [{ scale: 0.96 }] },
   // Fill the tile's full inner box (64 − 2×2 border = 60). resizeMode="contain"
   // keeps the mark undistorted; its own transparent padding leaves visual margin.
   logo: { width: 60, height: 60 },

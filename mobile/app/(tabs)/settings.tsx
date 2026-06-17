@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -25,10 +26,12 @@ import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
+import { useFontMode } from "@/state/fontMode";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { status: authStatus, session } = useAuth();
+  const { dyslexic, setDyslexic } = useFontMode();
   const [draftKey, setDraftKey] = useState("");
   const [savedMask, setSavedMask] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -226,6 +229,26 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
+      <Text style={styles.sectionLabel}>Accessibility</Text>
+      <View style={styles.toggleRow}>
+        <View style={styles.toggleText}>
+          <Text style={styles.toggleTitle}>Dyslexia-friendly font</Text>
+          <Text style={styles.helpText}>
+            Use the OpenDyslexic typeface across the app. Weighted letter bottoms
+            help reduce letter swapping.
+          </Text>
+        </View>
+        <Switch
+          value={dyslexic}
+          onValueChange={setDyslexic}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={colors.white}
+          accessibilityLabel="Toggle dyslexia-friendly font"
+        />
+      </View>
+
+      <View style={styles.divider} />
+
       <Text style={styles.sectionLabel}>Prototypes</Text>
       <Pressable
         style={styles.protoRow}
@@ -389,6 +412,19 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  toggleText: { flex: 1 },
+  toggleTitle: {
+    fontSize: typography.sizeMd,
+    color: colors.text,
+    fontWeight: "600",
+    marginBottom: 2,
   },
   protoRow: {
     flexDirection: "row",

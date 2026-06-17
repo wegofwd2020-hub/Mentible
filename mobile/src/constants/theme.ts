@@ -81,11 +81,13 @@ export const typography = {
   // Fonts. The serif headings tie the app to the book output (Source Serif 4);
   // the sans keeps UI chrome legible; mono is for the BYOK key field + code.
   //
-  // Web (react-native-web) resolves a CSS font *stack*. React Native on native
-  // does NOT parse a comma-separated stack — it treats the whole string as one
-  // family name — so native gets a single built-in family instead, until Source
-  // Serif 4 / Inter are bundled via expo-font (follow-up). `undefined` = system
-  // default. This keeps the mono key/code preview actually monospace on device.
+  // Web (react-native-web) resolves a CSS font *stack* and uses the values below.
+  // On NATIVE the real families are now bundled (Inter + Source Serif 4 via
+  // @expo-google-fonts, OpenDyslexic vendored) and applied by the global text
+  // interceptor (src/lib/applyGlobalFont), which maps each weight to its concrete
+  // family. The native values here are only read by the few sites that set a
+  // fontFamily directly; the interceptor recognises "serif"/"Georgia" as a heading
+  // and "monospace" as code, so these still resolve correctly.
   fontHeading: Platform.select({
     web: "'Source Serif 4', 'Iowan Old Style', Georgia, serif",
     ios: "Georgia", // built-in serif
