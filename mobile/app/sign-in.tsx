@@ -7,11 +7,12 @@ import { colors, radius, spacing, typography } from "@/constants/theme";
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { signIn, signUp, status } = useAuth();
+  const { signIn, signUp, signInWithGoogle, status } = useAuth();
   const [mode, setMode] = useState<"sign_in" | "sign_up">("sign_in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (status === "signed_in") return <Redirect href="/account" />;
@@ -39,7 +40,22 @@ export default function SignInScreen() {
     router.replace("/account");
   };
 
-  const canSubmit = email.trim().length > 3 && password.length >= 6 && !busy;
+  const onGoogle = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    const { error: err } = await signInWithGoogle();
+    setGoogleBusy(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    // On success the auth listener flips status to "signed_in" and the Redirect above
+    // takes over; nudge the router too in case we're already mounted.
+    router.replace("/account");
+  };
+
+  const anyBusy = busy || googleBusy;
+  const canSubmit = email.trim().length > 3 && password.length >= 6 && !anyBusy;
 
   return (
     <PageContainer>
@@ -76,6 +92,24 @@ export default function SignInScreen() {
           <ActivityIndicator color={colors.primaryText} />
         ) : (
           <Text style={styles.buttonText}>{mode === "sign_in" ? "Sign in" : "Create account"}</Text>
+        )}
+      </Pressable>
+
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <Pressable
+        style={[styles.googleButton, anyBusy && styles.buttonDisabled]}
+        disabled={anyBusy}
+        onPress={onGoogle}
+      >
+        {googleBusy ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.googleButtonText}>Continue with Google</Text>
         )}
       </Pressable>
 
@@ -119,6 +153,18 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  divider: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, fontSize: typography.sizeSm, marginHorizontal: spacing.md },
+  googleButton: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  googleButtonText: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
   switch: { alignItems: "center", marginTop: spacing.lg },
   switchText: { color: colors.primary, fontSize: typography.sizeSm },
 });

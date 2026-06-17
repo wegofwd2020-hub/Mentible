@@ -23,7 +23,12 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         storage: authStorage, // native: encrypted secure-store (D1); web: localStorage
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false, // no URL-based session pickup on native
+        // PKCE so the OAuth code→session exchange (Google sign-in) works; it also
+        // stores the code verifier in `authStorage`, so it never leaves the device.
+        flowType: "pkce",
+        // Native opens the OAuth result in an auth session and exchanges the code
+        // explicitly (see auth/googleSignIn). Only web returns to a URL we parse.
+        detectSessionInUrl: Platform.OS === "web",
       },
     })
   : null;

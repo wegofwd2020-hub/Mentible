@@ -19,7 +19,14 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
+// The Google OAuth flow pulls native modules (expo-web-browser); it's unit-tested
+// separately. Here we only assert the provider delegates to it.
+jest.mock("@/auth/googleSignIn", () => ({
+  signInWithGoogle: jest.fn().mockResolvedValue({ error: null }),
+}));
+
 import { supabase } from "@/lib/supabase";
+import { signInWithGoogle } from "@/auth/googleSignIn";
 import { AuthProvider, useAuth } from "@/auth/AuthProvider";
 
 // The mocked auth namespace (jest.fns).
@@ -42,6 +49,14 @@ describe("useAuth", () => {
       await result.current.signIn("a@x.com", "pw");
     });
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: "a@x.com", password: "pw" });
+  });
+
+  it("signInWithGoogle delegates to the Google OAuth flow with the client", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+    expect(signInWithGoogle).toHaveBeenCalledWith(supabase);
   });
 
   it("signOut delegates to supabase.auth.signOut", async () => {
