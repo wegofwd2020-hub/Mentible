@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -104,17 +103,6 @@ export default function SettingsScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <PageContainer>
-      <View style={styles.brandHeader}>
-        <View style={styles.brandCard}>
-          <Image
-            source={require("../../assets/brand/mentible-lockup-redorange-white.png")}
-            style={styles.brandLogo}
-            resizeMode="contain"
-            accessibilityLabel="Mentible — Author Yourself"
-          />
-        </View>
-      </View>
-
       {authStatus !== "unavailable" && (
         <Pressable
           style={styles.accountRow}
@@ -307,23 +295,6 @@ const styles = StyleSheet.create({
   },
   providerChipText: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.tileOffGlyph },
   providerChipTextSelected: { color: colors.tileOnGlyph },
-  // Brand lockup sits on a light card (the mark is designed for light backdrops),
-  // shrink-wrapped and centered above the settings content.
-  brandHeader: {
-    alignItems: "center",
-    paddingTop: spacing.sm,
-  },
-  brandCard: {
-    alignSelf: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  brandLogo: {
-    width: 132,
-    height: 132,
-  },
   sectionLabel: {
     fontSize: typography.sizeXs,
     fontWeight: "600",
