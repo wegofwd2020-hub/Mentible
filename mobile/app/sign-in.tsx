@@ -4,6 +4,7 @@ import { Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { IS_DEMO } from "@/constants/demo";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -20,8 +21,9 @@ export default function SignInScreen() {
     return (
       <PageContainer>
         <Text style={styles.note}>
-          Sign-in isn’t configured in this build. Add your Supabase project keys
-          (EXPO_PUBLIC_SUPABASE_URL / ANON_KEY) to enable accounts.
+          {IS_DEMO
+            ? "Accounts and cross-device sync aren’t available in this demo build. Enjoy the included books — no sign-in needed."
+            : "Sign-in isn’t configured in this build. Add your Supabase project keys (EXPO_PUBLIC_SUPABASE_URL / ANON_KEY) to enable accounts."}
         </Text>
       </PageContainer>
     );

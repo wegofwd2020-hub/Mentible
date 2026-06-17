@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { IS_DEMO } from "@/constants/demo";
 import type {
   GenerateRequest,
   GenerateResponse,
@@ -105,6 +106,9 @@ export class ApiError extends Error {
 export async function submitGenerate(
   req: GenerateRequest,
 ): Promise<GenerateResponse> {
+  // Safety net: a demo build has no backend. Callers gate the UI with demoBlocked(),
+  // but never let a request leave the device here.
+  if (IS_DEMO) throw new Error("Content generation is disabled in this demo build.");
   return apiFetch<GenerateResponse>("/generate", {
     method: "POST",
     body: JSON.stringify(req),
@@ -135,6 +139,7 @@ export async function getCurrentProvenance(
 export async function submitStructure(
   req: StructureRequest,
 ): Promise<StructureResponse> {
+  if (IS_DEMO) throw new Error("Authoring is disabled in this demo build.");
   return apiFetch<StructureResponse>("/structure", {
     method: "POST",
     body: JSON.stringify(req),

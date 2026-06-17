@@ -26,6 +26,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { useFontMode } from "@/state/fontMode";
+import { IS_DEMO } from "@/constants/demo";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -103,6 +104,14 @@ export default function SettingsScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <PageContainer>
+      {IS_DEMO && (
+        <View style={styles.demoNote}>
+          <Text style={styles.demoNoteText}>
+            Demo build — read the included books freely. Authoring, content
+            generation, and accounts are disabled in the demo.
+          </Text>
+        </View>
+      )}
       {authStatus !== "unavailable" && (
         <Pressable
           style={styles.accountRow}
@@ -120,6 +129,8 @@ export default function SettingsScreen() {
         </Pressable>
       )}
 
+      {!IS_DEMO && (
+      <>
       <Pressable style={styles.accountRow} onPress={() => router.push("/usage")}>
         <View style={{ flex: 1 }}>
           <Text style={styles.accountTitle}>Usage</Text>
@@ -214,6 +225,8 @@ export default function SettingsScreen() {
         you can adjust per book.
       </Text>
       <GenerationParamsEditor value={params} onChange={handleParamsChange} />
+      </>
+      )}
 
       <View style={styles.divider} />
 
@@ -235,6 +248,8 @@ export default function SettingsScreen() {
         />
       </View>
 
+      {!IS_DEMO && (
+      <>
       <View style={styles.divider} />
 
       <Text style={styles.sectionLabel}>Prototypes</Text>
@@ -247,6 +262,8 @@ export default function SettingsScreen() {
         <Text style={styles.protoText}>🎨 UI concept gallery</Text>
         <Text style={styles.protoChevron}>→</Text>
       </Pressable>
+      </>
+      )}
       </PageContainer>
     </ScrollView>
   );
@@ -384,6 +401,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
   },
+  demoNote: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  demoNoteText: { color: colors.textSecondary, fontSize: typography.sizeSm, lineHeight: 20 },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",

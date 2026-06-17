@@ -17,6 +17,7 @@ import { isUnitStale } from "@/lib/staleness";
 import { useGenerateTopic } from "@/hooks/useGenerateTopic";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
+import { demoBlocked } from "@/constants/demo";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, GeneratedTopic, Subtopic } from "@/types/book";
 
@@ -100,6 +101,7 @@ export default function BookTopicScreen() {
   const node = book ? findNode(book, topicId) : null;
 
   const handleRegenerate = useCallback(async () => {
+    if (demoBlocked()) return;
     if (!book) return;
     const title = node?.title ?? topic?.title ?? "Untitled topic";
     const subtopics = node?.subtopics ?? [];

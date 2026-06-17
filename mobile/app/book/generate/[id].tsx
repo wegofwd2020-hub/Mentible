@@ -16,6 +16,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { demoBlocked } from "@/constants/demo";
 import type { Book } from "@/types/book";
 import type { LessonOutput, Provenance } from "@/types/lesson";
 
@@ -192,7 +193,10 @@ export default function GenerateAllScreen() {
             <>
               <Pressable
                 style={styles.actionBtn}
-                onPress={() => start()}
+                onPress={() => {
+                  if (demoBlocked()) return;
+                  start();
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={
                   doneCount > 0 ? "Generate remaining topics" : "Generate all topics"
@@ -212,7 +216,10 @@ export default function GenerateAllScreen() {
               {doneCount > 0 && (
                 <Pressable
                   style={[styles.actionBtn, styles.regenBtn]}
-                  onPress={() => start({ force: true })}
+                  onPress={() => {
+                    if (demoBlocked()) return;
+                    start({ force: true });
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Regenerate all topics, overwriting existing content"
                 >

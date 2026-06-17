@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ApiError, submitStructure } from "@/api/client";
+import { demoBlocked } from "@/constants/demo";
 import { useStructureJob } from "@/hooks/useStructureJob";
 import { loadApiKey } from "@/secure/keyStore";
 import { ensureTopicIds } from "@/storage/bookStore";
@@ -56,6 +57,7 @@ export default function NewBookScreen() {
   );
 
   const handleStructure = useCallback(async () => {
+    if (demoBlocked()) return;
     const trimmedToc = rawToc.trim();
     if (!trimmedToc) return;
     setErrorMsg(null);
