@@ -2,7 +2,13 @@ import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { randomUUID } from "@/lib/uuid";
-import type { StructuredTOC, SubjectNode, TopicNode } from "@/types/book";
+import {
+  subtopicLabel,
+  subtopicDetail,
+  type StructuredTOC,
+  type SubjectNode,
+  type TopicNode,
+} from "@/types/book";
 
 interface Props {
   toc: StructuredTOC;
@@ -133,31 +139,56 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                 />
               </View>
 
-              {/* Subtopics */}
+              {/* Subtopics — a short label (shown in the outline + folded into
+                  the generation topic) plus optional detail (the longer scope
+                  text, fed to generation as guidance). */}
               {unit.subtopics.map((sub, sti) => (
-                <View key={sti} style={styles.subtopicRow}>
-                  <Text style={styles.bullet}>•</Text>
+                <View key={sti} style={styles.subtopicCol}>
+                  <View style={styles.subtopicRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <TextInput
+                      style={styles.subtopicInput}
+                      value={subtopicLabel(sub)}
+                      onChangeText={(t) =>
+                        mutate((d) => {
+                          const cur = d.subjects[si].units[ui].subtopics[sti];
+                          d.subjects[si].units[ui].subtopics[sti] = {
+                            label: t,
+                            detail: subtopicDetail(cur),
+                          };
+                        })
+                      }
+                      placeholder="Subtopic"
+                      placeholderTextColor={colors.textMuted}
+                      accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1} label`}
+                    />
+                    <MiniButton
+                      label={`Remove subtopic ${si + 1}.${ui + 1}.${sti + 1}`}
+                      glyph="✕"
+                      tone="danger"
+                      onPress={() =>
+                        mutate((d) => {
+                          d.subjects[si].units[ui].subtopics.splice(sti, 1);
+                        })
+                      }
+                    />
+                  </View>
                   <TextInput
-                    style={styles.subtopicInput}
-                    value={sub}
+                    style={styles.detailInput}
+                    value={subtopicDetail(sub) ?? ""}
                     onChangeText={(t) =>
                       mutate((d) => {
-                        d.subjects[si].units[ui].subtopics[sti] = t;
+                        const cur = d.subjects[si].units[ui].subtopics[sti];
+                        d.subjects[si].units[ui].subtopics[sti] = {
+                          label: subtopicLabel(cur),
+                          detail: t.trim() ? t : undefined,
+                        };
                       })
                     }
-                    placeholder="Subtopic"
+                    placeholder="Detail (optional — scope guidance for generation)"
                     placeholderTextColor={colors.textMuted}
-                    accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1}`}
-                  />
-                  <MiniButton
-                    label={`Remove subtopic ${si + 1}.${ui + 1}.${sti + 1}`}
-                    glyph="✕"
-                    tone="danger"
-                    onPress={() =>
-                      mutate((d) => {
-                        d.subjects[si].units[ui].subtopics.splice(sti, 1);
-                      })
-                    }
+                    multiline
+                    accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1} detail`}
                   />
                 </View>
               ))}
@@ -180,7 +211,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                 accessibilityLabel={`Add subtopic to topic ${si + 1}.${ui + 1}`}
                 onPress={() =>
                   mutate((d) => {
-                    d.subjects[si].units[ui].subtopics.push("New subtopic");
+                    d.subjects[si].units[ui].subtopics.push({ label: "New subtopic" });
                   })
                 }
               >
@@ -254,6 +285,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     paddingVertical: spacing.xs,
   },
+  subtopicCol: {
+    marginBottom: spacing.xs,
+  },
   subtopicRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -263,9 +297,18 @@ const styles = StyleSheet.create({
   bullet: { color: colors.textMuted, fontSize: typography.sizeMd },
   subtopicInput: {
     flex: 1,
-    color: colors.textSecondary,
+    color: colors.text,
     fontSize: typography.sizeSm,
+    fontWeight: "600",
     paddingVertical: 2,
+  },
+  detailInput: {
+    color: colors.textMuted,
+    fontSize: typography.sizeXs,
+    lineHeight: 18,
+    paddingVertical: 2,
+    // Align under the label text (bullet + gap), set off as secondary scope.
+    paddingLeft: spacing.sm + spacing.md,
   },
   prereqRow: {
     flexDirection: "row",

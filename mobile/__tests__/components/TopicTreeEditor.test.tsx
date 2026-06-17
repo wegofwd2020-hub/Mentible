@@ -72,12 +72,23 @@ describe("TopicTreeEditor", () => {
     expect(titles).toEqual(["Dynamics", "Kinematics"]);
   });
 
-  it("adds and edits a subtopic", () => {
+  it("adds and edits a subtopic (label + detail)", () => {
     render(<Harness initial={INITIAL} />);
     fireEvent.press(screen.getByLabelText("Add subtopic to topic 1.1"));
     expect(currentToc().subjects[0].units[0].subtopics).toHaveLength(2);
-    fireEvent.changeText(screen.getByLabelText("Subtopic 1.1.2"), "Velocity");
-    expect(currentToc().subjects[0].units[0].subtopics[1]).toBe("Velocity");
+    fireEvent.changeText(screen.getByLabelText("Subtopic 1.1.2 label"), "Velocity");
+    expect(currentToc().subjects[0].units[0].subtopics[1]).toEqual({
+      label: "Velocity",
+      detail: undefined,
+    });
+    fireEvent.changeText(
+      screen.getByLabelText("Subtopic 1.1.2 detail"),
+      "Rate of change of position",
+    );
+    expect(currentToc().subjects[0].units[0].subtopics[1]).toEqual({
+      label: "Velocity",
+      detail: "Rate of change of position",
+    });
   });
 
   it("adds a subject", () => {

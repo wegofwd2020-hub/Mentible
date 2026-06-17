@@ -5,6 +5,22 @@ import type { LessonOutput, Provenance } from "@/types/lesson";
 import type { GenerationParams } from "@/types/generationParams";
 import type { TrustManifest } from "@/types/trust";
 
+// A subtopic is either a bare label (legacy books / structurer output) or a
+// { label, detail } pair. `label` is a short 3–5 word heading shown in the
+// authoring outline and folded into the generation topic; `detail` is the long
+// descriptive scope text — fed to generation as guidance. Keeping the union
+// means every book ever saved still loads unchanged; use the helpers below
+// instead of branching on the type inline.
+export type Subtopic = string | { label: string; detail?: string };
+
+export function subtopicLabel(s: Subtopic): string {
+  return typeof s === "string" ? s : s.label;
+}
+
+export function subtopicDetail(s: Subtopic): string | undefined {
+  return typeof s === "string" ? undefined : s.detail;
+}
+
 export interface TopicNode {
   // Client-assigned stable id (kept across edits/reorders so generated content
   // can be keyed to a topic). Not part of the backend StructuredTOC contract —
@@ -12,7 +28,7 @@ export interface TopicNode {
   // books saved before generate-all existed; backfilled on load.
   id?: string;
   title: string;
-  subtopics: string[];
+  subtopics: Subtopic[];
   prerequisites: string[];
   // Free-text author guidance re-applied on every (re)generation of this topic
   // (e.g. "add a diagram for the T-shape"). Persisted so refinements stick.

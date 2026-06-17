@@ -88,10 +88,15 @@ export interface GeneratedTopic {
   generatedAt: string;
 }
 
+// Mirrors mobile/src/types/book.ts: a subtopic is a bare label (legacy) or a
+// { label, detail } pair. The compiler does not render subtopics, but the type
+// must accept both shapes so a relabeled book.json type-checks here too.
+export type Subtopic = string | { label: string; detail?: string };
+
 export interface TopicNode {
   id?: string;
   title: string;
-  subtopics: string[];
+  subtopics: Subtopic[];
   prerequisites: string[];
 }
 

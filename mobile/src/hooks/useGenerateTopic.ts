@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
-import { buildTopicPrompt } from "@/hooks/topicPrompt";
+import { buildTopicPrompt, buildTopicInstructions } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
 import type { GenerationParams } from "@/types/generationParams";
+import type { Subtopic } from "@/types/book";
 import type { LessonOutput, Provenance } from "@/types/lesson";
 
 export type TopicGenStatus = "idle" | "generating" | "done" | "failed";
@@ -17,7 +18,7 @@ interface UseGenerateTopicArgs {
 
 export interface RunTopicArgs {
   title: string;
-  subtopics: string[];
+  subtopics: Subtopic[];
   // The book's generation template (level / depth / pages).
   params: GenerationParams;
   // Persisted per-topic enhancement guidance applied on this (re)generation.
@@ -68,7 +69,7 @@ export function useGenerateTopic({
             topic: buildTopicPrompt(title, subtopics),
             apiKey,
             params,
-            instructions,
+            instructions: buildTopicInstructions(subtopics, instructions),
           }),
         );
         const job = await pollUntilDone(res.job_id, undefined, intervalMs);

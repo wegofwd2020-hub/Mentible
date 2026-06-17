@@ -18,14 +18,14 @@ import { useGenerateTopic } from "@/hooks/useGenerateTopic";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
-import type { Book, GeneratedTopic } from "@/types/book";
+import type { Book, GeneratedTopic, Subtopic } from "@/types/book";
 
 // Locate the topic's node in the (possibly edited) TOC so regeneration uses the
 // current title + subtopics + saved instructions, not a stale snapshot.
 function findNode(
   book: Book,
   topicId: string,
-): { title: string; subtopics: string[]; enhancementInstructions?: string } | null {
+): { title: string; subtopics: Subtopic[]; enhancementInstructions?: string } | null {
   for (const s of book.toc.subjects) {
     for (const u of s.units) {
       if (u.id === topicId)

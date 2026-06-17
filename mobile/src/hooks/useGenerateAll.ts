@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
-import { buildTopicPrompt } from "@/hooks/topicPrompt";
+import { buildTopicPrompt, buildTopicInstructions } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
-import type { StructuredTOC } from "@/types/book";
+import type { StructuredTOC, Subtopic } from "@/types/book";
 import type { GenerationParams } from "@/types/generationParams";
 import type { LessonOutput, Provenance } from "@/types/lesson";
 
@@ -19,7 +19,7 @@ export interface TopicProgress {
 interface Target {
   topicId: string;
   title: string;
-  subtopics: string[];
+  subtopics: Subtopic[];
   instructions?: string; // persisted per-topic enhancement guidance
 }
 
@@ -156,7 +156,7 @@ export function useGenerateAll({
               apiKey,
               params,
               targetPages: perTopicPages,
-              instructions: t.instructions,
+              instructions: buildTopicInstructions(t.subtopics, t.instructions),
             }),
           );
           const job = await pollUntilDone(res.job_id, undefined, intervalMs);
