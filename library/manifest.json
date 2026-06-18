@@ -11,14 +11,14 @@
       "id": "claude-cert-architect-foundations",
       "title": "Claude Certified Architect — Foundations: Study Guide",
       "file": "books/claude-certified-architect-foundations.book.json",
-      "version": "0.2",
+      "version": "0.3",
       "status": "published",
       "subjectCount": 5,
       "unitCount": 30,
       "generatedCount": 30,
-      "sha256": "c198da084f9b42eb84bbd16a2547b063a4bd3339e416e016fd90a028eea21bbf",
-      "bytes": 1096310,
-      "signature": "46f4107dbaae498dc3756a8554abbbbf2ab4921ba3557dc2bc82086ddf2700b8"
+      "sha256": "db3fe7f83f43de3901a498f5abb984ec0ce7de616dc9dcd7ed3479535ae14be2",
+      "bytes": 1097376,
+      "signature": "562fcff474afc1bc68e9907ebb4f7223edaaa45a3f560104a43e7cd9d268e5a5"
     },
     {
       "id": "product-sense-and-ai",

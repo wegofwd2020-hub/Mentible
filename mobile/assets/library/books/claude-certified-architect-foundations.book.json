@@ -3396,6 +3396,7 @@
       "MCP",
       "prompt engineering"
     ],
-    "description": "Study guide generated from the proposed Claude Certified Architect – Foundations exam guide: 5 domains, one topic per exam task statement, with Knowledge/Skills objectives as subtopics."
+    "description": "Study guide generated from the proposed Claude Certified Architect – Foundations exam guide: 5 domains, one topic per exam task statement, with Knowledge/Skills objectives as subtopics.",
+    "coverSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1200 1600\"><rect width=\"1200\" height=\"1600\" fill=\"#312a8c\"/><rect x=\"0\" y=\"1040\" width=\"1200\" height=\"560\" fill=\"#f5f3ff\"/><path d=\"M360 520 L540 700 L840 360\" fill=\"none\" stroke=\"#34d27e\" stroke-width=\"64\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><rect x=\"110\" y=\"1120\" width=\"110\" height=\"22\" rx=\"11\" fill=\"#16a34a\"/><text x=\"110\" y=\"1278\" font-family=\"Georgia, 'Times New Roman', serif\" font-weight=\"700\" font-size=\"118\" fill=\"#1e1b4b\">Claude Certified</text><text x=\"110\" y=\"1400\" font-family=\"Georgia, 'Times New Roman', serif\" font-weight=\"700\" font-size=\"118\" fill=\"#1e1b4b\">Architect</text><text x=\"112\" y=\"1486\" font-family=\"Georgia, 'Times New Roman', serif\" font-style=\"italic\" font-size=\"56\" fill=\"#4f46e5\">Foundations · Study Guide</text><text x=\"112\" y=\"1566\" font-family=\"'Helvetica Neue', Arial, sans-serif\" font-weight=\"700\" font-size=\"38\" fill=\"#6b7299\">MENTIBLE</text></svg>"
   }
 }

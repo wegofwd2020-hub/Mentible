@@ -100,6 +100,7 @@ export interface TopicNode {
   prerequisites: string[];
 }
 
+
 export interface SubjectNode {
   subject_label: string;
   units: TopicNode[];
@@ -117,6 +118,7 @@ export interface BookMetadata {
   publisher?: string; // dc:publisher
   language?: string; // dc:language + package xml:lang (default "en")
   description?: string; // dc:description
+  coverSvg?: string; // in-app shelf cover (mobile BookCover); compiler ignores it
   subjects?: string[]; // dc:subject (repeatable)
   rights?: string; // dc:rights (verbatim copyright/licence line)
   date?: string; // dc:date (publication; ISO date or year)

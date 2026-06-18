@@ -116,7 +116,7 @@ function BookDetail({
   return (
     <ScrollView contentContainerStyle={styles.detailContent}>
       <View style={styles.detailCover}>
-        <BookCover title={book.title} size="large" />
+        <BookCover title={book.title} size="large" coverSvg={book.metadata?.coverSvg} />
       </View>
       <Text style={styles.detailTitle}>{book.title}</Text>
       <Text style={styles.detailMeta}>
@@ -247,7 +247,7 @@ export default function BooksScreen() {
                 accessibilityLabel={`Select book: ${item.title}`}
               >
                 <View style={styles.rowCover}>
-                  <BookCover title={item.title} badge={progressLabel(item)} />
+                  <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
                 </View>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={2}>{item.title}</Text>
@@ -284,7 +284,7 @@ export default function BooksScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Open book: ${item.title}`}
         >
-          <BookCover title={item.title} badge={progressLabel(item)} />
+          <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
         </Pressable>

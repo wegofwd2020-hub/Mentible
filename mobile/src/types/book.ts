@@ -161,6 +161,10 @@ export interface BookMetadata {
   publisher?: string;
   language?: string; // dc:language + package xml:lang (default "en")
   description?: string;
+  // Inline vector cover for the in-app shelf (BookCover). Kept React-Native-SVG
+  // safe (inline attributes only — no <style>/CSS/gradients) so it renders on
+  // native as well as web. Distinct from the compiler's EPUB/PDF cover.
+  coverSvg?: string;
   subjects?: string[];
   rights?: string;
   date?: string;
@@ -235,4 +239,7 @@ export interface BookMeta {
   // Mirrors Book.source so the books list can badge/guard bundled books
   // without loading each full book (ADR-017).
   source?: BookSource;
+  // Inline vector cover (BookMetadata.coverSvg), surfaced in the index so the
+  // shelf can render a real cover without loading each full book.
+  coverSvg?: string;
 }
