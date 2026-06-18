@@ -13,6 +13,8 @@ import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { IS_DEMO } from "@/constants/demo";
 import { loadBookIndex } from "@/storage/bookStore";
+import { seedDefaultLibrary } from "@/storage/seedLibrary";
+import { bundledBooks } from "@/storage/bundledLibrary";
 import type { BookMeta } from "@/types/book";
 
 function formatDate(iso: string): string {
@@ -51,9 +53,19 @@ function DemoLibrary() {
   const numColumns = isDesktop ? 4 : 2;
   const [books, setBooks] = useState<BookMeta[]>([]);
 
+  // Await the (idempotent) seed before listing, so the very first launch shows the
+  // bundled books rather than racing the async seed in _layout and rendering empty.
   useFocusEffect(
     useCallback(() => {
-      loadBookIndex().then(setBooks);
+      let active = true;
+      void (async () => {
+        await seedDefaultLibrary(bundledBooks).catch(() => {});
+        const list = await loadBookIndex();
+        if (active) setBooks(list);
+      })();
+      return () => {
+        active = false;
+      };
     }, []),
   );
 
