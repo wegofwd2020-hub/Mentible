@@ -14,7 +14,8 @@ class _StatusError(Exception):
     and whose repr could include the api_key (so it must never be stringified)."""
 
     def __init__(self, status_code: int) -> None:
-        super().__init__("sk-ant-SECRETKEY-should-never-surface")
+        # Sanctioned fake key sentinel (the no-real-key CI guard allowlists it).
+        super().__init__("sk-ant-TEST_FAKE_KEY_for_leak_detection")
         self.status_code = status_code
 
 
