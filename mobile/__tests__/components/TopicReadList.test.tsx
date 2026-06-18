@@ -6,7 +6,10 @@ import type { Book, GeneratedTopic } from "../../src/types/book";
 const GEN: GeneratedTopic = {
   topicId: "u1",
   title: "Kinematics",
-  lesson: { title: "Kinematics", sections: [] } as unknown as GeneratedTopic["lesson"],
+  lesson: {
+    title: "Kinematics",
+    sections: [{ heading: "Intro", body_markdown: "body" }],
+  } as unknown as GeneratedTopic["lesson"],
   generatedAt: "2026-05-27T00:00:00.000Z",
 };
 

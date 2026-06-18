@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { hasRenderableLesson } from "@/storage/bookStore";
 import type { Book } from "@/types/book";
 
 interface TopicEntry {
@@ -23,7 +24,7 @@ function flatten(book: Book): TopicEntry[] {
         id: u.id,
         title: u.title,
         subject: s.subject_label,
-        hasContent: Boolean(content[u.id]),
+        hasContent: hasRenderableLesson(content[u.id]),
       });
     }
   }

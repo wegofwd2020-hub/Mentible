@@ -31,6 +31,25 @@ function topicIds(toc: StructuredTOC): Set<string> {
   return ids;
 }
 
+// Whether a topic's stored content is actually renderable. A bare content *entry*
+// is not enough: a partial/empty write (or a generation captured without a body)
+// leaves an entry with no lesson body, which renders blank and — worse — used to
+// make "Generate all" treat the topic as done and skip it. Require a real lesson:
+// at least one section, or a synopsis. Single source of truth for "is this topic
+// generated?" across the books list, the reader, and the gap-fill loop.
+export function hasRenderableLesson(gen: GeneratedTopic | undefined | null): boolean {
+  const lesson = gen?.lesson;
+  if (!lesson) return false;
+  return (lesson.sections?.length ?? 0) > 0 || Boolean(lesson.synopsis?.trim());
+}
+
+// The ids of topics whose stored content is renderable (the "done" set).
+export function generatedTopicIds(book: Book): string[] {
+  return Object.entries(book.content ?? {})
+    .filter(([, gen]) => hasRenderableLesson(gen))
+    .map(([id]) => id);
+}
+
 // Attach/replace one topic's generated content, returning a new Book. Bumps
 // updatedAt so the index reflects the change.
 export function setTopicContent(book: Book, gen: GeneratedTopic): Book {
@@ -54,7 +73,7 @@ function toMeta(book: Book): BookMeta {
     subjectCount: book.toc.subjects.length,
     unitCount: countUnits(book.toc),
     updatedAt: book.updatedAt,
-    generatedCount: Object.keys(book.content ?? {}).length,
+    generatedCount: generatedTopicIds(book).length,
     ...(book.source ? { source: book.source } : {}),
   };
 }

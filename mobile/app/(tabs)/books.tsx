@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { deleteBook, loadBook, loadBookIndex } from "@/storage/bookStore";
+import { deleteBook, hasRenderableLesson, loadBook, loadBookIndex } from "@/storage/bookStore";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { countStaleTopics } from "@/lib/staleness";
 import { BookCover } from "@/components/BookCover";
@@ -105,7 +105,7 @@ function BookDetail({
 
   const units = book.toc.subjects.flatMap((s) => s.units);
   const content = book.content ?? {};
-  const generated = units.filter((u) => u.id && content[u.id]).length;
+  const generated = units.filter((u) => u.id && hasRenderableLesson(content[u.id])).length;
   // Degradation rollup (ADR-016 D7): how many generated topics were made with an
   // older model than the book's current config. 0 when offline / can't tell.
   const staleCount = countStaleTopics(Object.values(content), current);
@@ -153,8 +153,8 @@ function BookDetail({
       <Text style={styles.contentsLabel}>Contents</Text>
       {units.slice(0, 12).map((u, i) => (
         <View key={u.id ?? i} style={styles.tocRow}>
-          <Text style={[styles.tocMark, u.id && content[u.id] ? styles.tocDone : undefined]}>
-            {u.id && content[u.id] ? "✓" : "○"}
+          <Text style={[styles.tocMark, u.id && hasRenderableLesson(content[u.id]) ? styles.tocDone : undefined]}>
+            {u.id && hasRenderableLesson(content[u.id]) ? "✓" : "○"}
           </Text>
           <Text style={styles.tocTitle} numberOfLines={1}>{u.title}</Text>
         </View>

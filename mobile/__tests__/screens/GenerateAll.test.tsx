@@ -23,6 +23,12 @@ jest.mock("../../src/storage/bookStore", () => ({
     content: { ...(book.content ?? {}), [gen.topicId]: gen },
     updatedAt: "now",
   }),
+  // The screen derives the already-done set from this; real impl filters by
+  // renderable lesson. Tests here start with no content, so [] is correct.
+  generatedTopicIds: (book: any) =>
+    Object.entries(book?.content ?? {})
+      .filter(([, g]: any) => (g?.lesson?.sections?.length ?? 0) > 0 || Boolean(g?.lesson?.synopsis?.trim()))
+      .map(([id]) => id),
 }));
 
 jest.mock("../../src/components/LevelPicker", () => {

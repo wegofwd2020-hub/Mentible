@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
+import { hasRenderableLesson, loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { TrustBadge } from "@/components/TrustBadge";
@@ -88,7 +88,10 @@ export default function BookTopicScreen() {
       const loaded = bookId ? await loadBook(bookId) : null;
       if (mounted) {
         setBook(loaded);
-        setTopic(loaded?.content?.[topicId] ?? null);
+        // Treat an empty/partial entry as not-generated so the reader offers
+        // "Generate" rather than rendering a blank lesson.
+        const loadedTopic = loaded?.content?.[topicId];
+        setTopic(hasRenderableLesson(loadedTopic) ? (loadedTopic ?? null) : null);
         setInstructions((loaded ? findNode(loaded, topicId)?.enhancementInstructions : "") ?? "");
         setLoading(false);
       }

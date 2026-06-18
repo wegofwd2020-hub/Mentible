@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
+import { generatedTopicIds, loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
@@ -98,9 +98,11 @@ export default function GenerateAllScreen() {
   }, [id]);
 
   // Topics already generated before this run — skipped + shown as done. Captured
-  // from the initial load so it stays stable while the loop runs.
+  // from the initial load so it stays stable while the loop runs. Only counts
+  // topics with a RENDERABLE lesson, so a topic left with an empty/partial entry
+  // (e.g. a discarded slow generation) is re-run by gap-fill instead of skipped.
   const initialDoneIds = useMemo(
-    () => Object.keys(book?.content ?? {}),
+    () => (book ? generatedTopicIds(book) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [book?.id],
   );
