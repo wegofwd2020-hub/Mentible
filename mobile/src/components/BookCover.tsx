@@ -7,13 +7,20 @@ import { typography } from "@/constants/theme";
 // Render a vector cover. On web, react-native-svg's SvgXml parser chokes on the
 // features our editorial cover SVGs use (embedded <style>, CSS classes,
 // gradients) and renders blank, so hand the markup to the browser's own SVG
-// engine via an <img> data URL. On native, keep SvgXml — RN's Image can't
-// render SVG. Mirrors the iframe-on-web / WebView-on-native split in
+// engine. We render a real DOM <img> (react-native-web's <Image> paints data
+// URIs as a CSS background, which silently fails for SVG data URIs — it showed
+// a blank field) with a base64 data URL. On native, keep SvgXml — RN's Image
+// can't render SVG. Mirrors the iframe-on-web / WebView-on-native split in
 // LessonRenderer.
 function VectorCover({ svg }: { svg: string }) {
   if (Platform.OS === "web") {
-    const uri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-    return <Image source={{ uri }} style={styles.image} resizeMode="cover" />;
+    // base64 (UTF-8 safe) is the most robust data-URI form for <img>.
+    const uri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    return React.createElement("img", {
+      src: uri,
+      alt: "",
+      style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+    });
   }
   return <SvgXml xml={svg} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />;
 }
