@@ -106,7 +106,7 @@ Three env surfaces (see the committed `env.example` files):
 
 | File | Used by | Key vars |
 |---|---|---|
-| **root `env.example` → `.env`** | Docker stack (`./dev_start.sh up`) — compose interpolates into the `api` service | `OIDC_ISSUER`, `DATABASE_URL` (+ `BYOK_MASTER_KEY`, `SYSTEM_OWNER_SECRET`) |
+| **root `env.example` → `.env`** | Docker stack (`./dev_start.sh up`) — compose interpolates into the `api` service | `OIDC_ISSUER`, `DATABASE_URL` (+ `BYOK_MASTER_KEY`, `SYSTEM_OWNER_SECRET`, `SUPER_ADMIN_EMAILS` — see §3.1) |
 | **`backend/env.example` → `backend/.env`** | backend run **without** Docker (pydantic reads it) | same as above |
 | **`mobile/env.example` → `mobile/.env.local`** | the app | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_BASE_URL` |
 
@@ -114,6 +114,27 @@ Supabase values: `OIDC_ISSUER = https://<ref>.supabase.co/auth/v1`, `OIDC_AUDIEN
 authenticated`. **Run the migration before the account API works** (`alembic upgrade
 head` against `DATABASE_URL`) — otherwise the routes 500 with "relation account does
 not exist".
+
+### 3.1 Super-admin operator allowlist (ADR-020)
+
+The runtime admin console (`/api/v1/admin/*`) is gated on a config allowlist of
+**verified IdP identities** — `SUPER_ADMIN_EMAILS` (comma-separated, matched
+case-insensitively against the verified `email` claim) and optional
+`SUPER_ADMIN_SUBS`. Empty/unset ⇒ **no admins** (safe default). It is the human
+**operator role**, distinct from `SYSTEM_OWNER_SECRET` (a signing capability) —
+see ADR-020 D2/D4.
+
+**Production operator (staged here for go-live): `SUPER_ADMIN_EMAILS=wegofwd2020@gmail.com`.**
+Set this on the **identity-enabled** deployment's env (the same surface as
+`OIDC_ISSUER`/`DATABASE_URL` above — root `.env` for the Docker stack), then restart.
+
+> ⚠️ **It does nothing until the rest of the auth stack is live.** `require_super_admin`
+> builds on `require_user`, so without `OIDC_ISSUER` configured there is no login to
+> match, and the admin routes need `DATABASE_URL` + migrations. As of 2026-06-20 the
+> only deployed backend is the **anonymous demo** (`/mentible-api`, no OIDC, no DB,
+> stale image), so the var is **not yet set on the VPS** — it is recorded here to set
+> at go-live. Go-live order: deploy the current image → set `OIDC_ISSUER` (+ Google
+> provider) → set `DATABASE_URL` + `alembic upgrade head` → set `SUPER_ADMIN_EMAILS`.
 
 ---
 
@@ -164,6 +185,9 @@ extract the package once two real consumers have validated the interface (ADR-01
 ---
 
 ## 6. Not done yet (tracked follow-ups)
+- **Super-admin go-live** (ADR-020): admin backend is built (tickets #1/#2/#5), but
+  `SUPER_ADMIN_EMAILS=wegofwd2020@gmail.com` is **staged in §3.1, not set on the VPS** —
+  set it once the identity-enabled backend is deployed (needs OIDC + DB + current image).
 - **Google sign-in** (email+password is in; Google is additive — needs `expo-auth-session`).
 - **Library sync + encryption** — ADR-014 **O2 still open** (the zero-knowledge crux).
 - **Provenance-driven degradation UX** (D6) · **rate-limiting** (D9).
