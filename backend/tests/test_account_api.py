@@ -1,7 +1,7 @@
 """Account API (ADR-014 ticket #3a) end-to-end through the app, against a real
-Postgres. `require_user` is overridden to inject a verified Principal (auth itself
-is covered by test_auth_jwks); the DB and routing are exercised for real. Skipped
-without DATABASE_URL."""
+Postgres. `require_active_user` is overridden to inject a verified Principal (auth
+itself is covered by test_auth_jwks); the DB and routing are exercised for real.
+Skipped without DATABASE_URL."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.src.auth.deps import require_user
+from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
 
 DSN = os.environ.get("DATABASE_URL", "")
@@ -23,7 +23,7 @@ ACCOUNT = "/api/v1/account"
 
 @pytest.fixture
 def client():
-    app.dependency_overrides[require_user] = lambda: Principal(
+    app.dependency_overrides[require_active_user] = lambda: Principal(
         sub=TEST_SUB, email="t@example.com", issuer="https://test"
     )
     with TestClient(app) as c:

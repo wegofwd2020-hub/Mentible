@@ -107,3 +107,40 @@ async def test_delete_credential(conn):
     )
     assert await repo.delete_credential(conn, account_id=acct.id, provider_id="anthropic") is True
     assert await repo.delete_credential(conn, account_id=acct.id, provider_id="anthropic") is False
+
+
+# ── suspend + admin listing (ADR-020) ────────────────────────────────────────
+
+
+async def test_new_account_not_suspended(conn):
+    a = await repo.get_or_create_account(conn, idp_sub="sub-s1", email=None)
+    assert a.suspended is False
+    assert a.suspended_at is None
+
+
+async def test_set_account_suspended_round_trip(conn):
+    await repo.get_or_create_account(conn, idp_sub="sub-s2", email=None)
+    a = await repo.set_account_suspended(conn, idp_sub="sub-s2", suspended=True)
+    assert a is not None and a.suspended is True and a.suspended_at is not None
+    # get_account reflects it
+    assert (await repo.get_account(conn, idp_sub="sub-s2")).suspended is True
+    # reactivate clears the timestamp
+    a = await repo.set_account_suspended(conn, idp_sub="sub-s2", suspended=False)
+    assert a is not None and a.suspended is False and a.suspended_at is None
+
+
+async def test_set_account_suspended_missing_returns_none(conn):
+    assert await repo.set_account_suspended(conn, idp_sub="ghost", suspended=True) is None
+
+
+async def test_list_and_count_accounts(conn):
+    for i in range(3):
+        await repo.get_or_create_account(conn, idp_sub=f"sub-list-{i}", email=None)
+    total = await repo.count_accounts(conn)
+    assert total >= 3
+    page = await repo.list_accounts(conn, limit=2, offset=0)
+    assert len(page) == 2
+    # newest first
+    page2 = await repo.list_accounts(conn, limit=100, offset=0)
+    created = [a.created_at for a in page2]
+    assert created == sorted(created, reverse=True)

@@ -26,6 +26,10 @@ class Account:
     email: str | None
     created_at: datetime
     synced_library_ref: str | None
+    # Operator suspend flag (ADR-020 D3.1). Enforced on authed routes by
+    # require_active_user; does NOT stop public BYOK generation (O6).
+    suspended: bool = False
+    suspended_at: datetime | None = None
 
 
 @dataclass(frozen=True)

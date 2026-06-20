@@ -19,6 +19,10 @@ from backend.src.accounts.models import (
     ProviderCredential,
 )
 
+# Every account read returns this column set (kept identical across queries so the
+# suspend fields, ADR-020, surface everywhere). Inlined as literals per query —
+# not interpolated — to keep the SQL injection-proof by construction (ruff S608).
+
 
 def _account(row: asyncpg.Record) -> Account:
     return Account(
@@ -27,6 +31,8 @@ def _account(row: asyncpg.Record) -> Account:
         email=row["email"],
         created_at=row["created_at"],
         synced_library_ref=row["synced_library_ref"],
+        suspended=row["suspended"],
+        suspended_at=row["suspended_at"],
     )
 
 
@@ -49,7 +55,7 @@ async def get_or_create_account(
         INSERT INTO account (idp_sub, email) VALUES ($1, $2)
         ON CONFLICT (idp_sub)
             DO UPDATE SET email = COALESCE(EXCLUDED.email, account.email)
-        RETURNING id, idp_sub, email, created_at, synced_library_ref
+        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at
         """,
         idp_sub,
         email,
@@ -59,8 +65,44 @@ async def get_or_create_account(
 
 async def get_account(conn: asyncpg.Connection, *, idp_sub: str) -> Account | None:
     row = await conn.fetchrow(
-        "SELECT id, idp_sub, email, created_at, synced_library_ref FROM account WHERE idp_sub = $1",
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "FROM account WHERE idp_sub = $1",
         idp_sub,
+    )
+    return _account(row) if row else None
+
+
+async def list_accounts(conn: asyncpg.Connection, *, limit: int, offset: int) -> list[Account]:
+    """Admin-only listing (ADR-020 D3.1), newest first. Metadata only — no keys,
+    no content. Page with limit/offset; pair with count_accounts for the total."""
+    rows = await conn.fetch(
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "FROM account ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        limit,
+        offset,
+    )
+    return [_account(r) for r in rows]
+
+
+async def count_accounts(conn: asyncpg.Connection) -> int:
+    return int(await conn.fetchval("SELECT count(*) FROM account"))
+
+
+async def set_account_suspended(
+    conn: asyncpg.Connection, *, idp_sub: str, suspended: bool
+) -> Account | None:
+    """Suspend/reactivate an account (ADR-020 D3.1). Sets suspended_at on suspend,
+    clears it on reactivate. Returns the updated account, or None if no such account."""
+    row = await conn.fetchrow(
+        """
+        UPDATE account
+           SET suspended = $2,
+               suspended_at = CASE WHEN $2 THEN now() ELSE NULL END
+         WHERE idp_sub = $1
+        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at
+        """,
+        idp_sub,
+        suspended,
     )
     return _account(row) if row else None
 

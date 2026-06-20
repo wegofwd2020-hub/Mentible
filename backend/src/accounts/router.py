@@ -12,9 +12,9 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from backend.src.accounts import repo
+from backend.src.accounts.deps import require_active_user
 from backend.src.accounts.models import ProviderCredential
 from backend.src.accounts.schemas import AccountView, CredentialUpsert, CredentialView
-from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
 
@@ -33,7 +33,7 @@ def _view(c: ProviderCredential) -> CredentialView:
 
 @router.get("", response_model=AccountView)
 async def get_my_account(
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> AccountView:
     """The caller's account + credential set. Lazily provisions the row on first use."""
@@ -50,7 +50,7 @@ async def get_my_account(
 async def put_credential(
     provider_id: str,
     body: CredentialUpsert,
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> CredentialView:
     """Record/update custody + status for one provider. Stores NO key (D5)."""
@@ -71,7 +71,7 @@ async def put_credential(
 @router.delete("/credentials/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_credential(
     provider_id: str,
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> Response:
     account = await repo.get_account(conn, idp_sub=principal.sub)
@@ -82,7 +82,7 @@ async def delete_credential(
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_account(
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> Response:
     """Full account purge (ADR-014 D8). provider_credential rows cascade. Device-local
