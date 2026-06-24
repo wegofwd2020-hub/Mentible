@@ -10,6 +10,7 @@ import { HelpButton } from "@/components/HelpButton";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 import type { Book, BookMeta } from "@/types/book";
 
 function formatDate(iso: string): string {
@@ -182,6 +183,14 @@ function BookDetail({
 }
 
 export default function BooksScreen() {
+  return (
+    <RequireSignIn action="create and manage your own books">
+      <BooksScreenInner />
+    </RequireSignIn>
+  );
+}
+
+function BooksScreenInner() {
   const router = useRouter();
   const [books, setBooks] = useState<BookMeta[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);

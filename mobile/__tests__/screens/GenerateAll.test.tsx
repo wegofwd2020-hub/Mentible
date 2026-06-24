@@ -3,6 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 
 const mockPush = jest.fn();
 
+// Screen is wrapped in RequireSignIn — present as signed in so the gate passes
+// through to the screen under test.
+jest.mock("../../src/auth/AuthProvider", () => ({
+  useAuth: () => ({ status: "signed_in", session: null, accessToken: null }),
+}));
+
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({ id: "b1" }),

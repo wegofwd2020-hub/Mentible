@@ -6,11 +6,20 @@ import { pickBookFileContents } from "@/storage/pickBookFile";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 
 // Import a book exported elsewhere (e.g. a migrated book.json from the OnDemand
 // Authoring Studio). Paste-based to match the app's existing "paste a TOC" flow
 // and avoid a native file-picker dependency.
 export default function ImportBookScreen() {
+  return (
+    <RequireSignIn action="import a book">
+      <ImportBookScreenInner />
+    </RequireSignIn>
+  );
+}
+
+function ImportBookScreenInner() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [raw, setRaw] = useState("");

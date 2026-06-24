@@ -22,6 +22,7 @@ import { BookEditor } from "@/components/BookEditor";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 
 function randomRequestId(): string {
   return randomUUID();
@@ -42,6 +43,14 @@ function firstHeading(md: string): string | null {
 type Phase = "input" | "submitted";
 
 export default function NewBookScreen() {
+  return (
+    <RequireSignIn action="create a book">
+      <NewBookScreenInner />
+    </RequireSignIn>
+  );
+}
+
+function NewBookScreenInner() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [title, setTitle] = useState("");

@@ -17,6 +17,7 @@ import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { demoBlocked } from "@/constants/demo";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 import type { Book } from "@/types/book";
 import type { LessonOutput, Provenance } from "@/types/lesson";
 
@@ -67,6 +68,14 @@ function StatusRow({
 }
 
 export default function GenerateAllScreen() {
+  return (
+    <RequireSignIn action="generate content">
+      <GenerateAllScreenInner />
+    </RequireSignIn>
+  );
+}
+
+function GenerateAllScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 

@@ -6,6 +6,7 @@ import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/components/HelpButton";
 import { PageContainer } from "@/components/PageContainer";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
@@ -80,7 +81,9 @@ export default function SettingsScreen() {
         behalf. They are never logged or stored on any server.
       </Text>
 
-      <ProviderKeyForm />
+      <RequireSignIn action="add your API keys">
+        <ProviderKeyForm />
+      </RequireSignIn>
 
       <View style={styles.divider} />
 

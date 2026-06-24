@@ -7,7 +7,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@/auth/AuthProvider";
 import { hasRenderableLesson, loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { TopicRenderer } from "@/components/LessonRenderer";
@@ -73,6 +74,13 @@ export default function BookTopicScreen() {
   const getApiKey = useCallback(() => loadApiKey(book?.generationParams?.provider), [book]);
   const { status, error, run } = useGenerateTopic({ getApiKey });
   const regenerating = status === "generating";
+
+  // Regenerating a lesson is an activity → gated behind sign-in (reading stays
+  // open). Only an explicit signed-out state blocks; demo/unconfigured
+  // ("unavailable") keep their existing behavior.
+  const router = useRouter();
+  const { status: authStatus } = useAuth();
+  const canEdit = authStatus !== "signed_out";
 
   // Current provenance for the book's pinned LLM config (ADR-016 D7 staleness).
   // Hook must run before any early return; provider/model default sensibly while
@@ -173,7 +181,7 @@ export default function BookTopicScreen() {
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.barBusyText}>Regenerating…</Text>
           </View>
-        ) : (
+        ) : canEdit ? (
           <Pressable
             style={styles.barBtn}
             onPress={() => setPanelOpen((v) => !v)}
@@ -185,6 +193,15 @@ export default function BookTopicScreen() {
             <Text style={styles.barBtnText}>
               {hasContent ? "↻ Regenerate" : "Generate"}
             </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={styles.barBtn}
+            onPress={() => router.push("/sign-in")}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to edit this lesson"
+          >
+            <Text style={styles.barBtnText}>Sign in to edit</Text>
           </Pressable>
         )}
       </View>

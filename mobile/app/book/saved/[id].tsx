@@ -15,9 +15,18 @@ import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 import type { Book } from "@/types/book";
 
 export default function SavedBookScreen() {
+  return (
+    <RequireSignIn action="edit a book">
+      <SavedBookScreenInner />
+    </RequireSignIn>
+  );
+}
+
+function SavedBookScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [book, setBook] = useState<Book | null>(null);
