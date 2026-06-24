@@ -166,6 +166,32 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "reading-a-book",
+    title: "Open a book & get around",
+    keywords: [
+      "read", "reading", "open", "book", "library", "tabs", "navigate", "menu",
+      "topic", "lesson", "export", "epub", "pdf", "tour", "studio", "shelf",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Mentible has five places along the top of the app: Library (your finished books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Library and tap a book cover to open it.",
+          "Inside the book, tap a topic to read its lesson.",
+          "Use Export to save the book as an EPUB or PDF for offline reading.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "New here? Your Library already has a book ready to open, so you can start reading before authoring anything of your own.",
+      },
+    ],
+  },
+  {
     id: "scoped-generation",
     title: "How scoping works",
     keywords: ["scope", "scoped", "level", "depth", "length", "parameters", "chatbot"],
