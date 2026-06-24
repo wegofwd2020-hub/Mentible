@@ -33,6 +33,20 @@ class Account:
 
 
 @dataclass(frozen=True)
+class Device:
+    """One per-install device an account has signed in from (ADR-020 admin view).
+    Identity + metadata only — a client-generated stable id plus a friendly label
+    and platform; NO key material, NO content. `last_seen` is bumped on each
+    report (heartbeat)."""
+
+    device_id: str  # client-generated, stable per install
+    label: str | None
+    platform: str | None
+    first_seen: datetime
+    last_seen: datetime
+
+
+@dataclass(frozen=True)
 class ProviderCredential:
     """One entry of the registry-keyed credential set (ADR-014 D2). Rows, not
     columns — adding a provider needs no migration. Holds NO key, only custody +

@@ -10,12 +10,15 @@ Connections are asyncpg `Connection`s acquired from the app pool by the caller.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import asyncpg
 
 from backend.src.accounts.models import (
     CREDENTIAL_SOURCES,
     CREDENTIAL_STATUSES,
     Account,
+    Device,
     ProviderCredential,
 )
 
@@ -156,6 +159,70 @@ async def delete_credential(conn: asyncpg.Connection, *, account_id, provider_id
 
 
 async def delete_account(conn: asyncpg.Connection, *, idp_sub: str) -> bool:
-    """Full account purge (ADR-014 D8). provider_credential rows cascade."""
+    """Full account purge (ADR-014 D8). provider_credential + device rows cascade."""
     result = await conn.execute("DELETE FROM account WHERE idp_sub = $1", idp_sub)
     return result != "DELETE 0"
+
+
+def _device(row: asyncpg.Record) -> Device:
+    return Device(
+        device_id=row["device_id"],
+        label=row["label"],
+        platform=row["platform"],
+        first_seen=row["first_seen"],
+        last_seen=row["last_seen"],
+    )
+
+
+async def upsert_device(
+    conn: asyncpg.Connection,
+    *,
+    account_id,
+    device_id: str,
+    label: str | None,
+    platform: str | None,
+) -> Device:
+    """Register or heartbeat a device. New rows record first_seen; re-reports bump
+    last_seen and refresh label/platform if newly provided (COALESCE keeps a prior
+    value when the client sends null)."""
+    row = await conn.fetchrow(
+        """
+        INSERT INTO device (account_id, device_id, label, platform)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (account_id, device_id)
+            DO UPDATE SET last_seen = now(),
+                          label = COALESCE(EXCLUDED.label, device.label),
+                          platform = COALESCE(EXCLUDED.platform, device.platform)
+        RETURNING device_id, label, platform, first_seen, last_seen
+        """,
+        account_id,
+        device_id,
+        label,
+        platform,
+    )
+    return _device(row)
+
+
+async def list_devices(conn: asyncpg.Connection, *, account_id) -> list[Device]:
+    """An account's devices, most-recently-seen first (admin detail view)."""
+    rows = await conn.fetch(
+        "SELECT device_id, label, platform, first_seen, last_seen "
+        "FROM device WHERE account_id = $1 ORDER BY last_seen DESC",
+        account_id,
+    )
+    return [_device(r) for r in rows]
+
+
+async def count_devices_by_account(
+    conn: asyncpg.Connection, account_ids: list[UUID]
+) -> dict[UUID, int]:
+    """Device counts for a set of accounts in one query (admin list view). Accounts
+    with no devices are simply absent from the map (callers default to 0)."""
+    if not account_ids:
+        return {}
+    rows = await conn.fetch(
+        "SELECT account_id, count(*) AS n FROM device "
+        "WHERE account_id = ANY($1::uuid[]) GROUP BY account_id",
+        account_ids,
+    )
+    return {r["account_id"]: int(r["n"]) for r in rows}

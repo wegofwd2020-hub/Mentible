@@ -18,8 +18,10 @@ from backend.src.accounts.models import Account
 from backend.src.accounts.schemas import (
     AdminAuditEntryView,
     AdminAuditList,
+    AdminDeviceView,
     AdminUserDetail,
     AdminUserList,
+    AdminUserRow,
     AdminUserSummary,
     CredentialView,
 )
@@ -43,7 +45,7 @@ def _summary(a: Account) -> AdminUserSummary:
     )
 
 
-def _detail(a: Account, creds) -> AdminUserDetail:
+def _detail(a: Account, creds, devices) -> AdminUserDetail:
     return AdminUserDetail(
         **_summary(a).model_dump(),
         credentials=[
@@ -55,6 +57,17 @@ def _detail(a: Account, creds) -> AdminUserDetail:
                 updated_at=c.updated_at,
             )
             for c in creds
+        ],
+        device_count=len(devices),
+        devices=[
+            AdminDeviceView(
+                device_id=d.device_id,
+                label=d.label,
+                platform=d.platform,
+                first_seen=d.first_seen,
+                last_seen=d.last_seen,
+            )
+            for d in devices
         ],
     )
 
@@ -86,12 +99,15 @@ async def list_users(
     _admin: Principal = Depends(require_super_admin),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> AdminUserList:
-    """Paginated account list, newest first. Metadata only (D3.1)."""
+    """Paginated account list, newest first. Metadata only (D3.1), plus a
+    per-account device count (one grouped query, no N+1)."""
     accounts = await repo.list_accounts(conn, limit=limit, offset=offset)
     total = await repo.count_accounts(conn)
-    return AdminUserList(
-        users=[_summary(a) for a in accounts], total=total, limit=limit, offset=offset
-    )
+    counts = await repo.count_devices_by_account(conn, [a.id for a in accounts])
+    users = [
+        AdminUserRow(**_summary(a).model_dump(), device_count=counts.get(a.id, 0)) for a in accounts
+    ]
+    return AdminUserList(users=users, total=total, limit=limit, offset=offset)
 
 
 @router.get("/users/{sub}", response_model=AdminUserDetail)
@@ -105,7 +121,8 @@ async def get_user(
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
     creds = await repo.list_credentials(conn, account_id=account.id)
-    return _detail(account, creds)
+    devices = await repo.list_devices(conn, account_id=account.id)
+    return _detail(account, creds, devices)
 
 
 @router.post("/users/{sub}/suspend", response_model=AdminUserSummary)

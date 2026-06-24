@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { AuthProvider } from "@/auth/AuthProvider";
+import { DeviceReporter } from "@/device/DeviceReporter";
 import { FirstRunWizard } from "@/onboarding/FirstRunWizard";
 import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
 import { FONT_ASSETS } from "@/constants/fonts";
@@ -120,6 +121,8 @@ export default function RootLayout() {
           self-manages which steps apply per build (demo / unconfigured auth), so
           no environment gate is needed here. */}
       <FirstRunWizard />
+      {/* Reports this install's device to the backend when signed in (admin view). */}
+      <DeviceReporter />
     </AuthProvider>
   );
 }

@@ -14,7 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from backend.src.accounts import repo
 from backend.src.accounts.deps import require_active_user
 from backend.src.accounts.models import ProviderCredential
-from backend.src.accounts.schemas import AccountView, CredentialUpsert, CredentialView
+from backend.src.accounts.schemas import (
+    AccountView,
+    CredentialUpsert,
+    CredentialView,
+    DeviceRegister,
+)
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
 
@@ -77,6 +82,25 @@ async def delete_credential(
     account = await repo.get_account(conn, idp_sub=principal.sub)
     if account is not None:
         await repo.delete_credential(conn, account_id=account.id, provider_id=provider_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/devices", status_code=status.HTTP_204_NO_CONTENT)
+async def register_device(
+    body: DeviceRegister,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> Response:
+    """Register/heartbeat the caller's device (per-install id + label). Bumps
+    last_seen; stores NO key material. Powers the admin per-user device count."""
+    account = await repo.get_or_create_account(conn, idp_sub=principal.sub, email=principal.email)
+    await repo.upsert_device(
+        conn,
+        account_id=account.id,
+        device_id=body.device_id,
+        label=body.label,
+        platform=body.platform,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
