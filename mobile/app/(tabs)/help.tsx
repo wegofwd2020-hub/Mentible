@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
 import { searchHelpTopics, type HelpBlock } from "@/constants/helpContent";
+import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // Help screen — renders the structured, searchable help content (issue #60).
@@ -80,7 +81,12 @@ export default function HelpScreen() {
               <Text style={styles.sectionLabel}>{t.title}</Text>
               <View style={[styles.card, highlight === t.id && styles.cardHighlight]}>
                 {t.blocks.map((b, i) => (
-                  <Block key={i} block={b} onLink={(href) => router.push(href)} />
+                  <Block
+                    key={i}
+                    block={b}
+                    onLink={(href) => router.push(href)}
+                    onAction={(step) => void relaunchStep(step)}
+                  />
                 ))}
               </View>
             </View>
@@ -91,7 +97,15 @@ export default function HelpScreen() {
   );
 }
 
-function Block({ block, onLink }: { block: HelpBlock; onLink: (href: HelpBlockHref) => void }) {
+function Block({
+  block,
+  onLink,
+  onAction,
+}: {
+  block: HelpBlock;
+  onLink: (href: HelpBlockHref) => void;
+  onAction: (step: StepId) => void;
+}) {
   switch (block.kind) {
     case "text":
       return <Text style={styles.body}>{block.text}</Text>;
@@ -124,6 +138,17 @@ function Block({ block, onLink }: { block: HelpBlock; onLink: (href: HelpBlockHr
             </View>
           ))}
         </>
+      );
+    case "action":
+      return (
+        <Pressable
+          style={styles.actionBtn}
+          onPress={() => onAction(block.step)}
+          accessibilityRole="button"
+          accessibilityLabel={block.label}
+        >
+          <Text style={styles.actionBtnText}>{block.label}</Text>
+        </Pressable>
       );
   }
 }
@@ -193,6 +218,14 @@ const styles = StyleSheet.create({
   stepText: { flex: 1, fontSize: typography.sizeSm, color: colors.text, lineHeight: 21 },
   linkBtn: { alignSelf: "flex-start" },
   linkBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
+  actionBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  actionBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
   def: { gap: 2 },
   defTerm: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
   defText: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },

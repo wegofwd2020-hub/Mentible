@@ -9,6 +9,7 @@ import {
   loadFirstRunState,
   setStepStatus,
   STEP_ORDER,
+  subscribeFirstRun,
   type FirstRunState,
   type StepId,
 } from "./firstRunState";
@@ -33,14 +34,19 @@ export function FirstRunWizard() {
   const { status } = useAuth();
   const [state, setState] = useState<FirstRunState | null>(null);
 
-  // Load persisted progress once.
+  // Load persisted progress once, and stay subscribed so re-arming a step from
+  // Help (relaunchStep) re-shows the wizard live, without a reload.
   useEffect(() => {
     let active = true;
     void loadFirstRunState().then((s) => {
       if (active) setState(s);
     });
+    const unsubscribe = subscribeFirstRun((s) => {
+      if (active) setState(s);
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 

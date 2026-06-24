@@ -16,8 +16,8 @@ describe("searchHelpTopics", () => {
   });
 
   it("matches keywords that aren't in the visible prose", () => {
-    // "billing" is a keyword on the BYOK topic but not in its body text.
-    expect(searchHelpTopics("billing").map((t) => t.id)).toContain("byok");
+    // "billing" is a keyword on the provider-keys topic but not in its body text.
+    expect(searchHelpTopics("billing").map((t) => t.id)).toContain("provider-keys");
   });
 
   it("returns nothing for an unrelated query", () => {

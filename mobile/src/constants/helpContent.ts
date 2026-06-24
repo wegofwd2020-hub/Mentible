@@ -5,6 +5,7 @@
 
 import { PROVIDERS } from "@/constants/providers";
 import { COST_LABEL, PROVIDER_GUIDES } from "@/constants/providerGuides";
+import type { StepId } from "@/onboarding/firstRunState";
 
 // Internal routes a help link may point at (kept a union so it satisfies
 // expo-router's typed routes without a cast).
@@ -14,7 +15,9 @@ export type HelpBlock =
   | { kind: "text"; text: string }
   | { kind: "steps"; steps: string[] }
   | { kind: "link"; label: string; href: HelpHref }
-  | { kind: "defs"; defs: { term: string; def: string }[] };
+  | { kind: "defs"; defs: { term: string; def: string }[] }
+  // Re-launch a first-run wizard step (the Help screen calls relaunchStep(step)).
+  | { kind: "action"; label: string; step: StepId };
 
 export interface HelpTopic {
   id: string; // stable id (future deep-link target)
@@ -36,6 +39,8 @@ export function blockText(blocks: HelpBlock[]): string {
           return b.label;
         case "defs":
           return b.defs.map((d) => `${d.term} ${d.def}`).join(" ");
+        case "action":
+          return b.label;
       }
     })
     .join(" ");
@@ -104,6 +109,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Once signed in, your library and provider settings sync automatically.",
         ],
       },
+      { kind: "action", label: "Start the sign-up walkthrough", step: "signup" },
       {
         kind: "defs",
         defs: [
@@ -122,18 +128,6 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       { kind: "link", label: "Open sign-in →", href: "/sign-in" },
-    ],
-  },
-  {
-    id: "byok",
-    title: "Your Anthropic key (BYOK)",
-    keywords: ["key", "api", "byok", "anthropic", "billing", "pay", "secure", "privacy"],
-    blocks: [
-      {
-        kind: "text",
-        text: "Mentible is bring-your-own-key: you pay Anthropic directly. Your key is kept in the device keystore and sent per request to generate content — it is never logged or stored on a server.",
-      },
-      { kind: "link", label: "Open Settings →", href: "/settings" },
     ],
   },
   {
@@ -162,6 +156,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Your key is verified the first time you generate; if it's wrong you'll see a clear error.",
         ],
       },
+      { kind: "action", label: "Start the API-key walkthrough", step: "key" },
       { kind: "link", label: "Open Settings →", href: "/settings" },
     ],
   },
@@ -189,6 +184,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "text",
         text: "New here? Your Library already has a book ready to open, so you can start reading before authoring anything of your own.",
       },
+      { kind: "action", label: "Replay the app tour", step: "tour" },
     ],
   },
   {

@@ -55,12 +55,25 @@ function normalize(parsed: Partial<FirstRunState> | null): FirstRunState {
   };
 }
 
+// Subscribers (the mounted FirstRunWizard) are notified on every state change so
+// re-arming a step from Help (relaunchStep) re-shows the wizard without a reload.
+type Listener = (state: FirstRunState) => void;
+const listeners = new Set<Listener>();
+
+export function subscribeFirstRun(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 async function persist(state: FirstRunState): Promise<void> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // A failed write just means the flow may re-show next launch — not fatal.
   }
+  listeners.forEach((fn) => fn(state));
 }
 
 // Load (or first-time seed) the first-run state. On the very first call with no
