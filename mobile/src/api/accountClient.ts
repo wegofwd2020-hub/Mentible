@@ -61,6 +61,14 @@ export async function deleteCredential(token: string, providerId: string): Promi
   await authFetch(`/credentials/${encodeURIComponent(providerId)}`, token, { method: "DELETE" });
 }
 
+/** Register/heartbeat the caller's device (per-install id + label). No key material. */
+export async function registerDevice(
+  token: string,
+  body: { device_id: string; label?: string | null; platform?: string | null },
+): Promise<void> {
+  await authFetch("/devices", token, { method: "POST", body: JSON.stringify(body) });
+}
+
 /** Full account purge (ADR-014 D8). Device-local keys are cleared separately by the client. */
 export async function deleteAccount(token: string): Promise<void> {
   await authFetch("", token, { method: "DELETE" });

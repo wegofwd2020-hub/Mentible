@@ -53,7 +53,14 @@ def test_list_includes_target(admin_client):
     # metadata only — no key material, no internal id
     sample = body["users"][0]
     assert "id" not in sample
-    assert set(sample) == {"sub", "email", "created_at", "suspended", "suspended_at"}
+    assert set(sample) == {
+        "sub",
+        "email",
+        "created_at",
+        "suspended",
+        "suspended_at",
+        "device_count",
+    }
 
 
 def test_get_user_detail(admin_client):
@@ -63,6 +70,32 @@ def test_get_user_detail(admin_client):
     assert body["sub"] == TARGET
     assert body["suspended"] is False
     assert body["credentials"] == []
+    assert body["device_count"] == 0
+    assert body["devices"] == []
+
+
+def test_device_register_shows_in_admin_view(admin_client):
+    """A device the user reports surfaces as a count in the list + a row in detail.
+    Re-reporting the same device_id is a heartbeat (still one device)."""
+    body = {"device_id": "dev-abc", "label": "Pixel 7", "platform": "android"}
+    assert admin_client.post(f"{ACCOUNT}/devices", json=body).status_code == 204
+    assert admin_client.post(f"{ACCOUNT}/devices", json=body).status_code == 204  # heartbeat
+
+    row = next(u for u in admin_client.get(f"{ADMIN}/users").json()["users"] if u["sub"] == TARGET)
+    assert row["device_count"] == 1
+
+    detail = admin_client.get(f"{ADMIN}/users/{TARGET}").json()
+    assert detail["device_count"] == 1
+    assert [d["device_id"] for d in detail["devices"]] == ["dev-abc"]
+    assert detail["devices"][0]["label"] == "Pixel 7"
+
+
+def test_devices_cascade_on_account_delete(admin_client):
+    admin_client.post(f"{ACCOUNT}/devices", json={"device_id": "dev-xyz"})
+    assert admin_client.delete(f"{ADMIN}/users/{TARGET}").status_code == 204
+    # Re-provision the same sub: the prior device must be gone (cascaded).
+    admin_client.get(ACCOUNT)
+    assert admin_client.get(f"{ADMIN}/users/{TARGET}").json()["devices"] == []
 
 
 def test_get_unknown_user_404(admin_client):
