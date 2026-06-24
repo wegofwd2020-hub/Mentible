@@ -8,6 +8,7 @@ import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
 import { extractEpubCover } from "@/storage/epubCover";
 import { BookCover } from "@/components/BookCover";
+import { UserChip } from "@/components/UserChip";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -100,7 +101,14 @@ function DemoLibrary() {
 //
 // Demo builds swap in DemoLibrary so the tab shows the seeded books for reading.
 export default function LibraryScreen() {
-  return IS_DEMO ? <DemoLibrary /> : <EpubLibrary />;
+  // The profile chip floats top-right over whichever shelf renders; it self-gates
+  // (hidden in demo/unconfigured, "Sign in" when signed out, photo+name when in).
+  return (
+    <View style={styles.screen}>
+      {IS_DEMO ? <DemoLibrary /> : <EpubLibrary />}
+      <UserChip />
+    </View>
+  );
 }
 
 function EpubLibrary() {
@@ -295,7 +303,9 @@ const styles = StyleSheet.create({
   gridContent: { padding: spacing.md },
   gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
   gridRow: { gap: spacing.md },
-  header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.md },
+  screen: { flex: 1 },
+  // Import sits left so it clears the floating profile chip (top-right).
+  header: { flexDirection: "row", justifyContent: "flex-start", marginBottom: spacing.md },
   tile: { flex: 1, marginBottom: spacing.lg, gap: spacing.xs },
   tileTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
   tileFooter: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
