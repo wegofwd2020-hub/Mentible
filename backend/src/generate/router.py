@@ -205,7 +205,7 @@ async def get_job_status(
         status=payload.get("status", "queued"),
         error=payload.get("error"),
         result=payload.get("result"),
-        provenance=payload.get("provenance"),
+        trust=payload.get("trust"),
         warnings=payload.get("warnings"),
         usage=payload.get("usage"),
     )

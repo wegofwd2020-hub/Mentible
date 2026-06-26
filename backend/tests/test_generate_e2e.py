@@ -105,11 +105,30 @@ async def test_full_loop_done(client, fake_redis, known_test_api_key):
     result = body["result"]
     assert result["topic"] == "Quadratic formula"
     assert len(result["sections"]) == 2
-    # Provenance records which provider/model + versions produced the unit.
-    prov = body["provenance"]
+    # The Content Trust Manifest (ADR-015) rides the done row: provenance +
+    # validation + policy at generation time (compliance/integrity attach at
+    # export, SBQ-TRUST-002).
+    trust = body["trust"]
+    assert trust["trust_manifest_version"] == 1
+    prov = trust["provenance"]
     assert prov["provider"] == "anthropic"
     assert prov["model"]  # resolved model id
+    assert prov["model_verified"] is True  # known default ⇒ allow-listed
     assert "contract_version" in prov and "integration_version" in prov
+    # Validation block: a clean first-try pass (no repair turn).
+    assert trust["validation"]["schema_validated"] is True
+    assert trust["validation"]["repair_attempts"] == 0
+    assert trust["validation"]["schema_id"] == "lesson@1"
+    # Standing BYOK data policy — never store the key.
+    assert trust["policy"]["byok"] is True
+    assert trust["policy"]["key_stored"] is False
+    assert trust["policy"]["prompts_stored"] is False
+    # AC5: generation-only manifest omits the export-time blocks (renders "not
+    # assessed" by absence, never a pass it didn't earn).
+    assert "compliance" not in trust
+    assert "integrity" not in trust
+    # AC6: no key material rides the serialised status row.
+    assert known_test_api_key not in json.dumps(body)
     assert (
         "$x = " in result["sections"][1]["body_markdown"]
         or "x =" in result["sections"][1]["body_markdown"]
@@ -137,6 +156,12 @@ async def test_usage_sums_across_repairs(client, fake_redis, known_test_api_key)
     assert usage["attempts"] == 2  # one repair
     assert usage["input_tokens"] == 200  # 2 calls × 100
     assert usage["output_tokens"] == 1000  # 2 calls × 500
+
+    # AC3: a repair turn shows on the trust manifest (attempts − 1 repairs) and
+    # still reads as a pass (schema_validated) — just a costlier one.
+    trust = body["trust"]
+    assert trust["validation"]["schema_validated"] is True
+    assert trust["validation"]["repair_attempts"] == 1
 
 
 @pytest.mark.asyncio
@@ -338,7 +363,7 @@ async def test_openai_provider_path_done(client, fake_redis):
 
     assert result["status"] == "done"
     assert result["result"]["topic"] == "Quadratic formula"
-    assert result["provenance"]["provider"] == "openai"
+    assert result["trust"]["provenance"]["provider"] == "openai"
 
 
 @pytest.mark.asyncio

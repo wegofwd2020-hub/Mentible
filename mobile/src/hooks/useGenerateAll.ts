@@ -170,7 +170,12 @@ export function useGenerateAll({
             // echoes them back into lesson.topic (the rendered H1 heading).
             // Force the clean topic title so the heading isn't polluted with
             // the subtopic descriptions.
-            await onTopicDone(t.topicId, t.title, { ...job.result, topic: t.title }, job.provenance);
+            //
+            // Provenance now arrives inside the Content Trust Manifest (ADR-015 /
+            // SBQ-TRUST-001); fall back to a bare `provenance` for any pre-trust
+            // job still cached at deploy time.
+            const provenance = job.trust?.provenance ?? job.provenance;
+            await onTopicDone(t.topicId, t.title, { ...job.result, topic: t.title }, provenance);
             setStatus(t.topicId, "done");
           } else {
             setStatus(t.topicId, "failed", job.error ?? "Generation failed");

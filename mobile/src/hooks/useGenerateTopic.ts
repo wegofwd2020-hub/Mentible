@@ -82,7 +82,13 @@ export function useGenerateTopic({
           // Force the clean topic title as the heading — the prompt folds
           // subtopics into the topic line and the model echoes them into
           // lesson.topic (the rendered H1), which pollutes the heading.
-          return { lesson: { ...job.result, topic: title }, provenance: job.provenance };
+          //
+          // Provenance now arrives inside the Content Trust Manifest (ADR-015 /
+          // SBQ-TRUST-001); fall back to a bare `provenance` for any pre-trust job
+          // still cached at deploy time. The full manifest isn't persisted yet
+          // (SBQ-TRUST-001 Out of Scope) — the badge rebuilds from provenance.
+          const provenance = job.trust?.provenance ?? job.provenance;
+          return { lesson: { ...job.result, topic: title }, provenance };
         }
         setError(job.error ?? "Generation failed");
         setStatus("failed");

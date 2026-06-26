@@ -22,15 +22,18 @@ no key fragments, no Anthropic SDK strings).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as redis
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSchemaError
-from wegofwd_llm.registry import build_provider, provenance
+from wegofwd_llm.registry import build_provider
+from wegofwd_llm.trust import PolicyBlock, engine_trust
 
 from backend.config import settings
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
@@ -107,7 +110,7 @@ async def _write_status(
     *,
     error: str | None = None,
     result: dict[str, Any] | None = None,
-    provenance: dict[str, Any] | None = None,
+    trust: dict[str, Any] | None = None,
     warnings: list[dict[str, Any]] | None = None,
     usage: dict[str, Any] | None = None,
 ) -> None:
@@ -116,8 +119,8 @@ async def _write_status(
         payload["error"] = error
     if result is not None:
         payload["result"] = result
-    if provenance is not None:
-        payload["provenance"] = provenance
+    if trust is not None:
+        payload["trust"] = trust
     if warnings:
         payload["warnings"] = warnings
     if usage is not None:
@@ -228,7 +231,7 @@ async def run_generation(
     # the loop then shredded in `finally` on every path, so the credential window
     # is the job's lifetime, not a single attempt.
     lesson: LessonOutput | None = None
-    prov: dict | None = None  # which provider/model/versions produced this unit
+    trust: dict | None = None  # ContentTrustManifest (ADR-015) for this unit
     usage: dict[str, Any] | None = None  # observed token counts (SBQ-USAGE-001)
     last_error = "generation failed"
 
@@ -255,9 +258,26 @@ async def run_generation(
             generate_validated, provider, req, _validate, max_repairs=_MAX_REPAIRS
         )
         lesson = result.parsed
-        # Stamp which provider/model + integration/contract versions produced this
-        # unit (the resolved model, which may differ from what was requested).
-        prov = provenance(provider_id, provider.model)
+        # Stamp the Content Trust Manifest (ADR-015). The seam fills provenance +
+        # validation from the resolved model (which may differ from what was
+        # requested) and the conformance outcome; we attach the standing BYOK data
+        # policy. compliance/integrity attach later, at export (SBQ-TRUST-002).
+        # generated_at is stamped here at the worker: for a single-unit lesson the
+        # worker is canonical (ADR-015 §8); a book compiled from many units prefers
+        # the export timestamp.
+        manifest = engine_trust(
+            provider_id,
+            provider.model,
+            schema_validated=True,  # generate_validated returned ⇒ it validated
+            repair_attempts=max(result.attempts - 1, 0),
+            schema_id="lesson@1",
+            generated_at=datetime.now(UTC).isoformat(),
+        )
+        manifest = dataclasses.replace(
+            manifest,
+            policy=PolicyBlock(byok=True, prompts_stored=False, key_stored=False),
+        )
+        trust = manifest.to_public_dict()
         # Observed token usage (SBQ-USAGE-001). The provider hands us exact counts
         # on every call; generate_validated sums them ACROSS repair attempts, so this
         # reflects real spend, not just the accepted lesson. Metadata only — no key,
@@ -328,7 +348,7 @@ async def run_generation(
         job_id,
         "done",
         result=lesson.model_dump(),
-        provenance=prov,
+        trust=trust,
         warnings=format_warnings,
         usage=usage,
     )

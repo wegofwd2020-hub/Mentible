@@ -67,6 +67,30 @@ describe("useGenerateTopic", () => {
     );
   });
 
+  it("extracts provenance from the trust manifest (the post-SBQ-TRUST-001 wire shape)", async () => {
+    // The backend now ships provenance inside the Content Trust Manifest
+    // (ADR-015) rather than as a bare `provenance` field. The hook must surface
+    // it so the badge still renders on a freshly generated topic.
+    const prov = { provider: "anthropic", model: "claude-sonnet-4-6", model_verified: true };
+    pollUntilDone.mockResolvedValue({
+      status: "done",
+      result: LESSON,
+      trust: {
+        trust_manifest_version: 1,
+        provenance: { ...prov, generated_at: "2026-06-26T00:00:00Z" },
+        validation: { schema_validated: true, repair_attempts: 0 },
+      },
+    });
+
+    const { result } = renderHook(() => useGenerateTopic({ getApiKey, intervalMs: 1 }));
+    let out: { provenance?: unknown } | null = null;
+    await act(async () => {
+      out = await result.current.run({ title: "Kinematics", subtopics: [], params: PARAMS });
+    });
+
+    expect(out?.provenance).toEqual({ ...prov, generated_at: "2026-06-26T00:00:00Z" });
+  });
+
   it("passes enhancement instructions through to the request", async () => {
     pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
 

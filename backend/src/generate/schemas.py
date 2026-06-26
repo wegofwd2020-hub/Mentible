@@ -114,10 +114,13 @@ class JobStatusResponse(BaseModel):
     # Result is intentionally untyped at MVP — schema lands in PR-2 with the
     # actual lesson generator.
     result: dict | None = None
-    # Which provider/model + integration/contract versions produced the result
-    # (present on a done job). Lets the client detect content made with an
-    # outdated model/integration and offer to regenerate. See registry.provenance.
-    provenance: dict | None = None
+    # Content Trust Manifest (ADR-015): provenance + validation + policy at
+    # generation; compliance + integrity attach later at export (SBQ-TRUST-002).
+    # Present on a done job. Shape validated by
+    # wegofwd-llm/schema/content-trust-manifest.v1.json. The provenance block lets
+    # the client detect content made with an outdated model and offer to
+    # regenerate. Carries no key material (guaranteed by to_public_dict()).
+    trust: dict | None = None
     # Non-fatal format-drift warnings from gate 3 (content_format_validator). A
     # done job with warnings is still valid content; the warnings are a review /
     # prompt-drift signal. Absent or empty when the content looks clean.
