@@ -31,6 +31,10 @@ services:
       OIDC_ISSUER: "${OIDC_ISSUER:-}"
       OIDC_AUDIENCE: "${OIDC_AUDIENCE:-authenticated}"
       DATABASE_URL: "${DATABASE_URL:-}"
+      # Super-admin operator allowlist (ADR-020). Mirrors the demo compose
+      # passthrough (#181); empty = no admins.
+      SUPER_ADMIN_EMAILS: "${SUPER_ADMIN_EMAILS:-}"
+      SUPER_ADMIN_SUBS: "${SUPER_ADMIN_SUBS:-}"
     depends_on:
       redis:
         condition: service_healthy

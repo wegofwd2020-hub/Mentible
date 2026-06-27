@@ -182,6 +182,13 @@ export interface BookMetadata {
   releaseDate?: string; // ISO date, set on release
   watermark?: string; // explicit override text; else "DRAFT" when status === "draft"
   revisionHistory?: { version: string; date: string; notes?: string }[];
+
+  // Editorial review (surfaced in the Library book-metadata window). Distinct
+  // from the trust manifest's `review.human_approved` gate — this is the named
+  // human reviewer of record. Populated by the review workflow (not built yet)
+  // or hand-set in the bundled default-library manifest. Absent ⇒ "Not reviewed".
+  reviewedBy?: string; // reviewer name/identity
+  reviewedOn?: string; // ISO date the review was completed
 }
 
 // EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary). Auto-derived
