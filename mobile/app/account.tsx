@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Redirect, Stack, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
@@ -82,7 +83,7 @@ export default function AccountScreen() {
   };
 
   const onClearLocalKeys = () => {
-    Alert.alert("Clear device keys?", "Removes every provider API key stored on this device.", [
+    Alert.alert("Remove saved API keys?", "Removes every provider API key (BYOK) stored on this device.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Clear",
@@ -97,6 +98,24 @@ export default function AccountScreen() {
 
   return (
     <PageContainer>
+      <Stack.Screen
+        options={{
+          // Robust back: return to the previous screen, or to the Library when
+          // this screen was opened directly (e.g. a fresh OAuth page-load) with no
+          // history — so Account is never a dead-end.
+          headerLeft: () => (
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/library"))}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={styles.headerBack}
+            >
+              <Ionicons name="chevron-back" size={26} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <Text style={styles.label}>Signed in as</Text>
         <Text style={styles.email}>{email || "—"}</Text>
@@ -156,7 +175,7 @@ export default function AccountScreen() {
         </Pressable>
 
         <Pressable style={styles.secondaryButton} onPress={onClearLocalKeys}>
-          <Text style={styles.secondaryText}>Clear device keys</Text>
+          <Text style={styles.secondaryText}>Remove saved API keys</Text>
         </Pressable>
 
         <Pressable style={styles.secondaryButton} disabled={busy} onPress={onClearDevice}>
@@ -172,6 +191,7 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBack: { paddingHorizontal: spacing.sm },
   label: { color: colors.textMuted, fontSize: typography.sizeXs, textTransform: "uppercase" },
   email: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700", marginBottom: spacing.md },
   linkRow: { paddingVertical: spacing.sm },

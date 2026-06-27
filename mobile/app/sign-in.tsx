@@ -11,7 +11,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { status } = useAuth();
 
-  if (status === "signed_in") return <Redirect href="/account" />;
+  if (status === "signed_in") return <Redirect href="/library" />;
   if (status === "unavailable") {
     return (
       <PageContainer>
@@ -26,7 +26,7 @@ export default function SignInScreen() {
 
   return (
     <PageContainer>
-      <AuthForm onAuthenticated={() => router.replace("/account")} />
+      <AuthForm onAuthenticated={() => router.replace("/library")} />
     </PageContainer>
   );
 }
