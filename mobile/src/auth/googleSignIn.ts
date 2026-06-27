@@ -28,9 +28,16 @@ export async function signInWithGoogle(
   const queryParams = { prompt: "select_account" };
 
   if (Platform.OS === "web") {
+    // Return to the current web app URL after OAuth, NOT Supabase's configured
+    // Site URL (which would otherwise capture the redirect — e.g. localhost:3000).
+    // detectSessionInUrl (lib/supabase, web-only) then exchanges the returned
+    // ?code for a session. This origin+path must be allowlisted in Supabase →
+    // Auth → URL Configuration → Redirect URLs (works for localhost:8081 and the
+    // hosted /app/mentible/ alike).
+    const redirectToWeb = `${window.location.origin}${window.location.pathname}`;
     const { error } = await client.auth.signInWithOAuth({
       provider: "google",
-      options: { queryParams },
+      options: { queryParams, redirectTo: redirectToWeb },
     });
     return { error: error?.message ?? null };
   }
