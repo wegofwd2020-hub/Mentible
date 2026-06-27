@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -8,15 +8,16 @@ import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
 import { extractEpubCover } from "@/storage/epubCover";
 import { BookCover } from "@/components/BookCover";
+import { BookMetadataModal } from "@/components/BookMetadataModal";
 import { UserChip } from "@/components/UserChip";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { IS_DEMO } from "@/constants/demo";
-import { loadBookIndex } from "@/storage/bookStore";
+import { loadBook, loadBookIndex } from "@/storage/bookStore";
 import { seedDefaultLibrary } from "@/storage/seedLibrary";
 import { bundledBooks } from "@/storage/bundledLibrary";
-import type { BookMeta } from "@/types/book";
+import type { Book, BookMeta } from "@/types/book";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -117,6 +118,12 @@ function EpubLibrary() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Book-metadata window (opened by tapping a book; "Read" enters the reader).
+  const [selected, setSelected] = useState<EpubMeta | null>(null);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [loadingBook, setLoadingBook] = useState(false);
+  // Guards against a slow loadBook for an earlier tap landing after a later one.
+  const latestReq = useRef<string | null>(null);
   const { isDesktop } = useResponsive();
   const numColumns = isDesktop ? 4 : 2;
 
@@ -187,6 +194,37 @@ function EpubLibrary() {
     [router],
   );
 
+  const closeMeta = useCallback(() => {
+    latestReq.current = null;
+    setSelected(null);
+    setSelectedBook(null);
+    setLoadingBook(false);
+  }, []);
+
+  // Tapping a book opens its metadata window; the full Book (generation params,
+  // provenance, editorial review) is loaded lazily. Imported EPUBs have no in-app
+  // Book record, so they show only the minimal metadata we hold.
+  const openMeta = useCallback((item: EpubMeta) => {
+    latestReq.current = item.id;
+    setSelected(item);
+    setSelectedBook(null);
+    if (item.id.startsWith("imported-")) {
+      setLoadingBook(false);
+      return;
+    }
+    setLoadingBook(true);
+    loadBook(item.id)
+      .then((b) => {
+        if (latestReq.current === item.id) setSelectedBook(b);
+      })
+      .catch(() => {
+        if (latestReq.current === item.id) setSelectedBook(null);
+      })
+      .finally(() => {
+        if (latestReq.current === item.id) setLoadingBook(false);
+      });
+  }, []);
+
   const openReviews = useCallback(
     (item: EpubMeta) => {
       router.push(`/book/reviews/${item.id}?title=${encodeURIComponent(item.title)}`);
@@ -230,7 +268,7 @@ function EpubLibrary() {
     );
   }
 
-  return (
+  const list = (
     <FlatList
       key={numColumns}
       style={styles.list}
@@ -248,9 +286,9 @@ function EpubLibrary() {
       renderItem={({ item }) => (
         <View style={[styles.tile, { maxWidth: `${100 / numColumns}%` }]}>
           <Pressable
-            onPress={() => openItem(item)}
+            onPress={() => openMeta(item)}
             accessibilityRole="button"
-            accessibilityLabel={`Open book: ${item.title}`}
+            accessibilityLabel={`Book details: ${item.title}`}
           >
             <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} coverSvg={item.coverSvg} />
           </Pressable>
@@ -283,6 +321,24 @@ function EpubLibrary() {
         </View>
       )}
     />
+  );
+
+  return (
+    <>
+      {list}
+      <BookMetadataModal
+        visible={!!selected}
+        book={selectedBook}
+        meta={selected ? { title: selected.title, compiledAt: selected.compiledAt } : null}
+        loading={loadingBook}
+        onRead={() => {
+          const item = selected;
+          closeMeta();
+          if (item) openItem(item);
+        }}
+        onClose={closeMeta}
+      />
+    </>
   );
 }
 
