@@ -26,11 +26,11 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
     try {
       const book = await loadBook(bookId);
       if (!book) throw new Error("Book not found.");
-      const bytes = await exportBook(book, { diagrams: true });
+      const { artifact: bytes } = await exportBook(book, { diagrams: true });
       // Cover thumbnail is best-effort — never fail the save over it.
       let coverBytes: ArrayBuffer | undefined;
       try {
-        coverBytes = await exportBook(book, { format: "cover" });
+        coverBytes = (await exportBook(book, { format: "cover" })).artifact;
       } catch {
         coverBytes = undefined;
       }

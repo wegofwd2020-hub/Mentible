@@ -129,23 +129,67 @@ describe("exportBook", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: { get: () => null },
       arrayBuffer: async () => new Uint8Array([80, 75]).buffer, // "PK"
     });
-    const bytes = await exportBook(book);
+    const { artifact, trust } = await exportBook(book);
     const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("/api/v1/export?");
     expect(url).toContain("format=epub");
     expect(url).toContain("diagrams=false");
     expect(opts.method).toBe("POST");
-    expect(new Uint8Array(bytes)[0]).toBe(80);
+    expect(new Uint8Array(artifact)[0]).toBe(80);
+    expect(trust).toBeUndefined(); // no header → no manifest
   });
 
   it("passes format=pdf and diagrams=true", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
     await exportBook(book, { format: "pdf", diagrams: true });
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain("format=pdf");
     expect(url).toContain("diagrams=true");
+  });
+
+  it("decodes the X-Content-Trust-Manifest header into a manifest (SBQ-TRUST-002)", async () => {
+    const manifest = {
+      trust_manifest_version: 1,
+      provenance: { provider: "anthropic", model: "claude-sonnet-4-6", model_verified: true },
+      validation: { schema_validated: true },
+      compliance: {
+        ruleset: "mentible-professional@1.0",
+        checks_passed: 5,
+        checks_total: 5,
+        status: "pass",
+      },
+      integrity: { content_hash: "sha256:abc" },
+    };
+    const b64 = Buffer.from(JSON.stringify(manifest)).toString("base64");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (k: string) => (k === "X-Content-Trust-Manifest" ? b64 : null) },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+    const { trust } = await exportBook(book);
+    expect(trust?.compliance?.checks_passed).toBe(5);
+    expect(trust?.integrity?.content_hash).toBe("sha256:abc");
+  });
+
+  it("ignores a malformed trust header without failing the download", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => "!!!not-base64-json!!!" },
+      arrayBuffer: async () => new Uint8Array([80]).buffer,
+    });
+    const { artifact, trust } = await exportBook(book);
+    expect(new Uint8Array(artifact)[0]).toBe(80);
+    expect(trust).toBeUndefined();
   });
 
   it("throws ApiError on non-2xx (e.g. 422 no content)", async () => {

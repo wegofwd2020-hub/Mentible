@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { ApiError, exportBook } from "@/api/client";
 import { downloadArtifact } from "@/storage/epubLibrary";
+import { TrustBadge } from "@/components/TrustBadge";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
+import type { TrustManifest } from "@/types/trust";
 
 type State =
   | { kind: "idle" }
   | { kind: "working"; fmt: "epub" | "pdf" }
-  | { kind: "done"; msg: string }
+  | { kind: "done"; msg: string; trust?: TrustManifest }
   | { kind: "error"; msg: string };
 
 function slug(title: string): string {
@@ -26,13 +28,16 @@ export function CheckoutButton({ book }: { book: Book }) {
   const checkout = async (fmt: "epub" | "pdf") => {
     setState({ kind: "working", fmt });
     try {
-      const bytes = await exportBook(book, { format: fmt, diagrams: true });
+      const { artifact, trust } = await exportBook(book, { format: fmt, diagrams: true });
       const mime = fmt === "pdf" ? "application/pdf" : "application/epub+zip";
-      const res = await downloadArtifact(bytes, `${slug(book.title)}.${fmt}`, mime);
+      const res = await downloadArtifact(artifact, `${slug(book.title)}.${fmt}`, mime);
       const label = fmt.toUpperCase();
       setState({
         kind: "done",
         msg: res.savedPath ? `Saved: ${res.savedPath}` : `${label} downloaded.`,
+        // Book-level trust manifest (compliance + integrity over the compiled
+        // artifact) — render the badge so the finished book carries its checks.
+        trust,
       });
     } catch (err) {
       setState({ kind: "error", msg: messageFor(err) });
@@ -74,7 +79,12 @@ export function CheckoutButton({ book }: { book: Book }) {
           </Text>
         </View>
       )}
-      {state.kind === "done" && <Text style={styles.doneText}>✓ {state.msg}</Text>}
+      {state.kind === "done" && (
+        <View style={styles.doneBlock}>
+          <Text style={styles.doneText}>✓ {state.msg}</Text>
+          {state.trust && <TrustBadge manifest={state.trust} />}
+        </View>
+      )}
       {state.kind === "error" && <Text style={styles.errText}>{state.msg}</Text>}
     </View>
   );
@@ -123,6 +133,7 @@ const styles = StyleSheet.create({
   btnAltText: { color: colors.primary },
   statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
   statusText: { color: colors.textSecondary, fontSize: typography.sizeSm },
-  doneText: { color: colors.success, fontSize: typography.sizeSm, marginTop: spacing.xs },
+  doneBlock: { gap: spacing.sm, marginTop: spacing.xs },
+  doneText: { color: colors.success, fontSize: typography.sizeSm },
   errText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs },
 });

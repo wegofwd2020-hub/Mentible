@@ -12,6 +12,8 @@ import type {
   StructureResponse,
   StructureJobResponse,
 } from "@/types/book";
+import type { TrustManifest } from "@/types/trust";
+import { fromBase64 } from "@/storage/pickBookFile";
 
 // On web (Expo browser preview), 10.0.2.2 is the Android emulator loopback
 // address — unreachable from a real browser. Transparently swap it for
@@ -153,15 +155,39 @@ export async function getStructureJob(
 }
 
 // ── Export: POST /export → compile a book to an artifact ──────────────────────
-// Returns the raw bytes (EPUB or PDF). Synchronous and key-free. 422 → the book
-// has no generated content (or is malformed); surface via ApiError.body.
-// diagrams=true renders Mermaid→SVG (much slower — minutes for a big book).
+// Returns the artifact bytes (EPUB or PDF) plus the book-level Content Trust
+// Manifest (ADR-015 / SBQ-TRUST-002) when the backend attaches one. Synchronous
+// and key-free. 422 → the book has no generated content (or is malformed);
+// surface via ApiError.body. diagrams=true renders Mermaid→SVG (much slower).
 export interface ExportOptions {
   format?: "epub" | "pdf" | "cover"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
 }
 
-export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<ArrayBuffer> {
+export interface ExportedArtifact {
+  artifact: ArrayBuffer;
+  // Book-level trust manifest from the X-Content-Trust-Manifest header. Absent
+  // for cover exports and for any older backend that doesn't emit it.
+  trust?: TrustManifest;
+}
+
+// Decode the base64 X-Content-Trust-Manifest header → manifest. Hermes has no
+// atob, so go base64 → bytes (fromBase64) → UTF-8 JSON (the latin1→UTF-8 trick
+// mirrors BookCover's btoa(unescape(encodeURIComponent(...)))). A malformed
+// header never breaks the download — it just yields no badge.
+function decodeTrustHeader(b64: string | null | undefined): TrustManifest | undefined {
+  if (!b64) return undefined;
+  try {
+    const bytes = new Uint8Array(fromBase64(b64));
+    let latin1 = "";
+    for (let i = 0; i < bytes.length; i++) latin1 += String.fromCharCode(bytes[i]);
+    return JSON.parse(decodeURIComponent(escape(latin1))) as TrustManifest;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<ExportedArtifact> {
   const params = new URLSearchParams({
     format: opts.format ?? "epub",
     diagrams: String(opts.diagrams ?? false),
@@ -175,7 +201,8 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
     const body = await res.text().catch(() => "");
     throw new ApiError(res.status, body, retryAfterSeconds(res));
   }
-  return res.arrayBuffer();
+  const trust = decodeTrustHeader(res.headers?.get("X-Content-Trust-Manifest"));
+  return { artifact: await res.arrayBuffer(), trust };
 }
 
 export async function pollUntilDone(

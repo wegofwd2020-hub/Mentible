@@ -6,6 +6,7 @@ A real end-to-end test auto-skips unless the Node compiler is built locally.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shutil
@@ -128,6 +129,60 @@ async def test_export_cover_png(client, monkeypatch):
     assert resp.headers["content-type"].startswith("image/png")
     assert resp.headers["content-disposition"] == 'attachment; filename="physics-friends.png"'
     assert rec == {"fmt": "cover", "diagrams": False}
+
+
+# ── Content Trust Manifest header (SBQ-TRUST-002) ────────────────────────────
+def _decode_manifest(resp) -> dict:
+    header = resp.headers["x-content-trust-manifest"]
+    return json.loads(base64.b64decode(header).decode())
+
+
+async def test_export_attaches_trust_manifest_header(client, monkeypatch):
+    # AC1: a compiled book carries X-Content-Trust-Manifest (base64 JSON) with
+    # provenance + validation (from generation) and compliance + integrity (from
+    # export).
+    rec: dict = {}
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec))
+
+    resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    m = _decode_manifest(resp)
+    assert m["trust_manifest_version"] == 1
+    assert m["provenance"]["provider"] == "anthropic"
+    assert m["validation"]["schema_validated"] is True
+    assert m["compliance"]["ruleset"] == "mentible-professional@1.0"
+    assert m["integrity"]["content_hash"].startswith("sha256:")
+    # AC7: no key material in the manifest header.
+    assert "api_key" not in resp.headers["x-content-trust-manifest"].lower()
+
+
+async def test_trust_manifest_hash_is_stable_across_compiles(client, monkeypatch):
+    # AC2: two compiles of the same book.json yield the same integrity hash.
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile({}))
+    a = _decode_manifest(await client.post("/api/v1/export", content=json.dumps(_BOOK)))
+    b = _decode_manifest(await client.post("/api/v1/export", content=json.dumps(_BOOK)))
+    assert a["integrity"]["content_hash"] == b["integrity"]["content_hash"]
+
+
+async def test_cover_export_has_no_trust_manifest(client, monkeypatch):
+    # The cover thumbnail is not a content artifact — no manifest is attached.
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile({}))
+    resp = await client.post("/api/v1/export?format=cover", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    assert "x-content-trust-manifest" not in resp.headers
+
+
+async def test_export_succeeds_even_if_trust_assembly_fails(client, monkeypatch):
+    # Trust assembly is best-effort: a failure inside it never blocks the export.
+    rec: dict = {}
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec))
+    monkeypatch.setattr(
+        "backend.src.export.trust.export_manifest",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    resp = await client.post("/api/v1/export", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    assert "x-content-trust-manifest" not in resp.headers
 
 
 async def test_export_rejects_unknown_format(client, monkeypatch):

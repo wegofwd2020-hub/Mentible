@@ -12,7 +12,10 @@ see docs/COMPILE_PIPELINE_PLAN.md.)
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
+from base64 import b64encode
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -20,6 +23,7 @@ from fastapi.responses import JSONResponse
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
 from backend.src.export import compiler
+from backend.src.export import trust as export_trust
 
 router = APIRouter(prefix="/api/v1", tags=["export"])
 log = get_logger("export")
@@ -79,14 +83,29 @@ async def export_book(
             content={"detail": "Could not compile the book."},
         )
 
-    return Response(
-        content=result.data,
-        media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{_filename(result.title, ext)}"',
-            # Gate 3: count of non-fatal format-drift warnings over the book's
-            # content (0 when clean). A review / prompt-drift signal the client
-            # can surface without parsing the artifact. Details are logged.
-            "X-Content-Warnings": str(len(result.warnings)),
-        },
-    )
+    headers = {
+        "Content-Disposition": f'attachment; filename="{_filename(result.title, ext)}"',
+        # Gate 3: count of non-fatal format-drift warnings over the book's
+        # content (0 when clean). A review / prompt-drift signal the client
+        # can surface without parsing the artifact. Details are logged.
+        "X-Content-Warnings": str(len(result.warnings)),
+    }
+
+    # Attach the book-level Content Trust Manifest (ADR-015 / SBQ-TRUST-002):
+    # compliance (mentible-professional@1.0) + integrity (content_hash) over the
+    # compiled artifact. Only for content artifacts (not the cover thumbnail). The
+    # manifest is non-secret (to_public_dict), so a base64 header is safe. Best
+    # effort — never block a successful export over trust assembly.
+    if fmt in ("epub", "pdf"):
+        try:
+            book = json.loads(raw)
+            manifest = await asyncio.to_thread(export_trust.export_manifest, book, result.data)
+            headers["X-Content-Trust-Manifest"] = b64encode(
+                json.dumps(manifest.to_public_dict()).encode()
+            ).decode()
+        except Exception:
+            # raw parsed inside compile_book already, so this is unexpected; log
+            # and ship the artifact without the manifest header.
+            log.warning("trust_manifest_failed", fmt=fmt)
+
+    return Response(content=result.data, media_type=media_type, headers=headers)

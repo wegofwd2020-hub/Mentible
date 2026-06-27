@@ -82,6 +82,13 @@ style, C4 typographic taste.
 > Ship A1/A2/A3/B2/B5 + content-drift = a **6-check** `mentible-professional@1.0`
 > v1. The badge then truthfully reads e.g. "Passed 6/6 format checks" — and grows
 > to the full 13 as SBQ-TRUST-003 lands the judged params.
+>
+> **Shipped (2026-06-27):** A1, A2, A3, B5, content-drift = **5 active checks**.
+> **B2 (per-chapter 3–5 pp) is EXCLUDED from the count** (honest counting), not
+> failed: `pdfinfo` alone yields total pages + page size but no chapter→page map,
+> and the compiler emits none yet. `compute_compliance` activates B2 the moment
+> `pdf_meta.per_chapter_pages` is present (→ 6 checks), so a clean PDF reads "5/5"
+> today and "6/6" once a chapter map exists. Emitting that map is the B2 follow-up.
 
 ---
 
@@ -281,9 +288,9 @@ AC7  No secret material in the header or manifest (to_public_dict guarantee).
 
 ## Rollout
 
-1. `backend/src/export/trust.py` + `pdf_meta.py` (pdfinfo wrapper) + `poppler-utils` in image.
-2. Wire the export router header; wire `exportBook` to read it.
-3. Render on the reader / export-success screen.
+1. `backend/src/export/trust.py` + `pdf_meta.py` (pdfinfo wrapper) + `poppler-utils` in image. ✅ *(2026-06-27)*
+2. Wire the export router header; wire `exportBook` to read it. ✅
+3. Render on the reader / export-success screen. ✅ *(book-level `<TrustBadge>` in the CheckoutButton success state — no reader screen exists yet)*
 4. **SBQ-TRUST-003** (follow-up): the judged subjective params (B1/B3/B4/C1–C4) →
    grows `mentible-professional` from 6 to 13 checks; consider an LLM-judge via
    the seam, or a stored manual verdict carried on `book.json`.

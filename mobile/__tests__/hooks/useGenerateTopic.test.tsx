@@ -83,12 +83,15 @@ describe("useGenerateTopic", () => {
     });
 
     const { result } = renderHook(() => useGenerateTopic({ getApiKey, intervalMs: 1 }));
-    let out: { provenance?: unknown } | null = null;
+    let out: unknown;
     await act(async () => {
       out = await result.current.run({ title: "Kinematics", subtopics: [], params: PARAMS });
     });
 
-    expect(out?.provenance).toEqual({ ...prov, generated_at: "2026-06-26T00:00:00Z" });
+    expect((out as { provenance?: unknown }).provenance).toEqual({
+      ...prov,
+      generated_at: "2026-06-26T00:00:00Z",
+    });
   });
 
   it("passes enhancement instructions through to the request", async () => {
