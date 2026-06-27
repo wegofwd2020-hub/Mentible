@@ -1,6 +1,8 @@
 # SBQ-UI-003 — Contextual help hints (tappable `?` one-liners)
 
-**Status:** Proposed
+**Status:** In progress — `HelpHint` component built + wired to the Account
+destructive buttons (reference implementation). Remaining: roll out to other
+screens (Settings, generation params, BYOK entry, trust badge, Library).
 **Type:** UX / reusable component (app-wide rollout)
 
 ## Problem

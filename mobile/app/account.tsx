@@ -5,6 +5,7 @@ import { Redirect, Stack, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
+import { HelpHint } from "@/components/HelpHint";
 import { PROVIDERS } from "@/constants/providers";
 import { deleteApiKey } from "@/secure/keyStore";
 import { clearDeviceData } from "@/device/clearDeviceData";
@@ -174,17 +175,43 @@ export default function AccountScreen() {
           <Text style={styles.secondaryText}>Sign out</Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={onClearLocalKeys}>
-          <Text style={styles.secondaryText}>Remove saved API keys</Text>
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable style={[styles.secondaryButton, styles.actionBtn]} onPress={onClearLocalKeys}>
+            <Text style={styles.secondaryText}>Remove saved API keys</Text>
+          </Pressable>
+          <HelpHint
+            label="Remove saved API keys"
+            text="Removes your saved provider API keys (BYOK) from this device. Your library, books, and sign-in are untouched."
+          />
+        </View>
 
-        <Pressable style={styles.secondaryButton} disabled={busy} onPress={onClearDevice}>
-          <Text style={styles.secondaryText}>Sign out & clear this device</Text>
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.secondaryButton, styles.actionBtn]}
+            disabled={busy}
+            onPress={onClearDevice}
+          >
+            <Text style={styles.secondaryText}>Sign out & clear this device</Text>
+          </Pressable>
+          <HelpHint
+            label="Sign out & clear this device"
+            text="Wipes everything on this device — API keys, local library, books, onboarding — and signs you out. Your account isn't deleted."
+          />
+        </View>
 
-        <Pressable style={styles.deleteButton} disabled={busy} onPress={onDelete}>
-          <Text style={styles.deleteText}>Delete account</Text>
-        </Pressable>
+        <View style={[styles.actionRow, { marginTop: spacing.xl }]}>
+          <Pressable
+            style={[styles.deleteButton, styles.actionBtn]}
+            disabled={busy}
+            onPress={onDelete}
+          >
+            <Text style={styles.deleteText}>Delete account</Text>
+          </Pressable>
+          <HelpHint
+            label="Delete account"
+            text="Permanently deletes your account and signs you out. This can't be undone."
+          />
+        </View>
       </ScrollView>
     </PageContainer>
   );
@@ -192,6 +219,10 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   headerBack: { paddingHorizontal: spacing.sm },
+  // A destructive action + its HelpHint on one row (the button's own marginTop
+  // moves to the row via actionBtn).
+  actionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.lg },
+  actionBtn: { flex: 1, marginTop: 0 },
   label: { color: colors.textMuted, fontSize: typography.sizeXs, textTransform: "uppercase" },
   email: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700", marginBottom: spacing.md },
   linkRow: { paddingVertical: spacing.sm },
