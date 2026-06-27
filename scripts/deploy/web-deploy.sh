@@ -52,7 +52,12 @@ trap cleanup EXIT
 # protect data). Read from mobile/.env.local so we don't hardcode a project here.
 SB_URL="$(grep -E '^EXPO_PUBLIC_SUPABASE_URL=' "$SELF/mobile/.env.local" | head -1 | cut -d= -f2-)"
 SB_KEY="$(grep -E '^EXPO_PUBLIC_SUPABASE_ANON_KEY=' "$SELF/mobile/.env.local" | head -1 | cut -d= -f2-)"
-[ -n "$SB_URL" ] && [ -n "$SB_KEY" ] || { echo "✗ missing EXPO_PUBLIC_SUPABASE_* in mobile/.env.local"; exit 1; }
+# Supabase is only baked into the full app. The demo is a read-only, no-account
+# preview (no sign-up), so it ships WITHOUT Supabase — otherwise an auth/sign-in
+# path appears in the demo (and a half-configured OAuth redirect leads astray).
+if [ "$TARGET" = app ]; then
+  [ -n "$SB_URL" ] && [ -n "$SB_KEY" ] || { echo "✗ missing EXPO_PUBLIC_SUPABASE_* in mobile/.env.local"; exit 1; }
+fi
 
 echo "▶ build '$TARGET' from origin/main  (baseUrl=/$SUBPATH, demo=${DEMO_FLAG:-off}, api=$API_BASE_URL)"
 git -C "$SELF" fetch origin --quiet
@@ -66,10 +71,14 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mo
 (
   cd "$WT/mobile"
   export EXPO_PUBLIC_API_BASE_URL="$API_BASE_URL"
-  export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
-  export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
-  # Demo build gates generate/author/sign-in; the full app leaves the flag unset.
-  [ -n "$DEMO_FLAG" ] && export EXPO_PUBLIC_DEMO_MODE=1
+  if [ -n "$DEMO_FLAG" ]; then
+    # Read-only demo: demo flag on, Supabase OFF (auth unavailable → no sign-in).
+    export EXPO_PUBLIC_DEMO_MODE=1
+  else
+    # Full app: Supabase on (accounts), demo flag off.
+    export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
+    export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
+  fi
   # --clear is REQUIRED: without it, an export reuses a stale metro asset cache
   # from a prior build with different env (e.g. an app build before a demo build)
   # and silently drops assets — the demo once shipped with 0 of its 55 fonts.
