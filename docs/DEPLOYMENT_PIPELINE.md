@@ -85,7 +85,7 @@ scp -i ~/.ssh/mambakkam_deploy /tmp/mentible-main.tgz deploy@178.105.160.62:/tmp
 
 ---
 
-## The two traps the script prevents (don't bypass them)
+## The three traps the script prevents (don't bypass them)
 
 1. **Build from `origin/main`, not your working tree.** `web-deploy.sh` does this
    in a disposable worktree. A stale checkout once shipped a build missing a merged
@@ -93,6 +93,10 @@ scp -i ~/.ssh/mambakkam_deploy /tmp/mentible-main.tgz deploy@178.105.160.62:/tmp
 2. **Force-add the export.** `.gitignore`'s `node_modules/` rule silently drops the
    ~70 fonts under `public/<path>/assets/node_modules/...`. The script `git add -f`s
    and asserts ~87 files staged. Missing fonts → 404s + blank/broken text live.
+3. **Export with `--clear`.** Without it, an export reuses a stale metro asset cache
+   from a prior build with different env (e.g. an app build right before a demo
+   build) and silently drops assets — the demo once shipped 21 files with **0 of its
+   55 fonts**. The script always passes `--clear`.
 
 Other notes:
 - **Same-origin backend** (`mambakkam.net` → `/mentible-api`) — no CORS.

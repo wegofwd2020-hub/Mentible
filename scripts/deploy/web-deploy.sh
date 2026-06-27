@@ -70,7 +70,10 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mo
   export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
   # Demo build gates generate/author/sign-in; the full app leaves the flag unset.
   [ -n "$DEMO_FLAG" ] && export EXPO_PUBLIC_DEMO_MODE=1
-  npx expo export --platform web >/dev/null
+  # --clear is REQUIRED: without it, an export reuses a stale metro asset cache
+  # from a prior build with different env (e.g. an app build before a demo build)
+  # and silently drops assets — the demo once shipped with 0 of its 55 fonts.
+  npx expo export --platform web --clear >/dev/null
 )
 
 grep -q "/$SUBPATH/_expo/" "$WT/mobile/dist/index.html" \
