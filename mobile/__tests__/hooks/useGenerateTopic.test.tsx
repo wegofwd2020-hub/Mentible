@@ -88,7 +88,7 @@ describe("useGenerateTopic", () => {
       out = await result.current.run({ title: "Kinematics", subtopics: [], params: PARAMS });
     });
 
-    expect(out?.provenance).toEqual({ ...prov, generated_at: "2026-06-26T00:00:00Z" });
+    expect((out as { provenance?: unknown } | null)?.provenance).toEqual({ ...prov, generated_at: "2026-06-26T00:00:00Z" });
   });
 
   it("passes enhancement instructions through to the request", async () => {
