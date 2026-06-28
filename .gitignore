@@ -81,3 +81,7 @@ TRASH-FILES.md
 .anthropic_key.local
 *.key.local
 *_key.local
+
+# firebase CLI debug log
+firebase-debug.log
+.firebase/
