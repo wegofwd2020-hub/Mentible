@@ -1,7 +1,12 @@
 # Project Status — Mentible (repo `StudyBuddy_SelfLearner`)
 
-> **Last updated:** 2026-06-27 — see **“Shipped since the last refresh”** below for the
-> accounts / go-live / trust / web-app arc. (Detail in the older sections predates it.)
+> **Release `v0.2.0` — 2026-06-28** (first tagged release; live prod web build is
+> `c2e5821`, the tag adds the 0.2.0 version bump + these notes).
+> **What's new since go-live:** account deletion now removes the Supabase identity
+> (ADR-022, opt-in/off-by-default), plus web/UX fixes — all live on prod. See
+> **"Release v0.2.0 (2026-06-28)"** just below.
+> **Last updated:** 2026-06-28 (was 2026-06-27 for the accounts / go-live / trust /
+> web-app arc — see **"Shipped since the last refresh"**).
 > **Brand:** **Mentible** (rebrand of "StudyBuddy Q" — ADR-006, Accepted; name
 > pending trademark clearance). The repo/dir name `StudyBuddy_SelfLearner` is
 > unchanged and internal.
@@ -36,6 +41,35 @@ Mentible is a **paid authoring app** (this repo) that turns a scoped query into 
 deployed and identity-enabled; the full web app, demo, and APK are shipped; Google
 sign-in and the super-admin console are **verified on production**. Focus shifted from
 "build the loop" to "operate + polish what's live."
+
+---
+
+## 🏷 Release v0.2.0 (2026-06-28)
+
+First tagged release (`v0.2.0`, `app.json` 0.2.0; live prod web build `c2e5821`). An
+operate-and-polish cycle on top of go-live — all items below **merged, verified, and
+live on demo + prod** (`mambakkam.net/app/mentible`), and the **prod backend was
+refreshed to `main` (`add2807`)**.
+
+- **Account deletion removes the Supabase identity** (ADR-022, PR #215) — in-app
+  "Delete account" + admin "Delete user" can now hard-delete the auth identity (so a
+  deleted email re-registers fresh), **opt-in via `SUPABASE_SERVICE_ROLE_KEY`, OFF in
+  all envs by default**. In-app delete also clears device state. Verified end-to-end
+  via `scripts/reset_test_user.py`.
+- **Web Alert fix** (PR #217) — `react-native-web` no-ops `Alert.alert`, so every
+  confirmation dialog (admin Delete, Delete account, Remove keys, …) silently did
+  nothing on web. Added a cross-platform shim (`src/lib/alert.ts`); swapped 17 call
+  sites. Restores destructive actions on the web app.
+- **Scroll fixes** (PRs #213/#214) — inverted `ScrollView`/`PageContainer` nesting on
+  Account/Usage/admin screens; onboarding "Add an LLM key" popup scroll + width.
+- **HelpHint rollout** (SBQ-UI-003, PR #216) — `?` hints on generation params, BYOK
+  key storage, and the Account Providers custody toggle.
+- **Ops:** prod backend refreshed to `main@add2807`; rollback dirs reclaimed;
+  `mentible.com` retired (third-party owned) + its Firebase projects deleted.
+
+Open after v0.2.0: enable ADR-022 in prod (decision); `vm.overcommit_memory=1` on the
+host; Everyone Library build trigger; backlog (managed billing, library sync, latency,
+trademark, Pramana).
 
 ---
 
