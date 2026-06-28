@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";

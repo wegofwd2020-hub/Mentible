@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert } from "@/lib/alert";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";

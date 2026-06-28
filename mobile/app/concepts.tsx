@@ -7,7 +7,6 @@
 // Safe to delete once a direction is chosen. Reachable via Settings → Prototypes.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -17,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert } from "@/lib/alert";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/constants/brand";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 

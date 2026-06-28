@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Stack, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";

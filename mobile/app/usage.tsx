@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert } from "@/lib/alert";
 import { useFocusEffect } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
 import { clearUsage, listUsage, summarizeUsage, type UsageSummary } from "@/storage/usageStore";

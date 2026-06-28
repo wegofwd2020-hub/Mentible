@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
