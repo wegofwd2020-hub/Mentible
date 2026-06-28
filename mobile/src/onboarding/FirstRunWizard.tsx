@@ -104,6 +104,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: spacing.lg,
+    // Narrower side gutters than vertical so the card is wider on a phone (where
+    // the card's maxWidth never applies) — gives the dense "Add an LLM key" step
+    // more horizontal room. Keeps a comfortable edge margin.
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
 });

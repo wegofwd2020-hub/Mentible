@@ -97,7 +97,7 @@ export function WizardScaffold({
 const styles = StyleSheet.create({
   card: {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 520,
     maxHeight: "90%",
     backgroundColor: colors.surface,
     borderColor: colors.border,
