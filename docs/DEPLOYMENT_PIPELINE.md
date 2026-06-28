@@ -113,47 +113,26 @@ Other notes:
 
 ## Domains / DNS
 
-The live product is served **entirely under `mambakkam.net`** (see the surface
-table above). There is **no production traffic on a standalone Mentible domain** —
-keep this in mind before treating `mentible.com` as canonical.
+**Decision (2026-06-28): the canonical public URL for Mentible is
+`https://mambakkam.net/mentible`.** The live product is served **entirely under
+`mambakkam.net`** (see the surface table above). There is **no standalone Mentible
+domain** under our control.
 
-- **`mentible.com`** — registered via **Loopia** (`ns1/ns2.loopia.se`), a standalone
-  brand domain set up **outside the `mambakkam.net` pipeline** and **not** part of any
-  deploy script here. The redirect config + deploy/runbook live in
-  [`infra/mentible-com-firebase/`](../infra/mentible-com-firebase/).
+- **`mentible.com` is NOT ours.** Investigation on 2026-06-28 established that neither
+  we nor any associate ever registered it — it is owned by an **unrelated third
+  party**. WHOIS: registrar **Ascio** (reseller **Loopia**, `ns1/ns2.loopia.se`),
+  created 2025-08-28, registrant privacy-redacted (country SE). We **cannot** access
+  its registrar/DNS account, so we **cannot** point it anywhere. Do not treat
+  `mentible.com` as a Mentible property; **do not link it from any surface.** (Brand
+  note: a third party holding the `.com` is relevant to the pending trademark
+  clearance — see ADR-006.)
 
-  **History:** it originally pointed at a Firebase project `mentible-app` that turned
-  out to be **inaccessible from our account** (owned elsewhere or deleted) — which is
-  why, as of 2026-06-28, the TLS cert had **expired** and `mentible-app.web.app`
-  returned **404**. Per the "start fresh" decision a new project **`mentible-web`** was
-  created under `wegofwd2020@gmail.com`.
+- **Orphaned Firebase work (to clean up).** While trying to revive the domain we
+  created a Firebase project **`mentible-web`** (under `wegofwd2020@gmail.com`) and
+  deployed a redirect to `mentible-web.web.app` → `mambakkam.net/mentible`. Since we
+  can't attach `mentible.com`, this serves no purpose. **Cleanup pending:** delete the
+  Firebase/GCP projects **`mentible-web`** and **`mentible-web-c12b0`**, and the repo
+  config under `infra/mentible-com-firebase/`. (No cost while they sit — all free-tier
+  Spark — but they're dead weight.)
 
-  **Status (2026-06-28):**
-  - ✅ Redirect **deployed + live**: `https://mentible-web.web.app` → 302 →
-    `https://mambakkam.net/mentible` (the marketing landing page).
-  - ⬜ **Custom domain `mentible.com` not yet connected** to `mentible-web` — needed
-    for the apex domain + fresh Let's Encrypt cert. In the Firebase console
-    (`mentible-web` → Hosting → Add custom domain → `mentible.com`), then match the
-    A/TXT records it shows in Loopia and repoint the `www` CNAME from the dead
-    `mentible-app.web.app` to `mentible-web.web.app`.
-  - ⬜ **Delete the duplicate project `mentible-web-c12b0`** (auto-created in the
-    console while the clean `mentible-web` ID was briefly taken).
-
-  Full step-by-step in `infra/mentible-com-firebase/README.md`. **Fixes live in
-  Firebase + Loopia, not on the Hetzner VPS.**
-
-  **Cost: the cert fix is free.** Firebase Hosting TLS certs (Let's Encrypt) and
-  custom domains are free on every tier incl. the free **Spark** plan, and a static
-  landing page stays well inside the free Hosting quota — re-verifying the domain is
-  a $0 console operation, not a paid feature. The only recurring cost here is the
-  **Loopia domain registration renewal** (annual, separate from Firebase, owed
-  regardless). Blaze (pay-as-you-go) only bills if you exceed free quotas, which a
-  landing page won't. (Confirm the project's plan/spend in Firebase console → Usage
-  and billing if in doubt.)
-- **`mentibile.com`** (note the extra "i") is a **common typo of the brand** — it has
-  **no DNS** and is not registered/controlled by us.
-
-> Decision (2026-06-28): **revive** `mentible.com` as a redirect to the landing page
-> (not a separate hosted site). Don't link it from any live surface until the custom
-> domain shows "Connected" with a valid cert — until then the apex still serves the
-> old expired-cert response.
+- **`mentibile.com`** (extra "i") is a **common typo of the brand** — no DNS, not ours.
