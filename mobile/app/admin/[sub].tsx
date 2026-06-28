@@ -116,8 +116,8 @@ export default function AdminUserScreen() {
   }
 
   return (
-    <PageContainer>
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <PageContainer>
         <Text style={styles.email}>{user.email ?? "(no email)"}</Text>
         <Text style={styles.sub}>{user.sub}</Text>
         {user.suspended ? <Text style={styles.suspendedBadge}>SUSPENDED</Text> : null}
@@ -162,12 +162,15 @@ export default function AdminUserScreen() {
         <Pressable style={styles.deleteBtn} disabled={busy} onPress={onDelete}>
           <Text style={styles.deleteText}>Delete user</Text>
         </Pressable>
-      </ScrollView>
-    </PageContainer>
+      </PageContainer>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer inside.
+  scroll: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
   email: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700" },
   sub: { color: colors.textMuted, fontSize: typography.sizeXs, fontFamily: "monospace", marginTop: 2 },
   suspendedBadge: {

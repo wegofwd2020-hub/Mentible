@@ -48,8 +48,8 @@ export default function UsageScreen() {
   const empty = !summary || summary.totalGenerations === 0;
 
   return (
-    <PageContainer>
-      <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <PageContainer>
         {/* BYOK honesty banner — observed, not billed. */}
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>
@@ -118,8 +118,8 @@ export default function UsageScreen() {
             </Pressable>
           </>
         )}
-      </ScrollView>
-    </PageContainer>
+      </PageContainer>
+    </ScrollView>
   );
 }
 
@@ -133,7 +133,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.md, gap: spacing.md },
+  // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer goes
+  // inside and supplies the padding+gap the old `content` style did.
+  scroll: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1 },
   disclaimer: {
     backgroundColor: colors.surface,
     borderLeftWidth: 3,
