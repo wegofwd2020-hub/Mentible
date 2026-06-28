@@ -61,7 +61,7 @@ export function WizardScaffold({
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
       >
         {children}
       </ScrollView>
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 460,
-    maxHeight: "86%",
+    maxHeight: "90%",
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
@@ -122,7 +122,10 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: spacing.xs,
   },
-  body: { flexGrow: 0 },
+  // flexShrink (RN defaults it to 0) lets the scroll body shrink to fit when the
+  // card hits maxHeight, so long content (e.g. the "Add an LLM key" step) scrolls
+  // *inside* the card instead of being clipped / pushing the footer off-screen.
+  body: { flexShrink: 1 },
   bodyContent: { paddingVertical: spacing.sm, gap: spacing.sm },
   primaryBtn: {
     backgroundColor: colors.primary,
