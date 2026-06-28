@@ -15,33 +15,56 @@ same place if the redirect rule is ever removed.
 ## Why this exists
 
 As of 2026-06-28 `mentible.com` was **not serving**: the Firebase TLS cert had
-expired *and* the underlying `mentible-app.web.app` site returned 404 (no content
-deployed). This config gives the site something to serve so the domain works again,
-rather than maintaining a separate landing page.
+expired *and* the underlying `mentible-app.web.app` site returned 404. The original
+`mentible-app` project turned out to be **inaccessible from our account** (owned
+elsewhere or deleted), so per the "start fresh" decision a new project
+**`mentible-web`** was created under `wegofwd2020@gmail.com` and this redirect was
+deployed to it — giving the domain something to serve rather than maintaining a
+separate landing page.
 
-## Deploy
+## Status (2026-06-28)
 
-```bash
-npm i -g firebase-tools
-firebase login                 # interactive — run via the ! prefix in this session
-firebase use mentible-app      # uses .firebaserc default
-firebase deploy --only hosting --project mentible-app
-```
+- ✅ **Redirect DEPLOYED and live** on the new project:
+  `https://mentible-web.web.app/` → 302 → `https://mambakkam.net/mentible` (verified).
+- ⬜ **`mentible.com` custom domain not yet connected** to `mentible-web` — still
+  needed for the apex domain + fresh TLS cert (see "Remaining steps").
+- ⬜ **Duplicate project `mentible-web-c12b0`** (auto-created in the console while the
+  clean `mentible-web` ID was briefly taken) should be deleted.
 
-Then confirm the default URL serves before touching the custom domain:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://mentible-app.web.app/   # expect 302
-```
-
-Custom-domain cert re-issue (Firebase console + Loopia DNS) is a **separate** step —
-see the checklist in `docs/DEPLOYMENT_PIPELINE.md`. Verify end-to-end with:
+## Deploy / re-deploy
 
 ```bash
-curl -sv -o /dev/null -m 10 https://mentible.com/ 2>&1 | grep -iE "expire|HTTP|location"
+export PATH="$HOME/.npm-global/bin:$PATH"   # firebase-tools is user-local, not in /usr
+firebase deploy --only hosting --project mentible-web   # .firebaserc default = mentible-web
 ```
 
-Success = no "certificate expired" and a `302` to `https://mambakkam.net/mentible`.
+Confirm the default URL serves:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://mentible-web.web.app/   # expect 302
+```
+
+## Remaining steps (manual — need console + DNS access)
+
+**1. Connect the `mentible.com` custom domain to `mentible-web`** (gives the fresh cert):
+- Firebase console → **`mentible-web` → Hosting → Add custom domain → `mentible.com`**.
+- Firebase shows the exact records (an **A** record — possibly two IPs — and maybe a
+  **TXT** verification). They're project-specific; the console generates them.
+- In **Loopia** DNS for `mentible.com`: set the **A** record(s) to match exactly
+  (current apex A is `199.36.158.100`; add the second if listed), add the **TXT** if
+  asked, and repoint the **`www` CNAME** from the dead `mentible-app.web.app` to
+  **`mentible-web.web.app`** (or add `www` as a second custom domain).
+- Wait until the console shows **"Connected"** — Firebase auto-issues the Let's
+  Encrypt cert (minutes to ~24h). Verify end-to-end:
+  ```bash
+  curl -sv -o /dev/null -m 10 https://mentible.com/ 2>&1 | grep -iE "expire|HTTP|location"
+  # success = no "certificate expired" + 302 → https://mambakkam.net/mentible
+  ```
+
+**2. Delete the duplicate project `mentible-web-c12b0`:**
+- Firebase console → **`mentible-web-c12b0` → ⚙ Project settings → Delete project**.
+- Harmless if left (empty, free tier), but remove it to avoid confusion over which
+  project is canonical.
 
 ## Choices you can change
 

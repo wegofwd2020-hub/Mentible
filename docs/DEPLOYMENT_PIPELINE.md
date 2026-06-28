@@ -117,20 +117,29 @@ The live product is served **entirely under `mambakkam.net`** (see the surface
 table above). There is **no production traffic on a standalone Mentible domain** —
 keep this in mind before treating `mentible.com` as canonical.
 
-- **`mentible.com`** — registered via **Loopia** (`ns1/ns2.loopia.se`) and wired to
-  a **Firebase Hosting** site:
-  - apex `mentible.com` → A `199.36.158.100` (Firebase)
-  - `www.mentible.com` → CNAME `mentible-app.web.app` (Firebase project `mentible-app`)
+- **`mentible.com`** — registered via **Loopia** (`ns1/ns2.loopia.se`), a standalone
+  brand domain set up **outside the `mambakkam.net` pipeline** and **not** part of any
+  deploy script here. The redirect config + deploy/runbook live in
+  [`infra/mentible-com-firebase/`](../infra/mentible-com-firebase/).
 
-  This was set up **outside the `mambakkam.net` pipeline** (early/standalone brand
-  domain) and is **not** part of any deploy script here. **Status as of 2026-06-28:
-  NOT serving — the Firebase TLS certificate has EXPIRED**, so HTTPS fails in all
-  browsers ("can't be reached"); port 80 just 301s to the broken HTTPS. Firebase
-  normally auto-renews; a lapse like this usually means the custom-domain connection
-  in the Firebase console dropped out of "Connected" (Loopia DNS drift or the domain
-  was removed/re-added). To revive: Firebase console → Hosting (`mentible-app`
-  project) → re-verify the `mentible.com` custom domain so Let's Encrypt re-issues,
-  confirming Loopia's A + TXT records match what Firebase expects. **Fix lives in
+  **History:** it originally pointed at a Firebase project `mentible-app` that turned
+  out to be **inaccessible from our account** (owned elsewhere or deleted) — which is
+  why, as of 2026-06-28, the TLS cert had **expired** and `mentible-app.web.app`
+  returned **404**. Per the "start fresh" decision a new project **`mentible-web`** was
+  created under `wegofwd2020@gmail.com`.
+
+  **Status (2026-06-28):**
+  - ✅ Redirect **deployed + live**: `https://mentible-web.web.app` → 302 →
+    `https://mambakkam.net/mentible` (the marketing landing page).
+  - ⬜ **Custom domain `mentible.com` not yet connected** to `mentible-web` — needed
+    for the apex domain + fresh Let's Encrypt cert. In the Firebase console
+    (`mentible-web` → Hosting → Add custom domain → `mentible.com`), then match the
+    A/TXT records it shows in Loopia and repoint the `www` CNAME from the dead
+    `mentible-app.web.app` to `mentible-web.web.app`.
+  - ⬜ **Delete the duplicate project `mentible-web-c12b0`** (auto-created in the
+    console while the clean `mentible-web` ID was briefly taken).
+
+  Full step-by-step in `infra/mentible-com-firebase/README.md`. **Fixes live in
   Firebase + Loopia, not on the Hetzner VPS.**
 
   **Cost: the cert fix is free.** Firebase Hosting TLS certs (Let's Encrypt) and
@@ -144,6 +153,7 @@ keep this in mind before treating `mentible.com` as canonical.
 - **`mentibile.com`** (note the extra "i") is a **common typo of the brand** — it has
   **no DNS** and is not registered/controlled by us.
 
-> Decision still open: whether to revive `mentible.com` as the public front door or
-> keep everything on `mambakkam.net`. Until decided, the expired-cert domain is a
-> dead end and should not be linked from any surface.
+> Decision (2026-06-28): **revive** `mentible.com` as a redirect to the landing page
+> (not a separate hosted site). Don't link it from any live surface until the custom
+> domain shows "Connected" with a valid cert — until then the apex still serves the
+> old expired-cert response.
