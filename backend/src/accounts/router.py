@@ -20,6 +20,7 @@ from backend.src.accounts.schemas import (
     CredentialView,
     DeviceRegister,
 )
+from backend.src.auth import identity_admin
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
 
@@ -111,6 +112,12 @@ async def delete_my_account(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> Response:
     """Full account purge (ADR-014 D8). provider_credential rows cascade. Device-local
-    keys are NOT here (we never held them) — the client clears those separately."""
+    keys are NOT here (we never held them) — the client clears those separately.
+
+    Also hard-deletes the Supabase auth identity when identity deletion is enabled
+    (ADR-022), so the same email can re-register as a new user. Identity-first keeps
+    state consistent: if the external delete fails, it raises before we drop the DB
+    row (nothing is left half-deleted). When disabled it's a no-op (app-row-only)."""
+    await identity_admin.delete_identity(principal.sub)
     await repo.delete_account(conn, idp_sub=principal.sub)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

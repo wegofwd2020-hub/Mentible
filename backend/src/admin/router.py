@@ -26,6 +26,7 @@ from backend.src.accounts.schemas import (
     CredentialView,
 )
 from backend.src.admin import audit
+from backend.src.auth import identity_admin
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
@@ -161,11 +162,16 @@ async def delete_user(
 ) -> Response:
     """Full account purge (credentials cascade). 404 if unknown. Audited.
 
-    The audit row outlives the account (no FK), so the delete stays attributable."""
+    The audit row outlives the account (no FK), so the delete stays attributable.
+    Also hard-deletes the Supabase auth identity when enabled (ADR-022), so the
+    user can re-register fresh; a no-op when disabled (app-row-only purge). We
+    confirm the user exists, then delete the identity before the DB row so a failed
+    external delete (raised) leaves nothing half-deleted."""
+    if await repo.get_account(conn, idp_sub=sub) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
+    await identity_admin.delete_identity(sub)
     async with conn.transaction():
-        deleted = await repo.delete_account(conn, idp_sub=sub)
-        if not deleted:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
+        await repo.delete_account(conn, idp_sub=sub)
         await _audit(conn, admin, "user.delete", sub)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

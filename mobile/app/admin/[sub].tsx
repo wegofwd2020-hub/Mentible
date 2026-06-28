@@ -75,7 +75,7 @@ export default function AdminUserScreen() {
     if (!accessToken || !user) return;
     Alert.alert(
       "Delete user?",
-      "Permanently deletes this account and its provider + device records. The audit trail is kept. This does NOT remove the user's Supabase identity.",
+      "Permanently deletes this account and its provider + device records. The audit trail is kept. When server-side identity deletion is enabled, the user's Supabase sign-in identity is removed too, so they can re-register fresh.",
       [
         { text: "Cancel", style: "cancel" },
         {
