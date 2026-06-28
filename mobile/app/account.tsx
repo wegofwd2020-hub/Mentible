@@ -34,7 +34,7 @@ export default function AccountScreen() {
   const onDelete = () => {
     Alert.alert(
       "Delete account?",
-      "This permanently deletes your synced account and provider settings. Your device-local API keys stay on this device — clear them separately if you want.",
+      "This permanently deletes your account and signs you out, then wipes this device — API keys, local library and books, and onboarding — so it starts fresh. This can't be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -43,7 +43,11 @@ export default function AccountScreen() {
           onPress: async () => {
             setBusy(true);
             try {
+              // Purge the synced account (and, when the server has identity
+              // deletion enabled, the Supabase sign-in identity too — ADR-022),
+              // then wipe local state so the next sign-in is a clean first run.
               await purge();
+              await clearDeviceData();
               await signOut();
               router.replace("/settings");
             } catch (e) {

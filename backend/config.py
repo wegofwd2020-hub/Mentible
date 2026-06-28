@@ -99,6 +99,22 @@ class Settings(BaseSettings):
     # is the single data path and already verifies the JWT (CLAUDE.md rule 4).
     database_url: str = Field(default="", description="asyncpg DSN; empty = DB disabled")
 
+    # ── Supabase Auth admin — account-deletion removes the identity (amends ADR-014) ──
+    # By default the account/admin delete endpoints purge only the app DB row and
+    # leave the Supabase auth user intact, so the same email signs back in as a
+    # *returning* identity (ADR-014's "no auth machinery / no service-role secret
+    # in the app"). Setting this high-privilege service-role key turns on a hard
+    # delete of the Supabase auth user too, so a deleted email can re-register as a
+    # brand-new user — see ADR-022. OPTIONAL: empty ⇒ identity deletion disabled
+    # (pre-existing app-row-only behavior), never a startup failure. HIGH-PRIVILEGE
+    # SECRET: never logged (ADR-001 discipline), never persisted.
+    supabase_service_role_key: str = Field(
+        default="", description="empty = identity deletion disabled"
+    )
+    # Supabase project base URL (https://<ref>.supabase.co). Empty ⇒ derive from
+    # oidc_issuer (strip a trailing /auth/v1), matching scripts/reset_test_user.py.
+    supabase_url: str = Field(default="", description="empty = derive from oidc_issuer")
+
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
 
@@ -127,6 +143,17 @@ class Settings(BaseSettings):
     # Daily cap (cost-control). ~16 full 30-topic books/day; well within the D18
     # ~100-unit fair-use posture while allowing regeneration/iteration.
     rate_limit_per_day: int = Field(default=500, ge=0)
+
+    @property
+    def resolved_supabase_url(self) -> str:
+        """Supabase project base URL for the Auth Admin API. Prefers the explicit
+        `supabase_url`; otherwise derives it from `oidc_issuer` by stripping a
+        trailing `/auth/v1`. Empty string if neither is configured."""
+        if self.supabase_url:
+            return self.supabase_url.rstrip("/")
+        issuer = self.oidc_issuer.rstrip("/")
+        suffix = "/auth/v1"
+        return issuer[: -len(suffix)] if issuer.endswith(suffix) else issuer
 
 
 settings = Settings()  # type: ignore[call-arg]
