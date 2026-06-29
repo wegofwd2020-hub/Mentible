@@ -242,17 +242,20 @@ signing secret** — leaving the items in Open Decisions to the decision-maker.
 
 ## Follow-up tickets
 
-1. Config allowlist (`SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_SUBS`) + derived
+1. **✅ DONE.** Config allowlist (`SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_SUBS`) + derived
    `Principal.is_super_admin` + `require_super_admin` dependency (D1, D2). Shape the
    verifier to return a `VerifiedToken{sub,email,issuer,raw_claims}` and map it to
    `Principal` in app code, so the future `wegofwd-identity` seam is import-aligned (D8).
-2. `/api/v1/admin/*` user-management endpoints — list/get/suspend/delete, **metadata
-   only** (D3.1).
-3. Server-mediated default-library `publish`/`unpublish` endpoint reusing the ADR-018
-   signing (D3.3, D4).
-4. Metrics/support endpoints — usage, job inspect, job clear/retry (D3.4).
-5. Audit logging + optional `admin_audit` table (D5, O2).
-6. Plans / managed-key admin operations, gated on the ADR-005 vault (D3.2, O5).
-7. Admin UI per O4.
-8. Reconcile `CLAUDE.md` (the "single-tenant, no RLS" non-negotiable + the locked-
-   decisions / document-map tables) once implementation lands.
+2. **✅ DONE.** `/api/v1/admin/*` user-management endpoints — list/get/suspend/delete, **metadata
+   only** (D3.1). Verified live on prod 2026-06-27.
+3. **⏳ Not built.** Server-mediated default-library `publish`/`unpublish` endpoint reusing the ADR-018
+   signing (D3.3, D4). (`owner_cli` exists but is CLI-only.)
+4. **⏳ Not built.** Metrics/support endpoints — usage, job inspect, job clear/retry (D3.4).
+   Deferred with managed billing.
+5. **✅ DONE.** Audit logging + optional `admin_audit` table (D5, O2 → resolved to a durable table).
+6. **⏳ Blocked.** Plans / managed-key admin operations, gated on the ADR-005 vault (D3.2, O5).
+   The managed vault isn't built yet; only the BYOK path is live.
+7. **◑ Partial.** Admin UI per O4. In-app/web admin console (`mobile/app/admin.tsx`) is built;
+   the separate-web-admin form-factor question (O4) is still open.
+8. **✅ DONE (PR #219).** Reconcile `CLAUDE.md` (the "single-tenant, no RLS" non-negotiable + the locked-
+   decisions / document-map tables) now that implementation has landed.
