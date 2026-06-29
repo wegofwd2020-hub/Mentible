@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { signInWithGoogle as signInWithGoogleFlow } from "@/auth/googleSignIn";
+import { authRedirectUrl } from "@/auth/authRedirect";
 
 // Auth surface for the app (ADR-014 D1). Wraps Supabase auth; the rest of the app
 // depends only on this contract (session + sign in/up/out), never on Supabase
@@ -60,7 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       signUp: async (email, password) => {
         if (!supabase) return { error: "Sign-up is not available." };
-        const { error } = await supabase.auth.signUp({ email, password });
+        // emailRedirectTo routes the confirmation link back to the app (not the
+        // dashboard Site URL — the bare homepage), so detectSessionInUrl can
+        // exchange the ?code on return.
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: authRedirectUrl() },
+        });
         return { error: error?.message ?? null };
       },
       signInWithGoogle: async () => {
@@ -69,7 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       resetPassword: async (email) => {
         if (!supabase) return { error: "Password reset is not available." };
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: authRedirectUrl(),
+        });
         return { error: error?.message ?? null };
       },
       signOut: async () => {

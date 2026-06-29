@@ -14,6 +14,7 @@ jest.mock("@/lib/supabase", () => ({
         .mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
       signInWithPassword: jest.fn().mockResolvedValue({ error: null }),
       signUp: jest.fn().mockResolvedValue({ error: null }),
+      resetPasswordForEmail: jest.fn().mockResolvedValue({ error: null }),
       signOut: jest.fn().mockResolvedValue({ error: null }),
     },
   },
@@ -23,6 +24,12 @@ jest.mock("@/lib/supabase", () => ({
 // separately. Here we only assert the provider delegates to it.
 jest.mock("@/auth/googleSignIn", () => ({
   signInWithGoogle: jest.fn().mockResolvedValue({ error: null }),
+}));
+
+// Avoid pulling expo-auth-session / window into the unit test; the redirect URL
+// derivation is incidental here — we only assert it is threaded through.
+jest.mock("@/auth/authRedirect", () => ({
+  authRedirectUrl: () => "https://app.example/app/mentible",
 }));
 
 import { supabase } from "@/lib/supabase";
@@ -49,6 +56,28 @@ describe("useAuth", () => {
       await result.current.signIn("a@x.com", "pw");
     });
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: "a@x.com", password: "pw" });
+  });
+
+  it("signUp passes emailRedirectTo so the confirmation link returns to the app", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await result.current.signUp("a@x.com", "pw");
+    });
+    expect(auth.signUp).toHaveBeenCalledWith({
+      email: "a@x.com",
+      password: "pw",
+      options: { emailRedirectTo: "https://app.example/app/mentible" },
+    });
+  });
+
+  it("resetPassword passes redirectTo so the reset link returns to the app", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await result.current.resetPassword("a@x.com");
+    });
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("a@x.com", {
+      redirectTo: "https://app.example/app/mentible",
+    });
   });
 
   it("signInWithGoogle delegates to the Google OAuth flow with the client", async () => {
