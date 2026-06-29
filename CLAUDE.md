@@ -103,6 +103,8 @@ Read these in order:
 | `docs/adr/ADR-005-multi-provider-llm-support.md` | Before touching key handling, the provider seam, or the money model — BYOK is now one of two paths (managed-key vault is the default); accounts/auth + metering moved to MVP (amends D1/D9, ADR-001, ADR-004 D6) |
 | `docs/adr/ADR-009-books-only-remove-query.md` | Before adding any generation surface — the app is Books-only; the Query single-lesson screen was removed (amends D13/D16) |
 | `docs/adr/ADR-014-user-accounts-and-provider-credential-set.md` | Before touching accounts/auth or the Settings key UI — identity is an external IdP verified by JWKS (no password machinery); the account owns a per-provider credential set, keys device-local by default (proposed; amends D10 and the Authentication rules) |
+| `docs/adr/ADR-018-system-owner-principal.md` | Before touching default-library publishing or the owner signing secret — the system owner is a signing *capability* (`SYSTEM_OWNER_SECRET`), distinct from the super-admin *role*; see also pitfall #7 |
+| `docs/adr/ADR-020-super-admin-operator-role.md` | Before touching the admin API, the `SUPER_ADMIN_EMAILS`/`SUPER_ADMIN_SUBS` allowlist, the admin console, or the `admin_audit` trail — a single privileged operator tier, derived from config (never a token claim), nuances "single-tenant / no RLS" (built & live; amends backend rule #4) |
 
 The parent product's docs (`StudyBuddy_OnDemand/CLAUDE.md` and the
 `studybuddy-docs` repo) are useful background but **do not apply** to this repo.
@@ -134,6 +136,14 @@ This is a separate product with separate compliance, infra, and audience.
 | D18 | *(reinterpreted — ADR-005)* ~100-unit fair-use cap — now also a **cost-control lever** for managed token spend, not just a storage limit |
 | D19 | Brand "StudyBuddy Q" |
 
+> **Privileged roles (post-MVP additions, not captured as D-decisions).** Two
+> operator concepts post-date D1–D19 and are governed by their ADRs, not this
+> table: the **system-owner signing capability** (`SYSTEM_OWNER_SECRET`, ADR-018)
+> and the **super-admin operator role** (`SUPER_ADMIN_EMAILS`, ADR-020 — built &
+> live). They are deliberately *separate*: the owner secret is a crypto capability
+> (signs default-library manifests), the super-admin is a human authz role (who may
+> *ask*), and a super-admin never holds the owner secret (ADR-020 D4).
+
 ---
 
 ## Repository layout
@@ -146,19 +156,22 @@ StudyBuddy_SelfLearner/
   mobile/              ← React Native + Expo (Android-first)
     app/
       screens/         ← Library · Books · Settings (Query/Lesson removed — ADR-009)
+      admin.tsx · admin/[sub].tsx  ← super-admin console, gated on is_super_admin (ADR-020; BUILT)
       components/      ← Markdown renderer (KaTeX + Mermaid + tables)
       hooks/           ← useGenerateJob · useLibrary · useAuth
-      api/             ← Backend HTTP client · FCM handler
+      api/             ← Backend HTTP client · FCM handler · adminClient (ADR-020)
       secure/          ← expo-secure-store wrapper for the BYOK API key
 
   backend/             ← FastAPI
     main.py
     src/
-      auth/            ← IdP JWT verify via JWKS (MVP — ADR-005/014; not yet built)
+      auth/            ← IdP JWT verify via JWKS (MVP — ADR-005/014; BUILT) ·
+                          admin.py = SUPER_ADMIN allowlist · deps.require_super_admin (ADR-020)
+      admin/           ← /api/v1/admin/* user-management API + admin_audit trail (ADR-020; BUILT)
       generate/        ← POST /generate · GET /jobs/{id} · push
       library/         ← v1.1+ — saved lessons
       sync/            ← v1.1+ — cloud sync
-      core/            ← Job queue · FCM client · Anthropic call
+      core/            ← Job queue · FCM client · Anthropic call · system_owner.py (ADR-018 signing)
 
   pipeline/            ← Vendored from StudyBuddy_OnDemand
     prompts.py
@@ -189,9 +202,12 @@ StudyBuddy_SelfLearner/
    - Renders Markdown + KaTeX + Mermaid
 
 2. Backend API (FastAPI)
-   - Stateless except for: user accounts (MVP — ADR-005) and library (v1.1+).
-     Accounts verify an external-IdP JWT via JWKS; no auth DB for credentials
-     themselves (ADR-014, proposed)
+   - Stateless except for: user accounts (MVP — ADR-005), the durable
+     `admin_audit` trail (ADR-020), and library (v1.1+). Accounts verify an
+     external-IdP JWT via JWKS; no auth DB for credentials themselves (ADR-014)
+   - A config allowlist (`SUPER_ADMIN_EMAILS`) derives a super-admin operator
+     tier that may read/act on account *metadata* across users via the explicit,
+     audited `/api/v1/admin/*` API — never via RLS or per-tenant isolation (ADR-020)
    - Async job queue (Celery + Redis)
    - Calls the LLM on the user's behalf: BYOK passthrough key, OR our managed
      vault key for managed plans (ADR-005)
@@ -218,7 +234,8 @@ mobile/app/secure/     → expo-secure-store
 backend/src/generate/  → backend/src/core/ + pipeline/
 backend/src/library/   → backend/src/core/  (v1.1+)
 backend/src/sync/      → backend/src/library/  (v1.1+)
-backend/src/auth/      → backend/src/core/  (MVP — ADR-005/014; not yet built)
+backend/src/auth/      → backend/src/core/  (MVP — ADR-005/014; BUILT)
+backend/src/admin/     → backend/src/auth/ + backend/src/accounts/  (ADR-020; BUILT)
 
 pipeline/              → Anthropic SDK (no backend imports — keep portable)
 ```
@@ -230,7 +247,7 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 1. **The API key never touches a log line, a database row, or an exception traceback.** See ADR-001 for the full discipline. `structlog` filter, exception-scrubber middleware, and a `key_redacted_logger` wrapper are mandatory.
 2. **The key lives in Redis only** between request submission and worker pickup, encrypted with a per-job ephemeral key, TTL = job timeout (default 120 s). Worker reads, uses, deletes. No persistence to disk.
 3. **No proxy layer for Anthropic responses.** The backend returns the lesson JSON directly to the client; no caching, no CDN, no shared content store at MVP.
-4. **Single-tenant by user, no RLS.** This product has no multi-tenancy. One user account = one isolated library. Avoid the OnDemand `app.current_school_id` dance entirely.
+4. **Single-tenant by user, no RLS.** This product has no multi-tenancy. One user account = one isolated library. Avoid the OnDemand `app.current_school_id` dance entirely. **One nuance (ADR-020):** a single config-derived **super-admin operator tier** may read/act on account *metadata* across users (list/suspend/reactivate/delete) through the explicit, audited `/api/v1/admin/*` API. That is *not* multi-tenancy and *not* RLS — it is one privileged human role gated by `require_super_admin`, never per-tenant row isolation, and it never touches user *content*. Don't reintroduce RLS or a tenant column to serve it.
 5. **No Celery beat / scheduled tasks at MVP.** All work is request-driven.
 6. **`asyncpg` for Postgres, `aioredis` for Redis, `httpx.AsyncClient` for outbound HTTP.** Never block the event loop.
 7. **No cross-product imports.** Backend never imports from `StudyBuddy_OnDemand`. Code reuse is exclusively via the `pipeline/` vendored copy. See ADR-002.
@@ -242,7 +259,7 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 - **All secrets from env vars; no hardcoded defaults.** `pydantic-settings`. Fail fast at startup.
 - **TLS-only.** No plaintext HTTP for `/generate` or any endpoint that touches the key.
 - **No key in URL params, query strings, or `Authorization` headers we own.** The user's BYOK key goes in the request body of `/generate`. The `Authorization` header carries the IdP session JWT (MVP — ADR-005/014), never the BYOK key.
-- **CSP / referrer policy** on any web admin surface (none planned at MVP, but if it materialises).
+- **CSP / referrer policy** on any web admin surface. (A super-admin console now exists — ADR-020 — served as part of the web app; it gates on `is_super_admin` and calls the audited `/api/v1/admin/*` API.)
 - **Adult-only product.** No COPPA / FERPA logic. Sign-up requires self-attestation of age ≥ 18 (v1.1+).
 
 ---
@@ -262,6 +279,7 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 ### Configuration
 - `pydantic-settings`; env vars only. `config.py` is the single import point.
 - Required at startup: `REDIS_URL`, `ANTHROPIC_DEFAULT_MODEL`, `ENCRYPTION_KEY` (for per-job key encryption envelope).
+- Optional: `SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_SUBS` — the super-admin allowlist (ADR-020). Empty = **no** admins (safe default); the flag is *derived* from this config, never read from a token claim.
 
 ### Authentication (MVP — ADR-005; model per ADR-014, proposed)
 - **External IdP, verified statelessly via JWKS.** We do NOT build password
@@ -316,7 +334,7 @@ Pipeline: pytest with mocked Anthropic SDK
 2. **Storing the key in Postgres / on disk.** The key lives only in Redis with TTL, then in the worker process memory during the Anthropic call. Anywhere else is a bug.
 3. **Importing from `StudyBuddy_OnDemand`** instead of vendoring. Couples release cycles. See ADR-002.
 4. **Forgetting `expo-secure-store` is async.** Mobile UX must handle the async key-fetch on Settings load.
-5. **Treating this as "another StudyBuddy".** It isn't. No multi-tenancy. No RLS. No FERPA. No school anything. If you find yourself porting a school concept, stop.
+5. **Treating this as "another StudyBuddy".** It isn't. No multi-tenancy. No RLS. No FERPA. No school anything. If you find yourself porting a school concept, stop. (The lone privileged role is the ADR-020 super-admin operator tier — config allowlist + audited admin API, *not* RLS or per-tenant isolation; see backend rule #4.)
 6. **Skipping the trademark check.** Before alpha release, search USPTO TESS, Google Play, App Store for "StudyBuddy Q" and watch for **Amazon Q** trademark issues. Never collapse to bare "Q" in marketing.
 7. **Signing the default library with a real owner secret.** Publishing a default-library book (`owner_cli publish <id>`, ADR-018) HMAC-signs its manifest entry with `SYSTEM_OWNER_SECRET`. In the repo and CI that secret is the **dev constant `"1"×64`** — hardcoded in `.github/workflows/ci.yml` and `backend/tests/conftest.py`, and the `Backend — Tests` gate (`test_committed_default_library_manifest_is_valid`) verifies every *published* book's signature against it. So you **must** publish/re-sign with `SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64})`, **not** a real `.env` secret — signing with anything else makes the committed signatures fail verification and turns `main` red. The committed signature is therefore **tamper-evidence within the repo only** (the constant is public); real anti-forgery signing with a true out-of-band owner secret is deferred to the #112 release-build step. Also re-sign the mirrored `mobile/assets/library/manifest.json` to match.
 
