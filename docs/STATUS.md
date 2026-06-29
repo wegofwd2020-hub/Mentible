@@ -103,8 +103,9 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 
 ### Deployment — now LIVE (was "config only / unverifiable")
 - **Prod backend** live + identity-enabled at `mambakkam.net/mentible-api` (Hetzner VPS,
-  `docker-compose.demo.yml`, behind host nginx). _The running image is the 2026-06-23
-  build; refresh to current `main` is staged — `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md`._
+  `docker-compose.demo.yml`, behind host nginx). _Running `main`@`add2807` (refreshed
+  2026-06-28, incl. ADR-022); no backend delta on `main` since — later commits are
+  docs/mobile-web only. Runbook: `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md`._
 - **Full web app** at **`mambakkam.net/app/mentible`** (Expo web export — full
   generate/author/accounts) + read-only **demo** at **`/demos/mentible`** (no auth).
 - **Android APK** released (GitHub Release on the public `mambakkam-net` repo; landing
@@ -321,8 +322,10 @@ formally measured (the poll timeout was raised to 600 s for slow generations).
 
 _(Items 1–2 from the prior refresh — backend URL, APK, on-device run — are **done**.)_
 
-1. **Refresh the prod backend to current `main`** — root run-block staged on the VPS
-   (`Plans/PROD_BACKEND_REFRESH_TO_MAIN.md`); the running image is the 2026-06-23 build.
+1. **Prod backend is current** — running `main`@`add2807` (refreshed 2026-06-28); no
+   backend changes have landed on `main` since (docs/mobile-web only), so no refresh is
+   pending. Re-run the root block in `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md` only when an
+   actual backend/compiler change ships.
 2. **Managed billing (ADR-005)** — usage metering Phase 2, plan caps, and the
    **managed-key vault** (the half of ADR-005/ADR-020 #6 not yet built).
 3. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
