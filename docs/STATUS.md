@@ -5,7 +5,11 @@
 > **What's new since go-live:** account deletion now removes the Supabase identity
 > (ADR-022, opt-in/off-by-default), plus web/UX fixes — all live on prod. See
 > **"Release v0.2.0 (2026-06-28)"** just below.
-> **Last updated:** 2026-06-28 (was 2026-06-27 for the accounts / go-live / trust /
+> **Last updated:** 2026-06-29 — **docs reconciliation** (PRs #219/#220, docs-only, no
+> code/behaviour change): CLAUDE.md + the ADR-020 and ADR-014 follow-up tickets aligned
+> with shipped reality; the deferred **zero-knowledge sync build is now scoped**
+> (`docs/SYNC_BUILD_PLAN.md`); the **rate-limiting gap** (ADR-014 D9) is tracked (#221).
+> Prior: 2026-06-28 (release v0.2.0) / 2026-06-27 (accounts / go-live / trust /
 > web-app arc — see **"Shipped since the last refresh"**).
 > **Brand:** **Mentible** (rebrand of "StudyBuddy Q" — ADR-006, Accepted; name
 > pending trademark clearance). The repo/dir name `StudyBuddy_SelfLearner` is
@@ -264,6 +268,12 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
   the **managed-key vault** path (ADR-005 D6 / ADR-020 #6). The **BYOK** path is the
   one in production today.
 
+### Backend hardening
+- **Rate limiting** (ADR-014 D9) — designed (per-account, IP fallback for the anonymous
+  demo) but **not gated in code**. The backend proxies even BYOK `/generate` and runs
+  Chromium for export, so it's an abuse surface regardless of who pays for tokens.
+  Tracked: **#221**.
+
 ### Pramana B2B compliance (contract only)
 - The Consumable Package **builder, manifest, `content_hash`, signing, and push**
   into Pramana's `consumer_library` are **not built** (ADR-011 Proposed). Gate 3's
@@ -316,6 +326,8 @@ _(Items 1–2 from the prior refresh — backend URL, APK, on-device run — are
 2. **Managed billing (ADR-005)** — usage metering Phase 2, plan caps, and the
    **managed-key vault** (the half of ADR-005/ADR-020 #6 not yet built).
 3. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
+   **Now scoped:** `docs/SYNC_BUILD_PLAN.md` (D10 envelope crypto, Supabase schema/RLS,
+   `/api/v1/sync/*`, recovery, 6-phase build); build still deferred past v1.1 (O3).
 4. **Everyone Library (ADR-021)** — design-only; decide the build trigger (hosting,
    moderation, ToS/DMCA, the AI-assisted complaint workflow).
 5. **Latency** — measure generation against the < 90 s p95 target (criterion 6).
