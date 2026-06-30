@@ -361,10 +361,13 @@ prerequisite items before the big managed-billing build. Rationale in each entry
    + managed generation fork + server-side metering (P2) + plans/entitlements/caps +
    Stripe billing; 7 phases (Phase 0 = blocking decisions). _Key framing:_ the "vault" is
    small (our few company keys, not per-user) — the hard parts are **metering, plans, and
-   payments**, and **two blocking decisions** gate any build: payment platform vs Play-Store
-   policy (O1) and vendor ToS for serving tokens to third parties (O4). Per-request **rate
-   limiting already exists** (ADR-014 D9), so managed adds **per-plan caps** on top, not
-   throttling from scratch.
+   payments**. The two **blocking** decisions are now **settled (2026-06-30):** O1 →
+   **RevenueCat** (Web Billing on Stripe now; unifies future Play/App Store), O4 → **all
+   four providers cleared for managed** as a value-add app on commercial accounts (Gemini
+   paid-quota-only; managed content-privacy disclosure required). Remaining are
+   non-blocking design choices (O2 overage, O3 vault mechanism, O5 allowance basis, …).
+   Per-request **rate limiting already exists** (ADR-014 D9), so managed adds **per-plan
+   caps** on top, not throttling from scratch.
 
 > _Removed from this list 2026-06-30:_ the former Tier-2 "rate-limiting gap (#221)" was
 > a **mis-file** — the per-identity limiter shipped 2026-06-16 (`fbd5aad`); #221 was

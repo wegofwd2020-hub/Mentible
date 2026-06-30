@@ -37,6 +37,15 @@ works" (ADR-005 D2, managed is the default consumer experience).
 - **Not multi-currency / tax-engine / invoicing-suite scope** at first launch — lean on
   the payment processor's built-ins.
 
+> **Managed changes the content-privacy story (must be disclosed).** Under **BYOK** the
+> user's content is theirs end-to-end (ADR-014 zero-knowledge stance). Under **managed**,
+> generation content **transits our provider account** and the provider may retain
+> inputs/outputs **~30 days for abuse detection** (per OpenAI/Anthropic/Groq terms;
+> Gemini's *free* tier additionally trains on + human-reviews data — hence managed Gemini
+> is **paid-only**, O4). This is inherent to managed, not a defect — but it's a real
+> difference from BYOK and **managed users must be told** (managed-plan terms / privacy
+> copy). It does not change the no-key-in-logs discipline or that we never sell content.
+
 ---
 
 ## 2. Current state — what this builds on (already shipped)
@@ -161,7 +170,7 @@ per job. Phase 2 **persists** it for **managed** generations (BYOK stays client-
   managed-eligible providers, price, **behavior-at-cap** (O2).
 - **`entitlement`** per account: `plan_id, status (active|past_due|canceled), period_start,
   period_end` — the source of truth for "is this account managed-active right now".
-  Driven by billing webhooks (§8), **never** trusted from the client.
+  Driven by **RevenueCat webhooks** (§8, O1), **never** trusted from the client.
 - **Cap enforcement** sits in the eligibility check (§5), reading `usage_period` vs the
   plan allowance. **D18's ~100-unit fair-use cap is reinterpreted here as the cost-control
   lever** (ADR-005 D5), not a storage limit.
@@ -171,25 +180,26 @@ per job. Phase 2 **persists** it for **managed** generations (BYOK stays client-
 
 ---
 
-## 8. Component 5 — Billing & payments (the policy-sensitive part)
+## 8. Component 5 — Billing & payments (RevenueCat; O1 decided)
 
-**The hard external dependency, and a distribution-policy minefield.** Mentible ships as
-a **web app** (`mambakkam.net/app/mentible`) and a **sideloaded Android APK** (GitHub
-Release, *not* the Play Store today).
+**The hard external dependency.** Mentible ships as a **web app**
+(`mambakkam.net/app/mentible`) and a **sideloaded Android APK** (GitHub Release, *not* the
+Play Store today). **O1 is decided → RevenueCat** as the single billing/entitlement layer.
 
-- **If distribution stays web + sideloaded APK:** a **web subscription via Stripe** is
-  viable — the app links out to a hosted Stripe checkout; no platform IAP cut. **This is
-  the recommended launch path** precisely because we're *not* in the Play Store.
-- **If/when the app enters the Play Store:** Google Play policy generally **requires Play
-  Billing** for in-app digital goods (15–30% cut) and restricts steering users to external
-  payment. That would force Play Billing (or RevenueCat as an abstraction) for the Play
-  build. **This single fact materially changes the design** — hence it's a blocking
-  decision (O1), not an implementation detail.
-- **Integration shape (Stripe path):** Stripe Checkout/Customer Portal for subscribe /
-  manage / cancel; **webhooks → entitlement** (`checkout.session.completed`,
-  `customer.subscription.updated/deleted`, `invoice.payment_failed`) flip
-  `entitlement.status`. The backend never reads card data (PCI stays with Stripe) —
-  consistent with the "we don't handle payment credentials" posture.
+- **Why RevenueCat over Stripe-direct:** one subscriber record + one shared **entitlement**
+  across web, Play, and App Store, queryable from any platform — so listing on Play/iOS
+  later doesn't mean re-plumbing billing. RC **Web Billing uses Stripe** under the hood and
+  **never stores card data** (PCI stays with Stripe), so the launch path is effectively
+  "Stripe, wrapped" with a future-proof multi-platform layer.
+- **Integration shape:** products defined in Stripe (Web Billing) now — and in Play Console
+  / App Store Connect when those land — all wired to **one RevenueCat entitlement**. The
+  app uses RC's hosted Web Purchase Link / paywall to check out; **RevenueCat webhooks →
+  our `entitlement`** (active / past_due / canceled) drive eligibility (§5/§7). Entitlement
+  is always server-verified via RC, **never** trusted from the client.
+- **No store-billing forcing function today:** while we're web + sideloaded APK, no Play/
+  App Store billing applies at all; and post–*Epic v. Google*, even a US Play listing now
+  permits external billing (~9–20% fee). RevenueCat is chosen for the unified layer, not
+  because policy forces it.
 - **Overage (O2):** at the cap, one of — block until renewal / degrade (e.g. offer BYOK) /
   paid overage (metered top-up) / soft-cap-then-block. Pick per plan.
 
@@ -203,7 +213,7 @@ Release, *not* the Play Store today).
 
 | Phase | Deliverable | Notes |
 |---|---|---|
-| **0 — Decisions** | Payment platform (O1), allowance/overage (O2/O5), vendor ToS clearance (O4), managed-eligible providers (O8). | No build until O1/O4 are settled. |
+| **0 — Decisions** | ~~Payment platform (O1)~~ ✅ RevenueCat · ~~vendor ToS (O4)~~ ✅ all four cleared · still open: allowance/overage (O2/O5), vault mechanism (O3), spend ceiling (O7), free tier (O9). | **Blocking O1/O4 settled 2026-06-30** — the rest are non-blocking design choices that can land alongside their phase. |
 | **1 — Vault + managed fork (internal)** | Company-key storage (option A), worker key-source branch, an **internal "staff managed" plan flag** (no payments yet). | Dogfood the managed path end-to-end before any billing. Anthropic only. |
 | **2 — Usage metering P2** | `usage_event` + `usage_period`, price table, pre-flight estimate + post-hoc reconcile. | Enforce a **fixed internal cap** to prove the loop. |
 | **3 — Plans + caps** | `plan` defs + `entitlement`, eligibility check wired into `/generate`, behavior-at-cap. | Still no real payments — entitlement set by admin. |
@@ -258,14 +268,39 @@ internal plan), billing last (highest external risk). Mirrors ADR-005's own phas
 
 ## Open decisions
 
-1. **O1 — Payment platform & distribution policy.** Web-Stripe (recommended while web +
-   sideloaded APK) vs Play Billing/RevenueCat (required if the app enters the Play Store).
-   Legal/policy implications; decide before any billing build.
+1. **O1 — Payment platform & distribution policy. ✅ DECIDED 2026-06-30 → RevenueCat.**
+   Use RevenueCat as the single billing/entitlement layer: **RevenueCat Web Billing
+   (Stripe under the hood) now**, with Play / App Store products wired to the **same
+   shared entitlement** later — one subscriber record, queryable from any platform,
+   RC never stores card data. Chosen over Stripe-direct to avoid re-plumbing billing if
+   the app later lists on Play/iOS. _(Context: while we're web + sideloaded APK, no store
+   billing applies at all; and post–Epic v. Google even a US Play listing now permits
+   external billing — so this is about a unified future-proof layer, not a policy forcing
+   function.)_ See §8.
 2. **O2 — Behavior at cap.** Block / degrade / offer-BYOK / paid overage — per plan.
 3. **O3 — Vault mechanism.** Env/secret-store (A, recommended) vs KMS-envelope-in-DB (B)
    vs managed secrets manager (C).
-4. **O4 — Vendor ToS (hard gate).** Confirm each provider permits serving its tokens to
-   third parties under our account; launch only the cleared set.
+4. **O4 — Vendor ToS (hard gate). ✅ DECIDED 2026-06-30 → all four cleared for managed,
+   as a value-add app on commercial accounts.** Research (2026-06-30, non-legal — confirm
+   against the live signed terms before launch) found the same line in every provider's
+   terms: **prohibited** = reselling/transferring *raw API access or keys* (being a
+   "conduit"); **permitted** = building a value-add application that serves end users on
+   your own commercial account. Mentible managed is squarely the permitted pattern.
+   - **Anthropic** ✅ value-add product on a **commercial** API account (never a
+     Claude Pro/Max *subscription* credential; not raw pass-through). Formal partner/
+     reseller agreement only relevant at ~6-figure annual spend.
+   - **OpenAI** ✅ "make Customer Applications available to End Users" is explicit;
+     business/API inputs not trained on by default; ~30-day abuse retention.
+   - **Groq** ✅ same "integrate into customer applications / available to End Users";
+     prohibited only is reselling API access or transferring keys.
+   - **Gemini** ⚠️ **paid quota only** — the free tier **trains on + human-reviews**
+     submitted data, which breaks our content-privacy posture. Use paid, or skip Gemini
+     for managed.
+   - **Standing rules (all providers):** commercial/paid accounts only; never expose raw
+     API pass-through or transfer keys; **managed content transits our provider account
+     and may be retained ~30 days for abuse** — a real privacy difference from BYOK/
+     zero-knowledge that managed users must be told (see the new managed-privacy note in
+     §1). Re-verify before any subscription-credential or reseller pattern.
 5. **O5 — Allowance basis.** Token-based vs request/"unit"-based (D18 ~100-unit) allowance
    — units are simpler UX, tokens track cost more precisely.
 6. **O6 — Cost basis & price-table ownership.** Source/refresh of per-provider/model rates;
