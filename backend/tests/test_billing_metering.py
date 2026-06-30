@@ -6,11 +6,12 @@ worker's best-effort usage-recording helper. All offline (no DB) — the DB-back
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 
-from backend.config import settings
-from backend.src.billing import caps, pricing, usage_repo
+from backend.src.billing import access, pricing, usage_repo
+from backend.src.billing.access import ManagedAccess
 
 
 # ── Fake asyncpg pool (acquire() → async context manager → a dummy conn) ────────
@@ -50,41 +51,40 @@ def test_cost_micros_unknown_model_uses_default():
     assert pricing.cost_micros("whoever", "whatever", 1_000_000, 0) == 3_000_000
 
 
-# ── caps (per-app policy) ───────────────────────────────────────────────────────
+# ── access.over_cap (cost cap against a resolved grant) ─────────────────────────
+
+
+def _grant(allowance: int) -> ManagedAccess:
+    return ManagedAccess(allowance_micros=allowance, since=datetime.now(UTC), source="test")
 
 
 @pytest.mark.asyncio
-async def test_cap_zero_is_uncapped(monkeypatch):
-    """cap = 0 ⇒ never exceeded (managed metered but never refused) — and never reads."""
-    monkeypatch.setattr(settings, "managed_period_cost_cap_micros", 0)
+async def test_over_cap_unlimited_never_reads(monkeypatch):
+    """allowance 0 ⇒ never over cap (unlimited) — and usage is not even read."""
 
-    async def _boom(*a, **k):  # period_usage must not even be consulted
-        raise AssertionError("period_usage should not be read when uncapped")
+    async def _boom(*a, **k):
+        raise AssertionError("period_usage should not be read for an unlimited grant")
 
     monkeypatch.setattr(usage_repo, "period_usage", _boom)
-    assert await caps.cap_exceeded(None, account_id=uuid.uuid4()) is False
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(0)) is False
 
 
 @pytest.mark.asyncio
-async def test_cap_not_exceeded_below_threshold(monkeypatch):
-    monkeypatch.setattr(settings, "managed_period_cost_cap_micros", 10_000)
-
+async def test_over_cap_below_threshold(monkeypatch):
     async def _usage(*a, **k):
         return usage_repo.PeriodUsage(input_tokens=1, output_tokens=1, cost_micros=9_999, events=1)
 
     monkeypatch.setattr(usage_repo, "period_usage", _usage)
-    assert await caps.cap_exceeded(None, account_id=uuid.uuid4()) is False
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(10_000)) is False
 
 
 @pytest.mark.asyncio
-async def test_cap_exceeded_at_or_above_threshold(monkeypatch):
-    monkeypatch.setattr(settings, "managed_period_cost_cap_micros", 10_000)
-
+async def test_over_cap_at_or_above_threshold(monkeypatch):
     async def _usage(*a, **k):
         return usage_repo.PeriodUsage(input_tokens=1, output_tokens=1, cost_micros=10_000, events=5)
 
     monkeypatch.setattr(usage_repo, "period_usage", _usage)
-    assert await caps.cap_exceeded(None, account_id=uuid.uuid4()) is True
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(10_000)) is True
 
 
 # ── worker recording helper (best-effort wiring) ────────────────────────────────

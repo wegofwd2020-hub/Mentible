@@ -9,6 +9,8 @@ reference, timestamps, suspend state, and per-provider credential source/status 
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -24,11 +26,14 @@ from backend.src.accounts.schemas import (
     AdminUserRow,
     AdminUserSummary,
     CredentialView,
+    EntitlementView,
+    GrantEntitlementRequest,
 )
 from backend.src.admin import audit
 from backend.src.auth import identity_admin
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
+from backend.src.billing import entitlement_repo, plans
 from backend.src.db.deps import get_conn
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -174,6 +179,73 @@ async def delete_user(
         await repo.delete_account(conn, idp_sub=sub)
         await _audit(conn, admin, "user.delete", sub)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/users/{sub}/entitlement", response_model=EntitlementView | None)
+async def get_entitlement(
+    sub: str,
+    _admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> EntitlementView | None:
+    """The account's managed entitlement, or null if none. 404 if the user is unknown."""
+    account = await repo.get_account(conn, idp_sub=sub)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account.id)
+    if ent is None:
+        return None
+    return EntitlementView(
+        plan_id=ent.plan_id,
+        status=ent.status,
+        period_start=ent.period_start,
+        period_end=ent.period_end,
+    )
+
+
+@router.put("/users/{sub}/entitlement", response_model=EntitlementView)
+async def grant_entitlement(
+    sub: str,
+    body: GrantEntitlementRequest,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> EntitlementView:
+    """Grant/replace an account's managed plan (ADR-005 D6, Phase 3 — no payments yet).
+
+    Validates the plan id and status; the period runs from now for `period_days` (else
+    the plan's window). 404 if the user is unknown, 422 on an unknown plan/status. Audited."""
+    plan = plans.get_plan(body.plan_id)
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown plan_id; known: {sorted(plans.plan_ids())}",
+        )
+    if body.status not in entitlement_repo.ENTITLEMENT_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"status must be one of {entitlement_repo.ENTITLEMENT_STATUSES}",
+        )
+    account = await repo.get_account(conn, idp_sub=sub)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
+
+    now = datetime.now(UTC)
+    period_end = now + timedelta(days=body.period_days or plan.window_days)
+    async with conn.transaction():
+        ent = await entitlement_repo.set_entitlement(
+            conn,
+            account_id=account.id,
+            plan_id=plan.id,
+            status=body.status,
+            period_start=now,
+            period_end=period_end,
+        )
+        await _audit(conn, admin, f"entitlement.set:{plan.id}:{body.status}", sub)
+    return EntitlementView(
+        plan_id=ent.plan_id,
+        status=ent.status,
+        period_start=ent.period_start,
+        period_end=ent.period_end,
+    )
 
 
 @router.get("/audit", response_model=AdminAuditList)

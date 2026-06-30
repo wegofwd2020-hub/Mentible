@@ -26,7 +26,7 @@ from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing import caps
+from backend.src.billing import access
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.core.log_redaction import get_logger
@@ -118,26 +118,38 @@ async def submit_generate(
     account_id = None
     db_pool = getattr(request.app.state, "db", None)
     if managed:
-        if not is_managed_eligible(principal, body.provider_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="an api_key is required for this request",
-            )
-        # Meter + cap (Phase 2) when the account store is available — it is for an
-        # authed managed user. Without it (no DB / demo path) managed runs unmetered.
+        # With the account store (the authed managed case): resolve the account's managed
+        # access — a plan entitlement or the staff override (Phase 3) — and refuse BEFORE
+        # spending if ineligible (400) or over the plan's allowance (429). Without a DB
+        # (demo / no-store path) only the staff allowlist applies, unmetered.
         if db_pool is not None and principal is not None:
             async with db_pool.acquire() as conn:
                 account = await accounts_repo.get_or_create_account(
                     conn, idp_sub=principal.sub, email=principal.email
                 )
                 account_id = account.id
-                # Pre-flight: refuse BEFORE spending if the fixed cap is already met.
-                if await caps.cap_exceeded(conn, account_id=account_id):
-                    log.info("managed_cap_exceeded", job_id=None, request_id=str(body.request_id))
+                grant = await access.resolve_managed_access(
+                    conn,
+                    account_id=account_id,
+                    provider_id=body.provider_id,
+                    principal=principal,
+                )
+                if grant is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="an api_key is required for this request",
+                    )
+                if await access.over_cap(conn, account_id=account_id, access=grant):
+                    log.info("managed_cap_exceeded", request_id=str(body.request_id))
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="managed allowance exhausted; try again later or add your own key",
                     )
+        elif not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="an api_key is required for this request",
+            )
 
     # ── 3. Fresh job ─────────────────────────────────────────────────────────
     job_id = uuid.uuid4()

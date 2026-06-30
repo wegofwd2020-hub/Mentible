@@ -166,3 +166,49 @@ def test_non_admin_forbidden():
             assert c.get(f"{ADMIN}/users").status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+# ── Managed entitlement (ADR-005 D6, Phase 3) ──────────────────────────────────
+
+
+def test_entitlement_absent_then_granted(admin_client):
+    # Fresh target has no entitlement → null.
+    assert admin_client.get(f"{ADMIN}/users/{TARGET}/entitlement").json() is None
+    # Grant managed_basic.
+    r = admin_client.put(f"{ADMIN}/users/{TARGET}/entitlement", json={"plan_id": "managed_basic"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["plan_id"] == "managed_basic"
+    assert body["status"] == "active"
+    # Now readable.
+    got = admin_client.get(f"{ADMIN}/users/{TARGET}/entitlement").json()
+    assert got["plan_id"] == "managed_basic"
+    # And audited.
+    actions = [
+        (e["action"], e["target_sub"]) for e in admin_client.get(f"{ADMIN}/audit").json()["entries"]
+    ]
+    assert ("entitlement.set:managed_basic:active", TARGET) in actions
+
+
+def test_grant_replaces_existing_entitlement(admin_client):
+    admin_client.put(f"{ADMIN}/users/{TARGET}/entitlement", json={"plan_id": "managed_basic"})
+    r = admin_client.put(
+        f"{ADMIN}/users/{TARGET}/entitlement",
+        json={"plan_id": "managed_unlimited", "status": "canceled"},
+    )
+    assert r.status_code == 200
+    got = admin_client.get(f"{ADMIN}/users/{TARGET}/entitlement").json()
+    assert got["plan_id"] == "managed_unlimited"
+    assert got["status"] == "canceled"
+
+
+def test_grant_unknown_plan_422(admin_client):
+    r = admin_client.put(f"{ADMIN}/users/{TARGET}/entitlement", json={"plan_id": "no-such-plan"})
+    assert r.status_code == 422
+
+
+def test_grant_unknown_user_404(admin_client):
+    r = admin_client.put(
+        f"{ADMIN}/users/no-such-sub/entitlement", json={"plan_id": "managed_basic"}
+    )
+    assert r.status_code == 404

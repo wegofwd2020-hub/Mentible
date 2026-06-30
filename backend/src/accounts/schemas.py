@@ -101,6 +101,25 @@ class AdminAuditList(BaseModel):
     offset: int
 
 
+class GrantEntitlementRequest(BaseModel):
+    """Admin grant of a managed plan to an account (ADR-005 D6, Phase 3). The plan_id is
+    validated against the plan registry in the route; status defaults to active; the
+    period runs from now for the plan's window (or `period_days` if given)."""
+
+    plan_id: str
+    status: str = "active"
+    period_days: int | None = Field(default=None, ge=1, le=366)
+
+
+class EntitlementView(BaseModel):
+    """An account's managed entitlement (admin view). Null when none is set."""
+
+    plan_id: str
+    status: str
+    period_start: datetime
+    period_end: datetime
+
+
 class CredentialUpsert(BaseModel):
     source: str  # validated against CREDENTIAL_SOURCES in the route
     status: str = "unverified"

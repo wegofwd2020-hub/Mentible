@@ -232,11 +232,11 @@ mobile/app/api/        → (external: backend REST)
 mobile/app/secure/     → expo-secure-store
 
 backend/src/generate/  → backend/src/core/ + pipeline/ + backend/src/billing/ (managed key source)
-backend/src/billing/   → backend/src/core/ + backend/src/auth/  (ADR-005 D6 — managed vault + eligibility; Phase 1 BUILT)
+backend/src/billing/   → backend/src/core/ + backend/src/auth/  (ADR-005 D6 — managed vault · metering · plans/entitlements; Phases 1–3 BUILT)
 backend/src/library/   → backend/src/core/  (v1.1+)
 backend/src/sync/      → backend/src/library/  (v1.1+)
 backend/src/auth/      → backend/src/core/  (MVP — ADR-005/014; BUILT)
-backend/src/admin/     → backend/src/auth/ + backend/src/accounts/  (ADR-020; BUILT)
+backend/src/admin/     → backend/src/auth/ + backend/src/accounts/ + backend/src/billing/  (ADR-020 + ADR-005 D6 entitlement grant; BUILT)
 
 pipeline/              → Anthropic SDK (no backend imports — keep portable)
 ```

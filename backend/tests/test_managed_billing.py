@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -17,6 +18,7 @@ import pytest
 from backend.config import settings
 from backend.src.auth.principal import Principal
 from backend.src.billing import eligibility, vault
+from backend.src.billing.access import ManagedAccess
 from backend.tests.helpers import fake_provider
 from backend.tests.test_generate_e2e import _FAKE_LESSON_JSON, _wait_for_status
 
@@ -241,15 +243,21 @@ class _FakePool:
         return _CM()
 
 
+def _fake_grant(allowance: int = 1) -> ManagedAccess:
+    return ManagedAccess(
+        allowance_micros=allowance, since=datetime.now(UTC), source="managed_basic"
+    )
+
+
 @pytest.mark.asyncio
 async def test_managed_cap_exceeded_returns_429(
     client, fake_redis, managed_enabled, as_eligible_user, monkeypatch
 ):
-    """When the account store is present and the fixed cap is already met, an eligible
-    managed request is refused 429 BEFORE a job is created (pre-flight)."""
+    """With the account store present, an eligible managed request whose plan allowance is
+    already met is refused 429 BEFORE a job is created (pre-flight)."""
     from backend.main import app
     from backend.src.accounts import repo as accounts_repo
-    from backend.src.billing import caps as caps_mod
+    from backend.src.billing import access as access_mod
 
     class _Acct:
         id = uuid.uuid4()
@@ -257,11 +265,15 @@ async def test_managed_cap_exceeded_returns_429(
     async def _get_or_create(conn, **kw):
         return _Acct()
 
-    async def _exceeded(conn, **kw):
+    async def _resolve(conn, **kw):
+        return _fake_grant()
+
+    async def _over(conn, **kw):
         return True
 
     monkeypatch.setattr(accounts_repo, "get_or_create_account", _get_or_create)
-    monkeypatch.setattr(caps_mod, "cap_exceeded", _exceeded)
+    monkeypatch.setattr(access_mod, "resolve_managed_access", _resolve)
+    monkeypatch.setattr(access_mod, "over_cap", _over)
     app.state.db = _FakePool()
     try:
         submit = await client.post("/api/v1/generate", json=_managed_body())
@@ -272,13 +284,13 @@ async def test_managed_cap_exceeded_returns_429(
 
 
 @pytest.mark.asyncio
-async def test_managed_under_cap_proceeds(
+async def test_managed_ineligible_no_grant_returns_400(
     client, fake_redis, managed_enabled, as_eligible_user, monkeypatch
 ):
-    """With the account store present but under the cap, the managed request proceeds."""
+    """With the account store present, no resolved grant (no plan, not staff) ⇒ 400."""
     from backend.main import app
     from backend.src.accounts import repo as accounts_repo
-    from backend.src.billing import caps as caps_mod
+    from backend.src.billing import access as access_mod
 
     class _Acct:
         id = uuid.uuid4()
@@ -286,11 +298,44 @@ async def test_managed_under_cap_proceeds(
     async def _get_or_create(conn, **kw):
         return _Acct()
 
-    async def _not_exceeded(conn, **kw):
+    async def _no_grant(conn, **kw):
+        return None
+
+    monkeypatch.setattr(accounts_repo, "get_or_create_account", _get_or_create)
+    monkeypatch.setattr(access_mod, "resolve_managed_access", _no_grant)
+    app.state.db = _FakePool()
+    try:
+        submit = await client.post("/api/v1/generate", json=_managed_body())
+    finally:
+        app.state.db = None
+
+    assert submit.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_managed_under_cap_proceeds(
+    client, fake_redis, managed_enabled, as_eligible_user, monkeypatch
+):
+    """With a valid grant and under the allowance, the managed request proceeds."""
+    from backend.main import app
+    from backend.src.accounts import repo as accounts_repo
+    from backend.src.billing import access as access_mod
+
+    class _Acct:
+        id = uuid.uuid4()
+
+    async def _get_or_create(conn, **kw):
+        return _Acct()
+
+    async def _resolve(conn, **kw):
+        return _fake_grant()
+
+    async def _under(conn, **kw):
         return False
 
     monkeypatch.setattr(accounts_repo, "get_or_create_account", _get_or_create)
-    monkeypatch.setattr(caps_mod, "cap_exceeded", _not_exceeded)
+    monkeypatch.setattr(access_mod, "resolve_managed_access", _resolve)
+    monkeypatch.setattr(access_mod, "over_cap", _under)
     app.state.db = _FakePool()
     try:
         with patch(
