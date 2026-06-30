@@ -23,6 +23,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from wegofwd_llm.registry import PROVIDER_REGISTRY, provenance
 
 from backend.config import settings
+from backend.src.auth.deps import optional_user
+from backend.src.auth.principal import Principal
+from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
@@ -77,16 +80,19 @@ async def submit_generate(
     body: GenerateRequest,
     background: BackgroundTasks,
     r: redis.Redis = Depends(get_redis),
+    principal: Principal | None = Depends(optional_user),
 ) -> GenerateResponse:
     """Submit a generation request.
 
     1. Idempotency check on request_id — duplicate within window returns the
        original job_id.
-    2. Generate a fresh job_id.
-    3. Encrypt the api_key into Redis (per-job envelope).
-    4. Record initial status "queued".
-    5. Dispatch the background generation task.
-    6. Return 202 with job_id.
+    2. Resolve the key path: BYOK (key in body) or managed (eligible caller, no key).
+    3. Generate a fresh job_id.
+    4. BYOK only — encrypt the api_key into Redis (per-job envelope). Managed jobs
+       store no key; the worker reads OUR vault key (ADR-005 D6).
+    5. Record initial status "queued" + the idempotency record.
+    6. Dispatch the background generation task.
+    7. Return 202 with job_id.
     """
     # ── 1. Idempotency dedup ─────────────────────────────────────────────────
     idem_key = _idempotency_redis_key(body.request_id)
@@ -100,27 +106,39 @@ async def submit_generate(
         )
         return GenerateResponse(job_id=existing_job_id, status="queued")
 
-    # ── 2. Fresh job ─────────────────────────────────────────────────────────
+    # ── 2. Resolve key path: BYOK vs managed (ADR-005 D6) ────────────────────
+    # A key in the body ⇒ BYOK (explicit, unchanged — works even for authed users).
+    # No key ⇒ managed: only for an eligible caller, else reject (a generic 400 that
+    # does not reveal allowlist membership). The managed key is OUR vault key, read
+    # in the worker — it never enters this request or Redis.
+    managed = body.api_key is None
+    if managed and not is_managed_eligible(principal, body.provider_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="an api_key is required for this request",
+        )
+
+    # ── 3. Fresh job ─────────────────────────────────────────────────────────
     job_id = uuid.uuid4()
 
-    # ── 3. Encrypt + store envelope ──────────────────────────────────────────
-    master_key = parse_master_key(settings.byok_master_key)
-    envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+    # ── 4. BYOK only: encrypt + store envelope ───────────────────────────────
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.setex(
+            _byok_redis_key(job_id),
+            settings.byok_redis_ttl_seconds,
+            envelope,
+        )
 
-    await r.setex(
-        _byok_redis_key(job_id),
-        settings.byok_redis_ttl_seconds,
-        envelope,
-    )
-
-    # ── 4. Initial status ────────────────────────────────────────────────────
+    # ── 5. Initial status ────────────────────────────────────────────────────
     await r.setex(
         _job_status_redis_key(job_id),
         settings.byok_redis_ttl_seconds * 10,
         json.dumps({"status": "queued"}),
     )
 
-    # ── 5. Idempotency record ────────────────────────────────────────────────
+    # ── 6. Idempotency record ────────────────────────────────────────────────
     # Holds longer than envelope so retries that arrive after envelope expiry
     # still get the same job_id mapped (and see status = done/failed/expired).
     await r.setex(
@@ -129,7 +147,7 @@ async def submit_generate(
         str(job_id).encode("utf-8"),
     )
 
-    # ── 6. Dispatch background task ──────────────────────────────────────────
+    # ── 7. Dispatch background task ──────────────────────────────────────────
     background.add_task(
         run_generation,
         job_id=job_id,
@@ -145,10 +163,12 @@ async def submit_generate(
         instructions=body.instructions,
         provider_id=body.provider_id,
         model=body.model,
+        managed=managed,
         redis_client=r,
     )
 
     # Safe-surface logging only — never the api_key, never the request body.
+    # `managed` is a safe boolean (no key material).
     log.info(
         "generate_submitted",
         job_id=str(job_id),
@@ -157,6 +177,7 @@ async def submit_generate(
         format=body.format,
         level=body.level,
         language=body.language,
+        managed=managed,
     )
 
     return GenerateResponse(job_id=job_id, status="queued")

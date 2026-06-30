@@ -36,6 +36,7 @@ from wegofwd_llm.registry import build_provider
 from wegofwd_llm.trust import PolicyBlock, engine_trust
 
 from backend.config import settings
+from backend.src.billing.vault import get_managed_key
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
 from backend.src.core.format_scan import lesson_warnings
 from backend.src.core.log_redaction import get_logger
@@ -161,13 +162,22 @@ async def run_generation(
     instructions: str | None = None,
     provider_id: str = "anthropic",
     model: str | None = None,
+    managed: bool = False,
     redis_client: redis.Redis,
 ) -> None:
     """Execute the full generation pipeline for one job.
 
-    Never raises — all failures land in the job status row.
+    `managed` selects the key source (ADR-005 D6): managed jobs use OUR vault key
+    (no Redis envelope), BYOK jobs decrypt the per-job envelope. Never raises — all
+    failures land in the job status row.
     """
-    log.info("generation_started", job_id=str(job_id), topic_len=len(topic), format=format)
+    log.info(
+        "generation_started",
+        job_id=str(job_id),
+        topic_len=len(topic),
+        format=format,
+        managed=managed,
+    )
 
     # Mark running
     try:
@@ -175,28 +185,41 @@ async def run_generation(
     except Exception:
         log.warning("status_write_failed_at_start", job_id=str(job_id))
 
-    # ── 1. Fetch + decrypt envelope ──────────────────────────────────────────
-    try:
-        envelope_blob: bytes | None = await redis_client.get(_byok_redis_key(job_id))
-    except Exception:
-        log.warning("envelope_fetch_failed", job_id=str(job_id))
-        await _write_status(redis_client, job_id, "failed", error="internal error")
-        return
+    # ── 1. Acquire the provider key: managed (our vault key) or BYOK (envelope) ─
+    if managed:
+        # Managed path (ADR-005 D6): OUR company key from the vault — never in Redis,
+        # never logged (same discipline as a BYOK key). Eligibility was checked at
+        # submit; a missing key here is a config error, not a user error.
+        api_key = get_managed_key(provider_id)
+        if not api_key:
+            log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
+            await _write_status(
+                redis_client, job_id, "failed", error="managed generation unavailable"
+            )
+            return
+    else:
+        # BYOK path: fetch + decrypt the per-job envelope.
+        try:
+            envelope_blob: bytes | None = await redis_client.get(_byok_redis_key(job_id))
+        except Exception:
+            log.warning("envelope_fetch_failed", job_id=str(job_id))
+            await _write_status(redis_client, job_id, "failed", error="internal error")
+            return
 
-    if envelope_blob is None:
-        # TTL expired before worker picked up the job, or job_id was tampered.
-        log.warning("envelope_missing", job_id=str(job_id))
-        await _write_status(redis_client, job_id, "failed", error="job timed out")
-        return
+        if envelope_blob is None:
+            # TTL expired before worker picked up the job, or job_id was tampered.
+            log.warning("envelope_missing", job_id=str(job_id))
+            await _write_status(redis_client, job_id, "failed", error="job timed out")
+            return
 
-    try:
-        master_key = parse_master_key(settings.byok_master_key)
-        api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
-    except Exception:
-        log.warning("envelope_decrypt_failed", job_id=str(job_id))
-        await _write_status(redis_client, job_id, "failed", error="internal error")
-        await _shred_envelope(redis_client, job_id)
-        return
+        try:
+            master_key = parse_master_key(settings.byok_master_key)
+            api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
+        except Exception:
+            log.warning("envelope_decrypt_failed", job_id=str(job_id))
+            await _write_status(redis_client, job_id, "failed", error="internal error")
+            await _shred_envelope(redis_client, job_id)
+            return
 
     # ── 2. Build prompt ──────────────────────────────────────────────────────
     if format != "lesson":
@@ -275,7 +298,7 @@ async def run_generation(
         )
         manifest = dataclasses.replace(
             manifest,
-            policy=PolicyBlock(byok=True, prompts_stored=False, key_stored=False),
+            policy=PolicyBlock(byok=not managed, prompts_stored=False, key_stored=False),
         )
         trust = manifest.to_public_dict()
         # Observed token usage (SBQ-USAGE-001). The provider hands us exact counts
@@ -317,12 +340,13 @@ async def run_generation(
         last_error = "generation failed"
         log.warning("generation_failed", job_id=str(job_id), reason="unexpected")
     finally:
-        # SHRED: drop our key reference and the encrypted envelope as soon as
-        # we're done with the user's credentials, on every path. (CPython str
-        # immutability prevents true zeroing, but del + envelope DEL close the
-        # window.)
+        # SHRED: drop our key reference as soon as we're done with it, on every path
+        # (managed or BYOK). (CPython str immutability prevents true zeroing, but del
+        # closes the window.) The encrypted envelope only exists for BYOK jobs; for
+        # managed jobs there is nothing in Redis to shred.
         del api_key
-        await _shred_envelope(redis_client, job_id)
+        if not managed:
+            await _shred_envelope(redis_client, job_id)
 
     # ── 4. Write outcome ──────────────────────────────────────────────────────
     if lesson is None:

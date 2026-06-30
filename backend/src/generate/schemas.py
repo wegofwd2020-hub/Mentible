@@ -65,7 +65,10 @@ class GenerateRequest(BaseModel):
     instructions: str | None = Field(default=None, max_length=2000)
 
     # BYOK key — its prefix is validated per provider (see _api_key_matches_provider).
-    api_key: str = Field(min_length=20, max_length=512)
+    # OPTIONAL (ADR-005 D6): omit it for the managed path, where the server resolves
+    # OUR key by eligibility instead of the user supplying one. A keyless request from
+    # an ineligible/anonymous caller is rejected by the router (not "no auth").
+    api_key: str | None = Field(default=None, min_length=20, max_length=512)
 
     # Which LLM to generate with (BYOK). Defaults to Anthropic so existing
     # clients are unaffected. Must be a known provider (see the registry).
@@ -84,6 +87,10 @@ class GenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _api_key_matches_provider(self) -> GenerateRequest:
+        # Managed path: no BYOK key in the body — the server resolves OUR key by
+        # eligibility (ADR-005 D6). Nothing to prefix-check.
+        if self.api_key is None:
+            return self
         # BYOK keys are scoped to their provider — never send the wrong format.
         # Each provider declares its expected key prefix in the registry
         # (anthropic sk-ant-, openai/deepseek sk-, groq gsk_, openrouter sk-or-,

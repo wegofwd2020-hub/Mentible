@@ -229,7 +229,7 @@ Play Store today). **O1 is decided → RevenueCat** as the single billing/entitl
 | Phase | Deliverable | Notes |
 |---|---|---|
 | **0 — Decisions** | ~~Payment platform (O1)~~ ✅ RevenueCat · ~~vendor ToS (O4)~~ ✅ all four cleared · still open: allowance/overage (O2/O5), vault mechanism (O3), spend ceiling (O7), free tier (O9). | **Blocking O1/O4 settled 2026-06-30** — the rest are non-blocking design choices that can land alongside their phase. |
-| **1 — Vault + managed fork (internal)** | Company-key storage (option A), worker key-source branch, an **internal "staff managed" plan flag** (no payments yet). | Dogfood the managed path end-to-end before any billing. Anthropic only. |
+| **1 — Vault + managed fork (internal)** | ✅ **BUILT** (2026-06-30). Company-key storage (option A, `MANAGED_ANTHROPIC_API_KEY`), the worker key-source branch, and an **internal staff allowlist** (`MANAGED_PLAN_EMAILS/SUBS`, no payments yet). | `backend/src/billing/{vault,eligibility}.py` (mechanism vs policy seam) + the `/generate` fork (keyless ⇒ managed for an eligible caller; BYOK unchanged; managed key never in Redis/logs — extends the mandatory no-key gate). Anthropic only. |
 | **2 — Usage metering P2** | `usage_event` + `usage_period`, price table, pre-flight estimate + post-hoc reconcile. | Enforce a **fixed internal cap** to prove the loop. |
 | **3 — Plans + caps** | `plan` defs + `entitlement`, eligibility check wired into `/generate`, behavior-at-cap. | Still no real payments — entitlement set by admin. |
 | **4 — Billing** | Stripe subscribe/portal + webhooks → entitlement; overage policy. | First real money. Sandbox first. |

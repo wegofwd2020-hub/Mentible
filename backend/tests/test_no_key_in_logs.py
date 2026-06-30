@@ -317,6 +317,56 @@ async def test_worker_path_does_not_log_key(client, known_test_api_key, capsys):
 
 
 @pytest.mark.asyncio
+async def test_managed_path_does_not_log_key(client, capsys, monkeypatch):
+    """The MANAGED path uses OUR vault key (ADR-005 D6) — it must never leak into logs
+    either. Worst case: the provider raises with the key in its message; the worker's
+    broad except + the sk-ant- redaction must contain it. (New code path touching a
+    key ⇒ a new exercise in this gate, per the module docstring.)"""
+    import asyncio
+    from unittest.mock import patch
+
+    from backend.config import settings
+    from backend.main import app
+    from backend.src.auth.deps import optional_user
+    from backend.src.auth.principal import Principal
+    from backend.src.billing import eligibility
+    from backend.tests.helpers import fake_provider
+
+    managed_key = "sk-ant-MANAGED_LEAK_PROBE_xxxxxxxxxxxxxxxxxxxxxxxx"
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", managed_key)
+    monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset({"staff-1"}))
+    app.dependency_overrides[optional_user] = lambda: Principal(
+        sub="staff-1", email=None, issuer="iss"
+    )
+
+    buffer, _ = _capture_log_output()
+    try:
+        leaky = fake_provider(side_effect=RuntimeError(f"upstream rejected key={managed_key}"))
+        with patch("backend.src.generate.tasks.build_provider", return_value=leaky):
+            resp = await client.post(
+                "/api/v1/generate",
+                json={
+                    "request_id": str(uuid.uuid4()),
+                    "topic": "Anything",
+                    "level": "student",
+                    "language": "en",
+                    "format": "lesson",
+                    # NO api_key — managed path resolves OUR vault key in the worker.
+                },
+            )
+            assert resp.status_code == 202
+            await asyncio.sleep(0.2)
+    finally:
+        app.dependency_overrides.pop(optional_user, None)
+
+    captured = capsys.readouterr()
+    combined = buffer.getvalue() + captured.out + captured.err
+    assert managed_key not in combined, (
+        f"managed (vault) key leaked into log output: {combined[:500]}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_worker_path_openai_provider_does_not_log_key(client, known_test_openai_key, capsys):
     """The OpenAI (sk-) BYOK worker path must not leak the key either — even if a
     provider were to raise an exception carrying the key. The worker's broad

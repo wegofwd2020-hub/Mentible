@@ -91,6 +91,29 @@ class Settings(BaseSettings):
         default="", description="comma-separated admin IdP subs; empty = none"
     )
 
+    # ── Managed billing (ADR-005 D6; MANAGED_BILLING_BUILD_PLAN.md, Phase 1) ───
+    # The managed-key "vault" (option A — env/secret storage). OUR company provider
+    # key(s) for the managed path: held server-side, used per job, and treated with
+    # the SAME no-log discipline as byok_master_key (ADR-001 / ADR-005 D3) — never a
+    # log line, DB row, or traceback. Empty ⇒ that provider is simply not offered
+    # managed (graceful — BYOK is unaffected). Phase 1 is Anthropic-only; add a
+    # provider here only once its ToS clears for managed (ADR-005 O4). This is the
+    # wegofwd-billing *mechanism* (vault) storage; see backend/src/billing/vault.py.
+    managed_anthropic_api_key: str | None = Field(
+        default=None, description="OUR managed Anthropic key; empty = managed off"
+    )
+    # Internal "staff-managed" allowlist for Phase 1 — who may use the managed path
+    # before plans/entitlements/billing exist (those replace this in phases 3–4).
+    # Per-app POLICY (ADR-019), config-only (never a token claim — same discipline as
+    # the super-admin allowlist), comma-separated; empty ⇒ nobody is managed-eligible
+    # (safe default; everyone keeps using BYOK). See backend/src/billing/eligibility.py.
+    managed_plan_emails: str = Field(
+        default="", description="comma-separated internal managed-plan emails; empty = none"
+    )
+    managed_plan_subs: str = Field(
+        default="", description="comma-separated internal managed-plan IdP subs; empty = none"
+    )
+
     # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
     # The account + per-provider credential-set DB. OPTIONAL, like identity: empty
     # = no DB (anonymous demo; the pool is None and account routes are unavailable),
