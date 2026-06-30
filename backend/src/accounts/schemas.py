@@ -120,6 +120,36 @@ class EntitlementView(BaseModel):
     period_end: datetime
 
 
+class ManagedUsageView(BaseModel):
+    """Server-side managed usage over the current window (ADR-005 D6, Phase 5)."""
+
+    cost_micros: int
+    input_tokens: int
+    output_tokens: int
+    events: int
+
+
+class ManagedEntitlementView(BaseModel):
+    """The caller's own entitlement, with the plan's display name."""
+
+    plan_id: str
+    plan_display: str
+    status: str
+    period_start: datetime
+    period_end: datetime
+
+
+class ManagedStatusView(BaseModel):
+    """The account-facing managed-billing status the client meter renders (Phase 5):
+    the entitlement (null ⇒ no managed plan / BYOK), the window's usage, and the plan
+    allowance (null ⇒ uncapped or no plan). `window_start` is the period the usage covers."""
+
+    entitlement: ManagedEntitlementView | None
+    usage: ManagedUsageView
+    allowance_micros: int | None
+    window_start: datetime
+
+
 class CredentialUpsert(BaseModel):
     source: str  # validated against CREDENTIAL_SOURCES in the route
     status: str = "unverified"

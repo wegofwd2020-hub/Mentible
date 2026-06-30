@@ -2,6 +2,9 @@ import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import { useFocusEffect } from "expo-router";
+import { getManagedStatus, type ManagedStatus } from "@/api/billingClient";
+import { useAuth } from "@/auth/AuthProvider";
+import { ManagedPlanCard } from "@/components/ManagedPlanCard";
 import { PageContainer } from "@/components/PageContainer";
 import { clearUsage, listUsage, summarizeUsage, type UsageSummary } from "@/storage/usageStore";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -15,11 +18,24 @@ function fmtCost(n: number | null): string {
 }
 
 export default function UsageScreen() {
+  const { accessToken } = useAuth();
   const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [managed, setManaged] = useState<ManagedStatus | null>(null);
 
   const load = useCallback(async () => {
     setSummary(summarizeUsage(await listUsage()));
-  }, []);
+    // Managed status is server-sourced and only for signed-in users; failures fall
+    // back to hiding the card (the device-local BYOK ledger always shows).
+    if (accessToken) {
+      try {
+        setManaged(await getManagedStatus(accessToken));
+      } catch {
+        setManaged(null);
+      }
+    } else {
+      setManaged(null);
+    }
+  }, [accessToken]);
 
   // Refresh whenever the screen is focused so newly generated topics show up.
   useFocusEffect(
@@ -51,6 +67,10 @@ export default function UsageScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <PageContainer>
+        {/* Server-sourced managed-plan meter (signed-in users). The device-local BYOK
+            ledger below is unaffected. */}
+        {managed && <ManagedPlanCard status={managed} />}
+
         {/* BYOK honesty banner — observed, not billed. */}
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>

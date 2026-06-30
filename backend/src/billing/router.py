@@ -19,12 +19,21 @@ from __future__ import annotations
 import hmac
 from datetime import UTC, datetime, timedelta
 
+import asyncpg
 import structlog
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
-from backend.src.billing import entitlement_repo, plans, revenuecat
+from backend.src.accounts.deps import require_active_user
+from backend.src.accounts.schemas import (
+    ManagedEntitlementView,
+    ManagedStatusView,
+    ManagedUsageView,
+)
+from backend.src.auth.principal import Principal
+from backend.src.billing import entitlement_repo, plans, revenuecat, usage_repo
+from backend.src.db.deps import get_conn
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 log = structlog.get_logger(__name__)
@@ -39,6 +48,49 @@ def _authorized(request: Request) -> bool:
     if not expected:
         return False
     return hmac.compare_digest(request.headers.get("Authorization", ""), expected)
+
+
+@router.get("/managed-status", response_model=ManagedStatusView)
+async def get_my_managed_status(
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> ManagedStatusView:
+    """The caller's managed-billing status (Phase 5 client meter): entitlement (null ⇒ no
+    managed plan / BYOK), the current window's server-side usage, and the plan allowance.
+    With an entitlement the window is its period; otherwise a rolling window (so a staff
+    user's managed usage still shows). Metadata only — no key, no content."""
+    account = await accounts_repo.get_or_create_account(
+        conn, idp_sub=principal.sub, email=principal.email
+    )
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account.id)
+    if ent is not None:
+        plan = plans.get_plan(ent.plan_id)
+        window_start = ent.period_start
+        allowance = plan.allowance_micros if plan else None
+        ent_view: ManagedEntitlementView | None = ManagedEntitlementView(
+            plan_id=ent.plan_id,
+            plan_display=plan.display if plan else ent.plan_id,
+            status=ent.status,
+            period_start=ent.period_start,
+            period_end=ent.period_end,
+        )
+    else:
+        window_start = datetime.now(UTC) - timedelta(days=settings.managed_usage_window_days)
+        allowance = None
+        ent_view = None
+
+    usage = await usage_repo.period_usage(conn, account_id=account.id, since=window_start)
+    return ManagedStatusView(
+        entitlement=ent_view,
+        usage=ManagedUsageView(
+            cost_micros=usage.cost_micros,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            events=usage.events,
+        ),
+        allowance_micros=allowance,
+        window_start=window_start,
+    )
 
 
 @router.post("/revenuecat/webhook")
