@@ -356,9 +356,15 @@ prerequisite items before the big managed-billing build. Rationale in each entry
 
 3. **Managed billing (ADR-005 D6)** — usage metering Phase 2, plan caps, and the
    **managed-key vault** (the half of ADR-005 / ADR-020 #6 not yet built). The "subscribe
-   and it just works" default path; biggest business value but biggest effort. _Note:_
-   per-request **rate limiting already exists** (ADR-014 D9, built `fbd5aad`), so managed
-   adds **per-plan-tier** caps on top of the existing limiter, not throttling from scratch.
+   and it just works" default path; biggest business value but biggest effort. **Now
+   scoped:** [`docs/MANAGED_BILLING_BUILD_PLAN.md`](MANAGED_BILLING_BUILD_PLAN.md) — vault
+   + managed generation fork + server-side metering (P2) + plans/entitlements/caps +
+   Stripe billing; 7 phases (Phase 0 = blocking decisions). _Key framing:_ the "vault" is
+   small (our few company keys, not per-user) — the hard parts are **metering, plans, and
+   payments**, and **two blocking decisions** gate any build: payment platform vs Play-Store
+   policy (O1) and vendor ToS for serving tokens to third parties (O4). Per-request **rate
+   limiting already exists** (ADR-014 D9), so managed adds **per-plan caps** on top, not
+   throttling from scratch.
 
 > _Removed from this list 2026-06-30:_ the former Tier-2 "rate-limiting gap (#221)" was
 > a **mis-file** — the per-identity limiter shipped 2026-06-16 (`fbd5aad`); #221 was

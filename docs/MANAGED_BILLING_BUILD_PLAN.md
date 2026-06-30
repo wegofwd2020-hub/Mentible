@@ -1,0 +1,277 @@
+# Managed Billing — Build Plan
+
+> **Status:** Scoping (not started). Backlog item (ADR-005 **D6**: usage metering
+> Phase 2 + plan caps + managed-key vault). Also closes **ADR-020 follow-up #6**
+> (the managed-vault half).
+> **Owner decisions pending:** see [Open decisions](#open-decisions) — several are
+> blocking (payment platform, vendor ToS, allowance/overage policy) and must be
+> settled **before Phase 1**.
+> **Authoritative model:** ADR-005 **D2–D5** + its Phasing/Open-questions; ADR-001
+> (key discipline — extended, not replaced); ADR-014 (accounts + the `managed_vault`
+> credential source). Where this doc and an ADR differ, the ADR wins.
+
+This is the product's **revenue lever** and its **largest remaining surface**. It is
+also the one backlog item that introduces a *new commercial relationship with the LLM
+vendors* (we pay for tokens) and a *new external dependency* (a payment processor). It
+should not start before the blocking decisions below are made.
+
+---
+
+## 1. Goal & non-goals
+
+**Goal.** Let a user **subscribe and just generate** — no BYOK key required — with the
+token cost carried by us under a metered, per-plan allowance. "Subscribe and it just
+works" (ADR-005 D2, managed is the default consumer experience).
+
+**Non-goals (explicit).**
+- **Not replacing BYOK.** BYOK stays a first-class, optional path with ADR-001
+  discipline intact (per-request passthrough, Redis TTL, shred). Managed is a *second*
+  regime alongside it (ADR-005 D3). A BYOK key is **never** silently promoted to managed
+  (ADR-014 D3).
+- **Not metering BYOK token spend.** We don't pay for BYOK tokens, so we don't meter
+  them for billing (the device-local usage ledger from Phase 1 stays as-is). Request
+  rate limiting already covers BYOK abuse.
+- **Not a usage-based/pay-per-token consumer product.** The consumer model is a
+  **subscription with an allowance**, not a metered bill (metering is internal, for cap
+  enforcement + margin control).
+- **Not multi-currency / tax-engine / invoicing-suite scope** at first launch — lean on
+  the payment processor's built-ins.
+
+---
+
+## 2. Current state — what this builds on (already shipped)
+
+| Capability | Status | Where |
+|---|---|---|
+| Provider seam (`build_provider(provider_id, api_key, model)`) | ✅ | `wegofwd-llm`, used in `generate/tasks.py` |
+| BYOK multi-provider passthrough (per-job Redis envelope → decrypt → use → **shred**) | ✅ | `generate/tasks.py`, `core/byok_envelope.py` |
+| Accounts + IdP (Supabase JWKS verify; `Account`, per-provider credential set) | ✅ | `auth/`, `accounts/` (ADR-014) |
+| **`managed_vault` as a defined credential source** (metadata only, no key yet) | ◑ defined, unused | `accounts/models.py` `CREDENTIAL_SOURCES` |
+| Rate limiting (per-identity, fail-open, per-min + per-day) | ✅ | `core/rate_limit.py` (ADR-014 D9) |
+| Usage capture Phase 1 (worker returns a `usage` dict; **client-side** device-local ledger; nothing persisted server-side) | ✅ | `generate/schemas.py` (`usage`), `generate/tasks.py` (SBQ-USAGE-001) |
+
+So the seam, the BYOK regime, identity, abuse throttling, and per-call token capture
+all exist. **Managed billing adds: a company-key vault, a managed generation fork,
+server-side usage accounting, a plan/entitlement model with cap enforcement, and a
+payment integration.** These map to ADR-005 phases 3–5.
+
+---
+
+## 3. Architecture overview
+
+Five components; the fork from today's BYOK-only flow is small and well-localized.
+
+```
+                          ┌─────────────────────────────────────────┐
+  POST /generate ──────►  │  key-source decision (per request)       │
+   (authed, no api_key)   │  managed? = authed ∧ plan active ∧        │
+                          │            provider managed-eligible ∧    │
+                          │            within cap                     │
+                          └───────┬───────────────────────┬──────────┘
+                          managed │                  BYOK  │ (unchanged: Redis envelope)
+                                  ▼                        ▼
+                       ┌────────────────────┐    ┌────────────────────┐
+                       │ Managed-key vault  │    │ byok envelope      │
+                       │ (OUR company keys, │    │ (per-job, shred)   │
+                       │  small fixed set)  │    └────────────────────┘
+                       └─────────┬──────────┘             │
+                                 └──────────┬─────────────┘
+                                            ▼
+                              build_provider(...) → generate (UNCHANGED)
+                                            │
+                                  ┌─────────▼──────────┐
+                       managed →  │ usage metering P2  │  → period rollup → cap check
+                                  │ (server-side cost) │
+                                  └────────────────────┘
+```
+
+**Key insight that shrinks the "vault":** managed keys are **OUR small fixed set** (one
+key per provider, a handful total), **not per-user secrets**. So the "at-rest vault" is
+secure storage + rotation of ~N company keys — far lighter than a per-user key store.
+The hard part of managed billing is **metering, plans, and payments**, not the vault.
+
+---
+
+## 4. Component 1 — Managed-key vault (ADR-005 phase 3 / ADR-020 #6)
+
+**What it stores:** our provider keys (Anthropic first; others as enabled). A small,
+fixed set — not per-user.
+
+**Mechanism options (decision O3):**
+- **(A) Secret store / env at deploy** — keys injected as env/secret files, loaded via
+  `pydantic-settings` like every other secret today; rotation = redeploy with new value.
+  Simplest; fits the single-VPS deploy; matches how `byok_master_key` /
+  `system_owner_secret` already work. **Recommended for launch.**
+- **(B) KMS-wrapped in DB** — reuse the `byok_envelope` envelope pattern (a master key
+  wraps the stored provider keys); rotation without redeploy. More moving parts;
+  warranted only once there are many keys or automated rotation is needed.
+- **(C) Managed secrets manager** (Vault / AWS/GCP Secret Manager / Doppler) — overkill
+  for a handful of keys on one box; revisit at scale.
+
+**Discipline (non-negotiable, ADR-001/ADR-005 D3):** the company key never reaches a
+log line, DB row, or traceback — same redaction filter that guards BYOK keys. The worker
+fetches it, uses it for the call, and drops the reference (mirror the BYOK `del api_key`).
+
+**Worker fork:** in `generate/tasks.py`, where today it always reads/decrypts the BYOK
+envelope (~L180–194), branch on the key-source decision: managed → vault key; BYOK →
+existing envelope path. Everything downstream (`build_provider` → generate → validate)
+is **identical** — only the key source differs, and the provenance/`PolicyBlock` flips
+(`byok=False`, `key_stored=False` still true — we never store the user's key because
+there isn't one).
+
+---
+
+## 5. Component 2 — Managed generation path (the fork)
+
+The request shape changes: a managed user calls `/generate` **without** an `api_key`.
+
+- **Eligibility (computed per request):** `authed ∧ account.plan active ∧ provider ∈
+  managed-eligible set ∧ usage within cap`. If any fails, the response is explicit:
+  401 (not authed), 402/forbidden-with-reason (no active plan), 409/cap (over allowance
+  — see overage policy O2), or fall back to "provide a BYOK key".
+- **Credential-set coupling:** the chosen provider's entry in the account credential set
+  is `source = managed_vault` (ADR-014 D2/D3). This is how the picker knows a provider is
+  "use our key" vs BYOK on this device. Setting it is an explicit opt-in, never automatic.
+- **Anonymous demo unaffected:** no account ⇒ no managed path ⇒ BYOK or demo as today.
+
+---
+
+## 6. Component 3 — Usage metering Phase 2 (server-side)
+
+Phase 1 already returns exact `{provider, model, input_tokens, output_tokens, attempts}`
+per job. Phase 2 **persists** it for **managed** generations (BYOK stays client-ledger).
+
+- **`usage_event`** — append-only: `account_id, ts, provider, model, input_tokens,
+  output_tokens, est_cost_micros, job_id`. Written by the worker after a managed call.
+- **`usage_period`** — rolled-up counter for the current billing window per account
+  (sum tokens + est_cost), the cheap read the cap check hits on the hot path.
+- **Cost basis (decision O6):** a **price table** (per provider/model, input/output rate)
+  converts tokens → `est_cost_micros`. Versioned + dated (vendor prices change). Owner of
+  the table is the same person who pins models (carry from the multi-provider work).
+- **Pre-flight vs post-hoc:** exact tokens are only known *after* the call. So: a
+  **pre-flight estimate** (prompt size + page target → predicted tokens) gates the hard
+  cap and optionally **reserves** budget; the **post-hoc actual** reconciles the reserve.
+  Soft cap = warn; hard cap = block before dispatch.
+
+---
+
+## 7. Component 4 — Plans, entitlements & cap enforcement
+
+- **`plan`** (config or table): id, display, **allowance** (token- or unit-based — O5),
+  managed-eligible providers, price, **behavior-at-cap** (O2).
+- **`entitlement`** per account: `plan_id, status (active|past_due|canceled), period_start,
+  period_end` — the source of truth for "is this account managed-active right now".
+  Driven by billing webhooks (§8), **never** trusted from the client.
+- **Cap enforcement** sits in the eligibility check (§5), reading `usage_period` vs the
+  plan allowance. **D18's ~100-unit fair-use cap is reinterpreted here as the cost-control
+  lever** (ADR-005 D5), not a storage limit.
+- **Per-account spend ceiling / anomaly guard (O7):** a hard `est_cost` ceiling per window
+  independent of the nominal allowance, as a backstop against a runaway loop draining our
+  spend even within "unit" limits.
+
+---
+
+## 8. Component 5 — Billing & payments (the policy-sensitive part)
+
+**The hard external dependency, and a distribution-policy minefield.** Mentible ships as
+a **web app** (`mambakkam.net/app/mentible`) and a **sideloaded Android APK** (GitHub
+Release, *not* the Play Store today).
+
+- **If distribution stays web + sideloaded APK:** a **web subscription via Stripe** is
+  viable — the app links out to a hosted Stripe checkout; no platform IAP cut. **This is
+  the recommended launch path** precisely because we're *not* in the Play Store.
+- **If/when the app enters the Play Store:** Google Play policy generally **requires Play
+  Billing** for in-app digital goods (15–30% cut) and restricts steering users to external
+  payment. That would force Play Billing (or RevenueCat as an abstraction) for the Play
+  build. **This single fact materially changes the design** — hence it's a blocking
+  decision (O1), not an implementation detail.
+- **Integration shape (Stripe path):** Stripe Checkout/Customer Portal for subscribe /
+  manage / cancel; **webhooks → entitlement** (`checkout.session.completed`,
+  `customer.subscription.updated/deleted`, `invoice.payment_failed`) flip
+  `entitlement.status`. The backend never reads card data (PCI stays with Stripe) —
+  consistent with the "we don't handle payment credentials" posture.
+- **Overage (O2):** at the cap, one of — block until renewal / degrade (e.g. offer BYOK) /
+  paid overage (metered top-up) / soft-cap-then-block. Pick per plan.
+
+---
+
+## 9. Phasing
+
+> **Phase 0 is blocking and mostly non-code** — settle the [Open decisions](#open-decisions)
+> first. Everything after is gated on the managed providers' **vendor ToS** allowing us to
+> serve their tokens to third parties under our account (O4).
+
+| Phase | Deliverable | Notes |
+|---|---|---|
+| **0 — Decisions** | Payment platform (O1), allowance/overage (O2/O5), vendor ToS clearance (O4), managed-eligible providers (O8). | No build until O1/O4 are settled. |
+| **1 — Vault + managed fork (internal)** | Company-key storage (option A), worker key-source branch, an **internal "staff managed" plan flag** (no payments yet). | Dogfood the managed path end-to-end before any billing. Anthropic only. |
+| **2 — Usage metering P2** | `usage_event` + `usage_period`, price table, pre-flight estimate + post-hoc reconcile. | Enforce a **fixed internal cap** to prove the loop. |
+| **3 — Plans + caps** | `plan` defs + `entitlement`, eligibility check wired into `/generate`, behavior-at-cap. | Still no real payments — entitlement set by admin. |
+| **4 — Billing** | Stripe subscribe/portal + webhooks → entitlement; overage policy. | First real money. Sandbox first. |
+| **5 — Client UX** | Plan picker, **server-sourced** usage meter, upgrade/cap/past-due states, "managed vs BYOK per provider" in the key UI. | Replaces the device-local-only meter for managed users. |
+| **6 — Launch hardening** | Anomaly/spend-ceiling alarms, key rotation runbook, margin dashboard, multi-provider enablement. | |
+
+Sequencing rationale: vault + fork first (smallest, unblocks dogfooding), metering before
+caps (can't cap what you don't measure), caps before billing (prove enforcement on a free
+internal plan), billing last (highest external risk). Mirrors ADR-005's own phase order.
+
+---
+
+## 10. Risks & mitigations
+
+- **Margin inversion** — token cost exceeds subscription if uncapped. *Mitigation:* hard
+  caps + per-account spend ceiling + margin-aware allowance sizing (O2/O5/O7); meter from
+  day one of the managed path.
+- **Vendor ToS** — reselling/proxying tokens under our account may breach provider terms.
+  *Mitigation:* **O4 is a hard gate** — clear each provider's ToS before enabling it managed;
+  launch with only the cleared set (likely Anthropic first).
+- **Platform billing policy** — shipping managed via the Play Store would force Play Billing
+  + its cut. *Mitigation:* O1 decided up front; web-Stripe while distribution is web + sideload.
+- **Abuse on our dime** — managed key = our money; a compromised account or runaway client
+  drains spend. *Mitigation:* existing rate limits + new spend ceiling + anomaly alarms;
+  entitlement always server-verified, never client-trusted.
+- **Company-key exposure** — a leaked managed key is *our* liability across all users.
+  *Mitigation:* same no-log discipline as BYOK; rotation runbook; least-privilege storage.
+- **Cost-estimate drift** — pre-flight estimate wrong → cap leaks or false blocks.
+  *Mitigation:* reconcile post-hoc; tune the estimate from real `usage` data; conservative
+  hard ceiling as backstop.
+
+---
+
+## 11. Test plan
+
+- **Vault:** key never appears in logs/tracebacks (extend the mandatory no-key-in-logs
+  gate to the managed path); worker uses vault key when managed, envelope when BYOK.
+- **Fork/eligibility:** matrix over (authed?, plan active?, provider eligible?, within
+  cap?) → correct path or correct explicit error; anonymous/demo unaffected; BYOK path
+  byte-for-byte unchanged.
+- **Metering:** `usage_event` written only for managed; `usage_period` rollup correct
+  across repair attempts; price-table cost math; pre-flight vs post-hoc reconcile.
+- **Caps:** soft-cap warns, hard-cap blocks before dispatch; spend ceiling trips
+  independent of unit allowance; behavior-at-cap per policy.
+- **Billing:** webhook → entitlement transitions (active/past_due/canceled) drive
+  eligibility; client can never self-grant; Stripe sandbox e2e.
+- **No live vendor/Stripe in CI** — mock the provider SDK and the payment webhooks (same
+  rule as today).
+
+---
+
+## Open decisions
+
+1. **O1 — Payment platform & distribution policy.** Web-Stripe (recommended while web +
+   sideloaded APK) vs Play Billing/RevenueCat (required if the app enters the Play Store).
+   Legal/policy implications; decide before any billing build.
+2. **O2 — Behavior at cap.** Block / degrade / offer-BYOK / paid overage — per plan.
+3. **O3 — Vault mechanism.** Env/secret-store (A, recommended) vs KMS-envelope-in-DB (B)
+   vs managed secrets manager (C).
+4. **O4 — Vendor ToS (hard gate).** Confirm each provider permits serving its tokens to
+   third parties under our account; launch only the cleared set.
+5. **O5 — Allowance basis.** Token-based vs request/"unit"-based (D18 ~100-unit) allowance
+   — units are simpler UX, tokens track cost more precisely.
+6. **O6 — Cost basis & price-table ownership.** Source/refresh of per-provider/model rates;
+   who owns updates.
+7. **O7 — Per-account spend ceiling / anomaly thresholds.** The runaway-spend backstop.
+8. **O8 — Managed-eligible providers at launch.** Likely Anthropic only first; expand as
+   ToS (O4) clears.
+9. **O9 — Free tier?** Whether anonymous/free accounts get any managed allowance (lead-gen)
+   or managed is strictly paid (BYOK/demo remain the free paths).

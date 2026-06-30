@@ -86,13 +86,21 @@ fair-use cap" is reinterpreted as a **cost-control lever**, not just storage.
 ## Phasing
 
 1. **`LLMProvider` seam** — refactor `pipeline/providers/` to the interface;
-   Anthropic first (parity with today), then the OpenAI-compatible client.
+   Anthropic first (parity with today), then the OpenAI-compatible client. **✅ Built**
+   (the shared `wegofwd-llm` package; ADR-012).
 2. **BYOK multi-provider** — extend the existing passthrough path to N providers
-   (per-provider key in body; ADR-001 discipline per provider).
+   (per-provider key in body; ADR-001 discipline per provider). **✅ Built.**
 3. **Managed-key vault** — secrets manager, rotation, per-job use; the new at-rest
-   regime. Gated behind accounts.
+   regime. Gated behind accounts. **⏳ Not built.**
 4. **Accounts + metering** — auth, per-user usage records, rate limits, plan caps.
-5. **Billing** — subscription token allowance + overage policy.
+   **◑ Partial:** accounts (ADR-014) + rate limits (D9) + usage capture Phase 1 are
+   **built**; server-side usage records + plan caps are **not**.
+5. **Billing** — subscription token allowance + overage policy. **⏳ Not built.**
+
+> **Phases 3–5 are scoped in [`docs/MANAGED_BILLING_BUILD_PLAN.md`](../MANAGED_BILLING_BUILD_PLAN.md)**
+> (vault + managed generation fork + server-side metering + plans/entitlements/caps +
+> Stripe billing; 7 phases). Two blocking decisions gate any build: the payment platform
+> vs Play-Store policy, and per-provider vendor ToS for serving tokens to third parties.
 
 ---
 
