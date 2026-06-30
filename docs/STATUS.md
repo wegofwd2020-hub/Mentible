@@ -330,11 +330,15 @@ prerequisite items before the big managed-billing build. Rationale in each entry
 
 **Tier 1 — cheap, high-consequence, time-boxed:**
 
-1. **Trademark clearance** — Mentible vs **"Mentable"** (a real conflict the asset
-   sweep flagged), **before assets/listings lock**. The only item with an external
-   clock: a collision found *after* the icon set / store listing / marketing freeze =
-   expensive rework + legal exposure. Investigation is cheap (USPTO TESS + Play / App
-   Store search). Do-now-or-pay-later.
+1. **Trademark clearance** — Mentible vs **"Mentable"**, **before assets/listings
+   lock**. The only item with an external clock: a collision found *after* the icon set
+   / store listing / marketing freeze = expensive rework + legal exposure. _Refreshed
+   sweep 2026-06-30: `docs/trademark-sweep-2026-06-30.md`_ — pinned both "Mentable"
+   entities (NC clinical practice ≈ class 44; RO Technovation student app, class 9),
+   confirmed the exact "Mentible" spelling is **unused** (ownability signal); status
+   stays **Amber**. **Open gate:** the public registers (USPTO/EUIPO/Trademarkia) block
+   automated search, so the **attorney knockout** (Mentible vs Mentable, classes 9/41/42,
+   US + EU) is the remaining action before lock. Fallback: **SelfSyllabus**.
 2. **Latency — measure against the < 90 s p95 target (criterion 6).** The last unproven
    MVP acceptance criterion; *measurement*, not a build. Can't justify a latency *fix*
    without it, and the signal it may already be blown (poll TTL 600 s; some runs slow)
