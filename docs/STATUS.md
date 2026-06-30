@@ -117,9 +117,10 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 
 ### Deployment — now LIVE (was "config only / unverifiable")
 - **Prod backend** live + identity-enabled at `mambakkam.net/mentible-api` (Hetzner VPS,
-  `docker-compose.demo.yml`, behind host nginx). _Running `main`@`add2807` (refreshed
-  2026-06-28, incl. ADR-022); no backend delta on `main` since — later commits are
-  docs/mobile-web only. Runbook: `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md`._
+  `docker-compose.demo.yml`, behind host nginx). _Running `main`@`f70b8db` (refreshed
+  2026-06-30 — **managed billing Phases 1–6**, ADR-005 D6; alembic at `0006`). Managed
+  billing is **dormant** (no `MANAGED_*`/`REVENUECAT_*` env), so **BYOK is the only live
+  path**, unchanged. Runbook: `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md`._
 - **Full web app** at **`mambakkam.net/app/mentible`** (Expo web export — full
   generate/author/accounts) + read-only **demo** at **`/demos/mentible`** (no auth).
 - **Android APK** released (GitHub Release on the public `mambakkam-net` repo; landing
@@ -393,7 +394,7 @@ _Re-prioritised 2026-06-30. The big-ticket item (managed billing) has since been
 
 **Resolved 2026-06-30 (off this list):** **Managed billing Phases 1–6 built** (#236–#241);
 Everyone Library (ADR-021) build trigger settled (D8); `vm.overcommit_memory=1` applied on
-the host; ADR-022 prod posture decided (stays OFF). Prod backend remains current on `main`@`add2807` (no backend delta since;
-re-run the `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md` root block only when a real
-backend/compiler change ships). HelpHint (SBQ-UI-003) shipped on the Account screen;
-extending its `?` hints elsewhere is a nice-to-have, not tracked as a backlog tier.
+the host; ADR-022 prod posture decided (stays OFF). **Prod backend refreshed to
+`main`@`f70b8db`** (2026-06-30 — managed billing Phases 1–6, dormant; alembic `0006`); rollback
+`/opt/mentible-old-20260630-1811` (delete ~2026-07-07). HelpHint (SBQ-UI-003) shipped on the
+Account screen; extending its `?` hints elsewhere is a nice-to-have, not tracked as a backlog tier.
