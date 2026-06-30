@@ -73,6 +73,32 @@ elsewhere.
   their identity) is an operational decision — there's a security tradeoff in giving
   the prod backend the service-role key. Documented in `backend/env.example`.
 
+## Prod posture decision (2026-06-30) — keep prod OFF
+
+`SUPABASE_SERVICE_ROLE_KEY` stays **unset in production** for now. _Decision-maker:_
+Sivakumar Mambakkam.
+
+**Rationale.** The service-role key is the highest-blast-radius secret in the system:
+unlike the DB credentials and `byok_master_key` the prod VPS already holds, it grants
+full Supabase **Auth-Admin** — an attacker who compromised the backend could mint a
+session for / impersonate **any** user, and Supabase service-role is all-or-nothing
+(no granular scope). At current scale real-user self-deletions are **rare**, so the
+out-of-band `scripts/reset_test_user.py` covers the occasional true identity removal
+without parking a project-admin secret on the always-on, internet-facing box. This
+matches **D7** (quality-first, not scale-first). The local test-loop benefit does not
+need prod-on — the script already serves local/dev.
+
+**Accepted cost.** Until this flips, a real user's in-app "Delete account" in prod
+purges only the app DB row; the **Supabase auth identity (email + `sub`) persists**
+until cleared via the script — residual PII to reconcile against the GDPR "purge
+within 30 days" posture, handled operationally for now.
+
+**Revisit trigger — flip prod ON when _either_ holds:**
+1. Self-serve deletion volume makes per-deletion script runs impractical (ops burden /
+   GDPR-timeliness risk), **or**
+2. Prod secret handling is hardened — service-role key in a managed secret store with
+   rotation, not a plaintext env var on the VPS.
+
 ## Alternatives considered
 
 - **Backend stays out of it; only the script deletes identities.** Rejected — can't

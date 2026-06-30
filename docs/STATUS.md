@@ -58,8 +58,9 @@ refreshed to `main` (`add2807`)**.
 - **Account deletion removes the Supabase identity** (ADR-022, PR #215) — in-app
   "Delete account" + admin "Delete user" can now hard-delete the auth identity (so a
   deleted email re-registers fresh), **opt-in via `SUPABASE_SERVICE_ROLE_KEY`, OFF in
-  all envs by default**. In-app delete also clears device state. Verified end-to-end
-  via `scripts/reset_test_user.py`.
+  all envs** — and, per the 2026-06-30 decision, **deliberately kept off in prod**
+  (see ADR-022 "Prod posture decision"). In-app delete also clears device state.
+  Verified end-to-end via `scripts/reset_test_user.py`.
 - **Web Alert fix** (PR #217) — `react-native-web` no-ops `Alert.alert`, so every
   confirmation dialog (admin Delete, Delete account, Remove keys, …) silently did
   nothing on web. Added a cross-platform shim (`src/lib/alert.ts`); swapped 17 call
@@ -71,9 +72,11 @@ refreshed to `main` (`add2807`)**.
 - **Ops:** prod backend refreshed to `main@add2807`; rollback dirs reclaimed;
   `mentible.com` retired (third-party owned) + its Firebase projects deleted.
 
-Open after v0.2.0: enable ADR-022 in prod (decision); `vm.overcommit_memory=1` on the
-host; Everyone Library build trigger; backlog (managed billing, library sync, latency,
-trademark, Pramana).
+Open after v0.2.0: Everyone Library build trigger; backlog (managed billing, library
+sync, latency, trademark, Pramana). _Resolved 2026-06-30:_ ADR-022 **stays OFF in
+prod** (decision recorded in the ADR — service-role key's auth-admin blast radius vs.
+rare real-user deletions; revisit when deletion volume or hardened secret storage
+warrants); `vm.overcommit_memory=1` applied on the host.
 
 ---
 
