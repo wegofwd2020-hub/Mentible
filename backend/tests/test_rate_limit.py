@@ -34,6 +34,20 @@ def _body(api_key: str) -> dict:
     }
 
 
+@pytest.fixture
+def frozen_rl_clock(monkeypatch):
+    """Pin the limiter's clock so a multi-request test can't straddle a fixed-window
+    (minute/day) boundary.
+
+    The limiter buckets on `int(time.time()) // 60`. If real wall-clock ticks over a
+    minute boundary mid-test, a request meant to be *blocked* lands in a fresh window
+    and returns 202 instead of 429 — a rare flake locally, more likely under slow CI
+    (it bit `test_authed_and_anon_have_separate_buckets` once). Freezing the clock makes
+    every request in a test share one window, so the assertions are deterministic.
+    """
+    monkeypatch.setattr("backend.src.core.rate_limit.time.time", lambda: 1_700_000_000.0)
+
+
 # ── Unit: window counter ───────────────────────────────────────────────────────
 
 
@@ -91,7 +105,9 @@ async def test_fail_open_on_redis_error(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_per_minute_limit_returns_429(client, fake_redis, known_test_api_key, monkeypatch):
+async def test_per_minute_limit_returns_429(
+    client, fake_redis, known_test_api_key, monkeypatch, frozen_rl_clock
+):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
     monkeypatch.setattr(settings, "rate_limit_per_minute", 3)
     monkeypatch.setattr(settings, "rate_limit_per_day", 1000)
@@ -126,7 +142,7 @@ async def test_disabled_switch_allows_all(client, fake_redis, known_test_api_key
 
 @pytest.mark.asyncio
 async def test_authed_and_anon_have_separate_buckets(
-    client, fake_redis, known_test_api_key, monkeypatch
+    client, fake_redis, known_test_api_key, monkeypatch, frozen_rl_clock
 ):
     from backend.main import app
     from backend.src.auth.deps import optional_user
