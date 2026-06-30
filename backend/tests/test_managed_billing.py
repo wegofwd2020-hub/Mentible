@@ -61,8 +61,22 @@ def test_get_managed_key_returns_configured(monkeypatch):
 
 def test_managed_off_when_unset(monkeypatch):
     monkeypatch.setattr(settings, "managed_anthropic_api_key", None)
+    monkeypatch.setattr(settings, "managed_openai_api_key", None)
+    monkeypatch.setattr(settings, "managed_groq_api_key", None)
+    monkeypatch.setattr(settings, "managed_gemini_api_key", None)
     assert vault.get_managed_key("anthropic") is None
     assert vault.managed_provider_ids() == frozenset()
+
+
+def test_managed_multi_provider_keys(monkeypatch):
+    # Phase 6: the vault serves any ToS-cleared provider whose key is set.
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _MANAGED_KEY)
+    monkeypatch.setattr(settings, "managed_openai_api_key", "sk-managed-openai-fake")
+    monkeypatch.setattr(settings, "managed_groq_api_key", None)
+    monkeypatch.setattr(settings, "managed_gemini_api_key", None)
+    assert vault.get_managed_key("openai") == "sk-managed-openai-fake"
+    assert vault.get_managed_key("groq") is None
+    assert vault.managed_provider_ids() == frozenset({"anthropic", "openai"})
 
 
 # ── Unit: eligibility (per-app policy) ─────────────────────────────────────────

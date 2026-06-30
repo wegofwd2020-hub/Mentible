@@ -26,6 +26,15 @@ class PeriodUsage:
     events: int
 
 
+@dataclass(frozen=True)
+class TotalUsage:
+    """Aggregate managed usage across ALL accounts over a window (admin margin view)."""
+
+    cost_micros: int
+    events: int
+    accounts: int
+
+
 async def record_usage(
     conn: asyncpg.Connection,
     *,
@@ -75,4 +84,23 @@ async def period_usage(
         output_tokens=int(row["output_tokens"]),
         cost_micros=int(row["cost_micros"]),
         events=int(row["events"]),
+    )
+
+
+async def total_usage(conn: asyncpg.Connection, *, since: datetime) -> TotalUsage:
+    """Aggregate managed spend across all accounts from `since` to now (margin monitoring)."""
+    row = await conn.fetchrow(
+        """
+        SELECT COALESCE(sum(cost_micros), 0) AS cost_micros,
+               count(*)                      AS events,
+               count(DISTINCT account_id)    AS accounts
+          FROM usage_event
+         WHERE ts >= $1
+        """,
+        since,
+    )
+    return TotalUsage(
+        cost_micros=int(row["cost_micros"]),
+        events=int(row["events"]),
+        accounts=int(row["accounts"]),
     )

@@ -102,6 +102,19 @@ class Settings(BaseSettings):
     managed_anthropic_api_key: str | None = Field(
         default=None, description="OUR managed Anthropic key; empty = managed off"
     )
+    # Multi-provider managed keys (Phase 6). Each provider is offered managed only once its
+    # ToS clears (ADR-005 O4 — all four cleared) AND a key is set here. ⚠ Gemini: use a PAID
+    # key only — the free tier trains on / human-reviews data (O4), incompatible with managed.
+    managed_openai_api_key: str | None = Field(default=None)
+    managed_groq_api_key: str | None = Field(default=None)
+    managed_gemini_api_key: str | None = Field(default=None)
+    # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
+    # backstop that bounds OUR spend even on an unlimited plan or the staff override, against
+    # a runaway client / compromised account. 0 ⇒ no ceiling. Independent of the plan allowance.
+    managed_account_spend_ceiling_micros: int = Field(default=0, ge=0)
+    # Emit a `managed_spend_alarm` warning when an account crosses this fraction of its
+    # effective limit (allowance or ceiling) — an ops/anomaly signal. 0 ⇒ alarm off.
+    managed_spend_alarm_fraction: float = Field(default=0.8, ge=0.0, le=1.0)
     # Internal "staff-managed" allowlist for Phase 1 — who may use the managed path
     # before plans/entitlements/billing exist (those replace this in phases 3–4).
     # Per-app POLICY (ADR-019), config-only (never a token claim — same discipline as

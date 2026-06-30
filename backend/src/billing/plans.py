@@ -38,8 +38,10 @@ _PLANS: dict[str, Plan] = {
     "managed_unlimited": Plan(
         id="managed_unlimited",
         display="Managed Unlimited",
-        allowance_micros=0,  # uncapped (internal / unmetered-cap tier)
-        managed_providers=frozenset({"anthropic"}),
+        allowance_micros=0,  # uncapped by allowance (the O7 spend ceiling still backstops)
+        # Multi-provider (Phase 6). Gemini is omitted by default — managed Gemini needs a
+        # PAID key (free tier trains on data, O4); add it to a plan deliberately.
+        managed_providers=frozenset({"anthropic", "openai", "groq"}),
         window_days=30,
     ),
 }

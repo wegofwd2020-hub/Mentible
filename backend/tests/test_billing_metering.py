@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from backend.config import settings
 from backend.src.billing import access, pricing, usage_repo
 from backend.src.billing.access import ManagedAccess
 
@@ -49,6 +50,50 @@ def test_cost_micros_unknown_model_uses_default():
     # An unpriced model falls back to the conservative default rate (3, 15), never 0.
     assert pricing.cost_micros("anthropic", "some-new-model", 100, 500) == 7800
     assert pricing.cost_micros("whoever", "whatever", 1_000_000, 0) == 3_000_000
+
+
+def test_cost_micros_multi_provider(monkeypatch):
+    # Phase 6 added OpenAI/Groq/Gemini rates (1M input tokens × rate-per-1M = rate micros).
+    assert pricing.cost_micros("openai", "gpt-4o-mini", 1_000_000, 0) == 150_000  # $0.15/1M
+    assert pricing.cost_micros("gemini", "gemini-2.5-pro", 1_000_000, 0) == 1_250_000
+
+
+# ── access.over_cap — the Phase-6 spend ceiling (O7) ───────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_spend_ceiling_blocks_even_unlimited_plan(monkeypatch):
+    """The hard ceiling backstops OUR spend even on an unlimited (allowance 0) grant."""
+    monkeypatch.setattr(settings, "managed_account_spend_ceiling_micros", 10_000)
+
+    async def _usage(*a, **k):
+        return usage_repo.PeriodUsage(1, 1, 10_000, 1)
+
+    monkeypatch.setattr(usage_repo, "period_usage", _usage)
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(0)) is True
+
+
+@pytest.mark.asyncio
+async def test_spend_ceiling_below_allows(monkeypatch):
+    monkeypatch.setattr(settings, "managed_account_spend_ceiling_micros", 10_000)
+
+    async def _usage(*a, **k):
+        return usage_repo.PeriodUsage(1, 1, 9_999, 1)
+
+    monkeypatch.setattr(usage_repo, "period_usage", _usage)
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(0)) is False
+
+
+@pytest.mark.asyncio
+async def test_ceiling_binds_before_a_larger_allowance(monkeypatch):
+    monkeypatch.setattr(settings, "managed_account_spend_ceiling_micros", 10_000)
+
+    async def _usage(*a, **k):
+        return usage_repo.PeriodUsage(1, 1, 10_000, 1)
+
+    monkeypatch.setattr(usage_repo, "period_usage", _usage)
+    # Allowance is huge, but the ceiling (10_000) trips first.
+    assert await access.over_cap(None, account_id=uuid.uuid4(), access=_grant(1_000_000)) is True
 
 
 # ── access.over_cap (cost cap against a resolved grant) ─────────────────────────

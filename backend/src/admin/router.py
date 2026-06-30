@@ -25,6 +25,7 @@ from backend.src.accounts.schemas import (
     AdminUserList,
     AdminUserRow,
     AdminUserSummary,
+    BillingUsageSummaryView,
     CredentialView,
     EntitlementView,
     GrantEntitlementRequest,
@@ -33,7 +34,7 @@ from backend.src.admin import audit
 from backend.src.auth import identity_admin
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
-from backend.src.billing import entitlement_repo, plans
+from backend.src.billing import entitlement_repo, plans, usage_repo
 from backend.src.db.deps import get_conn
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -245,6 +246,24 @@ async def grant_entitlement(
         status=ent.status,
         period_start=ent.period_start,
         period_end=ent.period_end,
+    )
+
+
+@router.get("/billing/usage-summary", response_model=BillingUsageSummaryView)
+async def billing_usage_summary(
+    days: int = Query(default=30, ge=1, le=366),
+    _admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> BillingUsageSummaryView:
+    """Aggregate managed spend across all accounts over the last `days` (margin monitoring,
+    Phase 6). Read-only; metadata only — totals, not per-user content."""
+    since = datetime.now(UTC) - timedelta(days=days)
+    total = await usage_repo.total_usage(conn, since=since)
+    return BillingUsageSummaryView(
+        window_days=days,
+        cost_micros=total.cost_micros,
+        events=total.events,
+        accounts=total.accounts,
     )
 
 

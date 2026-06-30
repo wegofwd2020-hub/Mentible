@@ -23,11 +23,14 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import asyncpg
+import structlog
 
 from backend.config import settings
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, usage_repo
 from backend.src.billing.eligibility import is_managed_eligible
+
+log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -65,9 +68,41 @@ async def resolve_managed_access(
 
 
 async def over_cap(conn: asyncpg.Connection, *, account_id: UUID, access: ManagedAccess) -> bool:
-    """True iff the account has met or exceeded `access`'s allowance for its window.
-    Always False for an unlimited allowance (0)."""
-    if access.allowance_micros <= 0:
+    """True iff the request should be refused on cost grounds — over the plan allowance OR
+    over the hard per-account spend ceiling (Phase 6, O7), whichever binds.
+
+    The **ceiling** is a backstop that bounds OUR spend even on an unlimited plan or the
+    staff override, against a runaway client. Also emits an ops **anomaly alarm** when the
+    account crosses a warn fraction of its effective limit. Truly unlimited (no allowance,
+    no ceiling) ⇒ never blocked, and the usage row isn't even read."""
+    allowance = access.allowance_micros
+    ceiling = settings.managed_account_spend_ceiling_micros
+    if allowance <= 0 and ceiling <= 0:
         return False
+
     usage = await usage_repo.period_usage(conn, account_id=account_id, since=access.since)
-    return usage.cost_micros >= access.allowance_micros
+    cost = usage.cost_micros
+
+    # The binding limit is the smaller of the two that apply (each > 0).
+    effective = min(x for x in (allowance, ceiling) if x > 0)
+    frac = settings.managed_spend_alarm_fraction
+    if frac > 0 and cost >= int(effective * frac):
+        log.warning(
+            "managed_spend_alarm",
+            account_id=str(account_id),
+            cost_micros=cost,
+            effective_limit_micros=effective,
+            source=access.source,
+        )
+
+    over_allowance = allowance > 0 and cost >= allowance
+    over_ceiling = ceiling > 0 and cost >= ceiling
+    if over_ceiling and not over_allowance:
+        log.warning(
+            "managed_spend_ceiling_hit",
+            account_id=str(account_id),
+            cost_micros=cost,
+            ceiling_micros=ceiling,
+            source=access.source,
+        )
+    return over_allowance or over_ceiling

@@ -89,6 +89,20 @@ async def test_period_window_excludes_old_events(conn):
     assert usage.events == 0
 
 
+async def test_total_usage_aggregates_all_accounts(conn):
+    from datetime import UTC, datetime, timedelta
+
+    a = await _account(conn, sub="tot-a")
+    b = await _account(conn, sub="tot-b")
+    await _record(conn, a.id)  # 7800
+    await _record(conn, b.id, cost_micros=1_000)
+    since = datetime.now(UTC) - timedelta(days=30)
+    total = await usage_repo.total_usage(conn, since=since)
+    assert total.accounts >= 2
+    assert total.events >= 2
+    assert total.cost_micros >= 8_800
+
+
 async def test_usage_isolated_per_account(conn):
     a = await _account(conn, sub="acct-a")
     b = await _account(conn, sub="acct-b")

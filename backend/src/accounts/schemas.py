@@ -139,6 +139,15 @@ class ManagedEntitlementView(BaseModel):
     period_end: datetime
 
 
+class BillingUsageSummaryView(BaseModel):
+    """Aggregate managed spend across all accounts over a window (admin margin view)."""
+
+    window_days: int
+    cost_micros: int
+    events: int
+    accounts: int
+
+
 class ManagedStatusView(BaseModel):
     """The account-facing managed-billing status the client meter renders (Phase 5):
     the entitlement (null ⇒ no managed plan / BYOK), the window's usage, and the plan

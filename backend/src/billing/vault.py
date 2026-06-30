@@ -21,14 +21,18 @@ from backend.config import settings
 def _managed_keys() -> dict[str, str]:
     """`provider_id` → OUR key, for the providers we offer managed today.
 
-    Phase 1 is Anthropic-only. Add a provider here ONLY once its ToS clears for
-    serving end users on our account (ADR-005 O4). A provider whose key is unset is
-    simply absent ⇒ not offered managed.
+    A provider is offered managed only once its ToS clears for serving end users on our
+    account (ADR-005 O4 — all four cleared) AND its key is configured here; an unset key
+    means the provider is simply absent ⇒ not offered managed. (Phase 6 generalised this
+    from Anthropic-only.) ⚠ Gemini must be a PAID key (free tier trains on data, O4).
     """
-    keys: dict[str, str] = {}
-    if settings.managed_anthropic_api_key:
-        keys["anthropic"] = settings.managed_anthropic_api_key
-    return keys
+    candidates = (
+        ("anthropic", settings.managed_anthropic_api_key),
+        ("openai", settings.managed_openai_api_key),
+        ("groq", settings.managed_groq_api_key),
+        ("gemini", settings.managed_gemini_api_key),
+    )
+    return {pid: key for pid, key in candidates if key}
 
 
 def get_managed_key(provider_id: str) -> str | None:

@@ -212,3 +212,12 @@ def test_grant_unknown_user_404(admin_client):
         f"{ADMIN}/users/no-such-sub/entitlement", json={"plan_id": "managed_basic"}
     )
     assert r.status_code == 404
+
+
+def test_billing_usage_summary(admin_client):
+    r = admin_client.get(f"{ADMIN}/billing/usage-summary?days=30")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["window_days"] == 30
+    assert set(body) == {"window_days", "cost_micros", "events", "accounts"}
+    assert body["cost_micros"] >= 0 and body["accounts"] >= 0
