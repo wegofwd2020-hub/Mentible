@@ -33,6 +33,14 @@ jest.mock("../../src/secure/keyStore", () => ({
 import { FirstRunWizard } from "../../src/onboarding/FirstRunWizard";
 import { applyStepStatuses, relaunchStep } from "../../src/onboarding/firstRunState";
 
+// This suite renders the wizard's heavy step trees (a Modal wrapping KeyStep with
+// the provider form + guide cards). On a loaded CI runner the *first* render in
+// the file — which also pays one-time module init — has occasionally exceeded
+// Jest's 5 s default and timed out (no assertion failure, no infinite hang: all
+// async here is microtask-bounded mocks). Give the file generous headroom so a
+// slow-but-correct cold start can't trip the timeout. See PR de-flaking this.
+jest.setTimeout(20000);
+
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
@@ -41,13 +49,16 @@ beforeEach(async () => {
 
 describe("FirstRunWizard", () => {
   it("starts on the Add-a-key step for a signed-in user, Continue locked until a key exists", async () => {
+    // Pre-seed signup as done (a signed-in user has it auto-skipped anyway — that
+    // mechanism is covered by the signed-out→signed-in test below) so the wizard
+    // lands directly on the key step, trimming the load→auto-skip→re-render churn
+    // that made this first-in-file test the flaky one.
+    await applyStepStatuses({ signup: "done" });
     render(<FirstRunWizard />);
     expect(await screen.findByText("Add an LLM key")).toBeTruthy();
-    // Reaching the key step for a signed-in user is a chained async hop (load
-    // state → auto-skip signup → re-render). Assert Continue via waitFor (like
-    // the sibling tests) so the act() scope stays open until that trailing
-    // setState flushes — a bare synchronous getByLabelText here lets the update
-    // land post-test, un-acted, which made this test flaky in CI.
+    // Assert Continue via waitFor (like the sibling tests) so the act() scope
+    // stays open until KeyStep's saved-keys probe settles — a bare synchronous
+    // getByLabelText here lets that update land post-test, un-acted.
     await waitFor(() =>
       expect(screen.getByLabelText("Continue").props.accessibilityState?.disabled).toBe(true),
     );
