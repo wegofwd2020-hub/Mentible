@@ -72,11 +72,13 @@ refreshed to `main` (`add2807`)**.
 - **Ops:** prod backend refreshed to `main@add2807`; rollback dirs reclaimed;
   `mentible.com` retired (third-party owned) + its Firebase projects deleted.
 
-Open after v0.2.0: Everyone Library build trigger; backlog (managed billing, library
-sync, latency, trademark, Pramana). _Resolved 2026-06-30:_ ADR-022 **stays OFF in
-prod** (decision recorded in the ADR — service-role key's auth-admin blast radius vs.
-rare real-user deletions; revisit when deletion volume or hardened secret storage
-warrants); `vm.overcommit_memory=1` applied on the host.
+Open after v0.2.0: backlog (managed billing, library sync, latency, trademark,
+Pramana). _Resolved 2026-06-30:_ ADR-022 **stays OFF in prod** (decision in the ADR —
+service-role key's auth-admin blast radius vs. rare real-user deletions; revisit when
+deletion volume or hardened secret storage warrants); `vm.overcommit_memory=1` applied
+on the host; **ADR-021 Everyone Library build trigger settled** (D8 — a strategic gate
+with hard prerequisites: demand for public discovery + legal/DMCA cleared + moderation
+ready + money-model fit; stays design-only until then).
 
 ---
 

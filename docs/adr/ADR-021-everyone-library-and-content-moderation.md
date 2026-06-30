@@ -152,7 +152,42 @@ This **amends the loose "can see all personal library"** in `roles_spec.txt` to
 6. **AI-triage policy spec** — the ruleset Claude evaluates against (what counts as
    "policy-violating"), thresholds, and the human-in-the-loop guarantee (D5 keeps the
    human as final decider).
-7. **Build trigger** — the criteria that move this from design-only (D1) to a build ADR.
+7. **Build trigger** — ~~the criteria that move this from design-only (D1) to a build
+   ADR.~~ **Resolved 2026-06-30 — see "Build trigger (D8)" below.**
+
+### D8 — Build trigger (resolves Open decision 7) — 2026-06-30
+
+The Everyone Library has a **large fixed cost that does not amortize with volume**:
+a content-liability/ToS/DMCA posture (Open #3, a hard blocker), moderation tooling +
+a human-in-the-loop operator (D5 / Open #6), server-side UGC hosting that *reverses*
+the local-first / no-server-content-store posture (Open #1), and discovery/anti-abuse
+(Open #2/#5). A naïve "trip it at N published books" threshold is therefore **rejected**
+— it can fire on a vanity metric while the legal and moderation prerequisites are still
+absent. The trigger is a **deliberate strategic gate with hard prerequisites**, not an
+automatic count. _Decision-maker:_ Sivakumar Mambakkam.
+
+Today's surfaces already cover the adjacent needs: **email-PDF share (SBQ-EXP-001)**
+handles 1:1 / small-group distribution, and the **owner-curated default library
+(ADR-017)** covers "books we vouch for." The Everyone Library only earns its cost when
+**public discovery of third-party UGC** is itself a wanted product direction.
+
+**Build is unlocked only when _all four_ hold:**
+
+1. **Demand for public discovery** — a genuine, repeated pull for a *public shelf*
+   (not merely sharing, which SBQ-EXP-001 already covers): multiple distinct authors
+   asking for it, or a deliberate strategic bet to make UGC a growth channel — **and**
+   enough published-quality supply that a public shelf is worth browsing.
+2. **Legal cleared (hard gate, Open #3)** — ToS / DMCA / content-liability review
+   *completed*. Build **cannot** start without it.
+3. **Moderation ready** — the AI-triage policy ruleset (Open #6) drafted **and** a human
+   operator with bandwidth to be the final decider (D5).
+4. **Money-model fit** — decided whether the public library is free/paid and how its
+   hosting + token-moderation cost sits within ADR-004 / ADR-005.
+
+**Anti-trigger (stay design-only):** as long as email-PDF share + the owner-curated
+default library satisfy the real distribution/discovery need, do **not** build — this
+ADR remains the design anchor and nothing more. Revisit only on an explicit decision
+to pursue public UGC, at which point this trigger's four conditions gate the build.
 
 ## Consequences
 
