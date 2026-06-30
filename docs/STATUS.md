@@ -325,20 +325,46 @@ formally measured (the poll timeout was raised to 600 s for slow generations).
 
 ## Next up
 
-_(Items 1–2 from the prior refresh — backend URL, APK, on-device run — are **done**.)_
+_Re-prioritised 2026-06-30 (hygiene-first): clear the cheap, time-boxed, and
+prerequisite items before the big managed-billing build. Rationale in each entry._
 
-1. **Prod backend is current** — running `main`@`add2807` (refreshed 2026-06-28); no
-   backend changes have landed on `main` since (docs/mobile-web only), so no refresh is
-   pending. Re-run the root block in `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md` only when an
-   actual backend/compiler change ships.
-2. **Managed billing (ADR-005)** — usage metering Phase 2, plan caps, and the
-   **managed-key vault** (the half of ADR-005/ADR-020 #6 not yet built).
-3. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
-   **Now scoped:** `docs/SYNC_BUILD_PLAN.md` (D10 envelope crypto, Supabase schema/RLS,
-   `/api/v1/sync/*`, recovery, 6-phase build); build still deferred past v1.1 (O3).
-4. **Everyone Library (ADR-021)** — design-only; decide the build trigger (hosting,
-   moderation, ToS/DMCA, the AI-assisted complaint workflow).
-5. **Latency** — measure generation against the < 90 s p95 target (criterion 6).
-6. **HelpHint rollout (SBQ-UI-003)** — extend the `?` hints beyond the Account screen.
-7. **Trademark clearance** on Mentible vs "Mentable" before assets/listings lock.
-8. **Pramana slice** (when prioritised): the package builder + signing for ADR-011.
+**Tier 1 — cheap, high-consequence, time-boxed:**
+
+1. **Trademark clearance** — Mentible vs **"Mentable"** (a real conflict the asset
+   sweep flagged), **before assets/listings lock**. The only item with an external
+   clock: a collision found *after* the icon set / store listing / marketing freeze =
+   expensive rework + legal exposure. Investigation is cheap (USPTO TESS + Play / App
+   Store search). Do-now-or-pay-later.
+2. **Latency — measure against the < 90 s p95 target (criterion 6).** The last unproven
+   MVP acceptance criterion; *measurement*, not a build. Can't justify a latency *fix*
+   without it, and the signal it may already be blown (poll TTL 600 s; some runs slow)
+   makes the spike worth it. Tells us whether a fix-item even needs to exist.
+
+**Tier 2 — live production gap + managed-billing prerequisite:**
+
+3. **Rate-limiting ([#221](https://github.com/wegofwd2020-hub/Mentible/issues/221),
+   ADR-014 D9).** A live backend with no throttle is a current abuse/DoS vector, and the
+   moment managed keys land it becomes **unbounded token spend on our dime**. Designed,
+   uncoded, no version gate. Also a partial prerequisite for managed billing's cost caps.
+
+**Tier 3 — big strategic build (revenue lever):**
+
+4. **Managed billing (ADR-005 D6)** — usage metering Phase 2, plan caps, and the
+   **managed-key vault** (the half of ADR-005 / ADR-020 #6 not yet built). The "subscribe
+   and it just works" default path; biggest business value but biggest effort, and it
+   leans on #3's caps for cost safety — so it sequences after the hygiene tier.
+
+**Tier 4 — genuinely deferrable:**
+
+5. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
+   **Scoped:** `docs/SYNC_BUILD_PLAN.md` (D10 envelope crypto, Supabase schema/RLS,
+   `/api/v1/sync/*`, recovery, 6-phase build); build deferred past v1.1 (O3). No urgency.
+6. **Pramana slice** (when prioritised): the package builder + signing for ADR-011 —
+   cross-product, Proposed/contract-only, no pull from the Pramana side yet.
+
+**Resolved 2026-06-30 (off this list):** Everyone Library (ADR-021) build trigger
+settled (D8); `vm.overcommit_memory=1` applied on the host; ADR-022 prod posture decided
+(stays OFF). Prod backend remains current on `main`@`add2807` (no backend delta since;
+re-run the `Plans/PROD_BACKEND_REFRESH_TO_MAIN.md` root block only when a real
+backend/compiler change ships). HelpHint (SBQ-UI-003) shipped on the Account screen;
+extending its `?` hints elsewhere is a nice-to-have, not tracked as a backlog tier.
