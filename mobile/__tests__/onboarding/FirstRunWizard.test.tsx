@@ -43,7 +43,14 @@ describe("FirstRunWizard", () => {
   it("starts on the Add-a-key step for a signed-in user, Continue locked until a key exists", async () => {
     render(<FirstRunWizard />);
     expect(await screen.findByText("Add an LLM key")).toBeTruthy();
-    expect(screen.getByLabelText("Continue").props.accessibilityState?.disabled).toBe(true);
+    // Reaching the key step for a signed-in user is a chained async hop (load
+    // state → auto-skip signup → re-render). Assert Continue via waitFor (like
+    // the sibling tests) so the act() scope stays open until that trailing
+    // setState flushes — a bare synchronous getByLabelText here lets the update
+    // land post-test, un-acted, which made this test flaky in CI.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Continue").props.accessibilityState?.disabled).toBe(true),
+    );
   });
 
   it("unlocks Continue after saving a key and advances to the tour", async () => {
