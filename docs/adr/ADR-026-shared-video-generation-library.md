@@ -1,7 +1,33 @@
 # ADR-026 — Video generation as a shared library (`wegofwd-video`)
 
-**Status:** Accepted — 2026-06-30
+**Status:** Accepted — 2026-06-30 · _amended 2026-06-30 (D7 v1.0 gate MET — both
+real consumers wired)_
 **Decision-maker:** Sivakumar Mambakkam
+
+> **Amendment — 2026-06-30 (v1.0 gate met).** D7 deferred freezing the interface
+> until **both** real integrations were wired and green; that condition is now
+> satisfied:
+> - **Consumer #1 — pramana (AI `veo` path):** drafts a compliance video at DRAFT
+>   time, materialised onto the immutable `CourseVersion` at publish
+>   (`pramana#4`). Exercises the BYOK Veo provider + S3 storage.
+> - **Consumer #2 — kathai-chithiram (`deterministic-renderer` path):** wraps its
+>   existing `SceneScriptRenderer` as the caller-supplied render_fn, fully
+>   in-process, child content never leaving the boundary (`kathai-chithiram#12`).
+>   Exercises the non-AI provider + caller-owned filesystem storage.
+>
+> Two consumers on **two different provider paths** confirm the seam's shape holds
+> (registry, capability check, provenance, the pluggable render_fn of D4). The
+> second consumer also surfaced one real constraint — kathai is Python 3.10 — so
+> the package floor was lowered to `>=3.10` in **`wegofwd-video` v0.1.1** (the
+> exact kind of late discovery D7 named as the cost of building ahead of the rule).
+>
+> **Decision:** the D7 interface-freeze gate is **MET**. Cut **`wegofwd-video`
+> v1.0** once both consumer PRs merge, graduating the package from v0.x (unstable)
+> to a frozen, additive-by-default contract. The remaining open item is unchanged:
+> complete the **live Veo network call** and flip the `veo` `model_verified` to a
+> live-tested basis (a provider-integration change, not a contract change — it does
+> not block v1.0).
+
 **Relates:** **ADR-012** (the template this follows — library-not-service §D8,
 caller-owns-secrets §D3, product-neutral/schema-agnostic §D2, semver/git-pin §D4;
 `wegofwd-video` becomes the next member of the `wegofwd-*` family). **ADR-019**
