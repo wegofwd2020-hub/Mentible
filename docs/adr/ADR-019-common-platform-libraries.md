@@ -1,8 +1,33 @@
 # ADR-019 — Common platform functionality as installable libraries (extract on the second consumer)
 
-**Status:** Proposed — 2026-06-15 · _amended 2026-06-19: D4's "second consumer"
-trigger is now MET_
+**Status:** Proposed — 2026-06-15 · _amended 2026-06-19 (D4 "second consumer" trigger
+MET) · amended 2026-06-30 (billing = mechanism vs policy split → a `wegofwd-billing`
+candidate)_
 **Decision-maker:** Sivakumar Mambakkam
+
+> **Amendment — 2026-06-30 (`wegofwd-billing`: split managed-billing mechanism from
+> policy).** D4 lists "entitlements / metering / billing" as **not extractable**. That
+> ruling **stands for billing _policy_** — but it conflated two layers. Within managed
+> billing (ADR-005 D6, now scoped in [`docs/MANAGED_BILLING_BUILD_PLAN.md`](../MANAGED_BILLING_BUILD_PLAN.md))
+> there is a **mechanism** layer that *is* "identical everywhere" and passes the D5
+> package test, exactly like the `wegofwd-llm` seam:
+> - **Mechanism (packageable → `wegofwd-billing`):** managed-key **vault access** (the
+>   *same* provider keys across products), **token→cost metering** + price tables,
+>   **payment-processor webhook verification → a generic entitlement record** (RevenueCat,
+>   per ADR-005 O1), and a **cap-enforcement engine** parameterised by a policy the app
+>   supplies.
+> - **Policy (stays per-app, unchanged from D4/D5):** plan definitions, allowances,
+>   what-a-plan-grants, the entitlement/usage **DB rows**, and product UX.
+>
+> **Decision (2026-06-30):** the family gains a **`wegofwd-billing` library** for the
+> mechanism; **per-product billing** (each app owns its plans, DB, and subscriptions —
+> **no** cross-product wallet, **no** shared service; D1 library-not-service holds).
+> **Sequencing is unchanged and binding:** managed billing is **not built even once yet**,
+> so **build it in Mentible first, in-repo, behind a clean mechanism seam** (ADR-005
+> phases 1–5), and **extract `wegofwd-billing` only when a second consumer actually wires
+> to it** — Pramana (which already does managed-vault generation) is the likely trigger.
+> Copy-first / extract-on-the-real-second-consumer (D3/D5); no speculative package. See
+> the new Sequencing step 4 and D5's billing line.
 
 > **Amendment — 2026-06-19 (D4 trigger met).** D4 made `wegofwd-identity` extraction
 > conditional on "a second product that actually needs it." That condition is now
@@ -148,11 +173,17 @@ authenticated users, or kathai-chithiram starting). At that point:
   account) may join it if a second product needs the same admin concept.
 - **NOT extractable (project-shaped, keep per-app):** the **per-provider credential
   set** and its custody rules (ADR-014 §D-credential-set — device-local / synced-e2e /
-  managed-vault), **entitlements / metering / billing** (Mentible's metered LLM
-  allowance + BYOK vs Pramana's compliance delivery vs kathai-chithiram's unknown
-  model), the **sync record** (ADR-014 §D8), and every **data model**. These differ per
-  product and will fight a shared abstraction — they are the "content that *should*
-  drift" of ADR-002, not the "infra that must not" of ADR-012.
+  managed-vault), **billing/entitlement _policy_** (Mentible's metered LLM allowance +
+  BYOK vs Pramana's compliance delivery vs kathai-chithiram's unknown model — plans,
+  allowances, what-a-plan-grants, and the entitlement/usage DB rows), the **sync record**
+  (ADR-014 §D8), and every **data model**. These differ per product and will fight a
+  shared abstraction — they are the "content that *should* drift" of ADR-002, not the
+  "infra that must not" of ADR-012.
+  > **Refinement (2026-06-30 amendment).** This bars the billing *policy*, **not** the
+  > billing *mechanism*. The managed-billing mechanism (vault access, token→cost metering,
+  > webhook-verify → generic entitlement, the cap engine) *is* identical everywhere and is
+  > the **`wegofwd-billing`** candidate — built in Mentible first, extracted on the second
+  > consumer (see the header amendment + Sequencing step 4).
 
 The boundary, stated once: **`wegofwd-identity` answers "who is this caller?"; each app
 answers "what may they do and what do we store for them?"**
@@ -162,9 +193,12 @@ answers "what may they do and what do we store for them?"**
 ADR-002's test — *does this artifact want to drift per product (vendor it) or be
 identical everywhere (package it)?* — is the deciding question for every future
 candidate, not just these. Security primitives and token-verification are "identical
-everywhere" → package. Prompts, schemas, entitlement policy, UI → "should drift" →
-stays per-app (vendored where shared at all). When in doubt, **copy first, extract on
-the third instance** — a wrong abstraction costs more than a duplicated file.
+everywhere" → package. Prompts, schemas, entitlement **policy**, UI → "should drift" →
+stays per-app (vendored where shared at all). _Note (2026-06-30):_ "entitlement policy"
+here means plans/allowances/grants/DB rows — the billing **mechanism** (vault access,
+metering/cost, webhook-verify→entitlement, cap engine) is on the package side of this
+line (`wegofwd-billing`). When in doubt, **copy first, extract on the third instance** —
+a wrong abstraction costs more than a duplicated file.
 
 ---
 
@@ -190,7 +224,20 @@ the third instance** — a wrong abstraction costs more than a duplicated file.
    3. The `Principal` mapping, role/tenancy model, entitlements, credential-set and
       data-model **stay per-app**; the super-admin gate travels as a copyable pattern
       (ADR-020 D8), not shared authz code.
-4. **Each step is its own ADR-012-style record** (or an amendment here) noting what
+4. **`wegofwd-billing` — build-first, extract-on-second-consumer (added 2026-06-30).**
+   1. Build managed billing **in Mentible, in-repo**, against ADR-005 (D6) +
+      `docs/MANAGED_BILLING_BUILD_PLAN.md`. **Factor the *mechanism* behind a clean seam**
+      from day one — vault access, `meter(usage)→cost`, `verify_webhook(payload)→
+      entitlement`, `enforce(policy, usage)→decision` — so the extractable surface already
+      has its final *shape* (the same trick used for `VerifiedToken` in step 3).
+   2. Keep **plans, allowances, entitlement/usage DB rows, and UX in app code** (per-app
+      policy, D4/D5).
+   3. **Extract `wegofwd-billing`** (mechanism only) when a second consumer actually wires
+      to it — **Pramana** is the likely trigger (it already does managed-vault generation).
+      Fold Mentible + that consumer onto the package then, so the API is frozen against two
+      real callers. Tag `v0.1.0`; its own ADR-012-style record. **No** cross-product
+      wallet / shared service (D1 holds) unless a *separate* decision revisits that.
+5. **Each step is its own ADR-012-style record** (or an amendment here) noting what
    moved and what stayed.
 
 ---

@@ -36,6 +36,21 @@ works" (ADR-005 D2, managed is the default consumer experience).
   enforcement + margin control).
 - **Not multi-currency / tax-engine / invoicing-suite scope** at first launch — lean on
   the payment processor's built-ins.
+- **Not a shared billing _service_ or cross-product wallet** (decided 2026-06-30,
+  ADR-019). Each wegofwd product bills independently; what's shared is the **mechanism**,
+  later, as a **`wegofwd-billing` library** — not a runtime service and not one
+  subscription spanning products. See the next note.
+
+> **Designed for extraction → `wegofwd-billing` (ADR-019, 2026-06-30).** Managed billing
+> splits into a **mechanism** layer that is identical across Mentible / Pramana /
+> kathai-chithiram (vault access, token→cost metering, payment-webhook → generic
+> entitlement, the cap engine) and a **policy** layer that drifts per product (plans,
+> allowances, grants, the entitlement/usage DB rows, UX). Per ADR-019's build-first /
+> extract-on-the-second-consumer rule, we **build the mechanism in-repo here behind a
+> clean seam** — `meter(usage)→cost`, `verify_webhook(payload)→entitlement`,
+> `enforce(policy, usage)→decision`, and vault access — so it can be lifted into a shared
+> `wegofwd-billing` package **when a second consumer (likely Pramana) actually wires to
+> it**. We do **not** package it speculatively now. Policy stays in app code throughout.
 
 > **Managed changes the content-privacy story (must be disclosed).** Under **BYOK** the
 > user's content is theirs end-to-end (ADR-014 zero-knowledge stance). Under **managed**,
