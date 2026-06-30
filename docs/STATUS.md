@@ -5,10 +5,14 @@
 > **What's new since go-live:** account deletion now removes the Supabase identity
 > (ADR-022, opt-in/off-by-default), plus web/UX fixes — all live on prod. See
 > **"Release v0.2.0 (2026-06-28)"** just below.
-> **Last updated:** 2026-06-29 — **docs reconciliation** (PRs #219/#220, docs-only, no
-> code/behaviour change): CLAUDE.md + the ADR-020 and ADR-014 follow-up tickets aligned
-> with shipped reality; the deferred **zero-knowledge sync build is now scoped**
-> (`docs/SYNC_BUILD_PLAN.md`); the **rate-limiting gap** (ADR-014 D9) is tracked (#221).
+> **Last updated:** 2026-06-30 — backlog review + doc corrections (docs/tests only):
+> ADR-021 Everyone-Library build trigger settled (D8); ADR-022 prod posture decided
+> (service-role key stays **off**); trademark sweep refreshed; backlog re-prioritised
+> hygiene-first; **rate limiting (ADR-014 D9) corrected to BUILT** — the #221 "gap" was
+> a mis-file (the limiter shipped `fbd5aad`, 2026-06-16), now closed.
+> _Earlier 2026-06-29_ — **docs reconciliation** (PRs #219/#220): CLAUDE.md + the
+> ADR-020 and ADR-014 follow-up tickets aligned with shipped reality; the deferred
+> **zero-knowledge sync build is now scoped** (`docs/SYNC_BUILD_PLAN.md`).
 > Prior: 2026-06-28 (release v0.2.0) / 2026-06-27 (accounts / go-live / trust /
 > web-app arc — see **"Shipped since the last refresh"**).
 > **Brand:** **Mentible** (rebrand of "StudyBuddy Q" — ADR-006, Accepted; name
@@ -275,10 +279,14 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
   one in production today.
 
 ### Backend hardening
-- **Rate limiting** (ADR-014 D9) — designed (per-account, IP fallback for the anonymous
-  demo) but **not gated in code**. The backend proxies even BYOK `/generate` and runs
-  Chromium for export, so it's an abuse surface regardless of who pays for tokens.
-  Tracked: **#221**.
+- **Rate limiting** (ADR-014 D9) — **BUILT** (`fbd5aad`, 2026-06-16). Per-identity
+  fixed-window limiter (authed `Principal.sub`, IP fallback for the anonymous demo)
+  gating the expensive endpoints (`/generate`, `/structure`, `/export`); Redis-backed,
+  fail-open, 429 + `Retry-After`, per-minute (20) + per-day (500) windows, on by default
+  (`backend/src/core/rate_limit.py`; 8 tests). The backend proxies even BYOK `/generate`
+  and runs Chromium for export, so this guards the abuse surface regardless of who pays
+  for tokens. _Issue **#221** ("not built") was a 2026-06-29 mis-file post-dating the
+  commit — closed as already-implemented. Per-plan-tier limits remain an ADR-005 refinement._
 
 ### Pramana B2B compliance (contract only)
 - The Consumable Package **builder, manifest, `content_hash`, signing, and push**
@@ -344,26 +352,24 @@ prerequisite items before the big managed-billing build. Rationale in each entry
    without it, and the signal it may already be blown (poll TTL 600 s; some runs slow)
    makes the spike worth it. Tells us whether a fix-item even needs to exist.
 
-**Tier 2 — live production gap + managed-billing prerequisite:**
+**Tier 2 — big strategic build (revenue lever):**
 
-3. **Rate-limiting ([#221](https://github.com/wegofwd2020-hub/Mentible/issues/221),
-   ADR-014 D9).** A live backend with no throttle is a current abuse/DoS vector, and the
-   moment managed keys land it becomes **unbounded token spend on our dime**. Designed,
-   uncoded, no version gate. Also a partial prerequisite for managed billing's cost caps.
-
-**Tier 3 — big strategic build (revenue lever):**
-
-4. **Managed billing (ADR-005 D6)** — usage metering Phase 2, plan caps, and the
+3. **Managed billing (ADR-005 D6)** — usage metering Phase 2, plan caps, and the
    **managed-key vault** (the half of ADR-005 / ADR-020 #6 not yet built). The "subscribe
-   and it just works" default path; biggest business value but biggest effort, and it
-   leans on #3's caps for cost safety — so it sequences after the hygiene tier.
+   and it just works" default path; biggest business value but biggest effort. _Note:_
+   per-request **rate limiting already exists** (ADR-014 D9, built `fbd5aad`), so managed
+   adds **per-plan-tier** caps on top of the existing limiter, not throttling from scratch.
+
+> _Removed from this list 2026-06-30:_ the former Tier-2 "rate-limiting gap (#221)" was
+> a **mis-file** — the per-identity limiter shipped 2026-06-16 (`fbd5aad`); #221 was
+> filed 13 days later and is closed as already-implemented. See "Backend hardening".
 
 **Tier 4 — genuinely deferrable:**
 
-5. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
+4. **Library sync (ADR-014 O2)** — zero-knowledge cloud sync (device-local only today).
    **Scoped:** `docs/SYNC_BUILD_PLAN.md` (D10 envelope crypto, Supabase schema/RLS,
    `/api/v1/sync/*`, recovery, 6-phase build); build deferred past v1.1 (O3). No urgency.
-6. **Pramana slice** (when prioritised): the package builder + signing for ADR-011 —
+5. **Pramana slice** (when prioritised): the package builder + signing for ADR-011 —
    cross-product, Proposed/contract-only, no pull from the Pramana side yet.
 
 **Resolved 2026-06-30 (off this list):** Everyone Library (ADR-021) build trigger

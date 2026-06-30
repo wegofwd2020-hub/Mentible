@@ -278,9 +278,14 @@ the Open Decisions section are deliberately left to the decision-maker.
    **Scoped:** see [`docs/SYNC_BUILD_PLAN.md`](../SYNC_BUILD_PLAN.md).
 5. **⏳ Deferred (depends on #4).** Provenance-driven degradation UX (D6) — only
    meaningful once sync lands. Folded into the plan above (Phase 5).
-6. **⏳ Not built (no version gate).** Rate limiting (D9) — designed as per-account
-   (IP fallback for the anonymous demo) but not yet gated in code. Tracked:
-   [#221](https://github.com/wegofwd2020-hub/Mentible/issues/221).
+6. **✅ Built.** Rate limiting (D9) — per-identity fixed-window limiter (authed
+   `Principal.sub`, IP fallback for the anonymous demo) gating the expensive endpoints
+   (`/generate`, `/structure`, `/export`); Redis-backed, fail-open, 429 + `Retry-After`,
+   per-minute + per-day windows, on by default. Shipped **`fbd5aad`** (2026-06-16),
+   `backend/src/core/rate_limit.py` + `backend/tests/test_rate_limit.py` (8 tests).
+   _(Issue [#221](https://github.com/wegofwd2020-hub/Mentible/issues/221) was filed
+   2026-06-29 in error — it post-dated this commit; closed as already-implemented. The
+   per-plan-tier limits remain a later ADR-005 refinement.)_
 7. **◑ Partial.** Book sharing (D11) — artifact-export path (tier 1) rides ADR-004 and
    is **live**; the public-key per-book-DK tier (tier 2) is a *later* ticket, only if
    live shared libraries land.
