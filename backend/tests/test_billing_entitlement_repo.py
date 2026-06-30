@@ -77,3 +77,19 @@ async def test_invalid_status_rejected(conn):
     acct = await _account(conn, sub="ent-bad")
     with pytest.raises(ValueError):
         await _set(conn, acct.id, status="bogus")
+
+
+async def test_set_status_updates_keeping_plan_and_period(conn):
+    acct = await _account(conn, sub="ent-status")
+    written = await _set(conn, acct.id, plan_id="managed_basic")
+    updated = await entitlement_repo.set_status(conn, account_id=acct.id, status="canceled")
+    assert updated.status == "canceled"
+    # plan + period are unchanged.
+    assert updated.plan_id == "managed_basic"
+    assert updated.period_start == written.period_start
+    assert updated.period_end == written.period_end
+
+
+async def test_set_status_no_entitlement_returns_none(conn):
+    acct = await _account(conn, sub="ent-status-none")
+    assert await entitlement_repo.set_status(conn, account_id=acct.id, status="past_due") is None

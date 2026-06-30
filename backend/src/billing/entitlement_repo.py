@@ -74,3 +74,22 @@ async def set_entitlement(
         period_end,
     )
     return _row(row)
+
+
+async def set_status(
+    conn: asyncpg.Connection, *, account_id: UUID, status: str
+) -> Entitlement | None:
+    """Update only the status (keeping plan + period) — used by billing webhooks for
+    expiration/billing-issue. Returns None if the account has no entitlement."""
+    if status not in ENTITLEMENT_STATUSES:
+        raise ValueError(f"unknown entitlement status: {status!r}")
+    row = await conn.fetchrow(
+        """
+        UPDATE entitlement SET status = $2, updated_at = now()
+         WHERE account_id = $1
+        RETURNING plan_id, status, period_start, period_end
+        """,
+        account_id,
+        status,
+    )
+    return _row(row) if row else None

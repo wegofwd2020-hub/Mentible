@@ -120,6 +120,18 @@ class Settings(BaseSettings):
     # allowances replace this in Phase 3.
     managed_period_cost_cap_micros: int = Field(default=0, ge=0)
     managed_usage_window_days: int = Field(default=30, ge=1, le=366)
+    # Phase 4 billing (RevenueCat → entitlement, ADR-005 O1). The shared secret RevenueCat
+    # sends as the webhook's `Authorization` header (set in the RC dashboard); empty ⇒ the
+    # webhook is DISABLED (returns 401), so an unconfigured deploy can't be spoofed. Secret
+    # — redacted in logs, set per environment, never committed.
+    revenuecat_webhook_auth: str = Field(
+        default="", description="RevenueCat webhook Authorization header secret; empty = disabled"
+    )
+    # Maps RevenueCat product ids → our plan ids: "rc_product_a:managed_basic,rc_b:managed_unlimited".
+    # An unmapped product is ignored (the webhook no-ops). Comma-separated `product:plan` pairs.
+    revenuecat_product_plan_map: str = Field(
+        default="", description="comma-separated RevenueCat product_id:plan_id pairs"
+    )
 
     # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
     # The account + per-provider credential-set DB. OPTIONAL, like identity: empty
