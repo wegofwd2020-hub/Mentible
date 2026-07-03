@@ -1,4 +1,5 @@
 import { HELP_TOPICS, searchHelpTopics } from "../../src/constants/helpContent";
+import type { StepId } from "../../src/onboarding/firstRunState";
 
 describe("searchHelpTopics", () => {
   it("returns all topics for an empty / whitespace query", () => {
@@ -45,7 +46,7 @@ describe("getting-started topic (onboarding polish)", () => {
 
   it("relaunches the signup and key wizard steps via action blocks", () => {
     const steps = (topic?.blocks ?? [])
-      .filter((b): b is { kind: "action"; label: string; step: string } => b.kind === "action")
+      .filter((b): b is { kind: "action"; label: string; step: StepId } => b.kind === "action")
       .map((b) => b.step);
     expect(steps).toEqual(expect.arrayContaining(["signup", "key"]));
   });
