@@ -37,7 +37,7 @@ export function KeyStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProp
 
   const subtitle = useMemo(() => {
     if (!hasAnyKey) {
-      return "Mentible is bring-your-own-key. Pick a provider, grab a key, and paste it below — you can add more than one.";
+      return "Bring your own key — pick a provider, grab a key, and paste it below. It stays on this device, is used once per request, and is never logged. You can skip and read the included books first.";
     }
     const n = savedProviders.size;
     return `${n} key${n > 1 ? "s" : ""} saved — you're ready to generate. Add another or continue.`;

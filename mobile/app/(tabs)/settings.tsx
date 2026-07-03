@@ -76,7 +76,7 @@ export default function SettingsScreen() {
         <HelpButton topic="provider-keys" label="BYOK" />
       </View>
       <Text style={styles.helpText}>
-        Bring your own key per provider. Keys are stored in the Android Keystore
+        Bring your own key per provider. Keys are stored in your device's secure storage
         and sent directly to this app's backend, which calls the provider on your
         behalf. They are never logged or stored on any server.
       </Text>
