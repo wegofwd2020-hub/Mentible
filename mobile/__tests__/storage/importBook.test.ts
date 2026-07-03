@@ -128,6 +128,32 @@ describe("parseBook", () => {
   });
 });
 
+describe("parseBook — tags coercion (ADR-027 D7)", () => {
+  const withMetadata = (metadata: unknown): string => {
+    const obj = JSON.parse(validBookJson());
+    obj.metadata = metadata;
+    return JSON.stringify(obj);
+  };
+
+  it("keeps a valid string[] tags array", () => {
+    const b = parseBook(withMetadata({ tags: ["ai", "product"] }));
+    expect(b.metadata?.tags).toEqual(["ai", "product"]);
+  });
+  it("filters non-string tag entries", () => {
+    const b = parseBook(withMetadata({ tags: ["ai", 2, null, "x"] }));
+    expect(b.metadata?.tags).toEqual(["ai", "x"]);
+  });
+  it("drops a non-array tags value", () => {
+    const b = parseBook(withMetadata({ tags: "not-an-array" }));
+    expect(b.metadata?.tags).toBeUndefined();
+  });
+  it("preserves other metadata fields untouched", () => {
+    const b = parseBook(withMetadata({ description: "d", status: "release", tags: ["t"] }));
+    expect(b.metadata?.description).toBe("d");
+    expect(b.metadata?.status).toBe("release");
+  });
+});
+
 describe("importBook", () => {
   beforeEach(reset);
 
