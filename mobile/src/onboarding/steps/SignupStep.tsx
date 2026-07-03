@@ -28,7 +28,7 @@ export function SignupStep({ stepIndex, stepCount, onSkip }: WizardStepProps) {
       stepIndex={stepIndex}
       stepCount={stepCount}
       title="Create your account"
-      subtitle="An account syncs your library and provider settings across devices. You can also skip and set this up later."
+      subtitle="Optional — your Library already has two books to read. Sign in to sync across devices and to author your own. You can also skip and set this up later."
       helpTopic="getting-started-account"
       onSkip={onSkip}
     >
