@@ -56,7 +56,7 @@ export default function AboutScreen() {
         <Text style={styles.sectionLabel}>Privacy</Text>
         <View style={styles.card}>
           <Text style={styles.body}>
-            Your Anthropic API key and your lessons are yours. The key is held in
+            Your API key and your lessons are yours. The key is held in
             your device's secure storage and used only to generate your content — never
             logged or stored on a server.
           </Text>
