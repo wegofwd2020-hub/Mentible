@@ -57,3 +57,41 @@ it("creates a new book with no content (bookId null → no loadBook)", async () 
   const saved = mockSaveBook.mock.calls[0][0] as Book;
   expect(saved.content).toBeUndefined();
 });
+
+describe("BookEditor — description + tags (ADR-027 D7)", () => {
+  it("saves merged metadata and preserves existing metadata fields", async () => {
+    mockLoadBook.mockResolvedValue({
+      id: "b1",
+      title: "T",
+      toc: TOC,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      metadata: { status: "release", description: "old" },
+      generationParams: { provider: "anthropic" },
+    });
+    const onSaved = jest.fn();
+    const { getByLabelText } = render(
+      <BookEditor
+        bookId="b1"
+        initialTitle="T"
+        initialToc={TOC}
+        initialDescription="old"
+        initialTags={["keep"]}
+        onSaved={onSaved}
+      />,
+    );
+    fireEvent.changeText(getByLabelText("Book description"), "A fresh blurb");
+    fireEvent.changeText(getByLabelText("Book tags"), "ai, product, ai");
+    fireEvent.press(getByLabelText("Save book"));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const saved = onSaved.mock.calls[0][0] as Book;
+    expect(saved.metadata).toEqual(
+      expect.objectContaining({
+        status: "release", // preserved (the drop-bug fix)
+        description: "A fresh blurb",
+        tags: ["ai", "product"], // de-duped
+      }),
+    );
+  });
+});
