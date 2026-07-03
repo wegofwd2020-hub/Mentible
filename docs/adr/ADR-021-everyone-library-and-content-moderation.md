@@ -73,7 +73,9 @@ A book moves through explicit states; every transition names its actor:
 ```
 
 - **Draft** — private to the author (D2); authoring + per-chapter review happen here.
-- **Published** — live in the Everyone Library; publicly readable.
+- **Published** — live in the Everyone Library. ~~Publicly readable.~~ **Amended by D9
+  (2026-07-03):** metadata is public, but **reading the content requires registration**
+  (anonymous → metadata-only). See D9 / ADR-027 D6.
 - **Unpublished** — taken back to private by the **author** (Publish/Not-Publish toggle)
   or by an **admin** (moderation). Reversible.
 - **Flagged (temp-unavailable)** — an **admin** action on a complaint; hidden pending the
@@ -188,6 +190,24 @@ handles 1:1 / small-group distribution, and the **owner-curated default library
 default library satisfy the real distribution/discovery need, do **not** build — this
 ADR remains the design anchor and nothing more. Revisit only on an explicit decision
 to pursue public UGC, at which point this trigger's four conditions gate the build.
+
+### D9 — Open-Library read access is registration-gated (amends D3) — 2026-07-03
+
+Reader access to a **Published** book is refined (this **reverses the D3 bullet's
+"publicly readable"**), and the adjacent **invite-based draft-sharing** feature is
+introduced in a companion ADR:
+
+- **Anonymous** visitor → **metadata only** (title, description, tags, cover, aggregate
+  rating); must **register to read** the content.
+- **Registered** user → reads the full **RELEASE** edition (EPUB3/PDF, ADR-004 D2) and
+  may **rate + comment** (ADR-023).
+
+Registration-as-read-gate is a deliberate **growth / lead-gen** lever *and* an
+**accountability** one — every reader has an identity, shrinking the anonymous-abuse
+surface D5 moderation must police. The full permission spine (draft *and* release
+tiers), the hosted invite-based draft-sharing model, version-scoped comments, and the
+new `tags` / author-`description` metadata are decided in **ADR-027** (this D9 is the
+ADR-021-side record of the read-access reversal). Build stays gated by D8. _Decision-maker:_ Sivakumar Mambakkam.
 
 ## Consequences
 

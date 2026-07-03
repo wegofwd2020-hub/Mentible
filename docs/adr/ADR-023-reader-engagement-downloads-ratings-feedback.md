@@ -6,7 +6,14 @@
 for its Open decision 7, engagement slice), ADR-017 (default shareable library),
 ADR-018 (system-owner signing), ADR-020 (super-admin operator + `admin_audit`),
 ADR-014 (accounts + zero-knowledge sync), ADR-008 (release lifecycle / versioning),
-ADR-004 (artifacts / email-PDF share, SBQ-EXP-001).
+ADR-004 (artifacts / email-PDF share, SBQ-EXP-001), ADR-027 (sharing & permission
+model — gates who may rate/comment).
+
+> **Amendment (2026-07-03, ADR-027 D6 / ADR-021 D9):** rating + feedback on an
+> Open-Library book are **registered-users-only**. An **anonymous** visitor gets
+> **metadata-only** (title/description/tags/cover/aggregate rating) and must register
+> to read the content — so it cannot rate or comment. Where this ADR's mechanics assume
+> a public reader, read "registered reader."
 
 ---
 

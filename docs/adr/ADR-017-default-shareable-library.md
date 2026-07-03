@@ -9,6 +9,12 @@ fair-use cap — bundled books are excluded from the count).
 **Implemented by:** PR _TBD_ — this ADR lands with the `library/` source tree
 (`library/manifest.json`, `library/books/`); the mobile seeder is a follow-up PR.
 
+> **See also (2026-07-03):** **ADR-027** (collaborative draft sharing & the release /
+> Open-Library permission model) and **ADR-021 D9**. Author-driven *sharing* of drafts
+> and publishing RELEASE editions to the public Open Library are **separate tiers** from
+> this owner-curated default library (ADR-021 D2); ADR-027 also adds the book `tags`
+> field and an author-`description` ingestion path. This ADR is unchanged by them.
+
 ---
 
 ## Context
