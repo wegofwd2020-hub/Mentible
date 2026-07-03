@@ -5,7 +5,18 @@
 > **What's new since go-live:** account deletion now removes the Supabase identity
 > (ADR-022, opt-in/off-by-default), plus web/UX fixes — all live on prod. See
 > **"Release v0.2.0 (2026-06-28)"** just below.
-> **Last updated:** 2026-06-30 — **Managed billing built end to end (ADR-005 D6, Phases
+> **Last updated:** 2026-07-03 — **New-user onboarding shipped + web redeployed.**
+> Two user guides (`docs/user-guides/01-sign-in-with-google.md`, `02-add-claude-api-key.md`;
+> PR #245) plus **in-app onboarding polish** (PR #246 → `main@5f8bb06`): rewrote the stale
+> **Getting Started** Help topic (names the 2 bundled books, readable with no account/key;
+> provider-neutral — Claude is the *recommendation*, not the only option), enriched the
+> sign-in / API-key wizard subtitles (read-without-account, key-stays-on-device), and
+> neutralized Android-specific wording → **"your device's secure storage"** app-wide
+> (settings/about/help). **Web demo + prod redeployed** from `main@5f8bb06`
+> (`/demos/mentible` + `/app/mentible`, content-verified live); **Google sign-in re-verified
+> end-to-end** on prod (OAuth returns to `/app/mentible`, not the bare root — the Sridhar
+> redirect bug stays fixed). Content/copy only; no backend change (prod backend unchanged).
+> _2026-06-30_ — **Managed billing built end to end (ADR-005 D6, Phases
 > 1–6; PRs #236–#241)**: managed-key vault + `/generate` fork, server-side metering + caps
 > + spend ceiling, plans/entitlements, RevenueCat webhook → entitlement, client meter,
 > multi-provider, admin margin + rotation runbook — all **off by default** (BYOK stays the
