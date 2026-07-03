@@ -99,7 +99,7 @@ export function BookEditor({
 
       <Text style={styles.label}>Tags</Text>
       <TextInput
-        style={styles.titleInput}
+        style={styles.tagsInput}
         value={tagsText}
         onChangeText={setTagsText}
         placeholder="comma, separated, tags"
@@ -154,6 +154,17 @@ const styles = StyleSheet.create({
     fontSize: typography.sizeMd,
     minHeight: 72,
     textAlignVertical: "top",
+  },
+  // Free-form tags read as regular body text, not a bold title (a tag field is
+  // not a heading — avoids reusing titleInput's sizeLg/700 weight).
+  tagsInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: typography.sizeMd,
   },
   saveBtn: {
     backgroundColor: colors.primary,
