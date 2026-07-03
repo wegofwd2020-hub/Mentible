@@ -2,7 +2,8 @@
 
 > **Brand:** **Mentible** (public rebrand of "StudyBuddy Q" — ADR-006, Accepted; name
 > pending trademark clearance). "StudyBuddy Q" / "Q = Query" framing below is historical.
-> **Repo:** `StudyBuddy_SelfLearner` *(repo name is internal; brand is public)*
+> **Repo:** `Mentible` (GitHub `wegofwd2020-hub/Mentible`; the local folder — formerly
+> `StudyBuddy_SelfLearner` — was renamed to match the brand on 2026-07-03)
 > **Status (updated 2026-06-27):** **In production.** This file's "Pre-MVP / directory
 > stubs only" line is long obsolete. Built + deployed: FastAPI backend (generate /
 > export / accounts / **super-admin admin API** — live at `mambakkam.net/mentible-api`),
@@ -120,7 +121,7 @@ This is a separate product with separate compliance, infra, and audience.
 | D2 | Async generation + push (FCM) when done; polling at MVP |
 | D3 | Android first (iOS later) |
 | D4 | *(clarified — ADR-005)* Cloud **library sync** stays v1.1+; library is local-first at MVP. But **accounts/auth move to MVP** (ADR-005 decouples accounts from sync — managed billing needs identity) |
-| D5 | New repo `StudyBuddy_SelfLearner`; brand "StudyBuddy Q" |
+| D5 | New repo `Mentible` (originally created as `StudyBuddy_SelfLearner`, renamed 2026-07-03); brand "StudyBuddy Q" |
 | D6 | Standalone — no funnel back to school SKU |
 | D7 | Demo / quality-first, not scale-first |
 | D8 | React Native + Expo |
@@ -149,7 +150,7 @@ This is a separate product with separate compliance, infra, and audience.
 ## Repository layout
 
 ```
-StudyBuddy_SelfLearner/
+Mentible/
   CLAUDE.md            ← this file
   SCOPE.md             ← scope decisions (the why)
 
