@@ -112,6 +112,40 @@ That generation pass is tracked as follow-up work.
   copy-on-write + cap exclusion; (b) build step `library/` → `mobile/assets/`;
   (c) generate the cert guide's content and promote it to `published`.
 
+### As-built: how the bundled books reach a user (incl. the web app)
+
+> Added 2026-07-03. The seeder that was "follow-up work" above is **built**. This
+> note records the shipped provisioning path — the answer to *"when a new user
+> signs into the web app, how do the two default books become available?"*
+
+The books reach the user by **bundling + first-run seeding on the client**, with
+**no backend endpoint and no sign-in / account dependency**:
+
+- **Bundled into the build.** `mobile/src/storage/bundledLibrary.ts` *statically
+  imports* `mobile/assets/library/manifest.json` and each `.book.json`, so Metro
+  inlines them into the JS bundle. The web app is the Expo web build of `mobile/`,
+  so it ships the same bundle — the books travel offline, not fetched at runtime.
+- **Seeded on app mount.** `useSeedDefaultLibrary()` (`mobile/src/hooks/`) runs in
+  the root layout (`mobile/app/_layout.tsx`), calling `seedDefaultLibrary()`
+  (`mobile/src/storage/seedLibrary.ts`) on every launch. It imports each
+  `published` book into the on-device Books store tagged `source: "bundled"`.
+  It is **unconditional — it does not depend on authentication**, so the two
+  books appear before/without sign-in. Seeding is idempotent per `(id, version)`
+  and deletion-safe (a book the user deletes is not resurrected), keyed by the
+  AsyncStorage entry `sbq_seeded_library` (which is `localStorage` on web).
+
+**Consequence — device/browser-local, not account-following.** Because seeding
+writes to per-browser storage and there is **no server-side, per-account
+provisioning**, the books are tied to the device/browser, not the signed-in
+account. A user on a fresh browser gets them from the bundle again; they do **not**
+sync across devices via the backend. A future account-tied "everyone library" is a
+*separate*, Proposed concept (ADR-021) — not this mechanism.
+
+**Operational caveat.** `mobile/assets/library/` is a hand-maintained mirror of the
+canonical repo-root `library/` (the build-step follow-up (b) is not yet built), so
+the web build's books depend on that asset copy being present and current in the
+deployed bundle.
+
 ## Alternatives considered
 
 - **`mobile/assets/library/` as canonical.** Simplest (no build copy) but
