@@ -4,6 +4,7 @@ import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { loadBook, saveBook } from "@/storage/bookStore";
 import { loadDefaultParams } from "@/storage/settingsStore";
 import { randomUUID } from "@/lib/uuid";
+import { parseTags, formatTags } from "@/lib/tags";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, StructuredTOC } from "@/types/book";
 
@@ -11,6 +12,8 @@ interface Props {
   bookId: string | null; // null → create a new book on save
   initialTitle: string;
   initialToc: StructuredTOC;
+  initialDescription?: string;
+  initialTags?: string[];
   // Preserve the original creation time when editing an existing book.
   createdAt?: string;
   onSaved: (book: Book) => void;
@@ -26,11 +29,15 @@ export function BookEditor({
   bookId,
   initialTitle,
   initialToc,
+  initialDescription,
+  initialTags,
   createdAt,
   onSaved,
 }: Props) {
   const [title, setTitle] = useState(initialTitle);
   const [toc, setToc] = useState<StructuredTOC>(initialToc);
+  const [description, setDescription] = useState(initialDescription ?? "");
+  const [tagsText, setTagsText] = useState(formatTags(initialTags));
   const [saving, setSaving] = useState(false);
 
   const canSave = title.trim().length > 0 && toc.subjects.length > 0 && !saving;
@@ -54,6 +61,11 @@ export function BookEditor({
         updatedAt: now,
         content: existing?.content,
         generationParams,
+        metadata: {
+          ...(existing?.metadata ?? {}),
+          description: description.trim() || undefined,
+          tags: parseTags(tagsText),
+        },
       };
       await saveBook(book);
       onSaved(book);
@@ -72,6 +84,28 @@ export function BookEditor({
         placeholder="e.g. My Physics Primer"
         placeholderTextColor={colors.textMuted}
         accessibilityLabel="Book title"
+      />
+
+      <Text style={styles.label}>Description</Text>
+      <TextInput
+        style={styles.descInput}
+        value={description}
+        onChangeText={setDescription}
+        placeholder="A short blurb about this book"
+        placeholderTextColor={colors.textMuted}
+        accessibilityLabel="Book description"
+        multiline
+      />
+
+      <Text style={styles.label}>Tags</Text>
+      <TextInput
+        style={styles.tagsInput}
+        value={tagsText}
+        onChangeText={setTagsText}
+        placeholder="comma, separated, tags"
+        placeholderTextColor={colors.textMuted}
+        accessibilityLabel="Book tags"
+        autoCapitalize="none"
       />
 
       <Text style={styles.label}>Topics</Text>
@@ -109,6 +143,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.sizeLg,
     fontWeight: "700",
+  },
+  descInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: typography.sizeMd,
+    minHeight: 72,
+    textAlignVertical: "top",
+  },
+  // Free-form tags read as regular body text, not a bold title (a tag field is
+  // not a heading — avoids reusing titleInput's sizeLg/700 weight).
+  tagsInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: typography.sizeMd,
   },
   saveBtn: {
     backgroundColor: colors.primary,

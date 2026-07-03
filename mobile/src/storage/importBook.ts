@@ -52,6 +52,13 @@ export function parseBook(raw: string): Book {
   // author and edition. Passed through whole so fields the mobile type doesn't
   // model yet (the compiler is the authority) still survive to /export.
   const metadata = isRecord(data.metadata) ? (data.metadata as Book["metadata"]) : undefined;
+  if (metadata && "tags" in metadata) {
+    // Normalise imported tags to a clean string[] (or drop the field). Other
+    // metadata still flows through verbatim (the compiler is the authority).
+    metadata.tags = Array.isArray(metadata.tags)
+      ? metadata.tags.filter((t): t is string => typeof t === "string")
+      : undefined;
+  }
   const generationParams = isRecord(data.generationParams)
     ? (data.generationParams as unknown as Book["generationParams"])
     : undefined;

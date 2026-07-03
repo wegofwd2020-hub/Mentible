@@ -36,6 +36,8 @@ export interface BookMetadataRows {
   pages: string;
   reviewedBy: string;
   reviewedOn: string;
+  description?: string;
+  tags?: string;
 }
 
 function cap(s: string | undefined | null): string {
@@ -85,6 +87,8 @@ export function deriveRows(book: Book | null, fallback: BookMetaFallback): BookM
     pages: pagesLabel(book),
     reviewedBy: meta?.reviewedBy ?? NOT_REVIEWED,
     reviewedOn: meta?.reviewedOn ? formatDate(meta.reviewedOn) : DASH,
+    description: meta?.description || undefined,
+    tags: meta?.tags && meta.tags.length > 0 ? meta.tags.join(", ") : undefined,
   };
 }
 
@@ -145,6 +149,8 @@ export function BookMetadataModal({
             <Row label="Pages (target)" value={rows.pages} />
             <Row label="Reviewed By" value={rows.reviewedBy} />
             <Row label="Reviewed On" value={rows.reviewedOn} />
+            {rows.description ? <Row label="Description" value={rows.description} /> : null}
+            {rows.tags ? <Row label="Tags" value={rows.tags} /> : null}
           </ScrollView>
         )}
         <View style={styles.footer}>

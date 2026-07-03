@@ -118,3 +118,19 @@ describe("BookMetadataModal", () => {
     expect(screen.getByText("Product Sense and AI")).toBeTruthy();
   });
 });
+
+const bookWith = (metadata: Record<string, unknown>) =>
+  ({ id: "b", title: "T", toc: { subjects: [] }, createdAt: "", updatedAt: "", metadata } as never);
+
+describe("deriveRows — description + tags", () => {
+  it("surfaces description and joined tags when present", () => {
+    const rows = deriveRows(bookWith({ description: "A blurb", tags: ["ai", "product"] }), { title: "T" });
+    expect(rows.description).toBe("A blurb");
+    expect(rows.tags).toBe("ai, product");
+  });
+  it("leaves them undefined when absent or empty", () => {
+    const rows = deriveRows(bookWith({ tags: [] }), { title: "T" });
+    expect(rows.description).toBeUndefined();
+    expect(rows.tags).toBeUndefined();
+  });
+});

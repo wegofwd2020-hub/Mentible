@@ -166,6 +166,10 @@ export interface BookMetadata {
   // native as well as web. Distinct from the compiler's EPUB/PDF cover.
   coverSvg?: string;
   subjects?: string[];
+  // Free-form author tags for in-app organisation + future search (ADR-027 D7).
+  // App-only: distinct from `subjects`/dc:subject and NOT yet emitted to EPUB
+  // (compiler/src/types.ts intentionally not synced for this field yet).
+  tags?: string[];
   rights?: string;
   date?: string;
   identifier?: string; // ISBN/UUID; defaults to book id
