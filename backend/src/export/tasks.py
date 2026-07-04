@@ -114,15 +114,11 @@ async def run_export(
     except compiler.CompilerError:
         # Never leak subprocess internals to the client; details are logged inside
         # the compiler.
-        await _write_status(
-            r, job_id, {"status": "failed", "error": "Could not compile the book."}
-        )
+        await _write_status(r, job_id, {"status": "failed", "error": "Could not compile the book."})
         return
     except Exception:
         log.error("export_task_unexpected", job_id=str(job_id))
-        await _write_status(
-            r, job_id, {"status": "failed", "error": "Could not compile the book."}
-        )
+        await _write_status(r, job_id, {"status": "failed", "error": "Could not compile the book."})
         return
 
     # Store the artifact bytes for the download endpoint to stream.
@@ -149,9 +145,7 @@ async def run_export(
     try:
         book = json.loads(raw_book)
         manifest = export_trust.export_manifest(book, result.data)
-        payload["trust"] = b64encode(
-            json.dumps(manifest.to_public_dict()).encode()
-        ).decode()
+        payload["trust"] = b64encode(json.dumps(manifest.to_public_dict()).encode()).decode()
     except Exception:
         log.warning("export_trust_manifest_failed", job_id=str(job_id), fmt=fmt)
 

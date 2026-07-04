@@ -111,7 +111,9 @@ def test_artifact_path_sanitises_book_id(tmp_path, monkeypatch):
     root = str(tmp_path)
     import os as _os
 
-    assert _os.path.commonpath([_os.path.realpath(p2), _os.path.realpath(root)]) == _os.path.realpath(root)
+    assert _os.path.commonpath(
+        [_os.path.realpath(p2), _os.path.realpath(root)]
+    ) == _os.path.realpath(root)
 
 
 # ── publish → hosts + registers ──────────────────────────────────────────────
@@ -123,7 +125,9 @@ async def test_publish_compiles_then_stores_and_registers(client, tmp_path, monk
     conn = _RecordingConn()
     app.state.db = _Pool(conn)
     try:
-        submit = await client.post("/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK))
+        submit = await client.post(
+            "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+        )
         assert submit.status_code == 202
         body = await _wait_done(client, submit.json()["job_id"])
     finally:
@@ -132,7 +136,10 @@ async def test_publish_compiles_then_stores_and_registers(client, tmp_path, monk
     assert body["status"] == "done"
     assert body["published"] is True
     # the file landed in the store …
-    assert artifact_store.read_artifact(artifact_store.artifact_path("book-1", "epub")) == b"PK-epub-bytes"
+    assert (
+        artifact_store.read_artifact(artifact_store.artifact_path("book-1", "epub"))
+        == b"PK-epub-bytes"
+    )
     # … and a registry upsert ran
     assert any("published_artifact" in sql for sql, _ in conn.executed)
 
@@ -156,18 +163,24 @@ async def test_publish_refused_when_book_owned_by_another_account(client, monkey
 
 async def test_publish_requires_a_configured_store(client, as_user):
     app.state.db = None
-    resp = await client.post("/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK))
+    resp = await client.post(
+        "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+    )
     assert resp.status_code == 503
 
 
 async def test_publish_rejects_unknown_format(client, as_user):
-    resp = await client.post("/api/v1/library/book-1/publish?format=mobi", content=json.dumps(_BOOK))
+    resp = await client.post(
+        "/api/v1/library/book-1/publish?format=mobi", content=json.dumps(_BOOK)
+    )
     assert resp.status_code == 422
 
 
 async def test_publish_requires_auth(client):
     # no require_user override → anonymous → 401/403
-    resp = await client.post("/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK))
+    resp = await client.post(
+        "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+    )
     assert resp.status_code in (401, 403)
 
 

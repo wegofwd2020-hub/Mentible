@@ -87,9 +87,7 @@ async def publish_book(
     # may (re)publish it thereafter (prevents overwriting another author's
     # artifact — IDOR). Checked BEFORE queueing the compile.
     async with db_pool.acquire() as conn:
-        owns = await published_repo.claim_or_check_owner(
-            conn, book_id=book_id, sub=principal.sub
-        )
+        owns = await published_repo.claim_or_check_owner(conn, book_id=book_id, sub=principal.sub)
     if not owns:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

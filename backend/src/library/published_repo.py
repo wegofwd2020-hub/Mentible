@@ -20,9 +20,7 @@ class PublishedArtifact:
     published_at: datetime
 
 
-async def claim_or_check_owner(
-    conn: asyncpg.Connection, *, book_id: str, sub: str
-) -> bool:
+async def claim_or_check_owner(conn: asyncpg.Connection, *, book_id: str, sub: str) -> bool:
     """First-publisher-wins ownership. Claims `book_id` for `sub` if unowned, then
     returns True iff `sub` owns it. False means another principal already owns it
     (caller should refuse the publish). The INSERT..ON CONFLICT DO NOTHING +
@@ -34,7 +32,8 @@ async def claim_or_check_owner(
         VALUES ($1, $2)
         ON CONFLICT (book_id) DO NOTHING
         """,
-        book_id, sub,
+        book_id,
+        sub,
     )
     owner = await conn.fetchval(
         "SELECT owner_sub FROM published_book_owner WHERE book_id = $1", book_id
@@ -68,7 +67,13 @@ async def upsert(
             published_by_sub = EXCLUDED.published_by_sub,
             published_at     = now()
         """,
-        book_id, fmt, content_hash, size_bytes, filename, storage_path, published_by_sub,
+        book_id,
+        fmt,
+        content_hash,
+        size_bytes,
+        filename,
+        storage_path,
+        published_by_sub,
     )
 
 
@@ -92,9 +97,7 @@ async def list_for_book(conn: asyncpg.Connection, book_id: str) -> list[Publishe
     return [_row(r) for r in rows]
 
 
-async def get_one(
-    conn: asyncpg.Connection, book_id: str, fmt: str
-) -> PublishedArtifact | None:
+async def get_one(conn: asyncpg.Connection, book_id: str, fmt: str) -> PublishedArtifact | None:
     r = await conn.fetchrow(
         "SELECT * FROM published_artifact WHERE book_id = $1 AND format = $2", book_id, fmt
     )
