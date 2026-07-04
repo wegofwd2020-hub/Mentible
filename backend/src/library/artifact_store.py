@@ -22,8 +22,11 @@ def content_hash(data: bytes) -> str:
 
 
 def _safe(component: str) -> str:
-    # book ids are uuids/slugs, but never trust them into a path.
-    return re.sub(r"[^a-zA-Z0-9._-]+", "-", component)[:120] or "book"
+    # book ids are uuids/slugs, but NEVER trust them into a path. `.` is excluded
+    # from the allowlist so a `.`/`..` component can't become a directory
+    # traversal; a dot-only or empty result collapses to "book".
+    s = re.sub(r"[^a-zA-Z0-9_-]+", "-", component)[:120]
+    return "book" if not s or set(s) <= {"-"} else s
 
 
 def artifact_path(book_id: str, fmt: str) -> str:
@@ -31,9 +34,18 @@ def artifact_path(book_id: str, fmt: str) -> str:
     return os.path.join(settings.artifact_store_dir, _safe(book_id), f"{fmt}.{ext}")
 
 
+def _assert_within_store(path: str) -> None:
+    """Defence in depth: the resolved path must stay under the store dir."""
+    root = os.path.realpath(settings.artifact_store_dir)
+    resolved = os.path.realpath(path)
+    if os.path.commonpath([resolved, root]) != root:
+        raise ValueError("artifact path escapes the store directory")
+
+
 def store_artifact(book_id: str, fmt: str, data: bytes) -> str:
     """Write the artifact to disk (replacing any prior one) and return its path."""
     path = artifact_path(book_id, fmt)
+    _assert_within_store(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     # Write to a temp file then rename, so a reader never sees a half-written file.
     tmp = f"{path}.tmp"

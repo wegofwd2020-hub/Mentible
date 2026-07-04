@@ -27,9 +27,10 @@ _BOOK = {
 
 # ── fakes ────────────────────────────────────────────────────────────────────
 class _RecordingConn:
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, owner="author-1"):
         self.executed: list[tuple] = []
         self._rows = rows or []
+        self.owner = owner  # what SELECT owner_sub returns (ownership check)
 
     async def execute(self, sql, *args):
         self.executed.append((sql, args))
@@ -39,6 +40,9 @@ class _RecordingConn:
 
     async def fetchrow(self, sql, *args):
         return self._rows[0] if self._rows else None
+
+    async def fetchval(self, sql, *args):
+        return self.owner
 
 
 class _Pool:
@@ -102,6 +106,12 @@ def test_artifact_path_sanitises_book_id(tmp_path, monkeypatch):
     p = artifact_store.store_artifact("../../etc/passwd", "epub", b"x")
     # the traversal is neutralised — the file stays under the store dir
     assert str(tmp_path) in p and "/etc/passwd" not in p
+    # a bare `..` component must not escape one level either
+    p2 = artifact_store.store_artifact("..", "pdf", b"y")
+    root = str(tmp_path)
+    import os as _os
+
+    assert _os.path.commonpath([_os.path.realpath(p2), _os.path.realpath(root)]) == _os.path.realpath(root)
 
 
 # ── publish → hosts + registers ──────────────────────────────────────────────
@@ -125,6 +135,23 @@ async def test_publish_compiles_then_stores_and_registers(client, tmp_path, monk
     assert artifact_store.read_artifact(artifact_store.artifact_path("book-1", "epub")) == b"PK-epub-bytes"
     # … and a registry upsert ran
     assert any("published_artifact" in sql for sql, _ in conn.executed)
+
+
+async def test_publish_refused_when_book_owned_by_another_account(client, monkeypatch):
+    # A different principal tries to publish a book already claimed by author-1.
+    app.dependency_overrides[require_user] = lambda: Principal(
+        sub="intruder", email="i@x.com", issuer="iss"
+    )
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile())
+    app.state.db = _Pool(_RecordingConn(owner="author-1"))  # existing owner ≠ intruder
+    try:
+        resp = await client.post(
+            "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+        )
+    finally:
+        app.state.db = None
+        app.dependency_overrides.pop(require_user, None)
+    assert resp.status_code == 403
 
 
 async def test_publish_requires_a_configured_store(client, as_user):

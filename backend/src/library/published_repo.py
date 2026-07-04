@@ -20,6 +20,28 @@ class PublishedArtifact:
     published_at: datetime
 
 
+async def claim_or_check_owner(
+    conn: asyncpg.Connection, *, book_id: str, sub: str
+) -> bool:
+    """First-publisher-wins ownership. Claims `book_id` for `sub` if unowned, then
+    returns True iff `sub` owns it. False means another principal already owns it
+    (caller should refuse the publish). The INSERT..ON CONFLICT DO NOTHING +
+    re-read is atomic under the row lock, so concurrent first-publishes can't both
+    win."""
+    await conn.execute(
+        """
+        INSERT INTO published_book_owner (book_id, owner_sub)
+        VALUES ($1, $2)
+        ON CONFLICT (book_id) DO NOTHING
+        """,
+        book_id, sub,
+    )
+    owner = await conn.fetchval(
+        "SELECT owner_sub FROM published_book_owner WHERE book_id = $1", book_id
+    )
+    return owner == sub
+
+
 async def upsert(
     conn: asyncpg.Connection,
     *,

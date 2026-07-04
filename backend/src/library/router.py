@@ -83,6 +83,19 @@ async def publish_book(
             content={"detail": str(exc)},
         )
 
+    # Ownership: the first principal to publish a book_id claims it; nobody else
+    # may (re)publish it thereafter (prevents overwriting another author's
+    # artifact — IDOR). Checked BEFORE queueing the compile.
+    async with db_pool.acquire() as conn:
+        owns = await published_repo.claim_or_check_owner(
+            conn, book_id=book_id, sub=principal.sub
+        )
+    if not owns:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="this book is published by another account",
+        )
+
     job_id = uuid.uuid4()
     await r.setex(
         export_tasks.export_status_key(job_id),

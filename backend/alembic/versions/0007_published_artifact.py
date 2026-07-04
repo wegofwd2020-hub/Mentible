@@ -35,7 +35,20 @@ def upgrade() -> None:
         )
         """
     )
+    # First-publisher ownership: whoever publishes a book_id first claims it, and
+    # only that principal may (re)publish it thereafter. Prevents one registered
+    # user from overwriting another author's published artifact (IDOR).
+    op.execute(
+        """
+        CREATE TABLE published_book_owner (
+            book_id    text PRIMARY KEY,
+            owner_sub  text NOT NULL,
+            claimed_at timestamptz NOT NULL DEFAULT now()
+        )
+        """
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP TABLE IF EXISTS published_book_owner")
     op.execute("DROP TABLE IF EXISTS published_artifact")
