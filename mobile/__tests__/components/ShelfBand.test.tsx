@@ -7,30 +7,10 @@ import type { Shelf } from "@/storage/shelfStore";
 const shelf: Shelf = { id: "s1", name: "Physics", createdAt: "2026-07-04T00:00:00Z", order: 0 };
 const book = (id: string): EpubMeta => ({ id, title: id, sizeBytes: 1, compiledAt: "2026-07-04T00:00:00Z" });
 
-const handlers = {
-  onExpand: jest.fn(),
-  onRead: jest.fn(),
-  onReviews: jest.fn(),
-  onMove: jest.fn(),
-  onDetails: jest.fn(),
-  onDelete: jest.fn(),
-  onRename: jest.fn(),
-  onDeleteShelf: jest.fn(),
-};
+const handlers = { onPressBook: jest.fn(), onRename: jest.fn(), onDeleteShelf: jest.fn() };
 
 function renderBand(overrides: Partial<React.ComponentProps<typeof ShelfBand>> = {}) {
-  return render(
-    <ShelfBand
-      shelf={shelf}
-      books={[book("b1")]}
-      expandedId={null}
-      counts={{}}
-      exportStatus={{}}
-      published={{}}
-      {...handlers}
-      {...overrides}
-    />,
-  );
+  return render(<ShelfBand shelf={shelf} books={[book("b1")]} {...handlers} {...overrides} />);
 }
 
 beforeEach(() => Object.values(handlers).forEach((h) => h.mockClear()));
@@ -39,6 +19,12 @@ it("renders the shelf name and its books", () => {
   renderBand();
   expect(screen.getByText("Physics")).toBeTruthy();
   expect(screen.getByLabelText("Open: b1")).toBeTruthy();
+});
+
+it("tapping a spine calls onPressBook", () => {
+  renderBand();
+  fireEvent.press(screen.getByLabelText("Open: b1"));
+  expect(handlers.onPressBook).toHaveBeenCalled();
 });
 
 it("shows an empty-shelf hint when the shelf has no books", () => {

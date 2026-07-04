@@ -3,40 +3,19 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ShelfBook } from "@/components/ShelfBook";
 import type { EpubMeta } from "@/storage/epubLibrary";
-import type { BookExportStatus } from "@/storage/exportStatus";
-import type { PublishedFormats } from "@/lib/trackedExport";
 import type { Shelf } from "@/storage/shelfStore";
 import { colors, spacing, typography } from "@/constants/theme";
 
 export function ShelfBand({
   shelf,
   books,
-  expandedId,
-  counts,
-  exportStatus,
-  published,
-  onExpand,
-  onRead,
-  onReviews,
-  onMove,
-  onDetails,
-  onDelete,
+  onPressBook,
   onRename,
   onDeleteShelf,
 }: {
   shelf: Shelf | null;
   books: EpubMeta[];
-  expandedId: string | null;
-  counts: Record<string, number>;
-  exportStatus: Record<string, BookExportStatus>;
-  // Which formats are published to the Open Library, keyed by book id.
-  published: Record<string, PublishedFormats>;
-  onExpand: (bookId: string | null) => void;
-  onRead: (m: EpubMeta) => void;
-  onReviews: (m: EpubMeta) => void;
-  onMove: (m: EpubMeta) => void;
-  onDetails: (m: EpubMeta) => void;
-  onDelete: (m: EpubMeta) => void;
+  onPressBook: (m: EpubMeta) => void;
   onRename: () => void;
   onDeleteShelf: () => void;
 }): JSX.Element {
@@ -67,20 +46,7 @@ export function ShelfBand({
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rack}>
           {books.map((m) => (
-            <ShelfBook
-              key={m.id}
-              meta={m}
-              expanded={expandedId === m.id}
-              reviewCount={counts[m.id]}
-              exportStatus={exportStatus[m.id]}
-              published={published[m.id]}
-              onPressSpine={() => onExpand(expandedId === m.id ? null : m.id)}
-              onRead={() => onRead(m)}
-              onReviews={() => onReviews(m)}
-              onMove={() => onMove(m)}
-              onDetails={() => onDetails(m)}
-              onDelete={() => onDelete(m)}
-            />
+            <ShelfBook key={m.id} meta={m} onPress={() => onPressBook(m)} />
           ))}
         </ScrollView>
       )}
