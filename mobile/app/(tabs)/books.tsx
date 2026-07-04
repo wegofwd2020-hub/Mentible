@@ -3,6 +3,9 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, V
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteBook, hasRenderableLesson, loadBook, loadBookIndex } from "@/storage/bookStore";
+import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
+import { reconcileGeneratingExports } from "@/lib/trackedExport";
+import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { countStaleTopics } from "@/lib/staleness";
 import { BookCover } from "@/components/BookCover";
@@ -193,6 +196,7 @@ export default function BooksScreen() {
 function BooksScreenInner() {
   const router = useRouter();
   const [books, setBooks] = useState<BookMeta[]>([]);
+  const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { isDesktop } = useResponsive();
 
@@ -202,6 +206,11 @@ function BooksScreenInner() {
         setBooks(list);
         setSelectedId((cur) => (cur && list.some((m) => m.id === cur) ? cur : list[0]?.id ?? null));
       });
+      // Show export indicators immediately, then settle any job the author left
+      // running mid-compile and refresh.
+      const refresh = () => getAllExportStatus().then(setExportStatus);
+      refresh();
+      reconcileGeneratingExports().then(refresh);
     }, []),
   );
 
@@ -263,6 +272,7 @@ function BooksScreenInner() {
                   <Text style={styles.rowMeta}>
                     {item.unitCount} topic{item.unitCount === 1 ? "" : "s"} · {formatDate(item.updatedAt)}
                   </Text>
+                  <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} />
                 </View>
               </Pressable>
             );
@@ -296,6 +306,7 @@ function BooksScreenInner() {
           <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
+          <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} />
         </Pressable>
       )}
     />

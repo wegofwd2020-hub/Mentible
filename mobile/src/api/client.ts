@@ -164,6 +164,10 @@ export async function getStructureJob(
 export interface ExportOptions {
   format?: "epub" | "pdf" | "cover"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
+  // Called with the async job id right after submit (epub/pdf only), before the
+  // compile finishes — lets a caller persist a "generating" status that a list
+  // can reconcile later. Not called for the synchronous `cover` path.
+  onSubmitted?: (jobId: string) => void;
 }
 
 export interface ExportedArtifact {
@@ -224,6 +228,12 @@ async function submitExportJob(
   }
   const { job_id } = (await res.json()) as { job_id: string };
   return job_id;
+}
+
+// One-shot status read for an export job — used to reconcile a `generating`
+// indicator after the author navigated away from the export screen.
+export async function getExportJob(jobId: string): Promise<ExportJobStatus> {
+  return apiFetch<ExportJobStatus>(`/export/jobs/${jobId}`);
 }
 
 async function pollExportJob(
@@ -287,6 +297,7 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
   if (format === "cover") return exportCoverSync(book);
 
   const jobId = await submitExportJob(book, format, opts.diagrams ?? false);
+  opts.onSubmitted?.(jobId);
   const job = await pollExportJob(jobId);
   if (job.status === "failed") {
     throw new Error(job.error || "The export could not be completed.");

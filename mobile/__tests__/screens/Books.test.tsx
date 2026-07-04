@@ -11,8 +11,12 @@ jest.mock("../../src/auth/AuthProvider", () => ({
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  // Fire the focus callback once on mount (via an effect), like the real
+  // useFocusEffect — NOT on every render, which would loop when the callback
+  // sets state.
   useFocusEffect: (cb: () => void) => {
-    cb();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("react").useEffect(cb, []);
   },
 }));
 

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ApiError, exportBook } from "@/api/client";
+import { trackedExport } from "@/lib/trackedExport";
 import { saveEpub } from "@/storage/epubLibrary";
 import { loadBook } from "@/storage/bookStore";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -26,7 +27,7 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
     try {
       const book = await loadBook(bookId);
       if (!book) throw new Error("Book not found.");
-      const { artifact: bytes } = await exportBook(book, { diagrams: true });
+      const { artifact: bytes } = await trackedExport(book, "epub", { diagrams: true });
       // Cover thumbnail is best-effort — never fail the save over it.
       let coverBytes: ArrayBuffer | undefined;
       try {

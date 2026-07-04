@@ -4,6 +4,9 @@ import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
+import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
+import { reconcileGeneratingExports } from "@/lib/trackedExport";
+import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { reviewCounts } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
@@ -119,6 +122,7 @@ function EpubLibrary() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
   // Book-metadata window (opened by tapping a book; "Read" enters the reader).
   const [selected, setSelected] = useState<EpubMeta | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -143,7 +147,15 @@ function EpubLibrary() {
       });
   }, []);
 
-  useFocusEffect(useCallback(() => reload(), [reload]));
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+      // Export indicators: show current status, then settle any running job.
+      const refreshStatus = () => getAllExportStatus().then(setExportStatus);
+      refreshStatus();
+      reconcileGeneratingExports().then(refreshStatus);
+    }, [reload]),
+  );
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteEpub(id);
@@ -294,6 +306,7 @@ function EpubLibrary() {
             <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} coverSvg={item.coverSvg} />
           </Pressable>
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
+          <ExportStatusPills status={exportStatus[item.id]} />
           <View style={styles.tileFooter}>
             <Text style={styles.tileMeta} numberOfLines={1}>
               {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}

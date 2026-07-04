@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { ApiError, exportBook } from "@/api/client";
+import { ApiError } from "@/api/client";
+import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { TrustBadge } from "@/components/TrustBadge";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -28,7 +29,7 @@ export function CheckoutButton({ book }: { book: Book }) {
   const checkout = async (fmt: "epub" | "pdf") => {
     setState({ kind: "working", fmt });
     try {
-      const { artifact, trust } = await exportBook(book, { format: fmt, diagrams: true });
+      const { artifact, trust } = await trackedExport(book, fmt, { diagrams: true });
       const mime = fmt === "pdf" ? "application/pdf" : "application/epub+zip";
       const res = await downloadArtifact(artifact, `${slug(book.title)}.${fmt}`, mime);
       const label = fmt.toUpperCase();
