@@ -90,10 +90,14 @@ services:
     deploy:
       resources:
         # Capped so a runaway render can't starve the co-tenant village +
-        # StudyBuddy stacks on the small shared box.
+        # StudyBuddy stacks on the small shared box. Memory must clear a headless
+        # Chromium/Vivliostyle PDF pass over a full book — 384M OOM-killed the
+        # Vivliostyle child (exit 1, empty stderr) on the async PDF export, so it
+        # is raised to 1.5G (host has ~1.9G free). CPU stays modest; a slow
+        # off-request compile is fine now that export is an async job.
         limits:
-          cpus: '0.5'
-          memory: 384M
+          cpus: '0.75'
+          memory: 1536M
     logging:
       driver: json-file
       options:
