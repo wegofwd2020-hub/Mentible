@@ -166,7 +166,19 @@ describe("BookMetadataModal — export pills + actions", () => {
   it("omits action buttons when their handlers are not provided", () => {
     render(<BookMetadataModal visible book={FULL_BOOK} meta={fallback} onRead={jest.fn()} onClose={jest.fn()} />);
     expect(screen.queryByLabelText("Move to shelf")).toBeNull();
+    expect(screen.queryByLabelText("Reviews")).toBeNull();
     expect(screen.queryByLabelText("Delete from library")).toBeNull();
+  });
+
+  it("shows the reviewCount badge when > 0 and hides it at 0", () => {
+    const { rerender } = render(
+      <BookMetadataModal visible book={FULL_BOOK} meta={fallback} reviewCount={3} onRead={jest.fn()} onReviews={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.getByText("3")).toBeTruthy();
+    rerender(
+      <BookMetadataModal visible book={FULL_BOOK} meta={fallback} reviewCount={0} onRead={jest.fn()} onReviews={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.queryByText("3")).toBeNull();
   });
 
   it("shows the export pills (EPUB/PDF) when status/published are passed", () => {
