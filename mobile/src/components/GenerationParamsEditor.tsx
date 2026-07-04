@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { HelpHint } from "@/components/HelpHint";
 import { LevelPicker } from "@/components/LevelPicker";
@@ -49,7 +49,7 @@ export function GenerationParamsEditor({
       <Text style={styles.paramHint}>
         Which AI writes the book — pinned for every topic. Needs that provider&apos;s key in Settings.
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      <View style={styles.chipRow}>
         {PROVIDERS.map((p) => {
           const selected = p.id === value.provider;
           return (
@@ -68,7 +68,7 @@ export function GenerationParamsEditor({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
       {providerInfo(value.provider).note ? (
         <Text style={styles.paramHint}>{providerInfo(value.provider).note}</Text>
       ) : null}
@@ -83,7 +83,7 @@ export function GenerationParamsEditor({
         Depth
       </FieldLabel>
       <Text style={styles.paramHint}>How thorough — how many sections and how much detail.</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      <View style={styles.chipRow}>
         {DEPTHS.map((d) => {
           const selected = d.value === value.depth;
           return (
@@ -100,13 +100,13 @@ export function GenerationParamsEditor({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <FieldLabel hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
         Diagrams
       </FieldLabel>
       <Text style={styles.paramHint}>What kind of visuals the model favours (conceptual ↔ technical).</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      <View style={styles.chipRow}>
         {REGISTERS.map((r) => {
           const selected = r.value === value.diagramRegister;
           return (
@@ -123,7 +123,7 @@ export function GenerationParamsEditor({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
       <Pressable
         onPress={() => router.push("/diagram-types")}
         accessibilityRole="button"
@@ -201,7 +201,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
-  chipRow: { flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.xs },
+  // Wrap chips onto multiple rows rather than scrolling horizontally, so every
+  // option stays visible in the narrow desktop options column (and on phones).
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingVertical: spacing.xs },
   // Beveled, matching the nav tiles: raised white face by default, inset yellow
   // face when selected. Black glyphs throughout; the face + bevel carry on/off.
   chip: {
@@ -227,7 +229,9 @@ const styles = StyleSheet.create({
   chipLabelSelected: { color: colors.tileOnGlyph },
   chipDesc: { fontSize: typography.sizeXs, color: colors.tileSubGlyph, marginTop: 2 },
   chipDescSelected: { color: colors.tileSubGlyph },
-  pagesRow: { flexDirection: "row", alignItems: "stretch", gap: spacing.xs },
+  // wrap so the steppers drop to a second line rather than overflowing the
+  // (narrow) options column and spilling over the topics column on desktop web.
+  pagesRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.xs },
   pagesInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -238,7 +242,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizeLg,
     fontWeight: "700",
   },
-  pagesInputFlex: { flex: 1 },
+  pagesInputFlex: { flex: 1, minWidth: 120 },
   // Raised white beveled buttons, matching the OFF chips/tiles.
   stepBtn: {
     justifyContent: "center",
