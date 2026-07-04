@@ -154,11 +154,13 @@ export async function getStructureJob(
   return apiFetch<StructureJobResponse>(`/jobs/${jobId}`);
 }
 
-// ── Export: POST /export → compile a book to an artifact ──────────────────────
+// ── Export: compile a book to a downloadable artifact ─────────────────────────
 // Returns the artifact bytes (EPUB or PDF) plus the book-level Content Trust
-// Manifest (ADR-015 / SBQ-TRUST-002) when the backend attaches one. Synchronous
-// and key-free. 422 → the book has no generated content (or is malformed);
-// surface via ApiError.body. diagrams=true renders Mermaid→SVG (much slower).
+// Manifest (ADR-015 / SBQ-TRUST-002) when the backend attaches one. Key-free.
+// EPUB/PDF run as an async job (submit → poll → download) so a minutes-long
+// diagram compile can't 524 behind Cloudflare's ~100s proxy timeout; `cover` is
+// a sub-second synchronous call. 422 → the book has no generated content (or is
+// malformed); surface via ApiError.body. diagrams=true renders Mermaid→SVG.
 export interface ExportOptions {
   format?: "epub" | "pdf" | "cover"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
@@ -187,12 +189,80 @@ function decodeTrustHeader(b64: string | null | undefined): TrustManifest | unde
   }
 }
 
-export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<ExportedArtifact> {
-  const params = new URLSearchParams({
-    format: opts.format ?? "epub",
-    diagrams: String(opts.diagrams ?? false),
+// The status a poll of an async export job can be in.
+export interface ExportJobStatus {
+  job_id: string;
+  status: "queued" | "running" | "done" | "failed";
+  error?: string;
+  title?: string;
+  filename?: string;
+  format?: string;
+  size?: number;
+  warnings?: number;
+  trust?: string; // base64 Content Trust Manifest
+}
+
+// A diagram-heavy book compiles for minutes on the backend (one headless-Chromium
+// pass per Mermaid block); this bounds the total wait, while each poll is a cheap
+// GET. Matches the backend's export_diagram_timeout ceiling.
+const EXPORT_POLL_TIMEOUT_MS = 1_200_000; // 20 min
+
+async function submitExportJob(
+  book: Book,
+  format: "epub" | "pdf",
+  diagrams: boolean,
+): Promise<string> {
+  const params = new URLSearchParams({ format, diagrams: String(diagrams) });
+  const res = await fetch(`${BASE_URL}/api/v1/export/jobs?${params.toString()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(book),
   });
-  const res = await fetch(`${BASE_URL}/api/v1/export?${params.toString()}`, {
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
+  }
+  const { job_id } = (await res.json()) as { job_id: string };
+  return job_id;
+}
+
+async function pollExportJob(
+  jobId: string,
+  intervalMs = POLL_INTERVAL_MS,
+): Promise<ExportJobStatus> {
+  const deadline = Date.now() + EXPORT_POLL_TIMEOUT_MS;
+  return new Promise<ExportJobStatus>((resolve, reject) => {
+    const tick = async () => {
+      if (Date.now() > deadline) {
+        reject(new Error("Timed out waiting for the export"));
+        return;
+      }
+      try {
+        const job = await apiFetch<ExportJobStatus>(`/export/jobs/${jobId}`);
+        if (job.status === "done" || job.status === "failed") resolve(job);
+        else setTimeout(tick, intervalMs);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    void tick();
+  });
+}
+
+async function fetchExportArtifact(jobId: string): Promise<ExportedArtifact> {
+  const res = await fetch(`${BASE_URL}/api/v1/export/jobs/${jobId}/artifact`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
+  }
+  const trust = decodeTrustHeader(res.headers?.get("X-Content-Trust-Manifest"));
+  return { artifact: await res.arrayBuffer(), trust };
+}
+
+// The cover thumbnail is sub-second, so it stays on the synchronous /export
+// endpoint — an async job would just add polling latency for no benefit.
+async function exportCoverSync(book: Book): Promise<ExportedArtifact> {
+  const res = await fetch(`${BASE_URL}/api/v1/export?format=cover`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(book),
@@ -203,6 +273,25 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
   }
   const trust = decodeTrustHeader(res.headers?.get("X-Content-Trust-Manifest"));
   return { artifact: await res.arrayBuffer(), trust };
+}
+
+// Compile a book to a downloadable artifact.
+//
+// EPUB/PDF compile can take minutes (diagram rendering), which is longer than
+// Cloudflare's ~100s proxy timeout — a synchronous request would 524. So those
+// run as an async job: submit → poll status → download the artifact, each call
+// well under the proxy limit. `cover` stays synchronous (sub-second). The return
+// shape is unchanged, so callers don't care which path ran.
+export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<ExportedArtifact> {
+  const format = opts.format ?? "epub";
+  if (format === "cover") return exportCoverSync(book);
+
+  const jobId = await submitExportJob(book, format, opts.diagrams ?? false);
+  const job = await pollExportJob(jobId);
+  if (job.status === "failed") {
+    throw new Error(job.error || "The export could not be completed.");
+  }
+  return fetchExportArtifact(jobId);
 }
 
 export async function pollUntilDone(

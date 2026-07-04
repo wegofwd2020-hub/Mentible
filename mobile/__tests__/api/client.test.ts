@@ -122,44 +122,65 @@ describe("pollUntilDone", () => {
   });
 });
 
-describe("exportBook", () => {
+describe("exportBook (async job: submit → poll → download)", () => {
   const book = { id: "b1", title: "T", toc: { subjects: [] }, createdAt: "", updatedAt: "" } as Book;
 
-  it("posts the book and defaults to format=epub, diagrams=false", async () => {
+  // Queue the 3 responses of a happy-path async export.
+  function mockAsyncExport(opts: {
+    jobId?: string;
+    status?: { filename?: string };
+    artifact?: ArrayBuffer;
+    trustHeader?: string | null;
+  } = {}) {
+    const jobId = opts.jobId ?? "j1";
+    // 1. submit → 202 { job_id }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ job_id: jobId, status: "queued" }),
+    });
+    // 2. poll → done
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      headers: { get: () => null },
-      arrayBuffer: async () => new Uint8Array([80, 75]).buffer, // "PK"
+      json: async () => ({ job_id: jobId, status: "done", ...(opts.status ?? {}) }),
     });
+    // 3. artifact bytes
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (k: string) => (k === "X-Content-Trust-Manifest" ? opts.trustHeader ?? null : null) },
+      arrayBuffer: async () => opts.artifact ?? new Uint8Array([80, 75]).buffer, // "PK"
+    });
+  }
+
+  it("submits to /export/jobs with format=epub, diagrams=false, then downloads", async () => {
+    mockAsyncExport();
     const { artifact, trust } = await exportBook(book);
-    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain("/api/v1/export?");
-    expect(url).toContain("format=epub");
-    expect(url).toContain("diagrams=false");
-    expect(opts.method).toBe("POST");
+
+    const [submitUrl, submitOpts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(submitUrl).toContain("/api/v1/export/jobs?");
+    expect(submitUrl).toContain("format=epub");
+    expect(submitUrl).toContain("diagrams=false");
+    expect(submitOpts.method).toBe("POST");
+    // poll then artifact hit the job routes
+    expect(mockFetch.mock.calls[1][0]).toContain("/api/v1/export/jobs/j1");
+    expect(mockFetch.mock.calls[2][0]).toContain("/api/v1/export/jobs/j1/artifact");
     expect(new Uint8Array(artifact)[0]).toBe(80);
-    expect(trust).toBeUndefined(); // no header → no manifest
+    expect(trust).toBeUndefined();
   });
 
-  it("passes format=pdf and diagrams=true", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: { get: () => null },
-      arrayBuffer: async () => new ArrayBuffer(0),
-    });
+  it("passes format=pdf and diagrams=true to the submit", async () => {
+    mockAsyncExport();
     await exportBook(book, { format: "pdf", diagrams: true });
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain("format=pdf");
     expect(url).toContain("diagrams=true");
   });
 
-  it("decodes the X-Content-Trust-Manifest header into a manifest (SBQ-TRUST-002)", async () => {
+  it("decodes the X-Content-Trust-Manifest header from the artifact (SBQ-TRUST-002)", async () => {
     const manifest = {
       trust_manifest_version: 1,
-      provenance: { provider: "anthropic", model: "claude-sonnet-4-6", model_verified: true },
-      validation: { schema_validated: true },
       compliance: {
         ruleset: "mentible-professional@1.0",
         checks_passed: 5,
@@ -168,37 +189,57 @@ describe("exportBook", () => {
       },
       integrity: { content_hash: "sha256:abc" },
     };
-    const b64 = Buffer.from(JSON.stringify(manifest)).toString("base64");
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: { get: (k: string) => (k === "X-Content-Trust-Manifest" ? b64 : null) },
-      arrayBuffer: async () => new ArrayBuffer(0),
-    });
+    mockAsyncExport({ trustHeader: Buffer.from(JSON.stringify(manifest)).toString("base64") });
     const { trust } = await exportBook(book);
     expect(trust?.compliance?.checks_passed).toBe(5);
     expect(trust?.integrity?.content_hash).toBe("sha256:abc");
   });
 
   it("ignores a malformed trust header without failing the download", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: { get: () => "!!!not-base64-json!!!" },
-      arrayBuffer: async () => new Uint8Array([80]).buffer,
-    });
+    mockAsyncExport({ trustHeader: "!!!not-base64-json!!!", artifact: new Uint8Array([80]).buffer });
     const { artifact, trust } = await exportBook(book);
     expect(new Uint8Array(artifact)[0]).toBe(80);
     expect(trust).toBeUndefined();
   });
 
-  it("throws ApiError on non-2xx (e.g. 422 no content)", async () => {
+  it("throws ApiError when the submit is rejected (e.g. 422 malformed book)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 422,
-      text: async () => '{"detail":"Book has no generated content to compile."}',
+      text: async () => '{"detail":"Book is missing a table of contents (toc.subjects)."}',
     });
     await expect(exportBook(book)).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("throws with the job's error message when the compile fails", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ job_id: "j2", status: "queued" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ job_id: "j2", status: "failed", error: "Book has no generated content to compile." }),
+    });
+    await expect(exportBook(book)).rejects.toThrow(/no generated content/);
+    // No artifact fetch after a failed job.
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps cover on the synchronous /export endpoint (no job)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      arrayBuffer: async () => new Uint8Array([137, 80]).buffer, // PNG magic-ish
+    });
+    const { artifact } = await exportBook(book, { format: "cover" });
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain("/api/v1/export?format=cover");
+    expect(url).not.toContain("/jobs");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(new Uint8Array(artifact)[0]).toBe(137);
   });
 });
 

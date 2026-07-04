@@ -184,6 +184,11 @@ class Settings(BaseSettings):
     # Diagram rendering runs one headless-Chromium pass per Mermaid block, so a
     # diagram-laden book takes minutes — give that path a much longer ceiling.
     export_diagram_timeout_seconds: int = Field(default=1200, ge=5, le=3600)
+    # Async export jobs (POST /export/jobs) stash the compiled artifact + status
+    # in Redis for the client to poll and then download. The TTL must outlast the
+    # slowest compile (export_diagram_timeout_seconds) plus a generous download
+    # window, so a large diagram book that took 15 min is still fetchable after.
+    export_artifact_ttl_seconds: int = Field(default=3600, ge=60, le=21600)
 
     # ── Rate limiting ─────────────────────────────────────────────────────────
     # Fixed-window per-identity limits on the expensive endpoints (/generate,
