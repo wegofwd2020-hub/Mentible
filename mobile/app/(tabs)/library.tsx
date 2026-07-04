@@ -5,8 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
-import { reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
-import { ExportStatusPills } from "@/components/ExportStatusPills";
+import { reconcileGeneratingExports, loadPublishedMap, type PublishedFormats } from "@/lib/trackedExport";
 import { reviewCounts } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
@@ -22,16 +21,20 @@ import { loadBook, loadBookIndex } from "@/storage/bookStore";
 import { seedDefaultLibrary } from "@/storage/seedLibrary";
 import { bundledBooks } from "@/storage/bundledLibrary";
 import type { Book, BookMeta } from "@/types/book";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { ShelfBand } from "@/components/ShelfBand";
+import { MoveToShelfModal } from "@/components/MoveToShelfModal";
+import { ShelfNameModal } from "@/components/ShelfNameModal";
+import { groupIntoShelves } from "@/lib/groupShelves";
+import {
+  assignBook,
+  createShelf,
+  deleteShelf,
+  getAssignments,
+  listShelves,
+  pruneBook,
+  renameShelf,
+  type Shelf,
+} from "@/storage/shelfStore";
 
 // Image MIME for a raster cover's file extension (so the web data: URL is
 // labelled correctly — third-party EPUB covers are frequently JPEG/WebP).
@@ -123,7 +126,7 @@ function EpubLibrary() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
-  const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
+  const [published, setPublished] = useState<Record<string, PublishedFormats>>({});
   // Book-metadata window (opened by tapping a book; "Read" enters the reader).
   const [selected, setSelected] = useState<EpubMeta | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -131,9 +134,23 @@ function EpubLibrary() {
   // Guards against a slow loadBook for an earlier tap landing after a later one.
   const latestReq = useRef<string | null>(null);
   const { isDesktop } = useResponsive();
-  const numColumns = isDesktop ? 4 : 2;
+  const [shelves, setShelves] = useState<Shelf[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // The book whose move-to-shelf picker is open (null = closed).
+  const [moveTarget, setMoveTarget] = useState<EpubMeta | null>(null);
+  // The shelf-name modal: create, or rename an existing shelf.
+  const [nameModal, setNameModal] = useState<{ mode: "create" | "rename"; shelf?: Shelf } | null>(null);
+  // When a shelf is created from the picker, assign this book to it once made.
+  const [pendingAssignBookId, setPendingAssignBookId] = useState<string | null>(null);
+
+  const reloadShelves = useCallback(async () => {
+    setShelves(await listShelves());
+    setAssignments(await getAssignments());
+  }, []);
 
   const reload = useCallback(() => {
+    void reloadShelves();
     listEpubs()
       .then(async (list) => {
         setItems(list);
@@ -147,7 +164,7 @@ function EpubLibrary() {
         setItems([]);
         setCounts({});
       });
-  }, []);
+  }, [reloadShelves]);
 
   useFocusEffect(
     useCallback(() => {
@@ -161,7 +178,14 @@ function EpubLibrary() {
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteEpub(id);
+    await pruneBook(id);
     setItems((prev) => prev.filter((m) => m.id !== id));
+    setAssignments((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setExpandedId(null);
   }, []);
 
   const handleImport = useCallback(async () => {
@@ -247,6 +271,81 @@ function EpubLibrary() {
     [router],
   );
 
+  const currentShelfId = moveTarget ? assignments[moveTarget.id] ?? null : null;
+
+  const handleAssign = useCallback(
+    async (shelfId: string | null) => {
+      if (!moveTarget) return;
+      setError(null);
+      try {
+        await assignBook(moveTarget.id, shelfId);
+        await reloadShelves();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't move the book.");
+      } finally {
+        setMoveTarget(null);
+      }
+    },
+    [moveTarget, reloadShelves],
+  );
+
+  const handleNameSubmit = useCallback(
+    async (name: string) => {
+      setError(null);
+      try {
+        if (nameModal?.mode === "rename" && nameModal.shelf) {
+          await renameShelf(nameModal.shelf.id, name);
+        } else {
+          const shelf = await createShelf(name);
+          if (pendingAssignBookId) await assignBook(pendingAssignBookId, shelf.id);
+        }
+        await reloadShelves();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't save the shelf.");
+      } finally {
+        setNameModal(null);
+        setPendingAssignBookId(null);
+      }
+    },
+    [nameModal, pendingAssignBookId, reloadShelves],
+  );
+
+  const confirmDeleteShelf = useCallback(
+    (shelf: Shelf) => {
+      Alert.alert("Delete shelf?", `“${shelf.name}” will be removed. Its books move to Unshelved (books are not deleted).`, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setError(null);
+            void deleteShelf(shelf.id)
+              .then(reloadShelves)
+              .catch((e) => {
+                setError(e instanceof Error ? e.message : "Couldn't delete the shelf.");
+              });
+          },
+        },
+      ]);
+    },
+    [reloadShelves],
+  );
+
+  const newShelfButton = (
+    <Pressable
+      style={styles.importBtn}
+      onPress={() => {
+        setPendingAssignBookId(null);
+        setNameModal({ mode: "create" });
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Create a new shelf"
+    >
+      <Ionicons name="add" size={16} color={colors.primary} />
+      <Text style={styles.importBtnText}>New shelf</Text>
+    </Pressable>
+  );
+
   const importButton = (
     <Pressable
       style={[styles.importBtn, importing && styles.importBtnDisabled]}
@@ -283,58 +382,41 @@ function EpubLibrary() {
     );
   }
 
+  const sections = groupIntoShelves(items, shelves, assignments);
+
   const list = (
     <FlatList
-      key={numColumns}
       style={styles.list}
       contentContainerStyle={[styles.gridContent, isDesktop && styles.gridWide]}
-      data={items}
-      keyExtractor={(item) => item.id}
-      numColumns={numColumns}
-      columnWrapperStyle={styles.gridRow}
+      data={sections}
+      keyExtractor={(sec) => sec.shelf?.id ?? "__unshelved__"}
       ListHeaderComponent={
         <View style={styles.header}>
           {importButton}
+          {newShelfButton}
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
       }
-      renderItem={({ item }) => (
-        <View style={[styles.tile, { maxWidth: `${100 / numColumns}%` }]}>
-          <Pressable
-            onPress={() => openMeta(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Book details: ${item.title}`}
-          >
-            <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} coverSvg={item.coverSvg} />
-          </Pressable>
-          <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
-          <ExportStatusPills status={exportStatus[item.id]} published={published[item.id]} />
-          <View style={styles.tileFooter}>
-            <Text style={styles.tileMeta} numberOfLines={1}>
-              {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}
-            </Text>
-            <Pressable
-              onPress={() => openReviews(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`Reviews for ${item.title}${
-                counts[item.id] ? ` (${counts[item.id]})` : ""
-              }`}
-              hitSlop={8}
-              style={styles.reviewsChip}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={15} color={colors.textSecondary} />
-              {counts[item.id] ? <Text style={styles.reviewsCount}>{counts[item.id]}</Text> : null}
-            </Pressable>
-            <Pressable
-              onPress={() => handleDelete(item.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Delete from library: ${item.title}`}
-              hitSlop={8}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-            </Pressable>
-          </View>
-        </View>
+      renderItem={({ item: sec }) => (
+        <ShelfBand
+          shelf={sec.shelf}
+          books={sec.books}
+          expandedId={expandedId}
+          counts={counts}
+          exportStatus={exportStatus}
+          published={published}
+          onExpand={setExpandedId}
+          onRead={(m) => {
+            setExpandedId(null);
+            openItem(m);
+          }}
+          onReviews={openReviews}
+          onMove={(m) => setMoveTarget(m)}
+          onDetails={openMeta}
+          onDelete={(m) => handleDelete(m.id)}
+          onRename={() => sec.shelf && setNameModal({ mode: "rename", shelf: sec.shelf })}
+          onDeleteShelf={() => sec.shelf && confirmDeleteShelf(sec.shelf)}
+        />
       )}
     />
   );
@@ -353,6 +435,28 @@ function EpubLibrary() {
           if (item) openItem(item);
         }}
         onClose={closeMeta}
+      />
+      <MoveToShelfModal
+        visible={!!moveTarget}
+        shelves={shelves}
+        currentShelfId={currentShelfId}
+        onAssign={handleAssign}
+        onCreateShelf={() => {
+          if (moveTarget) setPendingAssignBookId(moveTarget.id);
+          setMoveTarget(null);
+          setNameModal({ mode: "create" });
+        }}
+        onClose={() => setMoveTarget(null)}
+      />
+      <ShelfNameModal
+        visible={!!nameModal}
+        title={nameModal?.mode === "rename" ? "Rename shelf" : "New shelf"}
+        initialName={nameModal?.shelf?.name}
+        onSubmit={handleNameSubmit}
+        onClose={() => {
+          setNameModal(null);
+          setPendingAssignBookId(null);
+        }}
       />
     </>
   );
@@ -374,16 +478,9 @@ const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
   gridContent: { padding: spacing.md },
   gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
-  gridRow: { gap: spacing.md },
   screen: { flex: 1 },
   // Import sits left so it clears the floating profile chip (top-right).
   header: { flexDirection: "row", justifyContent: "flex-start", marginBottom: spacing.md },
-  tile: { flex: 1, marginBottom: spacing.lg, gap: spacing.xs },
-  tileTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
-  tileFooter: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  tileMeta: { flex: 1, fontSize: typography.sizeXs, color: colors.textMuted },
-  reviewsChip: { flexDirection: "row", alignItems: "center", gap: 2 },
-  reviewsCount: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.textSecondary },
   importBtn: {
     flexDirection: "row",
     alignItems: "center",

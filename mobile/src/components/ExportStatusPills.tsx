@@ -7,6 +7,7 @@ import {
   type ExportFormat,
   type ExportUiState,
 } from "@/storage/exportStatus";
+import type { PublishedFormats } from "@/lib/trackedExport";
 
 // Per-book EPUB/PDF availability indicators. Pure/presentational: the list owns
 // the fetched status index and passes each book's slice + its live updatedAt, so
@@ -60,7 +61,7 @@ export function ExportStatusPills({
   status: BookExportStatus | undefined;
   bookUpdatedAt?: string;
   // Which formats are published to the Open Library (reader-visible availability).
-  published?: { epub?: boolean; pdf?: boolean };
+  published?: PublishedFormats;
 }) {
   return (
     <View style={styles.row}>

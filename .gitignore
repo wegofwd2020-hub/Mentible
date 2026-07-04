@@ -85,3 +85,6 @@ TRASH-FILES.md
 # firebase CLI debug log
 firebase-debug.log
 .firebase/
+
+# Superpowers brainstorm visual companion
+.superpowers/
