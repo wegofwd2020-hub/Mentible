@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
-import { reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
+import { reconcileGeneratingExports, loadPublishedMap, type PublishedFormats } from "@/lib/trackedExport";
 import { reviewCounts } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
@@ -126,7 +126,7 @@ function EpubLibrary() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
-  const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
+  const [published, setPublished] = useState<Record<string, PublishedFormats>>({});
   // Book-metadata window (opened by tapping a book; "Read" enters the reader).
   const [selected, setSelected] = useState<EpubMeta | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -185,6 +185,7 @@ function EpubLibrary() {
       delete next[id];
       return next;
     });
+    setExpandedId(null);
   }, []);
 
   const handleImport = useCallback(async () => {
@@ -275,24 +276,36 @@ function EpubLibrary() {
   const handleAssign = useCallback(
     async (shelfId: string | null) => {
       if (!moveTarget) return;
-      await assignBook(moveTarget.id, shelfId);
-      setMoveTarget(null);
-      await reloadShelves();
+      setError(null);
+      try {
+        await assignBook(moveTarget.id, shelfId);
+        await reloadShelves();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't move the book.");
+      } finally {
+        setMoveTarget(null);
+      }
     },
     [moveTarget, reloadShelves],
   );
 
   const handleNameSubmit = useCallback(
     async (name: string) => {
-      if (nameModal?.mode === "rename" && nameModal.shelf) {
-        await renameShelf(nameModal.shelf.id, name);
-      } else {
-        const shelf = await createShelf(name);
-        if (pendingAssignBookId) await assignBook(pendingAssignBookId, shelf.id);
+      setError(null);
+      try {
+        if (nameModal?.mode === "rename" && nameModal.shelf) {
+          await renameShelf(nameModal.shelf.id, name);
+        } else {
+          const shelf = await createShelf(name);
+          if (pendingAssignBookId) await assignBook(pendingAssignBookId, shelf.id);
+        }
+        await reloadShelves();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't save the shelf.");
+      } finally {
+        setNameModal(null);
+        setPendingAssignBookId(null);
       }
-      setNameModal(null);
-      setPendingAssignBookId(null);
-      await reloadShelves();
     },
     [nameModal, pendingAssignBookId, reloadShelves],
   );
@@ -305,7 +318,12 @@ function EpubLibrary() {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            void deleteShelf(shelf.id).then(reloadShelves);
+            setError(null);
+            void deleteShelf(shelf.id)
+              .then(reloadShelves)
+              .catch((e) => {
+                setError(e instanceof Error ? e.message : "Couldn't delete the shelf.");
+              });
           },
         },
       ]);

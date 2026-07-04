@@ -51,14 +51,18 @@ export async function trackedExport(
   }
 }
 
+// Which formats are published to the Open Library (reader-visible availability),
+// shared by the Library screen and the shelf/pill components that render it.
+export type PublishedFormats = { epub?: boolean; pdf?: boolean };
+
 // Which formats each book has published to the Open Library (reader-visible).
 // Best-effort per book so one failure doesn't blank the whole shelf; a book with
 // no publish (or an unreachable backend) simply maps to {}.
 export async function loadPublishedMap(
   bookIds: string[],
-): Promise<Record<string, { epub?: boolean; pdf?: boolean }>> {
+): Promise<Record<string, PublishedFormats>> {
   const entries = await Promise.all(
-    bookIds.map(async (id): Promise<[string, { epub?: boolean; pdf?: boolean }]> => {
+    bookIds.map(async (id): Promise<[string, PublishedFormats]> => {
       try {
         const a = await getPublishedArtifacts(id);
         return [id, { epub: !!a.epub, pdf: !!a.pdf }];

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ShelfBook } from "@/components/ShelfBook";
 import type { EpubMeta } from "@/storage/epubLibrary";
 import type { BookExportStatus } from "@/storage/exportStatus";
+import type { PublishedFormats } from "@/lib/trackedExport";
 import type { Shelf } from "@/storage/shelfStore";
 import { colors, spacing, typography } from "@/constants/theme";
 
@@ -29,7 +30,7 @@ export function ShelfBand({
   counts: Record<string, number>;
   exportStatus: Record<string, BookExportStatus>;
   // Which formats are published to the Open Library, keyed by book id.
-  published: Record<string, { epub?: boolean; pdf?: boolean }>;
+  published: Record<string, PublishedFormats>;
   onExpand: (bookId: string | null) => void;
   onRead: (m: EpubMeta) => void;
   onReviews: (m: EpubMeta) => void;

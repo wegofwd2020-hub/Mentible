@@ -5,6 +5,7 @@ import { BookCover } from "@/components/BookCover";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
 import type { EpubMeta } from "@/storage/epubLibrary";
 import type { BookExportStatus } from "@/storage/exportStatus";
+import type { PublishedFormats } from "@/lib/trackedExport";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // Warm spine palette (shelf visual direction "A" — saturated, bookshelf-real).
@@ -41,7 +42,7 @@ export function ShelfBook({
   reviewCount?: number;
   exportStatus?: BookExportStatus;
   // Which formats are published to the Open Library (reader-visible availability).
-  published?: { epub?: boolean; pdf?: boolean };
+  published?: PublishedFormats;
   onPressSpine: () => void;
   onRead: () => void;
   onReviews: () => void;
