@@ -9,6 +9,10 @@ import {
 } from "react-native";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
+import { Ionicons } from "@expo/vector-icons";
+import { ExportStatusPills } from "@/components/ExportStatusPills";
+import type { BookExportStatus } from "@/storage/exportStatus";
+import type { PublishedFormats } from "@/lib/trackedExport";
 
 // Shown when a user taps a book on the Library shelf: a read-only window of the
 // book's metadata, with a Read button that enters the reader. Fields that aren't
@@ -109,7 +113,17 @@ export interface BookMetadataModalProps {
   book: Book | null;
   meta: BookMetaFallback | null;
   loading?: boolean;
+  // Export/published availability, shown under the title (moved here from the
+  // old shelf pull-out — spines are now the only shelf visual).
+  exportStatus?: BookExportStatus;
+  published?: PublishedFormats;
+  reviewCount?: number;
   onRead: () => void;
+  // Action buttons render only when their handler is provided, so the sidebar
+  // degrades gracefully (and this change stays additive for callers).
+  onMove?: () => void;
+  onReviews?: () => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
@@ -118,7 +132,13 @@ export function BookMetadataModal({
   book,
   meta,
   loading = false,
+  exportStatus,
+  published,
+  reviewCount,
   onRead,
+  onMove,
+  onReviews,
+  onDelete,
   onClose,
 }: BookMetadataModalProps) {
   if (!visible) return null;
@@ -135,6 +155,7 @@ export function BookMetadataModal({
         <Text style={styles.title} numberOfLines={3}>
           {rows.name}
         </Text>
+        <ExportStatusPills status={exportStatus} published={published} />
         {loading ? (
           <View style={styles.loading}>
             <ActivityIndicator color={colors.primary} />
@@ -154,21 +175,29 @@ export function BookMetadataModal({
           </ScrollView>
         )}
         <View style={styles.footer}>
-          <Pressable
-            style={styles.closeBtn}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
+          <View style={styles.actions}>
+            <Pressable style={styles.readBtn} onPress={onRead} accessibilityRole="button" accessibilityLabel="Read this book">
+              <Text style={styles.readBtnText}>Read</Text>
+            </Pressable>
+            {onMove ? (
+              <Pressable style={styles.iconBtn} onPress={onMove} accessibilityRole="button" accessibilityLabel="Move to shelf" hitSlop={8}>
+                <Ionicons name="folder-outline" size={20} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+            {onReviews ? (
+              <Pressable style={styles.iconBtn} onPress={onReviews} accessibilityRole="button" accessibilityLabel="Reviews" hitSlop={8}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.textSecondary} />
+                {reviewCount ? <Text style={styles.count}>{reviewCount}</Text> : null}
+              </Pressable>
+            ) : null}
+            {onDelete ? (
+              <Pressable style={styles.iconBtn} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete from library" hitSlop={8}>
+                <Ionicons name="trash-outline" size={20} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          <Pressable style={styles.closeBtn} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
             <Text style={styles.closeBtnText}>Close</Text>
-          </Pressable>
-          <Pressable
-            style={styles.readBtn}
-            onPress={onRead}
-            accessibilityRole="button"
-            accessibilityLabel="Read this book"
-          >
-            <Text style={styles.readBtnText}>Read</Text>
           </Pressable>
         </View>
       </View>
@@ -225,20 +254,24 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   rowValueMuted: { color: colors.textMuted, fontWeight: "400", fontStyle: "italic" },
-  footer: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.xs },
+  footer: { gap: spacing.sm, marginTop: spacing.xs },
+  actions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  iconBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
+  count: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.textSecondary },
   closeBtn: {
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: "center",
   },
   closeBtnText: { color: colors.textSecondary, fontWeight: "700", fontSize: typography.sizeSm },
   readBtn: {
+    flex: 1,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
+    alignItems: "center",
   },
   readBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
 });

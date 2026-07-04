@@ -136,7 +136,6 @@ function EpubLibrary() {
   const { isDesktop } = useResponsive();
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   // The book whose move-to-shelf picker is open (null = closed).
   const [moveTarget, setMoveTarget] = useState<EpubMeta | null>(null);
   // The shelf-name modal: create, or rename an existing shelf.
@@ -185,7 +184,6 @@ function EpubLibrary() {
       delete next[id];
       return next;
     });
-    setExpandedId(null);
   }, []);
 
   const handleImport = useCallback(async () => {
@@ -269,6 +267,23 @@ function EpubLibrary() {
       router.push(`/book/reviews/${item.id}?title=${encodeURIComponent(item.title)}`);
     },
     [router],
+  );
+
+  const confirmDeleteBook = useCallback(
+    (item: EpubMeta) => {
+      Alert.alert("Delete from library?", `“${item.title}” will be removed from this device.`, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            void handleDelete(item.id);
+            closeMeta();
+          },
+        },
+      ]);
+    },
+    [handleDelete, closeMeta],
   );
 
   const currentShelfId = moveTarget ? assignments[moveTarget.id] ?? null : null;
@@ -401,19 +416,7 @@ function EpubLibrary() {
         <ShelfBand
           shelf={sec.shelf}
           books={sec.books}
-          expandedId={expandedId}
-          counts={counts}
-          exportStatus={exportStatus}
-          published={published}
-          onExpand={setExpandedId}
-          onRead={(m) => {
-            setExpandedId(null);
-            openItem(m);
-          }}
-          onReviews={openReviews}
-          onMove={(m) => setMoveTarget(m)}
-          onDetails={openMeta}
-          onDelete={(m) => handleDelete(m.id)}
+          onPressBook={openMeta}
           onRename={() => sec.shelf && setNameModal({ mode: "rename", shelf: sec.shelf })}
           onDeleteShelf={() => sec.shelf && confirmDeleteShelf(sec.shelf)}
         />
@@ -429,11 +432,21 @@ function EpubLibrary() {
         book={selectedBook}
         meta={selected ? { title: selected.title, compiledAt: selected.compiledAt } : null}
         loading={loadingBook}
+        exportStatus={selected ? exportStatus[selected.id] : undefined}
+        published={selected ? published[selected.id] : undefined}
+        reviewCount={selected ? counts[selected.id] : undefined}
         onRead={() => {
           const item = selected;
           closeMeta();
           if (item) openItem(item);
         }}
+        onMove={() => selected && setMoveTarget(selected)}
+        onReviews={() => {
+          const item = selected;
+          closeMeta();
+          if (item) openReviews(item);
+        }}
+        onDelete={() => selected && confirmDeleteBook(selected)}
         onClose={closeMeta}
       />
       <MoveToShelfModal

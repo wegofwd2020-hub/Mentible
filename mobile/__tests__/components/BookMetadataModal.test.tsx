@@ -134,3 +134,66 @@ describe("deriveRows — description + tags", () => {
     expect(rows.tags).toBeUndefined();
   });
 });
+
+describe("BookMetadataModal — export pills + actions", () => {
+  const fallback = { title: "Product Sense and AI", compiledAt: "2026-06-01T00:00:00.000Z" };
+
+  it("renders the action footer and fires Move / Reviews / Delete", () => {
+    const onMove = jest.fn();
+    const onReviews = jest.fn();
+    const onDelete = jest.fn();
+    render(
+      <BookMetadataModal
+        visible
+        book={FULL_BOOK}
+        meta={fallback}
+        reviewCount={3}
+        onRead={jest.fn()}
+        onMove={onMove}
+        onReviews={onReviews}
+        onDelete={onDelete}
+        onClose={jest.fn()}
+      />,
+    );
+    fireEvent.press(screen.getByLabelText("Move to shelf"));
+    fireEvent.press(screen.getByLabelText("Reviews"));
+    fireEvent.press(screen.getByLabelText("Delete from library"));
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onReviews).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits action buttons when their handlers are not provided", () => {
+    render(<BookMetadataModal visible book={FULL_BOOK} meta={fallback} onRead={jest.fn()} onClose={jest.fn()} />);
+    expect(screen.queryByLabelText("Move to shelf")).toBeNull();
+    expect(screen.queryByLabelText("Reviews")).toBeNull();
+    expect(screen.queryByLabelText("Delete from library")).toBeNull();
+  });
+
+  it("shows the reviewCount badge when > 0 and hides it at 0", () => {
+    const { rerender } = render(
+      <BookMetadataModal visible book={FULL_BOOK} meta={fallback} reviewCount={3} onRead={jest.fn()} onReviews={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.getByText("3")).toBeTruthy();
+    rerender(
+      <BookMetadataModal visible book={FULL_BOOK} meta={fallback} reviewCount={0} onRead={jest.fn()} onReviews={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.queryByText("3")).toBeNull();
+  });
+
+  it("shows the export pills (EPUB/PDF) when status/published are passed", () => {
+    render(
+      <BookMetadataModal
+        visible
+        book={FULL_BOOK}
+        meta={fallback}
+        exportStatus={{ epub: { state: "done", compiledAt: "2026-07-04T00:00:00Z" } }}
+        published={{ epub: true }}
+        onRead={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("EPUB")).toBeTruthy();
+    expect(screen.getByText("PDF")).toBeTruthy();
+  });
+});
