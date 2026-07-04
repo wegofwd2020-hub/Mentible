@@ -1,4 +1,7 @@
-import { Alert } from "react-native";
+// Cross-platform Alert shim — react-native's Alert.alert is a silent no-op on
+// react-native-web, so the demo notice would never show on the web demo. The
+// shim maps to window.alert on web (issue #255).
+import { Alert } from "@/lib/alert";
 
 // Demo build flag. Baked in only for the distributable DEMO APK
 // (EXPO_PUBLIC_DEMO_MODE=1). In a demo build there is no backend and no accounts:
