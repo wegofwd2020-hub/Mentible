@@ -28,6 +28,7 @@ export function ShelfBook({
   expanded,
   reviewCount,
   exportStatus,
+  published,
   onPressSpine,
   onRead,
   onReviews,
@@ -39,6 +40,8 @@ export function ShelfBook({
   expanded: boolean;
   reviewCount?: number;
   exportStatus?: BookExportStatus;
+  // Which formats are published to the Open Library (reader-visible availability).
+  published?: { epub?: boolean; pdf?: boolean };
   onPressSpine: () => void;
   onRead: () => void;
   onReviews: () => void;
@@ -67,7 +70,7 @@ export function ShelfBook({
       <Pressable onPress={onPressSpine} accessibilityRole="button" accessibilityLabel={`Close: ${meta.title}`}>
         <BookCover title={meta.title} coverUri={meta.coverUri} coverSvg={meta.coverSvg} />
       </Pressable>
-      <ExportStatusPills status={exportStatus} />
+      <ExportStatusPills status={exportStatus} published={published} />
       <Text style={styles.pulledTitle} numberOfLines={2}>
         {meta.title}
       </Text>
@@ -100,6 +103,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: spacing.sm,
+    overflow: "hidden",
   },
   spineText: {
     color: colors.white,

@@ -47,3 +47,8 @@ it("expanded: shows the action row and fires the right handlers", () => {
   expect(onMove).toHaveBeenCalled();
   expect(onDelete).toHaveBeenCalled();
 });
+
+it("expanded: a format published to the Open Library (but not locally exported) still reads as available", () => {
+  renderBook({ expanded: true, published: { epub: true } });
+  expect(screen.getByLabelText("EPUB: up to date")).toBeTruthy();
+});

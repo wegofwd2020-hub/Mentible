@@ -26,6 +26,7 @@ function renderBand(overrides: Partial<React.ComponentProps<typeof ShelfBand>> =
       expandedId={null}
       counts={{}}
       exportStatus={{}}
+      published={{}}
       {...handlers}
       {...overrides}
     />,

@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Shelf } from "@/storage/shelfStore";
 import { colors, radius, spacing, typography } from "@/constants/theme";

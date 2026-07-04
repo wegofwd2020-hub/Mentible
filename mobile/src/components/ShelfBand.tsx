@@ -5,7 +5,7 @@ import { ShelfBook } from "@/components/ShelfBook";
 import type { EpubMeta } from "@/storage/epubLibrary";
 import type { BookExportStatus } from "@/storage/exportStatus";
 import type { Shelf } from "@/storage/shelfStore";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { colors, spacing, typography } from "@/constants/theme";
 
 export function ShelfBand({
   shelf,
@@ -13,6 +13,7 @@ export function ShelfBand({
   expandedId,
   counts,
   exportStatus,
+  published,
   onExpand,
   onRead,
   onReviews,
@@ -27,6 +28,8 @@ export function ShelfBand({
   expandedId: string | null;
   counts: Record<string, number>;
   exportStatus: Record<string, BookExportStatus>;
+  // Which formats are published to the Open Library, keyed by book id.
+  published: Record<string, { epub?: boolean; pdf?: boolean }>;
   onExpand: (bookId: string | null) => void;
   onRead: (m: EpubMeta) => void;
   onReviews: (m: EpubMeta) => void;
@@ -69,6 +72,7 @@ export function ShelfBand({
               expanded={expandedId === m.id}
               reviewCount={counts[m.id]}
               exportStatus={exportStatus[m.id]}
+              published={published[m.id]}
               onPressSpine={() => onExpand(expandedId === m.id ? null : m.id)}
               onRead={() => onRead(m)}
               onReviews={() => onReviews(m)}
