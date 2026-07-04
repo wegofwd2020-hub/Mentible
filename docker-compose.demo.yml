@@ -71,6 +71,11 @@ services:
       # Empty ⇒ no admins. Comma-separated verified emails (case-insensitive).
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
       SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+      # ── Open Library (ADR-027) — published artifacts live on a persistent
+      # volume so a redeploy doesn't orphan the published_artifact registry rows.
+      ARTIFACT_STORE_DIR: /data/artifacts
+    volumes:
+      - mentible-artifacts:/data/artifacts
     depends_on:
       redis:
         condition: service_healthy
@@ -103,3 +108,9 @@ services:
       options:
         max-size: '10m'
         max-file: '5'
+
+# Named volume for the Open Library's published artifacts (ADR-027). Persists
+# across container rebuilds/redeploys so the published_artifact rows keep their
+# files.
+volumes:
+  mentible-artifacts:

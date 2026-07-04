@@ -3,15 +3,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 jest.mock("@/api/client", () => ({
   exportBook: jest.fn(),
   getExportJob: jest.fn(),
+  getPublishedArtifacts: jest.fn(),
 }));
 
-import { exportBook, getExportJob } from "@/api/client";
-import { trackedExport, reconcileGeneratingExports } from "@/lib/trackedExport";
+import { exportBook, getExportJob, getPublishedArtifacts } from "@/api/client";
+import { trackedExport, reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
 import { getExportStatus, setFormatStatus } from "@/storage/exportStatus";
 import type { Book } from "@/types/book";
 
 const mockExport = exportBook as jest.Mock;
 const mockGetJob = getExportJob as jest.Mock;
+const mockGetPublished = getPublishedArtifacts as jest.Mock;
 
 const book = (over: Partial<Book> = {}): Book => ({
   id: "b1",
@@ -91,5 +93,20 @@ describe("reconcileGeneratingExports", () => {
     await setFormatStatus("b1", "epub", { state: "done", compiledAt: "x" });
     await reconcileGeneratingExports();
     expect(mockGetJob).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadPublishedMap", () => {
+  it("maps each book to which formats are published", async () => {
+    mockGetPublished.mockImplementation(async (id: string) =>
+      id === "a" ? { epub: { size_bytes: 1 }, pdf: { size_bytes: 2 } } : { epub: { size_bytes: 1 } },
+    );
+    const map = await loadPublishedMap(["a", "b"]);
+    expect(map).toEqual({ a: { epub: true, pdf: true }, b: { epub: true, pdf: false } });
+  });
+
+  it("maps a book to {} when its lookup fails (offline / unpublished)", async () => {
+    mockGetPublished.mockRejectedValue(new Error("network"));
+    expect(await loadPublishedMap(["x"])).toEqual({ x: {} });
   });
 });

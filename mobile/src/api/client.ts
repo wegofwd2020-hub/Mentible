@@ -193,6 +193,43 @@ function decodeTrustHeader(b64: string | null | undefined): TrustManifest | unde
   }
 }
 
+// ── Open Library (ADR-027): publish + reader-visible artifacts ────────────────
+
+// Public per-book artifact metadata (anon-readable). Absent format ⇒ not
+// published. Drives reader indicators.
+export interface PublishedArtifacts {
+  epub?: { size_bytes: number; content_hash: string; published_at: string };
+  pdf?: { size_bytes: number; content_hash: string; published_at: string };
+}
+
+// Publish a book to the Open Library. Compiles server-side (async, same job
+// machinery) and, on done, hosts + registers the artifact for readers. Returns
+// the finished job status (`published` true on success). Requires a session token.
+export async function publishBook(
+  book: Book,
+  format: "epub" | "pdf",
+  token: string,
+  diagrams = true,
+): Promise<ExportJobStatus> {
+  const params = new URLSearchParams({ format, diagrams: String(diagrams) });
+  const res = await fetch(`${BASE_URL}/api/v1/library/${book.id}/publish?${params.toString()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(book),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
+  }
+  const { job_id } = (await res.json()) as { job_id: string };
+  return pollExportJob(job_id);
+}
+
+// Public: what a given book has published (readers see this without an account).
+export async function getPublishedArtifacts(bookId: string): Promise<PublishedArtifacts> {
+  return apiFetch<PublishedArtifacts>(`/library/${bookId}/artifacts`);
+}
+
 // The status a poll of an async export job can be in.
 export interface ExportJobStatus {
   job_id: string;

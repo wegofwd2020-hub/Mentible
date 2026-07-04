@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteBook, hasRenderableLesson, loadBook, loadBookIndex } from "@/storage/bookStore";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
-import { reconcileGeneratingExports } from "@/lib/trackedExport";
+import { reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { countStaleTopics } from "@/lib/staleness";
@@ -197,6 +197,7 @@ function BooksScreenInner() {
   const router = useRouter();
   const [books, setBooks] = useState<BookMeta[]>([]);
   const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
+  const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { isDesktop } = useResponsive();
 
@@ -205,6 +206,8 @@ function BooksScreenInner() {
       loadBookIndex().then((list) => {
         setBooks(list);
         setSelectedId((cur) => (cur && list.some((m) => m.id === cur) ? cur : list[0]?.id ?? null));
+        // Reader-visible availability: which formats each book has published.
+        loadPublishedMap(list.map((m) => m.id)).then(setPublished);
       });
       // Show export indicators immediately, then settle any job the author left
       // running mid-compile and refresh.
@@ -272,7 +275,7 @@ function BooksScreenInner() {
                   <Text style={styles.rowMeta}>
                     {item.unitCount} topic{item.unitCount === 1 ? "" : "s"} · {formatDate(item.updatedAt)}
                   </Text>
-                  <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} />
+                  <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
                 </View>
               </Pressable>
             );
@@ -306,7 +309,7 @@ function BooksScreenInner() {
           <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
-          <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} />
+          <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
         </Pressable>
       )}
     />

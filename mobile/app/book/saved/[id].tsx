@@ -12,6 +12,7 @@ import { loadBook } from "@/storage/bookStore";
 import { BookEditor } from "@/components/BookEditor";
 import { TopicReadList } from "@/components/TopicReadList";
 import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
+import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -103,6 +104,12 @@ function SavedBookScreenInner() {
         <Text style={styles.generateHint}>
           Compiles the generated topics into an EPUB3 and saves it to your
           Library. Generate the topics first.
+        </Text>
+
+        <PublishButton bookId={book.id} />
+        <Text style={styles.generateHint}>
+          Publishes the EPUB + PDF to the Open Library so readers can see and
+          download them (their availability shows as green on the shelf).
         </Text>
 
         <ExportBookJsonButton book={book} />

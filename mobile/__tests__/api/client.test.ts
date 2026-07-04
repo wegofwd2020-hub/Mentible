@@ -227,6 +227,38 @@ describe("exportBook (async job: submit → poll → download)", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("publishBook posts to /library/{id}/publish with a Bearer token, then polls", async () => {
+    const { publishBook } = require("@/api/client");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ job_id: "pj1", status: "queued" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ job_id: "pj1", status: "done", published: true }),
+    });
+    const job = await publishBook(book, "pdf", "tok-123");
+    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/library/b1/publish?");
+    expect(url).toContain("format=pdf");
+    expect((opts.headers as Record<string, string>).Authorization).toBe("Bearer tok-123");
+    expect(job.published).toBe(true);
+  });
+
+  it("getPublishedArtifacts reads the public per-book metadata", async () => {
+    const { getPublishedArtifacts } = require("@/api/client");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ epub: { size_bytes: 100, content_hash: "sha256:x", published_at: "t" } }),
+    });
+    const a = await getPublishedArtifacts("b1");
+    expect(mockFetch.mock.calls[0][0]).toContain("/api/v1/library/b1/artifacts");
+    expect(a.epub?.size_bytes).toBe(100);
+  });
+
   it("keeps cover on the synchronous /export endpoint (no job)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

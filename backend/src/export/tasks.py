@@ -31,12 +31,14 @@ import re
 import uuid
 from base64 import b64encode
 
+import asyncpg
 import redis.asyncio as redis
 
 from backend.config import settings
 from backend.src.core.log_redaction import get_logger
 from backend.src.export import compiler
 from backend.src.export import trust as export_trust
+from backend.src.library import artifact_store, published_repo
 
 log = get_logger("export.tasks")
 
@@ -80,12 +82,19 @@ async def run_export(
     fmt: str,
     diagrams: bool,
     redis_client: redis.Redis,
+    publish_book_id: str | None = None,
+    published_by_sub: str | None = None,
+    db_pool: asyncpg.Pool | None = None,
 ) -> None:
     """Compile a book to an artifact off the request and record the result in Redis.
 
     Terminal states written to `export:{job_id}:status`:
-      done   → {status, title, filename, format, size, warnings, trust?}
+      done   → {status, title, filename, format, size, warnings, trust?, published?}
       failed → {status, error}  (error is a safe, client-facing message)
+
+    When `publish_book_id` is set (the Open-Library publish path, ADR-027), the
+    finished artifact is ALSO written to the durable on-disk store and registered
+    in `published_artifact` so readers can see + download it.
     """
     r = redis_client
     try:
@@ -145,6 +154,28 @@ async def run_export(
         ).decode()
     except Exception:
         log.warning("export_trust_manifest_failed", job_id=str(job_id), fmt=fmt)
+
+    # Open-Library publish (ADR-027): promote the freshly compiled artifact into
+    # the durable store + registry. Best effort — a compiled artifact is still a
+    # successful export even if publishing fails; the client sees published=False.
+    if publish_book_id and db_pool is not None:
+        try:
+            path = artifact_store.store_artifact(publish_book_id, fmt, result.data)
+            async with db_pool.acquire() as conn:
+                await published_repo.upsert(
+                    conn,
+                    book_id=publish_book_id,
+                    fmt=fmt,
+                    content_hash=artifact_store.content_hash(result.data),
+                    size_bytes=len(result.data),
+                    filename=artifact_filename(result.title, fmt),
+                    storage_path=path,
+                    published_by_sub=published_by_sub,
+                )
+            payload["published"] = True
+        except Exception:
+            log.error("export_publish_failed", job_id=str(job_id), book_id=publish_book_id)
+            payload["published"] = False
 
     await _write_status(r, job_id, payload)
     log.info(

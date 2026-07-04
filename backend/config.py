@@ -189,6 +189,11 @@ class Settings(BaseSettings):
     # slowest compile (export_diagram_timeout_seconds) plus a generous download
     # window, so a large diagram book that took 15 min is still fetchable after.
     export_artifact_ttl_seconds: int = Field(default=3600, ge=60, le=21600)
+    # Open Library (ADR-027): the directory where PUBLISHED artifacts live durably
+    # (unlike the ephemeral Redis export cache). Must be a persistent volume in
+    # prod so a redeploy doesn't orphan the registry rows. One file per
+    # (book, format) under <dir>/<book_id>/<format>.<ext>.
+    artifact_store_dir: str = Field(default=str(_REPO_ROOT / "var" / "artifacts"))
 
     # ── Rate limiting ─────────────────────────────────────────────────────────
     # Fixed-window per-identity limits on the expensive endpoints (/generate,

@@ -29,3 +29,6 @@ class ExportJobStatusResponse(BaseModel):
     warnings: int | None = None
     # Base64 Content Trust Manifest (ADR-015 / SBQ-TRUST-002), when assembled.
     trust: str | None = None
+    # Set only on the Open-Library publish path: whether the artifact was
+    # registered for readers (ADR-027). Absent on a plain export.
+    published: bool | None = None

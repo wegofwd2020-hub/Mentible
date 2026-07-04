@@ -1,4 +1,9 @@
-import { exportBook, getExportJob, type ExportedArtifact } from "@/api/client";
+import {
+  exportBook,
+  getExportJob,
+  getPublishedArtifacts,
+  type ExportedArtifact,
+} from "@/api/client";
 import {
   getAllExportStatus,
   setFormatStatus,
@@ -44,6 +49,25 @@ export async function trackedExport(
     });
     throw err;
   }
+}
+
+// Which formats each book has published to the Open Library (reader-visible).
+// Best-effort per book so one failure doesn't blank the whole shelf; a book with
+// no publish (or an unreachable backend) simply maps to {}.
+export async function loadPublishedMap(
+  bookIds: string[],
+): Promise<Record<string, { epub?: boolean; pdf?: boolean }>> {
+  const entries = await Promise.all(
+    bookIds.map(async (id): Promise<[string, { epub?: boolean; pdf?: boolean }]> => {
+      try {
+        const a = await getPublishedArtifacts(id);
+        return [id, { epub: !!a.epub, pdf: !!a.pdf }];
+      } catch {
+        return [id, {}];
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
 }
 
 // Settle any lingering `generating` rows by polling their async job once. Call on

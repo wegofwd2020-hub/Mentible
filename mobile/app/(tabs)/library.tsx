@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
-import { reconcileGeneratingExports } from "@/lib/trackedExport";
+import { reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { reviewCounts } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
@@ -123,6 +123,7 @@ function EpubLibrary() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
+  const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
   // Book-metadata window (opened by tapping a book; "Read" enters the reader).
   const [selected, setSelected] = useState<EpubMeta | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -140,6 +141,7 @@ function EpubLibrary() {
         // for every other book), then read counts for the grid badges.
         await Promise.all(list.map((m) => maybeSeedReviews(m.id)));
         setCounts(await reviewCounts(list.map((m) => m.id)));
+        setPublished(await loadPublishedMap(list.map((m) => m.id)));
       })
       .catch(() => {
         setItems([]);
@@ -306,7 +308,7 @@ function EpubLibrary() {
             <BookCover title={item.title} badge="EPUB3" coverUri={item.coverUri} coverSvg={item.coverSvg} />
           </Pressable>
           <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
-          <ExportStatusPills status={exportStatus[item.id]} />
+          <ExportStatusPills status={exportStatus[item.id]} published={published[item.id]} />
           <View style={styles.tileFooter}>
             <Text style={styles.tileMeta} numberOfLines={1}>
               {formatSize(item.sizeBytes)} · {formatDate(item.compiledAt)}

@@ -36,6 +36,7 @@ from backend.src.core.log_redaction import (
 from backend.src.db.pool import create_pool
 from backend.src.export import router as export_router
 from backend.src.generate import router as generate_router
+from backend.src.library import router as library_router
 from backend.src.structure import router as structure_router
 
 # Starlette renamed HTTP_422_UNPROCESSABLE_ENTITY → ..._CONTENT; tolerate both.
@@ -103,6 +104,7 @@ app.include_router(export_router.router)
 app.include_router(account_router.router)
 app.include_router(admin_router.router)
 app.include_router(billing_router.router)
+app.include_router(library_router.router)
 
 
 @app.get("/healthz")

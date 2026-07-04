@@ -46,17 +46,26 @@ function Pill({ fmt, state }: { fmt: ExportFormat; state: ExportUiState }) {
   );
 }
 
+// A format with no local record but published to the Open Library reads as
+// available (green) — this is what a reader (who never exported it locally) sees.
+function foldPublished(local: ExportUiState, published: boolean | undefined): ExportUiState {
+  return local === "none" && published ? "done" : local;
+}
+
 export function ExportStatusPills({
   status,
   bookUpdatedAt,
+  published,
 }: {
   status: BookExportStatus | undefined;
   bookUpdatedAt?: string;
+  // Which formats are published to the Open Library (reader-visible availability).
+  published?: { epub?: boolean; pdf?: boolean };
 }) {
   return (
     <View style={styles.row}>
-      <Pill fmt="epub" state={deriveState(status?.epub, bookUpdatedAt)} />
-      <Pill fmt="pdf" state={deriveState(status?.pdf, bookUpdatedAt)} />
+      <Pill fmt="epub" state={foldPublished(deriveState(status?.epub, bookUpdatedAt), published?.epub)} />
+      <Pill fmt="pdf" state={foldPublished(deriveState(status?.pdf, bookUpdatedAt), published?.pdf)} />
     </View>
   );
 }

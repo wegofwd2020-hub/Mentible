@@ -207,6 +207,7 @@ async def get_export_job(
         size=payload.get("size"),
         warnings=payload.get("warnings"),
         trust=payload.get("trust"),
+        published=payload.get("published"),
     )
 
 
