@@ -244,6 +244,44 @@ describe("useGenerateAll", () => {
     expect(submitGenerate).toHaveBeenCalledWith(expect.objectContaining({ target_pages: 0 }));
   });
 
+  it("seeds the topic outline as the book's TOC loads, before any run", () => {
+    // The book loads async: first render has an empty TOC, then it fills in.
+    const { result, rerender } = renderHook(
+      ({ t }: { t: StructuredTOC }) =>
+        useGenerateAll({ toc: t, params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+      { initialProps: { t: { subjects: [] } as StructuredTOC } },
+    );
+
+    // Nothing to show while the book is still loading.
+    expect(result.current.progress).toHaveLength(0);
+    expect(result.current.total).toBe(0);
+
+    // TOC arrives → the outline appears immediately as pending, no Generate press.
+    rerender({ t: toc() });
+    expect(result.current.progress.map((p) => p.topicId)).toEqual(["t1", "t2"]);
+    expect(result.current.progress.every((p) => p.status === "pending")).toBe(true);
+    expect(result.current.total).toBe(2);
+  });
+
+  it("keeps already-generated topics marked done when seeding on load", () => {
+    const { result, rerender } = renderHook(
+      ({ t }: { t: StructuredTOC }) =>
+        useGenerateAll({
+          toc: t,
+          params: params(),
+          getApiKey,
+          onTopicDone: jest.fn(),
+          alreadyDone: ["t1"],
+          intervalMs: 1,
+        }),
+      { initialProps: { t: { subjects: [] } as StructuredTOC } },
+    );
+
+    rerender({ t: toc() });
+    const byId = Object.fromEntries(result.current.progress.map((p) => [p.topicId, p.status]));
+    expect(byId).toEqual({ t1: "done", t2: "pending" });
+  });
+
   it("surfaces an error and does not generate when no API key is saved", async () => {
     const { result } = renderHook(() =>
       useGenerateAll({

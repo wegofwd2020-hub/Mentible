@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt, buildTopicInstructions } from "@/hooks/topicPrompt";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
@@ -108,6 +108,22 @@ export function useGenerateAll({
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // The book loads asynchronously, so the first render has an empty TOC and the
+  // initializer above seeds an empty list. Re-seed as the TOC's topics arrive so
+  // the outline shows immediately (pending, or done for already-generated ones)
+  // instead of staying blank until the user presses Generate. Only rebuild when
+  // the set of topic ids actually changes, so a completed run's statuses are not
+  // clobbered by a re-render (the book object changes identity as topics save).
+  useEffect(() => {
+    if (running) return;
+    setProgress((prev) => {
+      const sameTopics =
+        prev.length === targets.length &&
+        prev.every((p, i) => p.topicId === targets[i].topicId);
+      return sameTopics ? prev : buildInitialProgress(false);
+    });
+  }, [targets, running, buildInitialProgress]);
 
   const cancelledRef = useRef(false);
 
