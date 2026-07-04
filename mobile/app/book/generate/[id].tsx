@@ -280,7 +280,11 @@ const styles = StyleSheet.create({
   // Desktop: cap + center, lay controls and progress side by side.
   pageWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
   pageRow: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  col: { gap: spacing.sm },
+  // minWidth: 0 lets each column shrink to its flex allocation. Without it,
+  // react-native-web's default `min-width: auto` keeps the options column as wide
+  // as its horizontal option rows (they refuse to shrink), so it overflows its
+  // flex share and pushes/overlaps the topics column.
+  col: { gap: spacing.sm, minWidth: 0 },
   colLeft: { flex: 4 },
   colRight: { flex: 6 },
   centered: {
