@@ -89,24 +89,33 @@ export default function SharedDraftReader(): React.JSX.Element {
 
   const topic = topicId && book.content ? book.content[topicId] : null;
 
+  // Topic view: a flex:1 chain fills the page and lets the WebView-backed
+  // TopicRenderer scroll its own content (mirrors the Studio topic screen).
+  // A ScrollView here would give the flex:1 renderer no definite height and
+  // collapse it to a tiny box — the bug this route originally had.
+  if (topic) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.topicBar}>
+          <Pressable onPress={() => setTopicId(null)} accessibilityRole="button" accessibilityLabel="Back to contents" hitSlop={8}>
+            <Text style={styles.back}>← Contents</Text>
+          </Pressable>
+        </View>
+        <View style={styles.topicBody}>
+          <TopicRenderer topic={topic} />
+        </View>
+      </View>
+    );
+  }
+
+  // Contents view: a normal scrolling page (the list + the comment thread).
   return (
     <PageContainer>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>{book.title}</Text>
-        {topic ? (
-          <View style={styles.topicWrap}>
-            <Pressable onPress={() => setTopicId(null)} accessibilityRole="button" accessibilityLabel="Back to contents">
-              <Text style={styles.back}>← Contents</Text>
-            </Pressable>
-            <TopicRenderer topic={topic} />
-          </View>
-        ) : (
-          <>
-            <TopicReadList book={book} onOpen={setTopicId} />
-            <Text style={styles.commentsHeader}>Comments</Text>
-            <DraftCommentThread comments={comments} isOwner={false} onPost={onPost} />
-          </>
-        )}
+        <TopicReadList book={book} onOpen={setTopicId} />
+        <Text style={styles.commentsHeader}>Comments</Text>
+        <DraftCommentThread comments={comments} isOwner={false} onPost={onPost} />
       </ScrollView>
     </PageContainer>
   );
@@ -119,7 +128,9 @@ const styles = StyleSheet.create({
   backBtnText: { color: colors.text, fontWeight: "700", fontSize: typography.sizeSm },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   title: { fontSize: typography.sizeXl, fontWeight: "700", color: colors.text },
-  topicWrap: { gap: spacing.sm },
+  screen: { flex: 1, backgroundColor: colors.background },
+  topicBar: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  topicBody: { flex: 1 },
   back: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.primary },
   commentsHeader: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text, marginTop: spacing.md },
 });
