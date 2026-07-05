@@ -46,6 +46,7 @@ device-local.
 | 3 | **Any registered author may share** — no subscriber gate (O1). |
 | 4 | **Author can revoke** an invitation (recipient loses access); content retained until unshared/deleted (O3). |
 | 5 | **Version-scoped comments** (ADR-027 D4): a comment attaches to the draft's `version` string; re-sharing a new version does not carry comments forward. |
+| 6 | **Optional author response per comment.** Each comment carries an optional `author_response` that **only the draft owner** may set/edit/clear — one inline answer per comment, rendered under it as "Author: …". Reviewers cannot fill it. |
 
 ## Architecture
 
@@ -81,13 +82,15 @@ draft_invitation
   UNIQUE (book_id, invited_email)
 
 draft_comment
-  id           bigserial PRIMARY KEY
-  book_id      text NOT NULL references shared_draft(book_id) on delete cascade
-  version      text NOT NULL              -- the draft version the comment is on
-  author_sub   text NOT NULL
-  author_email text NULL                  -- display only
-  body         text NOT NULL
-  created_at   timestamptz NOT NULL default now()
+  id              bigserial PRIMARY KEY
+  book_id         text NOT NULL references shared_draft(book_id) on delete cascade
+  version         text NOT NULL           -- the draft version the comment is on
+  author_sub      text NOT NULL           -- the commenter (reviewer or draft owner)
+  author_email    text NULL               -- display only
+  body            text NOT NULL
+  author_response text NULL               -- optional; set ONLY by the draft owner (D6)
+  responded_at    timestamptz NULL        -- when author_response was last set
+  created_at      timestamptz NOT NULL default now()
   index (book_id, version, created_at)
 ```
 
@@ -113,7 +116,8 @@ and `principal.email` is present; else `None`.
 | `GET /drafts/shared-with-me` | recipient | Drafts with an active invitation matching `principal.email`. Returns `[{ book_id, title, owner_sub, version, updated_at }]`. Empty if `principal.email` is null. |
 | `GET /drafts/{book_id}` | owner or invited | `draft_access` must be non-null (else 403/404). Returns `{ book_id, title, version, book_json, access: "owner"｜"invited" }`. |
 | `GET /drafts/{book_id}/comments?version=` | owner or invited | Comments for `(book_id, version)`, oldest-first. |
-| `POST /drafts/{book_id}/comments` | owner or invited | Body `{ version, body }`. `draft_access` non-null. Insert with `author_sub`/`author_email`. Returns the comment. Empty/whitespace body → 422. |
+| `POST /drafts/{book_id}/comments` | owner or invited | Body `{ version, body }`. `draft_access` non-null. Insert with `author_sub`/`author_email`. Returns the comment (incl. `author_response: null`). Empty/whitespace body → 422. |
+| `PUT /drafts/{book_id}/comments/{comment_id}/response` | **owner only** | Body `{ response }`. `draft_access` must be `owner` (else 403). Sets `author_response` + `responded_at`; an empty/whitespace `response` **clears** it (both → NULL). 404 if the comment isn't on this draft. Returns the updated comment. |
 
 Rate limiting: reuse `enforce_rate_limit` (as `library.router.publish_book` does) on the
 write endpoints (`share`, `invitations` POST, `comments` POST).
@@ -127,7 +131,8 @@ draft/invite), 422 (bad email / empty body). No content in logs beyond ids
 ### API client (`mobile/src/api/client.ts` — extend, following `publishBook`)
 `shareDraft(book, token)`, `listInvitations/addInvitation/revokeInvitation(bookId, email, token)`,
 `sharedWithMe(token)`, `getSharedDraft(bookId, token)`, `listComments(bookId, version, token)`,
-`postComment(bookId, version, body, token)`. All use `BASE_URL/api/v1/drafts…` +
+`postComment(bookId, version, body, token)`, `setCommentResponse(bookId, commentId, response, token)`
+(owner-only author response). All use `BASE_URL/api/v1/drafts…` +
 `Authorization: Bearer ${token}` (Supabase session token, per existing pattern).
 
 ### Author — Share surface
@@ -138,8 +143,11 @@ a possible fast-follow, not in this spec). A `ShareDraftModal`:
   `listInvitations`.
 - Add recipient: email input → `addInvitation`. List recipients with a revoke (🗑 →
   `revokeInvitation`).
-- **Comments** section: `listComments(book, version)`; a text field + Send → `postComment`
-  (author reply is just a comment). Shows author/reviewer names (email) + timestamps.
+- **Comments** section (the shared `DraftCommentThread`): `listComments(book, version)`; a
+  text field + Send → `postComment`. Shows author/reviewer names (email) + timestamps.
+  Each comment renders its optional `author_response` beneath it ("Author: …"); because
+  the viewer here is the owner, each comment also shows an **"Add / edit response"**
+  affordance → a small inline input → `setCommentResponse` (empty clears it).
 
 Requires the author to be signed in (gate the Share action on `useAuth`).
 
@@ -148,7 +156,9 @@ A section on the **Library** tab (only shown when signed in AND `sharedWithMe` i
 non-empty): a compact list of shared drafts (title + owner). Tapping one:
 - `getSharedDraft` → render a **read view** of the returned `book_json` reusing the
   existing reader (`book/read` path / `LessonRenderer`), plus the same flat **comment
-  thread** (list + add).
+  thread** (list + add). The shared `DraftCommentThread` takes an `isOwner` prop; here
+  `isOwner=false`, so author responses render **read-only** and there's no response
+  affordance.
 
 No shelf/EPUB storage — shared drafts are fetched live, not saved to the local library.
 
@@ -175,11 +185,15 @@ Backend (`pytest`, existing DB-test harness + `require_user` override):
 - `shared-with-me` matches active invitations by email, excludes revoked.
 - comments: version-scoped list; post requires access; empty body → 422; a new version
   doesn't surface old-version comments.
+- author response: owner sets/edits/clears (empty → NULL) and it's returned in the list;
+  an **invited (non-owner) caller is 403**; response on an unknown/other-draft comment → 404.
 - **No comment body / book_json in any log line** (extends the mandatory no-key-in-logs
   discipline).
 
 Mobile (`jest` + RNTL, mocked client):
 - `ShareDraftModal`: add/revoke invitation calls; posts a comment; lists comments.
+- `DraftCommentThread`: renders an author response beneath a comment; `isOwner` shows the
+  add/edit-response affordance, `isOwner=false` does not.
 - "Shared with you" section: hidden when empty/signed-out; renders shared drafts.
 
 ## Files
@@ -206,7 +220,7 @@ Mobile (`jest` + RNTL, mocked client):
 1. **Backend store + authz:** migration + `shared_draft` + `claim_or_share` + `draft_access`
    + `POST /share` + `GET /drafts/{id}`. Tests.
 2. **Backend invitations + shared-with-me:** invitations add/list/revoke + `GET /shared-with-me`. Tests.
-3. **Backend comments:** version-scoped list/post. Tests. Wire `include_router`.
+3. **Backend comments:** version-scoped list/post + owner-only author-response (`PUT …/response`). Tests. Wire `include_router`.
 4. **Mobile author:** client methods + `ShareDraftModal` + `DraftCommentThread` + Share action.
 5. **Mobile recipient:** `SharedWithYou` + read view + comments.
 
