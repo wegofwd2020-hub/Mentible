@@ -257,6 +257,52 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "share-a-draft",
+    title: "Share a draft for feedback",
+    keywords: [
+      "share",
+      "sharing",
+      "draft",
+      "review",
+      "reviewer",
+      "comment",
+      "feedback",
+      "invite",
+      "shared with you",
+      "collaborate",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Share a work-in-progress book with specific people, get their comments, and reply — all inside Mentible. It's invite-only: you invite reviewers by email, and they see the draft after signing in with that same email.",
+      },
+      { kind: "text", text: "For authors — share and collect feedback:" },
+      {
+        kind: "steps",
+        steps: [
+          "Open a book you authored, then tap “Share draft”.",
+          "Under Reviewers, enter a person's email and tap Invite (add as many as you like).",
+          "Tell your reviewers a draft is waiting — the app doesn't email them.",
+          "When they comment, a 💬 badge appears on the book in Studio — tap it to read their comments and reply.",
+        ],
+      },
+      { kind: "text", text: "For reviewers — read and comment:" },
+      {
+        kind: "steps",
+        steps: [
+          "Sign in with the exact email you were invited at.",
+          "On the Library tab, open the “Shared with you” section.",
+          "Tap the draft to read it full-screen.",
+          "Leave a comment — the author sees it and can reply.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Good to know: reviewers need a (free) account — no guest access yet; comments attach to the version reviewed; and the lists refresh when you return to the screen.",
+      },
+    ],
+  },
+  {
     id: "glossary",
     title: "Glossary",
     keywords: ["glossary", "term", "definition", "meaning", "katex", "mermaid"],
