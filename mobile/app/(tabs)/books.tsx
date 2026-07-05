@@ -14,6 +14,11 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
+import { useAuth } from "@/auth/AuthProvider";
+import { myDrafts } from "@/api/client";
+import { ShareDraftModal } from "@/components/ShareDraftModal";
+import { FeedbackBadge } from "@/components/FeedbackBadge";
+import { Alert } from "@/lib/alert";
 import type { Book, BookMeta } from "@/types/book";
 
 function formatDate(iso: string): string {
@@ -200,6 +205,12 @@ function BooksScreenInner() {
   const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { isDesktop } = useResponsive();
+  const { accessToken } = useAuth();
+  // Draft-sharing feedback (ADR-027): comment counts per authored book, surfaced
+  // as a 💬 badge on the row (replaces the old Library "Feedback on your drafts"
+  // section — feedback now lives on the book itself, in the Studio).
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [feedbackBook, setFeedbackBook] = useState<Book | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -214,7 +225,14 @@ function BooksScreenInner() {
       const refresh = () => getAllExportStatus().then(setExportStatus);
       refresh();
       reconcileGeneratingExports().then(refresh);
-    }, []),
+      if (accessToken) {
+        myDrafts(accessToken)
+          .then((rows) => setCommentCounts(Object.fromEntries(rows.map((r) => [r.book_id, r.comment_count]))))
+          .catch(() => setCommentCounts({}));
+      } else {
+        setCommentCounts({});
+      }
+    }, [accessToken]),
   );
 
   const handleDelete = useCallback(async (id: string) => {
@@ -228,6 +246,14 @@ function BooksScreenInner() {
 
   const openBook = useCallback((id: string) => router.push(`/book/saved/${id}`), [router]);
   const generateBook = useCallback((id: string) => router.push(`/book/generate/${id}`), [router]);
+  const openFeedback = useCallback(async (id: string) => {
+    const book = await loadBook(id);
+    if (!book) {
+      Alert.alert("Not on this device", "Open this book from your Library to review its feedback.");
+      return;
+    }
+    setFeedbackBook(book);
+  }, []);
 
   if (books.length === 0) {
     return (
@@ -246,6 +272,11 @@ function BooksScreenInner() {
   const header = (
     <BooksHeader onNew={() => router.push("/book/new")} onImport={() => router.push("/book/import")} />
   );
+
+  const feedbackModal =
+    feedbackBook && accessToken ? (
+      <ShareDraftModal visible book={feedbackBook} token={accessToken} onClose={() => setFeedbackBook(null)} />
+    ) : null;
 
   // ── Wide: list of covers on the left, detail panel on the right ────────────
   if (isDesktop) {
@@ -275,7 +306,10 @@ function BooksScreenInner() {
                   <Text style={styles.rowMeta}>
                     {item.unitCount} topic{item.unitCount === 1 ? "" : "s"} · {formatDate(item.updatedAt)}
                   </Text>
-                  <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
+                  <View style={styles.rowMetaRow}>
+                    <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
+                    <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} />
+                  </View>
                 </View>
               </Pressable>
             );
@@ -284,41 +318,49 @@ function BooksScreenInner() {
         <View style={styles.rightPane}>
           <BookDetail id={selectedId} onOpen={openBook} onGenerate={generateBook} onDelete={handleDelete} />
         </View>
+        {feedbackModal}
       </View>
     );
   }
 
   // ── Phone: cover grid; tap opens the saved-book screen ─────────────────────
   return (
-    <FlatList
-      key="grid2"
-      style={styles.list}
-      contentContainerStyle={styles.gridContent}
-      data={books}
-      keyExtractor={(i) => i.id}
-      numColumns={2}
-      columnWrapperStyle={styles.gridRow}
-      ListHeaderComponent={header}
-      renderItem={({ item }) => (
-        <Pressable
-          style={[styles.tile, styles.tileHalf]}
-          onPress={() => openBook(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={`Open book: ${item.title}`}
-        >
-          <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
-          <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
-          <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
-          <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
-        </Pressable>
-      )}
-    />
+    <>
+      <FlatList
+        key="grid2"
+        style={styles.list}
+        contentContainerStyle={styles.gridContent}
+        data={books}
+        keyExtractor={(i) => i.id}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
+        ListHeaderComponent={header}
+        renderItem={({ item }) => (
+          <Pressable
+            style={[styles.tile, styles.tileHalf]}
+            onPress={() => openBook(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Open book: ${item.title}`}
+          >
+            <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
+            <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
+            <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
+            <View style={styles.rowMetaRow}>
+              <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
+              <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} />
+            </View>
+          </Pressable>
+        )}
+      />
+      {feedbackModal}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
   header: { marginBottom: spacing.md },
+  rowMetaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   empty: {
     flex: 1, backgroundColor: colors.background, justifyContent: "center",
     alignItems: "center", padding: spacing.xl, gap: spacing.md,
