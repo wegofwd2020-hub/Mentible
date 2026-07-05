@@ -12,17 +12,30 @@ function hashId(id: string): number {
   return h;
 }
 
-// Deterministic spine colour + height from the book id, so a book looks the
-// same across renders and books on a shelf vary naturally (96–128px tall).
-export function spineStyleFor(id: string): { backgroundColor: string; height: number } {
-  const h = hashId(id);
-  return { backgroundColor: SPINE_PALETTE[h % SPINE_PALETTE.length], height: 96 + (h % 5) * 8 };
+// Spine height spans 96–128px over an EPUB-size range of ~50KB … 5MB.
+const MIN_BYTES = 50 * 1024;
+const MAX_BYTES = 5 * 1024 * 1024;
+const MIN_HEIGHT = 96;
+const MAX_HEIGHT = 128;
+
+// Spine appearance: colour is a deterministic hash of the book id (so a book
+// keeps the same colour across renders), while HEIGHT reflects the book's length
+// via its compiled EPUB size — bigger file → more content → taller spine. A log
+// scale spreads sizes that span orders of magnitude, and the result is clamped to
+// 96–128px. Size 0 / tiny → shortest; ≥5MB → tallest.
+export function spineStyleFor(id: string, sizeBytes: number): { backgroundColor: string; height: number } {
+  const backgroundColor = SPINE_PALETTE[hashId(id) % SPINE_PALETTE.length];
+  const lnMin = Math.log(MIN_BYTES);
+  const lnMax = Math.log(MAX_BYTES);
+  const t = Math.min(1, Math.max(0, (Math.log(Math.max(sizeBytes, 1)) - lnMin) / (lnMax - lnMin)));
+  const height = MIN_HEIGHT + Math.round((MAX_HEIGHT - MIN_HEIGHT) * t);
+  return { backgroundColor, height };
 }
 
 // A book on a shelf: just the spine. Tapping it opens the metadata sidebar
 // (BookMetadataModal), which carries the cover-less detail view + actions.
 export function ShelfBook({ meta, onPress }: { meta: EpubMeta; onPress: () => void }): React.JSX.Element {
-  const s = spineStyleFor(meta.id);
+  const s = spineStyleFor(meta.id, meta.sizeBytes);
   return (
     <Pressable
       onPress={onPress}
