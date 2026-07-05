@@ -2,16 +2,22 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getSharedDraft, listComments, postComment, sharedWithMe, type DraftComment, type SharedItem } from "@/api/client";
 import { DraftCommentThread } from "@/components/DraftCommentThread";
+import { TopicReadList } from "@/components/TopicReadList";
+import { TopicRenderer } from "@/components/LessonRenderer";
+import type { Book } from "@/types/book";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // A Library-tab section listing drafts other authors have shared with the
 // signed-in user (ADR-027 D2–D4). Self-hides when signed out or the list is
 // empty — no "Shared with you" header in either case. Tapping an item opens a
-// minimal read view (title + the comment thread, read-only for the recipient)
-// so they can review the draft and leave feedback without owning it.
+// read view: the fetched draft's topics (reusing the same reader as the Library
+// — TopicReadList index → TopicRenderer content, in-memory, no local storage)
+// plus the comment thread (read-only responses for the recipient).
 export function SharedWithYou({ token }: { token: string | null }): React.JSX.Element | null {
   const [items, setItems] = useState<SharedItem[]>([]);
   const [open, setOpen] = useState<SharedItem | null>(null);
+  const [draftBook, setDraftBook] = useState<Book | null>(null);
+  const [topicId, setTopicId] = useState<string | null>(null);
   const [comments, setComments] = useState<DraftComment[]>([]);
 
   useEffect(() => {
@@ -32,17 +38,29 @@ export function SharedWithYou({ token }: { token: string | null }): React.JSX.El
     async (item: SharedItem) => {
       if (!token) return;
       setOpen(item);
+      setTopicId(null);
+      setDraftBook(null);
       try {
-        await getSharedDraft(item.book_id, token); // fetch content (read view uses it; kept simple here)
+        const res = await getSharedDraft(item.book_id, token);
+        setDraftBook(res.book_json as Book);
         setComments(await listComments(item.book_id, item.version, token));
       } catch {
+        setDraftBook(null);
         setComments([]);
       }
     },
     [token],
   );
 
+  const close = useCallback(() => {
+    setOpen(null);
+    setDraftBook(null);
+    setTopicId(null);
+  }, []);
+
   if (!token || items.length === 0) return null;
+
+  const topic = topicId && draftBook?.content ? draftBook.content[topicId] : null;
 
   return (
     <View style={styles.wrap}>
@@ -61,7 +79,28 @@ export function SharedWithYou({ token }: { token: string | null }): React.JSX.El
       ))}
       {open ? (
         <View style={styles.reader}>
-          <Text style={styles.readerTitle}>{open.title}</Text>
+          <View style={styles.readerHead}>
+            <Text style={styles.readerTitle} numberOfLines={1}>
+              {open.title}
+            </Text>
+            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close draft" hitSlop={8}>
+              <Text style={styles.close}>Close</Text>
+            </Pressable>
+          </View>
+          {draftBook ? (
+            topic ? (
+              <View style={styles.topicWrap}>
+                <Pressable onPress={() => setTopicId(null)} accessibilityRole="button" accessibilityLabel="Back to contents">
+                  <Text style={styles.back}>← Contents</Text>
+                </Pressable>
+                <TopicRenderer topic={topic} />
+              </View>
+            ) : (
+              <TopicReadList book={draftBook} onOpen={setTopicId} />
+            )
+          ) : (
+            <Text style={styles.loading}>Loading…</Text>
+          )}
           <DraftCommentThread
             comments={comments}
             isOwner={false}
@@ -85,5 +124,10 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text, flexShrink: 1 },
   itemMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
   reader: { marginTop: spacing.sm, gap: spacing.sm },
-  readerTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
+  readerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  readerTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  close: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.primary },
+  topicWrap: { gap: spacing.sm },
+  back: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.primary },
+  loading: { fontSize: typography.sizeSm, color: colors.textMuted, fontStyle: "italic" },
 });
