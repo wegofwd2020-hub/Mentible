@@ -14,7 +14,7 @@ export function ShelfNameModal({
   initialName?: string;
   onSubmit: (name: string) => void;
   onClose: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const [name, setName] = useState(initialName ?? "");
 
   // Reset the field each time the modal (re)opens.

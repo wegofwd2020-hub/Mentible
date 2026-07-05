@@ -21,7 +21,7 @@ export function spineStyleFor(id: string): { backgroundColor: string; height: nu
 
 // A book on a shelf: just the spine. Tapping it opens the metadata sidebar
 // (BookMetadataModal), which carries the cover-less detail view + actions.
-export function ShelfBook({ meta, onPress }: { meta: EpubMeta; onPress: () => void }): JSX.Element {
+export function ShelfBook({ meta, onPress }: { meta: EpubMeta; onPress: () => void }): React.JSX.Element {
   const s = spineStyleFor(meta.id);
   return (
     <Pressable
