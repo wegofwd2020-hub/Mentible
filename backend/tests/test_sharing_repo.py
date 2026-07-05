@@ -57,3 +57,42 @@ async def test_upsert_and_get_draft(conn):
 
 async def test_get_missing_draft_is_none(conn):
     assert await repo.get_draft(conn, book_id="nope") is None
+
+
+async def _seed(conn, book_id="b1", owner="author-1"):
+    await repo.claim_or_share(conn, book_id=book_id, sub=owner)
+    await repo.upsert_draft(conn, book_id=book_id, owner_sub=owner, version="1.0", title="T", book_json={"id": book_id})
+
+
+async def test_invitations_add_list_revoke(conn):
+    await _seed(conn)
+    await repo.add_invitation(conn, book_id="b1", email="Alice@x.com", invited_by_sub="author-1")
+    inv = await repo.list_invitations(conn, book_id="b1")
+    assert len(inv) == 1 and inv[0].invited_email == "alice@x.com" and inv[0].revoked_at is None
+    assert await repo.revoke_invitation(conn, book_id="b1", email="alice@x.com") is True
+    assert (await repo.list_invitations(conn, book_id="b1"))[0].revoked_at is not None
+    # re-invite reactivates the same row
+    await repo.add_invitation(conn, book_id="b1", email="alice@x.com", invited_by_sub="author-1")
+    assert (await repo.list_invitations(conn, book_id="b1"))[0].revoked_at is None
+
+
+async def test_draft_access(conn):
+    await _seed(conn)
+    await repo.add_invitation(conn, book_id="b1", email="alice@x.com", invited_by_sub="author-1")
+    assert await repo.draft_access(conn, book_id="b1", sub="author-1", email="author@x.com") == "owner"
+    assert await repo.draft_access(conn, book_id="b1", sub="s2", email="ALICE@x.com") == "invited"
+    assert await repo.draft_access(conn, book_id="b1", sub="s3", email="bob@x.com") is None
+    assert await repo.draft_access(conn, book_id="b1", sub="s4", email=None) is None
+    await repo.revoke_invitation(conn, book_id="b1", email="alice@x.com")
+    assert await repo.draft_access(conn, book_id="b1", sub="s2", email="alice@x.com") is None
+
+
+async def test_shared_with_me(conn):
+    await _seed(conn, book_id="b1")
+    await _seed(conn, book_id="b2")
+    await repo.add_invitation(conn, book_id="b1", email="alice@x.com", invited_by_sub="author-1")
+    await repo.add_invitation(conn, book_id="b2", email="alice@x.com", invited_by_sub="author-1")
+    await repo.revoke_invitation(conn, book_id="b2", email="alice@x.com")
+    mine = await repo.shared_with_me(conn, email="alice@x.com")
+    assert [m.book_id for m in mine] == ["b1"]  # revoked b2 excluded
+    assert await repo.shared_with_me(conn, email=None) == []
