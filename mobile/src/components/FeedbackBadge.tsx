@@ -1,11 +1,20 @@
 import React from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
-// A 💬 comment-count badge for a book that has draft-sharing feedback. Tapping
-// it opens that book's feedback; it stops press propagation so it doesn't also
-// trigger the row it sits on.
-export function FeedbackBadge({ count, onPress }: { count: number; onPress: () => void }): React.JSX.Element | null {
+// A prominent 💬 comment-count badge for a book that has draft-sharing feedback.
+// Overlaid on the book cover (positioned by the caller via `style`). Tapping it
+// opens that book's feedback; it stops press propagation so it doesn't also
+// trigger the cover/row it sits on.
+export function FeedbackBadge({
+  count,
+  onPress,
+  style,
+}: {
+  count: number;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}): React.JSX.Element | null {
   if (count <= 0) return null;
   return (
     <Pressable
@@ -15,8 +24,8 @@ export function FeedbackBadge({ count, onPress }: { count: number; onPress: () =
       }}
       accessibilityRole="button"
       accessibilityLabel={`Feedback: ${count} ${count === 1 ? "comment" : "comments"}`}
-      hitSlop={6}
-      style={styles.badge}
+      hitSlop={8}
+      style={[styles.badge, style]}
     >
       <Text style={styles.icon}>💬</Text>
       <Text style={styles.count}>{count}</Text>
@@ -28,12 +37,19 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 2,
+    gap: 3,
+    paddingVertical: 3,
     paddingHorizontal: spacing.xs,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.growth,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.growthText,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
   },
   icon: { fontSize: typography.sizeXs },
-  count: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.growth },
+  count: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.growthText },
 });
