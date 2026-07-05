@@ -14,6 +14,7 @@ import { BookCover } from "@/components/BookCover";
 import { BookMetadataModal } from "@/components/BookMetadataModal";
 import { UserChip } from "@/components/UserChip";
 import { SharedWithYou } from "@/components/SharedWithYou";
+import { DraftReviews } from "@/components/DraftReviews";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
@@ -381,6 +382,7 @@ function EpubLibrary() {
     return (
       <View style={styles.empty}>
         <SharedWithYou token={accessToken} />
+        <DraftReviews token={accessToken} />
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
@@ -412,6 +414,7 @@ function EpubLibrary() {
       ListHeaderComponent={
         <View>
           <SharedWithYou token={accessToken} />
+          <DraftReviews token={accessToken} />
           <View style={styles.header}>
             {importButton}
             {newShelfButton}

@@ -380,6 +380,16 @@ export async function revokeInvitation(bookId: string, email: string, token: str
 export async function sharedWithMe(token: string): Promise<SharedItem[]> {
   return (await draftFetch(`/shared-with-me`, token)).json();
 }
+export interface DraftReview {
+  book_id: string;
+  title: string;
+  version: string;
+  comment_count: number;
+  last_comment_at: string | null;
+}
+export async function myDrafts(token: string): Promise<DraftReview[]> {
+  return (await draftFetch(`/mine`, token)).json();
+}
 export async function getSharedDraft(bookId: string, token: string): Promise<{ book_json: unknown; title: string; version: string; access: string }> {
   return (await draftFetch(`/${bookId}`, token)).json();
 }
