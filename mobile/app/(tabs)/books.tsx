@@ -61,11 +61,15 @@ function BookDetail({
   onOpen,
   onGenerate,
   onDelete,
+  commentCount,
+  onFeedback,
 }: {
   id: string | null;
   onOpen: (id: string) => void;
   onGenerate: (id: string) => void;
   onDelete: (id: string) => void;
+  commentCount: number;
+  onFeedback: () => void;
 }) {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(false);
@@ -125,7 +129,10 @@ function BookDetail({
   return (
     <ScrollView contentContainerStyle={styles.detailContent}>
       <View style={styles.detailCover}>
-        <BookCover title={book.title} size="large" coverSvg={book.metadata?.coverSvg} />
+        <View style={styles.detailCoverWrap}>
+          <BookCover title={book.title} size="large" coverSvg={book.metadata?.coverSvg} />
+          <FeedbackBadge count={commentCount} onPress={onFeedback} style={styles.coverBadge} />
+        </View>
       </View>
       <Text style={styles.detailTitle}>{book.title}</Text>
       <Text style={styles.detailMeta}>
@@ -317,7 +324,14 @@ function BooksScreenInner() {
           }}
         />
         <View style={styles.rightPane}>
-          <BookDetail id={selectedId} onOpen={openBook} onGenerate={generateBook} onDelete={handleDelete} />
+          <BookDetail
+            id={selectedId}
+            commentCount={selectedId ? (commentCounts[selectedId] ?? 0) : 0}
+            onFeedback={() => selectedId && openFeedback(selectedId)}
+            onOpen={openBook}
+            onGenerate={generateBook}
+            onDelete={handleDelete}
+          />
         </View>
         {feedbackModal}
       </View>
@@ -405,6 +419,7 @@ const styles = StyleSheet.create({
   detailEmptyText: { color: colors.textMuted, fontSize: typography.sizeSm },
   detailContent: { padding: spacing.lg, gap: spacing.xs },
   detailCover: { alignItems: "center", marginBottom: spacing.sm },
+  detailCoverWrap: { position: "relative", alignSelf: "flex-start" },
   detailTitle: { fontSize: typography.sizeXl, fontWeight: "700", color: colors.text },
   detailMeta: { fontSize: typography.sizeSm, color: colors.textMuted },
   detailDone: { color: colors.success, fontWeight: "600" },
