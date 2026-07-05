@@ -18,7 +18,7 @@ export function ShelfBand({
   onPressBook: (m: EpubMeta) => void;
   onRename: () => void;
   onDeleteShelf: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const name = shelf ? shelf.name : "Unshelved";
   return (
     <View style={styles.band}>

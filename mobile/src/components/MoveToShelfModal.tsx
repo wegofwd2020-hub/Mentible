@@ -18,7 +18,7 @@ export function MoveToShelfModal({
   onAssign: (shelfId: string | null) => void;
   onCreateShelf: () => void;
   onClose: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
