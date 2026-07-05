@@ -355,7 +355,10 @@ function authHeaders(token: string): Record<string, string> {
 }
 async function draftFetch(path: string, token: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`${BASE_URL}/api/v1/drafts${path}`, { ...init, headers: authHeaders(token) });
-  if (!res.ok) throw new Error(`Draft request failed (${res.status})`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
+  }
   return res;
 }
 

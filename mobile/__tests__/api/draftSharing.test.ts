@@ -1,4 +1,4 @@
-import { addInvitation, postComment, sharedWithMe } from "@/api/client";
+import { addInvitation, ApiError, postComment, sharedWithMe } from "@/api/client";
 
 const okJson = (data: unknown) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response);
 
@@ -31,5 +31,20 @@ describe("draft sharing client", () => {
     const items = await sharedWithMe("tok");
     expect(items[0].book_id).toBe("b1");
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/drafts\/shared-with-me$/);
+  });
+
+  it("rejects with ApiError (status 429) on a rate-limited response", async () => {
+    fetchMock.mockReturnValue(
+      Promise.resolve({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve(JSON.stringify({ detail: "slow down" })),
+        headers: { get: (h: string) => (h === "Retry-After" ? "30" : null) },
+      } as unknown as Response),
+    );
+    const err = await addInvitation("b1", "alice@x.com", "tok").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(429);
+    expect((err as ApiError).userMessage()).toMatch(/generating too fast/i);
   });
 });
