@@ -286,6 +286,7 @@ function BooksScreenInner() {
           style={styles.leftPane}
           contentContainerStyle={styles.leftContent}
           data={books}
+          extraData={{ commentCounts, exportStatus, published, selectedId }}
           keyExtractor={(i) => i.id}
           ListHeaderComponent={header}
           ItemSeparatorComponent={() => <View style={styles.rowSep} />}
@@ -331,6 +332,7 @@ function BooksScreenInner() {
         style={styles.list}
         contentContainerStyle={styles.gridContent}
         data={books}
+        extraData={{ commentCounts, exportStatus, published }}
         keyExtractor={(i) => i.id}
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
