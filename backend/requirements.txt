@@ -2,18 +2,20 @@
 # Versions aligned with StudyBuddy_OnDemand where overlap exists.
 
 # Web framework
-fastapi==0.123.0
-uvicorn[standard]==0.42.0
+fastapi==0.139.0
+uvicorn[standard]==0.50.0
 
 # Configuration
-pydantic-settings==2.13.1
+pydantic-settings==2.14.2
 pydantic[email]>=2.3.0
 
 # Logging
+# Held at 25.x: wegofwd-secure v0.1.0 pins structlog>=24,<26 (bumping the shared
+# package is a separate change). structlog 26 conflicts until that pin is raised.
 structlog==25.5.0
 
 # Redis (BYOK envelope + job status; later: Celery broker)
-redis==6.4.0
+redis==8.0.1
 
 # Cryptography (BYOK envelope: HKDF + AES-GCM)
 cryptography>=43.0.0
@@ -44,7 +46,7 @@ wegofwd-secure @ git+https://github.com/wegofwd2020-hub/wegofwd-secure@v0.1.0
 anthropic==0.28.0
 
 # ── Dev / test ────────────────────────────────────────────────────────────────
-pytest==9.0.3
-pytest-asyncio==1.3.0
-fakeredis==2.35.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+fakeredis==2.36.2
 httpx==0.27.2

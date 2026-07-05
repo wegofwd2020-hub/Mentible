@@ -61,10 +61,10 @@ async def _write_status(
         payload["error"] = error
     if result is not None:
         payload["result"] = result
-    await r.setex(
+    await r.set(
         _job_status_redis_key(job_id),
-        settings.byok_redis_ttl_seconds * 10,  # status row outlives the envelope
         json.dumps(payload),
+        ex=settings.byok_redis_ttl_seconds * 10,  # status row outlives the envelope
     )
 
 

@@ -67,20 +67,20 @@ async def submit_structure(
     # ── 3. Encrypt + store envelope ──────────────────────────────────────────
     master_key = parse_master_key(settings.byok_master_key)
     envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
-    await r.setex(_byok_redis_key(job_id), settings.byok_redis_ttl_seconds, envelope)
+    await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
 
     # ── 4. Initial status ────────────────────────────────────────────────────
-    await r.setex(
+    await r.set(
         _job_status_redis_key(job_id),
-        settings.byok_redis_ttl_seconds * 10,
         json.dumps({"status": "queued"}),
+        ex=settings.byok_redis_ttl_seconds * 10,
     )
 
     # ── 5. Idempotency record ────────────────────────────────────────────────
-    await r.setex(
+    await r.set(
         idem_key,
-        settings.byok_redis_ttl_seconds * 10,
         str(job_id).encode("utf-8"),
+        ex=settings.byok_redis_ttl_seconds * 10,
     )
 
     # ── 6. Dispatch background task ──────────────────────────────────────────
