@@ -63,8 +63,14 @@ export function ShareDraftModal({
       { text: "Remove", style: "destructive", onPress: () => void revokeInvitation(book.id, e, token).then(refresh).catch(() => {}) },
     ]);
   };
-  const onPost = (body: string) => void postComment(book.id, version, body, token).then(refresh).catch(() => {});
-  const onRespond = (id: number, r: string) => void setCommentResponse(book.id, id, r, token).then(refresh).catch(() => {});
+  const onPost = (body: string) =>
+    void postComment(book.id, version, body, token)
+      .then(refresh)
+      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't post your comment."));
+  const onRespond = (id: number, r: string) =>
+    void setCommentResponse(book.id, id, r, token)
+      .then(refresh)
+      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't save your response."));
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
