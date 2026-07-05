@@ -68,10 +68,10 @@ def artifact_filename(title: str, fmt: str) -> str:
 
 
 async def _write_status(r: redis.Redis, job_id: uuid.UUID, payload: dict) -> None:
-    await r.setex(
+    await r.set(
         export_status_key(job_id),
-        settings.export_artifact_ttl_seconds,
         json.dumps(payload),
+        ex=settings.export_artifact_ttl_seconds,
     )
 
 
@@ -122,10 +122,10 @@ async def run_export(
         return
 
     # Store the artifact bytes for the download endpoint to stream.
-    await r.setex(
+    await r.set(
         export_artifact_key(job_id),
-        settings.export_artifact_ttl_seconds,
         result.data,
+        ex=settings.export_artifact_ttl_seconds,
     )
 
     payload: dict = {

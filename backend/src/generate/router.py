@@ -158,26 +158,26 @@ async def submit_generate(
     if not managed:
         master_key = parse_master_key(settings.byok_master_key)
         envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
-        await r.setex(
+        await r.set(
             _byok_redis_key(job_id),
-            settings.byok_redis_ttl_seconds,
             envelope,
+            ex=settings.byok_redis_ttl_seconds,
         )
 
     # ── 5. Initial status ────────────────────────────────────────────────────
-    await r.setex(
+    await r.set(
         _job_status_redis_key(job_id),
-        settings.byok_redis_ttl_seconds * 10,
         json.dumps({"status": "queued"}),
+        ex=settings.byok_redis_ttl_seconds * 10,
     )
 
     # ── 6. Idempotency record ────────────────────────────────────────────────
     # Holds longer than envelope so retries that arrive after envelope expiry
     # still get the same job_id mapped (and see status = done/failed/expired).
-    await r.setex(
+    await r.set(
         idem_key,
-        settings.byok_redis_ttl_seconds * 10,
         str(job_id).encode("utf-8"),
+        ex=settings.byok_redis_ttl_seconds * 10,
     )
 
     # ── 7. Dispatch background task ──────────────────────────────────────────

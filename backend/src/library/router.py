@@ -95,10 +95,10 @@ async def publish_book(
         )
 
     job_id = uuid.uuid4()
-    await r.setex(
+    await r.set(
         export_tasks.export_status_key(job_id),
-        settings.export_artifact_ttl_seconds,
         json.dumps({"status": "queued"}),
+        ex=settings.export_artifact_ttl_seconds,
     )
     background.add_task(
         export_tasks.run_export,
