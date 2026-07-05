@@ -300,6 +300,7 @@ function BooksScreenInner() {
               >
                 <View style={styles.rowCover}>
                   <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
+                  <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} style={styles.coverBadge} />
                 </View>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={2}>{item.title}</Text>
@@ -308,7 +309,6 @@ function BooksScreenInner() {
                   </Text>
                   <View style={styles.rowMetaRow}>
                     <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
-                    <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} />
                   </View>
                 </View>
               </Pressable>
@@ -342,12 +342,14 @@ function BooksScreenInner() {
             accessibilityRole="button"
             accessibilityLabel={`Open book: ${item.title}`}
           >
-            <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
+            <View style={styles.coverWrap}>
+              <BookCover title={item.title} badge={progressLabel(item)} coverSvg={item.coverSvg} />
+              <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} style={styles.coverBadge} />
+            </View>
             <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
             <Text style={styles.tileMeta}>{item.unitCount} topics</Text>
             <View style={styles.rowMetaRow}>
               <ExportStatusPills status={exportStatus[item.id]} bookUpdatedAt={item.updatedAt} published={published[item.id]} />
-              <FeedbackBadge count={commentCounts[item.id] ?? 0} onPress={() => openFeedback(item.id)} />
             </View>
           </Pressable>
         )}
@@ -388,7 +390,9 @@ const styles = StyleSheet.create({
   rowSep: { height: spacing.sm },
   listRow: { flexDirection: "row", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, alignItems: "center" },
   listRowSelected: { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1 },
-  rowCover: { width: 42 },
+  rowCover: { width: 42, position: "relative" },
+  coverWrap: { position: "relative", alignSelf: "flex-start" },
+  coverBadge: { position: "absolute", top: 6, left: 6, zIndex: 2 },
   rowMain: { flex: 1, gap: 2 },
   rowTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
   rowMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
