@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.wegofwd2020.studybuddyq",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": ["android.permission.INTERNET"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
