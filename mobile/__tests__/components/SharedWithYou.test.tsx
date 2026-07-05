@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { SharedWithYou } from "@/components/SharedWithYou";
 
 jest.mock("@/api/client", () => ({
@@ -7,6 +7,20 @@ jest.mock("@/api/client", () => ({
   getSharedDraft: jest.fn(),
   listComments: jest.fn().mockResolvedValue([]),
   postComment: jest.fn(),
+}));
+
+// Mock expo-router's useFocusEffect: run the callback on mount + whenever its
+// identity changes (mirrors focus/refocus), and expose it so a test can re-fire
+// it to simulate the Library screen regaining focus.
+const mockFocus: { run: (() => void) | null } = { run: null };
+jest.mock("expo-router", () => ({
+  useFocusEffect: (cb: () => void) => {
+    const R = require("react");
+    mockFocus.run = cb;
+    R.useEffect(() => {
+      cb();
+    }, [cb]);
+  },
 }));
 
 // Light stand-ins so we assert the read-view wiring without pulling in the
@@ -37,6 +51,8 @@ const draftBook = {
 };
 
 beforeEach(() => {
+  jest.clearAllMocks();
+  (api.listComments as jest.Mock).mockResolvedValue([]);
   (api.sharedWithMe as jest.Mock).mockResolvedValue([
     { book_id: "b1", title: "Shared Book", owner_sub: "o", version: "1.0", updated_at: "" },
   ]);
@@ -55,6 +71,22 @@ it("renders nothing when signed out", () => {
 
 it("lists drafts shared with me", async () => {
   render(<SharedWithYou token="tok" />);
+  await waitFor(() => expect(screen.getByText("Shared Book")).toBeTruthy());
+});
+
+it("refetches the shared list when the screen regains focus", async () => {
+  (api.sharedWithMe as jest.Mock).mockResolvedValue([]);
+  render(<SharedWithYou token="tok" />);
+  await waitFor(() => expect(api.sharedWithMe).toHaveBeenCalledTimes(1));
+  // A draft gets shared while the recipient sits on the Library tab.
+  (api.sharedWithMe as jest.Mock).mockResolvedValue([
+    { book_id: "b1", title: "Shared Book", owner_sub: "o", version: "1.0", updated_at: "" },
+  ]);
+  // Re-focusing the screen refetches and surfaces it.
+  await act(async () => {
+    mockFocus.run?.();
+  });
+  await waitFor(() => expect(api.sharedWithMe).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.getByText("Shared Book")).toBeTruthy());
 });
 

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { getSharedDraft, listComments, postComment, sharedWithMe, type DraftComment, type SharedItem } from "@/api/client";
 import { DraftCommentThread } from "@/components/DraftCommentThread";
 import { TopicReadList } from "@/components/TopicReadList";
@@ -20,19 +21,24 @@ export function SharedWithYou({ token }: { token: string | null }): React.JSX.El
   const [topicId, setTopicId] = useState<string | null>(null);
   const [comments, setComments] = useState<DraftComment[]>([]);
 
-  useEffect(() => {
-    void (async () => {
-      if (!token) {
-        setItems([]);
-        return;
-      }
-      try {
-        setItems(await sharedWithMe(token));
-      } catch {
-        setItems([]);
-      }
-    })();
-  }, [token]);
+  // Refetch when the Library screen (re)gains focus, not just on mount — so a
+  // draft shared while the recipient is elsewhere appears when they return here,
+  // without a manual reload. Mirrors library.tsx's own focus-refetch.
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        if (!token) {
+          setItems([]);
+          return;
+        }
+        try {
+          setItems(await sharedWithMe(token));
+        } catch {
+          setItems([]);
+        }
+      })();
+    }, [token]),
+  );
 
   const openDraft = useCallback(
     async (item: SharedItem) => {
