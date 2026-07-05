@@ -342,6 +342,67 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
   return fetchExportArtifact(jobId);
 }
 
+// ── Draft sharing (ADR-027 D2–D4) ─────────────────────────────────────────────
+export interface DraftComment {
+  id: number; version: string; author_sub: string; author_email: string | null;
+  body: string; author_response: string | null; responded_at: string | null; created_at: string;
+}
+export interface SharedItem { book_id: string; title: string; owner_sub: string; version: string; updated_at: string }
+export interface DraftInvitation { invited_email: string; invited_by_sub: string; created_at: string; revoked_at: string | null }
+
+function authHeaders(token: string): Record<string, string> {
+  return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+}
+async function draftFetch(path: string, token: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(`${BASE_URL}/api/v1/drafts${path}`, { ...init, headers: authHeaders(token) });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body, retryAfterSeconds(res));
+  }
+  return res;
+}
+
+export async function shareDraft(book: Book, token: string): Promise<void> {
+  await draftFetch(`/${book.id}/share`, token, {
+    method: "POST",
+    body: JSON.stringify({ title: book.title, version: book.metadata?.version ?? "1.0", book_json: book }),
+  });
+}
+export async function listInvitations(bookId: string, token: string): Promise<DraftInvitation[]> {
+  return (await draftFetch(`/${bookId}/invitations`, token)).json();
+}
+export async function addInvitation(bookId: string, email: string, token: string): Promise<void> {
+  await draftFetch(`/${bookId}/invitations`, token, { method: "POST", body: JSON.stringify({ email }) });
+}
+export async function revokeInvitation(bookId: string, email: string, token: string): Promise<void> {
+  await draftFetch(`/${bookId}/invitations`, token, { method: "DELETE", body: JSON.stringify({ email }) });
+}
+export async function sharedWithMe(token: string): Promise<SharedItem[]> {
+  return (await draftFetch(`/shared-with-me`, token)).json();
+}
+export interface DraftReview {
+  book_id: string;
+  title: string;
+  version: string;
+  comment_count: number;
+  last_comment_at: string | null;
+}
+export async function myDrafts(token: string): Promise<DraftReview[]> {
+  return (await draftFetch(`/mine`, token)).json();
+}
+export async function getSharedDraft(bookId: string, token: string): Promise<{ book_json: unknown; title: string; version: string; access: string }> {
+  return (await draftFetch(`/${bookId}`, token)).json();
+}
+export async function listComments(bookId: string, version: string, token: string): Promise<DraftComment[]> {
+  return (await draftFetch(`/${bookId}/comments?version=${encodeURIComponent(version)}`, token)).json();
+}
+export async function postComment(bookId: string, version: string, body: string, token: string): Promise<DraftComment> {
+  return (await draftFetch(`/${bookId}/comments`, token, { method: "POST", body: JSON.stringify({ version, body }) })).json();
+}
+export async function setCommentResponse(bookId: string, commentId: number, response: string, token: string): Promise<DraftComment> {
+  return (await draftFetch(`/${bookId}/comments/${commentId}/response`, token, { method: "PUT", body: JSON.stringify({ response }) })).json();
+}
+
 export async function pollUntilDone(
   jobId: string,
   onTick?: (job: JobResponse) => void,
