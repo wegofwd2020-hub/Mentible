@@ -27,6 +27,13 @@ it("tapping a spine calls onPressBook", () => {
   expect(handlers.onPressBook).toHaveBeenCalled();
 });
 
+it("the rack is horizontally scrollable with a visible scrollbar", () => {
+  renderBand({ books: [book("b1"), book("b2"), book("b3")] });
+  const rack = screen.getByTestId("shelf-rack");
+  expect(rack.props.horizontal).toBe(true);
+  expect(rack.props.showsHorizontalScrollIndicator).toBe(true);
+});
+
 it("shows an empty-shelf hint when the shelf has no books", () => {
   renderBand({ books: [] });
   expect(screen.getByText(/No books yet/i)).toBeTruthy();
