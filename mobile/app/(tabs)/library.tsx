@@ -13,6 +13,8 @@ import { extractEpubCover } from "@/storage/epubCover";
 import { BookCover } from "@/components/BookCover";
 import { BookMetadataModal } from "@/components/BookMetadataModal";
 import { UserChip } from "@/components/UserChip";
+import { SharedWithYou } from "@/components/SharedWithYou";
+import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -121,6 +123,7 @@ export default function LibraryScreen() {
 
 function EpubLibrary() {
   const router = useRouter();
+  const { accessToken } = useAuth();
   const [items, setItems] = useState<EpubMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [importing, setImporting] = useState(false);
@@ -377,6 +380,7 @@ function EpubLibrary() {
   if (items.length === 0) {
     return (
       <View style={styles.empty}>
+        <SharedWithYou token={accessToken} />
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
@@ -406,10 +410,13 @@ function EpubLibrary() {
       data={sections}
       keyExtractor={(sec) => sec.shelf?.id ?? "__unshelved__"}
       ListHeaderComponent={
-        <View style={styles.header}>
-          {importButton}
-          {newShelfButton}
-          {error && <Text style={styles.errorText}>{error}</Text>}
+        <View>
+          <SharedWithYou token={accessToken} />
+          <View style={styles.header}>
+            {importButton}
+            {newShelfButton}
+            {error && <Text style={styles.errorText}>{error}</Text>}
+          </View>
         </View>
       }
       renderItem={({ item: sec }) => (
