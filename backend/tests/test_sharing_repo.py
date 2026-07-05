@@ -61,7 +61,9 @@ async def test_get_missing_draft_is_none(conn):
 
 async def _seed(conn, book_id="b1", owner="author-1"):
     await repo.claim_or_share(conn, book_id=book_id, sub=owner)
-    await repo.upsert_draft(conn, book_id=book_id, owner_sub=owner, version="1.0", title="T", book_json={"id": book_id})
+    await repo.upsert_draft(
+        conn, book_id=book_id, owner_sub=owner, version="1.0", title="T", book_json={"id": book_id}
+    )
 
 
 async def test_invitations_add_list_revoke(conn):
@@ -79,7 +81,9 @@ async def test_invitations_add_list_revoke(conn):
 async def test_draft_access(conn):
     await _seed(conn)
     await repo.add_invitation(conn, book_id="b1", email="alice@x.com", invited_by_sub="author-1")
-    assert await repo.draft_access(conn, book_id="b1", sub="author-1", email="author@x.com") == "owner"
+    assert (
+        await repo.draft_access(conn, book_id="b1", sub="author-1", email="author@x.com") == "owner"
+    )
     assert await repo.draft_access(conn, book_id="b1", sub="s2", email="ALICE@x.com") == "invited"
     assert await repo.draft_access(conn, book_id="b1", sub="s3", email="bob@x.com") is None
     assert await repo.draft_access(conn, book_id="b1", sub="s4", email=None) is None
@@ -100,18 +104,28 @@ async def test_shared_with_me(conn):
 
 async def test_comments_version_scoped(conn):
     await _seed(conn)
-    c = await repo.add_comment(conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="fix ch2")
+    c = await repo.add_comment(
+        conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="fix ch2"
+    )
     assert c.body == "fix ch2" and c.author_response is None and c.version == "1.0"
-    await repo.add_comment(conn, book_id="b1", version="1.1", author_sub="s2", author_email="a@x.com", body="on v1.1")
+    await repo.add_comment(
+        conn, book_id="b1", version="1.1", author_sub="s2", author_email="a@x.com", body="on v1.1"
+    )
     v10 = await repo.list_comments(conn, book_id="b1", version="1.0")
     assert [x.body for x in v10] == ["fix ch2"]  # v1.1 comment not surfaced
 
 
 async def test_set_and_clear_response(conn):
     await _seed(conn)
-    c = await repo.add_comment(conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="q")
+    c = await repo.add_comment(
+        conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="q"
+    )
     updated = await repo.set_response(conn, book_id="b1", comment_id=c.id, response="answered")
-    assert updated is not None and updated.author_response == "answered" and updated.responded_at is not None
+    assert (
+        updated is not None
+        and updated.author_response == "answered"
+        and updated.responded_at is not None
+    )
     cleared = await repo.set_response(conn, book_id="b1", comment_id=c.id, response="   ")
     assert cleared.author_response is None and cleared.responded_at is None
     # a comment id not on this book → None
