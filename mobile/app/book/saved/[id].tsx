@@ -14,9 +14,11 @@ import { TopicReadList } from "@/components/TopicReadList";
 import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
+import { ShareDraftModal } from "@/components/ShareDraftModal";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
+import { useAuth } from "@/auth/AuthProvider";
 import type { Book } from "@/types/book";
 
 export default function SavedBookScreen() {
@@ -30,8 +32,10 @@ export default function SavedBookScreen() {
 function SavedBookScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { accessToken } = useAuth();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -111,6 +115,29 @@ function SavedBookScreenInner() {
           Publishes the EPUB + PDF to the Open Library so readers can see and
           download them (their availability shows as green on the shelf).
         </Text>
+
+        {accessToken ? (
+          <>
+            <Pressable
+              style={styles.generateBtn}
+              onPress={() => setShareOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Share this draft"
+            >
+              <Text style={styles.generateBtnText}>Share draft</Text>
+            </Pressable>
+            <Text style={styles.generateHint}>
+              Invite reviewers by email to read this draft and leave comments
+              before you publish it.
+            </Text>
+            <ShareDraftModal
+              visible={shareOpen}
+              book={book}
+              token={accessToken}
+              onClose={() => setShareOpen(false)}
+            />
+          </>
+        ) : null}
 
         <ExportBookJsonButton book={book} />
         <Text style={styles.generateHint}>
