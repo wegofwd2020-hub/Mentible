@@ -14,6 +14,7 @@ from backend.src.sharing.schemas import (
     DraftOut,
     InvitationOut,
     InviteIn,
+    OwnedReviewOut,
     ResponseIn,
     SharedItem,
     ShareIn,
@@ -72,6 +73,13 @@ async def shared_with_me(request: Request, p: Principal = Depends(require_user))
     async with _pool(request).acquire() as conn:
         items = await repo.shared_with_me(conn, email=p.email)
     return [SharedItem(**vars(i)) for i in items]
+
+
+@router.get("/mine", response_model=list[OwnedReviewOut])
+async def my_drafts(request: Request, p: Principal = Depends(require_user)):
+    async with _pool(request).acquire() as conn:
+        rows = await repo.owned_drafts_with_comments(conn, owner_sub=p.sub)
+    return [OwnedReviewOut(**vars(r)) for r in rows]
 
 
 @router.get("/{book_id}", response_model=DraftOut)

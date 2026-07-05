@@ -71,3 +71,11 @@ class InvitationOut(BaseModel):
     invited_by_sub: str
     created_at: datetime
     revoked_at: datetime | None
+
+
+class OwnedReviewOut(BaseModel):
+    book_id: str
+    title: str
+    version: str
+    comment_count: int
+    last_comment_at: datetime | None

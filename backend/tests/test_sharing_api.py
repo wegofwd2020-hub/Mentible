@@ -102,3 +102,24 @@ async def test_comment_empty_body_422(as_user):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.post("/api/v1/drafts/b1/comments", json={"version": "1.0", "body": "   "})
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_my_drafts_requires_auth():
+    from httpx import ASGITransport, AsyncClient
+
+    app.state.db = _Pool(_Conn())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        r = await ac.get("/api/v1/drafts/mine")
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_my_drafts_ok_returns_list(as_user):
+    from httpx import ASGITransport, AsyncClient
+
+    as_user(sub="author-1", conn=_Conn())  # _Conn.fetch returns [] → empty list, 200
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        r = await ac.get("/api/v1/drafts/mine")
+    assert r.status_code == 200
+    assert r.json() == []

@@ -253,3 +253,38 @@ async def set_response(
         (clean or None),
     )
     return _comment(r) if r else None
+
+
+@dataclass
+class OwnedDraftReview:
+    book_id: str
+    title: str
+    version: str
+    comment_count: int
+    last_comment_at: datetime | None
+
+
+async def owned_drafts_with_comments(
+    conn: asyncpg.Connection, *, owner_sub: str
+) -> list[OwnedDraftReview]:
+    """The caller's own shared drafts that have >=1 comment on their current version,
+    newest activity first — the author's feedback inbox."""
+    rows = await conn.fetch(
+        """
+        SELECT d.book_id, d.title, d.version,
+               count(c.id) AS comment_count, max(c.created_at) AS last_comment_at
+        FROM shared_draft d
+        LEFT JOIN draft_comment c ON c.book_id = d.book_id AND c.version = d.version
+        WHERE d.owner_sub = $1
+        GROUP BY d.book_id, d.title, d.version
+        HAVING count(c.id) > 0
+        ORDER BY max(c.created_at) DESC
+        """,
+        owner_sub,
+    )
+    return [
+        OwnedDraftReview(
+            r["book_id"], r["title"], r["version"], r["comment_count"], r["last_comment_at"]
+        )
+        for r in rows
+    ]

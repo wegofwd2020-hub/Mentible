@@ -130,3 +130,26 @@ async def test_set_and_clear_response(conn):
     assert cleared.author_response is None and cleared.responded_at is None
     # a comment id not on this book → None
     assert await repo.set_response(conn, book_id="other", comment_id=c.id, response="x") is None
+
+
+async def test_owned_drafts_with_comments(conn):
+    await _seed(conn, book_id="b1", owner="author-1")  # _seed sets version "1.0"
+    await _seed(conn, book_id="b2", owner="author-1")  # shared but no comments
+    await repo.add_comment(
+        conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="one"
+    )
+    await repo.add_comment(
+        conn, book_id="b1", version="1.0", author_sub="s3", author_email="b@x.com", body="two"
+    )
+    await repo.add_comment(
+        conn, book_id="b1", version="2.0", author_sub="s2", author_email="a@x.com", body="other-ver"
+    )
+    await _seed(conn, book_id="b3", owner="other-owner")
+    await repo.add_comment(
+        conn, book_id="b3", version="1.0", author_sub="s2", author_email="a@x.com", body="x"
+    )
+    mine = await repo.owned_drafts_with_comments(conn, owner_sub="author-1")
+    assert [m.book_id for m in mine] == ["b1"]  # b2 has 0 comments, b3 is another owner
+    assert mine[0].comment_count == 2  # v1.0 only — the v2.0 comment is not counted
+    assert mine[0].last_comment_at is not None
+    assert await repo.owned_drafts_with_comments(conn, owner_sub="nobody") == []
