@@ -96,3 +96,23 @@ async def test_shared_with_me(conn):
     mine = await repo.shared_with_me(conn, email="alice@x.com")
     assert [m.book_id for m in mine] == ["b1"]  # revoked b2 excluded
     assert await repo.shared_with_me(conn, email=None) == []
+
+
+async def test_comments_version_scoped(conn):
+    await _seed(conn)
+    c = await repo.add_comment(conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="fix ch2")
+    assert c.body == "fix ch2" and c.author_response is None and c.version == "1.0"
+    await repo.add_comment(conn, book_id="b1", version="1.1", author_sub="s2", author_email="a@x.com", body="on v1.1")
+    v10 = await repo.list_comments(conn, book_id="b1", version="1.0")
+    assert [x.body for x in v10] == ["fix ch2"]  # v1.1 comment not surfaced
+
+
+async def test_set_and_clear_response(conn):
+    await _seed(conn)
+    c = await repo.add_comment(conn, book_id="b1", version="1.0", author_sub="s2", author_email="a@x.com", body="q")
+    updated = await repo.set_response(conn, book_id="b1", comment_id=c.id, response="answered")
+    assert updated is not None and updated.author_response == "answered" and updated.responded_at is not None
+    cleared = await repo.set_response(conn, book_id="b1", comment_id=c.id, response="   ")
+    assert cleared.author_response is None and cleared.responded_at is None
+    # a comment id not on this book → None
+    assert await repo.set_response(conn, book_id="other", comment_id=c.id, response="x") is None

@@ -167,3 +167,58 @@ async def shared_with_me(conn: asyncpg.Connection, *, email: str | None) -> list
         email.lower(),
     )
     return [SharedWithMe(r["book_id"], r["title"], r["owner_sub"], r["version"], r["updated_at"]) for r in rows]
+
+
+@dataclass
+class Comment:
+    id: int
+    version: str
+    author_sub: str
+    author_email: str | None
+    body: str
+    author_response: str | None
+    responded_at: datetime | None
+    created_at: datetime
+
+
+def _comment(r: asyncpg.Record) -> Comment:
+    return Comment(
+        id=r["id"], version=r["version"], author_sub=r["author_sub"], author_email=r["author_email"],
+        body=r["body"], author_response=r["author_response"], responded_at=r["responded_at"], created_at=r["created_at"],
+    )
+
+
+async def add_comment(
+    conn: asyncpg.Connection, *, book_id: str, version: str, author_sub: str, author_email: str | None, body: str
+) -> Comment:
+    r = await conn.fetchrow(
+        """
+        INSERT INTO draft_comment (book_id, version, author_sub, author_email, body)
+        VALUES ($1, $2, $3, $4, $5) RETURNING *
+        """,
+        book_id, version, author_sub, author_email, body,
+    )
+    return _comment(r)
+
+
+async def list_comments(conn: asyncpg.Connection, *, book_id: str, version: str) -> list[Comment]:
+    rows = await conn.fetch(
+        "SELECT * FROM draft_comment WHERE book_id = $1 AND version = $2 ORDER BY created_at",
+        book_id, version,
+    )
+    return [_comment(r) for r in rows]
+
+
+async def set_response(conn: asyncpg.Connection, *, book_id: str, comment_id: int, response: str) -> Comment | None:
+    """Owner-only author response. Empty/whitespace clears it. None if the comment
+    isn't on this book (authz that the caller is the owner happens in the router)."""
+    clean = response.strip()
+    r = await conn.fetchrow(
+        """
+        UPDATE draft_comment
+        SET author_response = $3::text, responded_at = CASE WHEN $3::text IS NULL THEN NULL ELSE now() END
+        WHERE id = $1 AND book_id = $2 RETURNING *
+        """,
+        comment_id, book_id, (clean or None),
+    )
+    return _comment(r) if r else None
