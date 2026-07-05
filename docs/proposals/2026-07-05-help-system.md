@@ -83,7 +83,7 @@ Mentible's `helpContent.ts` is already ~80% of this — this formalizes + extend
 ## 5. Phased rollout
 
 - **Phase 0 — Stop the bleed (now):** add the **"Share a draft" Topic** to Mentible; add the DoD line to `CLAUDE.md` + PR template. (Hours.)
-- **Phase 1 — Formalize the model in Mentible:** extend `helpContent.ts` to the Topic schema (audience/surfaces/featureKey); wire the coverage CI check. Prove it in one product. (Days.)
+- **Phase 1 — Formalize the model in Mentible:** ✅ `featureKey` + `FEATURES` registry + a hard-fail coverage gate shipped (spec `docs/superpowers/specs/2026-07-05-help-coverage-gate-design.md`). `audience`/`surfaces` still deferred to Phase 2.
 - **Phase 2 — Extract `wegofwd-help`:** pull the engine into a shared package; Mentible consumes it (thin shims, no behavior change) — same playbook as wegofwd-secure. (Days–1 wk.)
 - **Phase 3 — Adopt in a 2nd product:** OnDemand or Pramana pulls the package + writes its content pack. Validates portability. (Days.)
 - **Phase 4 — Public help site + search:** generate an SEO/searchable site from the Topics; add in-app search. (Later, demand-driven.)

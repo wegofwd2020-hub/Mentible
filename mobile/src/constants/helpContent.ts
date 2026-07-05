@@ -24,6 +24,32 @@ export interface HelpTopic {
   title: string;
   keywords: string[]; // extra search terms beyond the visible text
   blocks: HelpBlock[];
+  featureKey?: FeatureKey; // links this topic to a required feature (coverage gate)
+}
+
+// The user-facing features that MUST have in-app help. Declaring a feature here
+// is what makes the coverage gate (see __tests__/help/coverage.test.ts) require a
+// Help topic for it — that's the Definition-of-Done enforcement (see CLAUDE.md).
+export const FEATURES = [
+  { key: "generation", label: "Generating a book" },
+  { key: "reading", label: "Reading a book" },
+  { key: "provider-keys", label: "Provider API keys (BYOK)" },
+  { key: "diagrams", label: "Diagrams" },
+  { key: "export", label: "Export (EPUB3 / PDF)" },
+  { key: "sharing", label: "Draft sharing" },
+  { key: "accounts", label: "Accounts & sign-in" },
+] as const;
+
+export type FeatureKey = (typeof FEATURES)[number]["key"];
+
+// Feature keys that have no covering topic. Loose param types so a synthetic
+// FEATURES list can be passed in tests.
+export function uncoveredFeatures(
+  features: readonly { key: string }[],
+  topics: readonly { featureKey?: string }[],
+): string[] {
+  const covered = new Set(topics.map((t) => t.featureKey).filter((k): k is string => Boolean(k)));
+  return features.map((f) => f.key).filter((k) => !covered.has(k));
 }
 
 // Flatten a topic's visible text for indexing/search.
@@ -98,6 +124,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "getting-started-account",
     title: "Create your account & sign in",
+    featureKey: "accounts",
     keywords: [
       "account", "sign in", "signin", "sign up", "signup", "login", "log in",
       "register", "google", "email", "password", "confirm", "verify", "sync",
@@ -140,6 +167,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "provider-keys",
     title: "Choose a provider & get an API key",
+    featureKey: "provider-keys",
     keywords: [
       "key", "api", "byok", "provider", "anthropic", "claude", "openai", "groq",
       "openrouter", "gemini", "google", "free", "paid", "billing", "cost",
@@ -170,6 +198,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "reading-a-book",
     title: "Open a book & get around",
+    featureKey: "reading",
     keywords: [
       "read", "reading", "open", "book", "library", "tabs", "navigate", "menu",
       "topic", "lesson", "export", "epub", "pdf", "tour", "studio", "shelf",
@@ -197,6 +226,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "scoped-generation",
     title: "How scoping works",
+    featureKey: "generation",
     keywords: ["scope", "scoped", "level", "depth", "length", "parameters", "chatbot"],
     blocks: [
       {
@@ -208,6 +238,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "diagram-types",
     title: "Diagram types",
+    featureKey: "diagrams",
     keywords: ["diagram", "visual", "register", "conceptual", "balanced", "technical", "mindmap", "flowchart"],
     blocks: [
       {
@@ -220,6 +251,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "formats",
     title: "Formats & books",
+    featureKey: "export",
     keywords: ["format", "epub", "pdf", "book", "compile", "library", "export", "cover"],
     blocks: [
       {
@@ -259,6 +291,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "share-a-draft",
     title: "Share a draft for feedback",
+    featureKey: "sharing",
     keywords: [
       "share",
       "sharing",
