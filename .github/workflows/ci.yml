@@ -104,6 +104,16 @@ jobs:
         working-directory: compiler
         run: npm run typecheck
 
+      # Build the CJS dist and `require()` it — jest maps `marked` to its UMD build,
+      # so plain `require("marked")` (marked 18 is ESM-only; needs Node ≥20.19's
+      # require(esm)) is otherwise only exercised at Docker-build time. This closes
+      # the gap so a module-resolution regression fails the PR, not the deploy.
+      - name: Build + runtime require smoke
+        working-directory: compiler
+        run: |
+          npm run build
+          node -e "require('./dist/epub.js'); require('./dist/pdfRender.js'); require('./dist/markdown.js'); console.log('compiler dist require OK')"
+
       # The real-book gate auto-skips without the local export; the synthetic-book
       # structure + XML well-formedness gate always runs.
       - name: Tests
