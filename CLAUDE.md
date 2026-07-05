@@ -333,12 +333,12 @@ Pipeline: pytest with mocked Anthropic SDK
 ## Definition of Done — help stays current
 
 **Shipping a user-facing feature is not done until its in-app Help is updated.**
-When a PR adds or changes a user-facing surface, add or update a topic in
-`mobile/src/constants/helpContent.ts` (and a contextual `HelpButton`/`HelpHint`
-where it helps) in the *same* PR. Help is authored as data (one topic → renders
-on the Help tab + hints), so this is cheap. See the Help System proposal at
-`docs/proposals/2026-07-05-help-system.md` (Phase 1 will make this a CI coverage
-check; until then it's this checklist + the PR template).
+Shipping a user-facing feature means: add its key to `FEATURES` in
+`mobile/src/constants/helpContent.ts` and a Help topic with that `featureKey`, in
+the *same* PR. The coverage gate (`mobile/__tests__/help/coverage.test.ts`, run in
+the Mobile CI job) **fails** when a declared feature has no topic — so this is
+enforced, not just a checklist. Help is authored as data (one topic → renders on
+the Help tab + hints). See `docs/proposals/2026-07-05-help-system.md`.
 
 ---
 
