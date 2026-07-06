@@ -88,3 +88,7 @@ firebase-debug.log
 
 # Superpowers brainstorm visual companion
 .superpowers/
+
+# Local-only scratch + ops (never commit — VPS IP / prod deploy block)
+/Plans/
+/mentible_vps_deploy.sh
