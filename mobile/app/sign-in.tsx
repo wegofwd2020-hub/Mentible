@@ -4,6 +4,7 @@ import { Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { AuthForm } from "@/components/AuthForm";
 import { PageContainer } from "@/components/PageContainer";
+import { HelpButton } from "@/components/HelpButton";
 import { colors, typography } from "@/constants/theme";
 import { IS_DEMO } from "@/constants/demo";
 
@@ -26,6 +27,7 @@ export default function SignInScreen() {
 
   return (
     <PageContainer>
+      <HelpButton topic="getting-started-account" label="About accounts" />
       <AuthForm onAuthenticated={() => router.replace("/library")} />
     </PageContainer>
   );

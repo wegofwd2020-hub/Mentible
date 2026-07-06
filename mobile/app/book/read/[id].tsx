@@ -6,6 +6,7 @@ import { openEpub } from "@/storage/epubLibrary";
 import { TopicReadList } from "@/components/TopicReadList";
 import { CheckoutButton } from "@/components/CheckoutButton";
 import { PageContainer } from "@/components/PageContainer";
+import { HelpButton } from "@/components/HelpButton";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book } from "@/types/book";
 
@@ -64,6 +65,7 @@ export default function ReadBookScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <PageContainer>
         <Text style={styles.title}>{book.title}</Text>
+        <HelpButton topic="reading-a-book" label="Reading & navigating" />
         <TopicReadList
           book={book}
           onOpen={(topicId) => router.push(`/book/topic/${book.id}/${topicId}`)}
