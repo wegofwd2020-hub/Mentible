@@ -12,6 +12,7 @@ import { generatedTopicIds, loadBook, saveBook, setTopicContent } from "@/storag
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
+import { HelpButton } from "@/components/HelpButton";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
@@ -189,6 +190,7 @@ function GenerateAllScreenInner() {
             {total} topic{total === 1 ? "" : "s"} · {doneCount} generated
             {failedCount > 0 ? ` · ${failedCount} failed` : ""}
           </Text>
+          <HelpButton topic="scoped-generation" label="How generation works" />
 
           {!running && (
             <GenerationParamsEditor value={params} onChange={handleParamsChange} />
