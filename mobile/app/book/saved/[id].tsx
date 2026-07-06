@@ -15,6 +15,7 @@ import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
+import { HelpButton } from "@/components/HelpButton";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
@@ -130,6 +131,7 @@ function SavedBookScreenInner() {
               Invite reviewers by email to read this draft and leave comments
               before you publish it.
             </Text>
+            <HelpButton topic="share-a-draft" label="How sharing works" />
             <ShareDraftModal
               visible={shareOpen}
               book={book}
