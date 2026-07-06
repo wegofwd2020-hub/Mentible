@@ -81,7 +81,6 @@ export function HelpTopicView({
   topic: HelpTopic;
   onLink: (href: string) => void;
   onAction: (step: string) => void;
-  highlighted?: boolean;
 }): React.JSX.Element {
   return (
     <>
