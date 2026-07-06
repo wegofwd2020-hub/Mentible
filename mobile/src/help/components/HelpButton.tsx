@@ -6,7 +6,7 @@ import { colors } from "@/constants/theme";
 
 // A small contextual "?" affordance. Tapping it opens Help deep-linked to a
 // specific topic (Help scrolls to + highlights it). Place one near the feature
-// it explains. `topic` is a help topic id (see constants/helpContent.ts).
+// it explains. `topic` is a help topic id (see help-content/topics.ts).
 export function HelpButton({
   topic,
   label = "Help",

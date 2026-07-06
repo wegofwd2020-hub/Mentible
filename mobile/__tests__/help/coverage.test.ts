@@ -1,4 +1,5 @@
-import { FEATURES, HELP_TOPICS, uncoveredFeatures } from "@/constants/helpContent";
+import { uncoveredFeatures } from "@/help";
+import { FEATURES, HELP_TOPICS } from "@/help-content";
 
 describe("help coverage gate", () => {
   it("every declared feature has at least one Help topic", () => {
@@ -12,7 +13,7 @@ describe("help coverage gate", () => {
   });
 
   it("no topic references a featureKey that isn't in FEATURES", () => {
-    const valid = new Set(FEATURES.map((f) => f.key));
+    const valid = new Set<string>(FEATURES.map((f) => f.key));
     const orphans = HELP_TOPICS.filter((t) => t.featureKey && !valid.has(t.featureKey)).map((t) => t.id);
     expect(orphans).toEqual([]);
   });

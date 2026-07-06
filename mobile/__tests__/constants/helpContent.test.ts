@@ -1,28 +1,29 @@
-import { HELP_TOPICS, searchHelpTopics } from "../../src/constants/helpContent";
+import { searchHelpTopics } from "../../src/help";
+import { HELP_TOPICS } from "../../src/help-content";
 import type { StepId } from "../../src/onboarding/firstRunState";
 
 describe("searchHelpTopics", () => {
   it("returns all topics for an empty / whitespace query", () => {
-    expect(searchHelpTopics("")).toHaveLength(HELP_TOPICS.length);
-    expect(searchHelpTopics("   ")).toHaveLength(HELP_TOPICS.length);
+    expect(searchHelpTopics("", HELP_TOPICS)).toHaveLength(HELP_TOPICS.length);
+    expect(searchHelpTopics("   ", HELP_TOPICS)).toHaveLength(HELP_TOPICS.length);
   });
 
   it("is case-insensitive and matches visible text", () => {
-    const ids = searchHelpTopics("OFFLINE").map((t) => t.id);
+    const ids = searchHelpTopics("OFFLINE", HELP_TOPICS).map((t) => t.id);
     expect(ids).toContain("troubleshooting");
   });
 
   it("matches the topic title", () => {
-    expect(searchHelpTopics("glossary").map((t) => t.id)).toContain("glossary");
+    expect(searchHelpTopics("glossary", HELP_TOPICS).map((t) => t.id)).toContain("glossary");
   });
 
   it("matches keywords that aren't in the visible prose", () => {
     // "billing" is a keyword on the provider-keys topic but not in its body text.
-    expect(searchHelpTopics("billing").map((t) => t.id)).toContain("provider-keys");
+    expect(searchHelpTopics("billing", HELP_TOPICS).map((t) => t.id)).toContain("provider-keys");
   });
 
   it("returns nothing for an unrelated query", () => {
-    expect(searchHelpTopics("xyzzy-not-a-term")).toHaveLength(0);
+    expect(searchHelpTopics("xyzzy-not-a-term", HELP_TOPICS)).toHaveLength(0);
   });
 });
 
@@ -52,7 +53,7 @@ describe("getting-started topic (onboarding polish)", () => {
   });
 
   it("is discoverable by a 'books' search", () => {
-    expect(searchHelpTopics("books").map((t) => t.id)).toContain("getting-started");
+    expect(searchHelpTopics("books", HELP_TOPICS).map((t) => t.id)).toContain("getting-started");
   });
 });
 

@@ -15,7 +15,7 @@ export interface WizardScaffoldProps {
   stepCount: number;
   title: string;
   subtitle?: string;
-  // Help topic id deep-linked from the header "?" (see constants/helpContent.ts).
+  // Help topic id deep-linked from the header "?" (see help-content/topics.ts).
   helpTopic?: string;
   children?: React.ReactNode;
 
