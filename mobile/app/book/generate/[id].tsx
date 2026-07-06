@@ -12,7 +12,7 @@ import { generatedTopicIds, loadBook, saveBook, setTopicContent } from "@/storag
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";

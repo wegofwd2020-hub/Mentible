@@ -8,7 +8,7 @@ import {
   maskApiKey,
   saveApiKey,
 } from "@/secure/keyStore";
-import { HelpHint } from "@/components/HelpHint";
+import { HelpHint } from "@/help";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { DEFAULT_PROVIDER_ID, PROVIDERS, providerInfo } from "@/constants/providers";
 

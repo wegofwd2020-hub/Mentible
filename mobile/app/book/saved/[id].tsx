@@ -15,7 +15,7 @@ import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";

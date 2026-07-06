@@ -5,3 +5,6 @@
 export type { HelpBlock, HelpTopic } from "./schema";
 export { blockText, searchHelpTopics } from "./search";
 export { uncoveredFeatures } from "./coverage";
+export { HelpButton } from "./components/HelpButton";
+export { HelpHint } from "./components/HelpHint";
+export { HelpTopicView } from "./components/HelpTopicView";

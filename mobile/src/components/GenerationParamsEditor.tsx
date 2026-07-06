@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { HelpHint } from "@/components/HelpHint";
+import { HelpHint } from "@/help";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
 import { PROVIDERS, providerInfo } from "@/constants/providers";
