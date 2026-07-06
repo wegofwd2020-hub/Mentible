@@ -6,7 +6,7 @@ import { Redirect, Stack, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
-import { HelpHint } from "@/components/HelpHint";
+import { HelpHint } from "@/help";
 import { PROVIDERS } from "@/constants/providers";
 import { deleteApiKey } from "@/secure/keyStore";
 import { clearDeviceData } from "@/device/clearDeviceData";

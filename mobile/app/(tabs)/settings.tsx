@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-nat
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
 import { RequireSignIn } from "@/auth/RequireSignIn";

@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // Shared chrome for a single first-run wizard step. Presentational only — the
@@ -15,7 +15,7 @@ export interface WizardScaffoldProps {
   stepCount: number;
   title: string;
   subtitle?: string;
-  // Help topic id deep-linked from the header "?" (see constants/helpContent.ts).
+  // Help topic id deep-linked from the header "?" (see help-content/topics.ts).
   helpTopic?: string;
   children?: React.ReactNode;
 

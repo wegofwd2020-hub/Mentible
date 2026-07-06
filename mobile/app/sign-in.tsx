@@ -4,7 +4,7 @@ import { Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { AuthForm } from "@/components/AuthForm";
 import { PageContainer } from "@/components/PageContainer";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { colors, typography } from "@/constants/theme";
 import { IS_DEMO } from "@/constants/demo";
 

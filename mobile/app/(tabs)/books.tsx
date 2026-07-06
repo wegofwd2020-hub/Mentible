@@ -9,7 +9,7 @@ import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { countStaleTopics } from "@/lib/staleness";
 import { BookCover } from "@/components/BookCover";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { colors, radius, spacing, typography } from "@/constants/theme";

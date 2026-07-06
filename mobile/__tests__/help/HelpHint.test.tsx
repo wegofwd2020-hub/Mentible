@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { HelpHint } from "../../src/components/HelpHint";
+import { HelpHint } from "@/help";
 
 describe("HelpHint", () => {
   const TEXT = "Permanently deletes your account.";

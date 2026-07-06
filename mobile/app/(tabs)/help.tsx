@@ -1,28 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
-import { searchHelpTopics, type HelpBlock } from "@/constants/helpContent";
+import { searchHelpTopics, HelpTopicView } from "@/help";
+import { HELP_TOPICS } from "@/help-content";
 import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // Help screen — renders the structured, searchable help content (issue #60).
-// Topics live in constants/helpContent.ts so they stay maintainable + indexable.
+// Topics live in help-content/ so they stay maintainable + indexable; the
+// search + rendering logic itself lives in the help engine (@/help).
 // A `?topic=<id>` deep link (from contextual HelpButtons) scrolls to + briefly
 // highlights that topic.
 export default function HelpScreen() {
   const router = useRouter();
   const { topic } = useLocalSearchParams<{ topic?: string }>();
   const [query, setQuery] = useState("");
-  const topics = useMemo(() => searchHelpTopics(query), [query]);
+  const topics = useMemo(() => searchHelpTopics(query, HELP_TOPICS), [query]);
 
   const scrollRef = useRef<ScrollView>(null);
   const offsets = useRef<Record<string, number>>({});
@@ -80,90 +81,17 @@ export default function HelpScreen() {
             >
               <Text style={styles.sectionLabel}>{t.title}</Text>
               <View style={[styles.card, highlight === t.id && styles.cardHighlight]}>
-                {t.blocks.map((b, i) => (
-                  <Block
-                    key={i}
-                    block={b}
-                    onLink={(href) => router.push(href)}
-                    onAction={(step) => void relaunchStep(step)}
-                  />
-                ))}
+                <HelpTopicView
+                  topic={t}
+                  onLink={(href) => router.push(href as Href)}
+                  onAction={(step) => void relaunchStep(step as StepId)}
+                />
               </View>
             </View>
           ))
         )}
       </PageContainer>
     </ScrollView>
-  );
-}
-
-function Block({
-  block,
-  onLink,
-  onAction,
-}: {
-  block: HelpBlock;
-  onLink: (href: HelpBlockHref) => void;
-  onAction: (step: StepId) => void;
-}) {
-  switch (block.kind) {
-    case "text":
-      return <Text style={styles.body}>{block.text}</Text>;
-    case "steps":
-      return (
-        <>
-          {block.steps.map((s, i) => (
-            <Step key={i} n={i + 1} text={s} />
-          ))}
-        </>
-      );
-    case "link":
-      return (
-        <Pressable
-          style={styles.linkBtn}
-          onPress={() => onLink(block.href)}
-          accessibilityRole="button"
-          accessibilityLabel={block.label}
-        >
-          <Text style={styles.linkBtnText}>{block.label}</Text>
-        </Pressable>
-      );
-    case "defs":
-      return (
-        <>
-          {block.defs.map((d, i) => (
-            <View key={i} style={styles.def}>
-              <Text style={styles.defTerm}>{d.term}</Text>
-              <Text style={styles.defText}>{d.def}</Text>
-            </View>
-          ))}
-        </>
-      );
-    case "action":
-      return (
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => onAction(block.step)}
-          accessibilityRole="button"
-          accessibilityLabel={block.label}
-        >
-          <Text style={styles.actionBtnText}>{block.label}</Text>
-        </Pressable>
-      );
-  }
-}
-
-// The href type a link block carries (narrowed from HelpBlock).
-type HelpBlockHref = Extract<HelpBlock, { kind: "link" }>["href"];
-
-function Step({ n, text }: { n: number; text: string }) {
-  return (
-    <View style={styles.step}>
-      <View style={styles.stepNum}>
-        <Text style={styles.stepNumText}>{n}</Text>
-      </View>
-      <Text style={styles.stepText}>{text}</Text>
-    </View>
   );
 }
 
@@ -204,29 +132,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardHighlight: { borderColor: colors.primary },
-  body: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 21 },
-  step: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  stepNum: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary + "33",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepNumText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeXs },
-  stepText: { flex: 1, fontSize: typography.sizeSm, color: colors.text, lineHeight: 21 },
-  linkBtn: { alignSelf: "flex-start" },
-  linkBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
-  actionBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  actionBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
-  def: { gap: 2 },
-  defTerm: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
-  defText: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
 });
