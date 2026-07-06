@@ -1,0 +1,20 @@
+# starter manifest — owners: refine feature list
+project: Mentible
+stage: pre-mvp
+owners: [siva]
+features:
+  - id: adrs-and-directory-stubs
+    name: ADRs + directory stubs (backend, mobile, pipeline, compiler)
+    status: done
+  - id: onboarding-wizards
+    name: Onboarding wizards (signup, LLM key, reading tour)
+    status: done
+  - id: access-control
+    name: Read-only-until-login gate + device tracking + admin console
+    status: done
+  - id: mobile-app-code
+    name: React Native / Expo app implementation
+    status: pending
+  - id: fastapi-backend
+    name: FastAPI backend (BYOK) implementation
+    status: pending
