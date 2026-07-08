@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Mentible — StudyBuddy Q" width="420">
+</p>
+
 # Mentible (repo `StudyBuddy_SelfLearner`)
 
 > **A purpose-built LLM client for self-learners** — turn a scoped query into a real,
