@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Mentible — StudyBuddy Q" width="420">
+  <img src="mobile/assets/brand/mentible-lockup-redorange-white.png" alt="Mentible — Author Yourself" width="360">
 </p>
 
 # Mentible (repo `StudyBuddy_SelfLearner`)
