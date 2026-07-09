@@ -265,6 +265,10 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
+        text: "Paid plans aren't available yet — this screen is a preview. Bring-your-own-key works today: add a provider key in Settings and start generating.",
+      },
+      {
+        kind: "text",
         text: "Mentible gives you two ways to pay for the AI that writes your books. Both let you read, author, and export — they differ in who holds the provider key and who pays for tokens.",
       },
       {
@@ -292,7 +296,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "text",
         text: "Changed device or reinstalled? Use Restore on the Plans screen to bring back a subscription you already bought.",
       },
-      { kind: "link", label: "See plans", href: "/paywall" },
+      { kind: "link", label: "See plans →", href: "/paywall" },
     ],
   },
 ];
