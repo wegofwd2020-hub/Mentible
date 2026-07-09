@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, configure, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Controllable auth status (drives the coordinator's env auto-skips).
@@ -34,11 +34,21 @@ import { FirstRunWizard } from "../../src/onboarding/FirstRunWizard";
 import { applyStepStatuses, relaunchStep } from "../../src/onboarding/firstRunState";
 
 // This suite renders the wizard's heavy step trees (a Modal wrapping KeyStep with
-// the provider form + guide cards). On a loaded CI runner the *first* render in
-// the file — which also pays one-time module init — has occasionally exceeded
-// Jest's 5 s default and timed out (no assertion failure, no infinite hang: all
-// async here is microtask-bounded mocks). Give the file generous headroom so a
-// slow-but-correct cold start can't trip the timeout. See PR de-flaking this.
+// the provider form + guide cards), so its `findBy*` / `waitFor` assertions are
+// slow: ~0.9 s for the skip-to-tour flow and ~2.9 s for the two-page tour on an
+// idle machine, several times that on a loaded CI runner.
+//
+// Those assertions are bounded by React Native Testing Library's `asyncUtilTimeout`
+// (default **1000 ms**), NOT by `jest.setTimeout` — which governs only the whole
+// test callback. Raising the Jest timeout alone therefore left the suite flaky:
+// the skip-to-tour assertion was already spending ~89% of the 1 s async budget at
+// rest, so any scheduling jitter tipped it into "Unable to find an element…" while
+// the element was in fact about to render.
+//
+// So: give the async utils real headroom, and keep the Jest timeout above it so a
+// genuinely stuck test still fails with RNTL's useful element dump rather than
+// being killed by Jest first.
+configure({ asyncUtilTimeout: 10000 });
 jest.setTimeout(20000);
 
 beforeEach(async () => {
