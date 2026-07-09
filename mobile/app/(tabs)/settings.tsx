@@ -63,6 +63,14 @@ export default function SettingsScreen() {
 
       {!IS_DEMO && (
       <>
+      <Pressable style={styles.accountRow} onPress={() => router.push("/paywall")}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.accountTitle}>Plans & billing</Text>
+          <Text style={styles.accountSub}>Managed generation, or bring your own key</Text>
+        </View>
+        <Text style={styles.accountChevron}>›</Text>
+      </Pressable>
+
       <Pressable style={styles.accountRow} onPress={() => router.push("/usage")}>
         <View style={{ flex: 1 }}>
           <Text style={styles.accountTitle}>Usage</Text>

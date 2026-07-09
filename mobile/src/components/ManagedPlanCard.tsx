@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import type { EntitlementStatus, ManagedStatus } from "@/api/billingClient";
 import { colors, radius, spacing } from "@/constants/theme";
 
@@ -19,6 +20,17 @@ const STATUS_LABEL: Record<EntitlementStatus, string> = {
   canceled: "Ended",
 };
 
+// Shown where a plan would actually help: no entitlement (BYOK upsell), an ended plan,
+// or a spent allowance. Never on a healthy active plan — paying users don't get nagged.
+function SeePlansLink() {
+  const router = useRouter();
+  return (
+    <Pressable onPress={() => router.push("/paywall")} accessibilityRole="link">
+      <Text style={styles.link}>See plans</Text>
+    </Pressable>
+  );
+}
+
 export function ManagedPlanCard({ status }: { status: ManagedStatus }) {
   const ent = status.entitlement;
   const used = status.usage.cost_micros;
@@ -33,6 +45,7 @@ export function ManagedPlanCard({ status }: { status: ManagedStatus }) {
           You’re on bring-your-own-key — generation uses your own provider keys. No
           managed plan or allowance.
         </Text>
+        <SeePlansLink />
       </View>
     );
   }
@@ -78,15 +91,21 @@ export function ManagedPlanCard({ status }: { status: ManagedStatus }) {
         </Text>
       )}
       {ent.status === "canceled" && (
-        <Text style={styles.warn}>
-          Your managed plan has ended. Generation falls back to your own key (BYOK).
-        </Text>
+        <>
+          <Text style={styles.warn}>
+            Your managed plan has ended. Generation falls back to your own key (BYOK).
+          </Text>
+          <SeePlansLink />
+        </>
       )}
       {overCap && ent.status === "active" && (
-        <Text style={styles.warn}>
-          You’ve used your allowance for this period. Add your own key (BYOK) or wait for
-          renewal.
-        </Text>
+        <>
+          <Text style={styles.warn}>
+            You’ve used your allowance for this period. Add your own key (BYOK) or wait for
+            renewal.
+          </Text>
+          <SeePlansLink />
+        </>
       )}
     </View>
   );
@@ -123,4 +142,5 @@ const styles = StyleSheet.create({
   },
   meterFill: { height: 8, borderRadius: 4 },
   warn: { color: colors.warning, fontSize: 13, lineHeight: 19 },
+  link: { color: colors.brand, fontSize: 14, fontWeight: "600" },
 });

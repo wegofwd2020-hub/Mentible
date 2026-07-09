@@ -1,3 +1,5 @@
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import type { EntitlementStatus, ManagedStatus } from "@/api/billingClient";
@@ -90,5 +92,41 @@ describe("ManagedPlanCard", () => {
     );
     expect(screen.getByText("Ended")).toBeTruthy();
     expect(screen.getByText(/falls back to your own key/i)).toBeTruthy();
+  });
+
+  it("offers a link to Plans when the user has no entitlement (BYOK upsell)", () => {
+    render(<ManagedPlanCard status={makeStatus()} />);
+    expect(screen.getByText("See plans")).toBeTruthy();
+  });
+
+  it("offers a link to Plans when the plan has ended", () => {
+    render(<ManagedPlanCard status={makeStatus({ entitlement: ent("canceled") })} />);
+    expect(screen.getByText("See plans")).toBeTruthy();
+  });
+
+  it("offers a link to Plans when the allowance is spent", () => {
+    render(
+      <ManagedPlanCard
+        status={makeStatus({
+          entitlement: ent("active"),
+          allowance_micros: 5_000_000,
+          usage: { cost_micros: 5_000_000, input_tokens: 0, output_tokens: 0, events: 1 },
+        })}
+      />,
+    );
+    expect(screen.getByText("See plans")).toBeTruthy();
+  });
+
+  it("does NOT nag a healthy paying user", () => {
+    render(
+      <ManagedPlanCard
+        status={makeStatus({
+          entitlement: ent("active"),
+          allowance_micros: 5_000_000,
+          usage: { cost_micros: 1_000_000, input_tokens: 0, output_tokens: 0, events: 1 },
+        })}
+      />,
+    );
+    expect(screen.queryByText("See plans")).toBeNull();
   });
 });
