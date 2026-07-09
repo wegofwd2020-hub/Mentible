@@ -257,4 +257,42 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "plans",
+    title: "Plans & billing",
+    keywords: ["plan", "plans", "billing", "subscription", "price", "pricing", "managed", "byok", "cancel", "restore"],
+    featureKey: "plans",
+    blocks: [
+      {
+        kind: "text",
+        text: "Mentible gives you two ways to pay for the AI that writes your books. Both let you read, author, and export — they differ in who holds the provider key and who pays for tokens.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          {
+            term: "Managed",
+            def: "We hold the provider key and carry the token cost. Your plan includes a monthly generation allowance; when it runs out you can add your own key or wait for the period to renew. No API key to set up.",
+          },
+          {
+            term: "Bring your own key (BYOK)",
+            def: "You add your own provider key in Settings and pay that provider directly for tokens. We never see a bill for your generation, and we set no limit on it. Your key is stored in your device's secure storage.",
+          },
+        ],
+      },
+      {
+        kind: "text",
+        text: "Adding your own key never moves it into our managed vault — a BYOK key stays yours and stays on your device. The two paths are separate on purpose.",
+      },
+      {
+        kind: "text",
+        text: "Subscriptions renew automatically. Cancel any time in Google Play (Play Store → Payments & subscriptions), not in Mentible. Cancelling leaves your books and your Library untouched; managed generation falls back to your own key.",
+      },
+      {
+        kind: "text",
+        text: "Changed device or reinstalled? Use Restore on the Plans screen to bring back a subscription you already bought.",
+      },
+      { kind: "link", label: "See plans", href: "/paywall" },
+    ],
+  },
 ];

@@ -9,6 +9,7 @@ export const FEATURES = [
   { key: "export", label: "Export (EPUB3 / PDF)" },
   { key: "sharing", label: "Draft sharing" },
   { key: "accounts", label: "Accounts & sign-in" },
+  { key: "plans", label: "Plans & billing" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
