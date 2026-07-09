@@ -117,6 +117,10 @@ export default function RootLayout() {
           options={{ title: "Usage", headerBackTitle: "Settings" }}
         />
         <Stack.Screen
+          name="paywall"
+          options={{ title: "Plans", headerBackTitle: "Settings" }}
+        />
+        <Stack.Screen
           name="admin"
           options={{ title: "Admin", headerBackTitle: "Account" }}
         />
