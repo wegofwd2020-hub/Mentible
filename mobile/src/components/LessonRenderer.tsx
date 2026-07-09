@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import type { GeneratedTopic } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
@@ -23,20 +23,12 @@ interface HtmlViewProps {
 }
 
 function HtmlViewWeb({ html, label }: HtmlViewProps) {
-  const urlRef = useRef<string | null>(null);
-
-  const src = useMemo(() => {
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    const blob = new Blob([html], { type: "text/html" });
-    urlRef.current = URL.createObjectURL(blob);
-    return urlRef.current;
-  }, [html]);
-
-  useEffect(() => {
-    return () => {
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    };
-  }, []);
+  // `srcDoc` (not a blob: URL) is deliberate. A blob: URL inherits this page's
+  // origin, and a sandboxed frame has a *null* origin — so a sandboxed frame
+  // cannot load a parent-origin blob and renders blank. `srcDoc` embeds the HTML
+  // directly, which loads correctly under the sandbox. `useMemo` keeps the string
+  // identity stable so the frame doesn't reload on unrelated re-renders.
+  const srcDoc = useMemo(() => html, [html]);
 
   return (
     <View style={styles.container}>
@@ -44,7 +36,15 @@ function HtmlViewWeb({ html, label }: HtmlViewProps) {
           depends on what's in scope, so @ts-ignore (not @ts-expect-error) avoids both a
           type error and an "unused directive" error. This branch only renders on web. */}
       <iframe
-        src={src}
+        srcDoc={srcDoc}
+        // SECURITY: without a sandbox this frame is SAME-ORIGIN with the app, so its
+        // (model- or, via ADR-027 sharing, other-user-authored) content could read
+        // localStorage — where the Supabase session and the BYOK LLM key live on web
+        // — and exfiltrate them. `allow-scripts` keeps KaTeX/Mermaid/marked working;
+        // withholding `allow-same-origin` gives the frame a null origin that cannot
+        // reach the parent's storage. NEVER add allow-same-origin here: combined with
+        // allow-scripts it lets the frame remove its own sandbox.
+        sandbox="allow-scripts"
         style={{ flex: 1, border: "none", width: "100%", height: "100%" }}
         title={label}
       />
