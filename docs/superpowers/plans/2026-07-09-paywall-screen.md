@@ -466,7 +466,7 @@ describe("PlanCard", () => {
   });
 
   it("omits the badge when the offer has none", () => {
-    const { badge: _drop, ...noBadge } = OFFER;
+    const noBadge: PlanOffer = { ...OFFER, badge: undefined };
     render(<PlanCard offer={noBadge} selected={false} onSelect={jest.fn()} />);
     expect(screen.queryByText("Easy")).toBeNull();
   });
@@ -839,12 +839,15 @@ describe("Paywall screen", () => {
     expect(screen.getByText("Nothing to restore.")).toBeTruthy();
   });
 
-  it("every offer contributes non-empty renewal terms adjacent to the CTA", async () => {
+  // Store policy: price + period + renewal, adjacent to the purchase button — for
+  // WHICHEVER plan is selected. Asserts against the rendered screen, never the fixtures.
+  it.each([
+    ["Managed, $9.99/mo", MANAGED],
+    ["Bring your own key, $19.99/yr", BYOK],
+  ])("renders %s's renewal terms beside the CTA", async (label, offer) => {
     await renderReady();
-    for (const offer of [MANAGED, BYOK]) {
-      expect(offer.renewalTerms.length).toBeGreaterThan(0);
-    }
-    expect(screen.getByLabelText("renewal terms")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(label));
+    expect(screen.getByLabelText("renewal terms")).toHaveTextContent(offer.renewalTerms);
   });
 
   it("shows an error with Retry when offers fail to load, and Retry reloads", async () => {
@@ -861,13 +864,15 @@ describe("Paywall screen", () => {
     await waitFor(() => expect(screen.getByText("Managed")).toBeTruthy());
   });
 
-  it("never renders a react-native Alert", () => {
-    // Alert.alert is a no-op on RN-web; this screen must work at /app/mentible.
+  // Alert.alert is a no-op on RN-web, and this screen ships to /app/mentible. Guard the
+  // real defect — importing or calling it — not the spelling. Comment prose may say "Alert".
+  it("never imports Alert from react-native, and never calls Alert.alert", () => {
     const src = require("fs").readFileSync(
       require("path").join(__dirname, "../../app/paywall.tsx"),
       "utf8",
     );
-    expect(src).not.toMatch(/\bAlert\b/);
+    expect(src).not.toMatch(/Alert\.alert/);
+    expect(src).not.toMatch(/import\s*\{[^}]*\bAlert\b[^}]*\}\s*from\s*"react-native"/);
   });
 });
 ```
