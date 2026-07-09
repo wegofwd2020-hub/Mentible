@@ -58,8 +58,9 @@ Dark theme (`colors.background` `#14152a`), so the teardown's "one dark CTA" inv
 
 ```
 ┌──────────────────────────────────────┐
-│  ← Plans                    [? Help] │  TopNavBar + HelpButton topic="plans"
+│  ← Plans                             │  stack header, from _layout.tsx options.title
 ├──────────────────────────────────────┤
+│  [? Plans & billing]                 │  HelpButton, in the body (cf. sign-in.tsx)
 │  Generate books with                 │  h1, typography.fontHeading
 │  your key or ours                    │
 │                                      │
@@ -104,16 +105,20 @@ mobile/app/paywall.tsx           screen: selection state, CTA, compliance line
         │
         ├─→ mobile/src/billing/usePlanOffers.ts     hook: load offers, {kind} state machine
         │        │
-        │        └─→ mobile/src/billing/purchaseController.ts   ← THE SEAM
-        │                 │  interface PurchaseController
+        │        └─→ mobile/src/billing/purchaseController.ts   ← THE SEAM (factory)
         │                 │  getPurchaseController(): PurchaseController
         │                 │  __setPurchaseController(c)   // test-only
         │                 │
-        │                 └─→ devPurchaseController.ts   (today)
-        │                     revenueCatController.ts    (later)
+        │                 ├─→ mobile/src/billing/types.ts        the contract (types only)
+        │                 └─→ devPurchaseController.ts           (today)
+        │                     revenueCatController.ts            (later)
         │
         └─→ mobile/src/components/PlanCard.tsx     presentational, zero logic
 ```
+
+The contract lives in its own `types.ts` rather than in `purchaseController.ts`, because the
+factory imports the stub as a *value* while the stub imports the contract as a *type*. Same
+file for both would be a real import cycle at runtime, not merely a type-level one.
 
 ### The contract
 
@@ -189,8 +194,12 @@ entitlement is live."*
   upsell), `canceled`, and `overCap` branches. **Not** in the healthy-`active` branch — no
   nagging paying users.
 - **`settings.tsx`** — a "Plans & billing" row above the existing `/usage` row, matching that
-  row's `Pressable` shape.
-- **`_layout.tsx`** — `<Stack.Screen name="paywall" …>`; routes are registered explicitly.
+  row's `Pressable` shape. It goes **inside** the existing `{!IS_DEMO && …}` block: the demo
+  build disables accounts and generation, so a paywall there is meaningless.
+- **`_layout.tsx`** — `<Stack.Screen name="paywall" options={{ title: "Plans", headerBackTitle:
+  "Settings" }} />`; routes are registered explicitly. The stack header supplies the title, so
+  the screen body does not render its own. (`TopNavBar` is the bottom **tab** bar
+  (`BottomTabBarProps`) and is not involved.)
 
 ## Error handling
 
@@ -241,8 +250,9 @@ FEATURES entry and the topic must land in the same commit or CI reddens either w
 ## Files
 
 ```
-NEW  mobile/src/billing/purchaseController.ts       seam + factory + __setPurchaseController
-NEW  mobile/src/billing/devPurchaseController.ts    placeholder offers, TODO-commented
+NEW  mobile/src/billing/types.ts                    the contract (types only, no runtime)
+NEW  mobile/src/billing/purchaseController.ts       factory + __setPurchaseController
+NEW  mobile/src/billing/devPurchaseController.ts    placeholder offers, DO NOT SHIP banner
 NEW  mobile/src/billing/usePlanOffers.ts
 NEW  mobile/src/billing/index.ts
 NEW  mobile/src/components/PlanCard.tsx
@@ -265,9 +275,11 @@ loan), unrelated to payments. Avoid "checkout" in any payment identifier here.
 
 ## Risks
 
-1. **Placeholder prices leaking into a store build.** `devPurchaseController` throws on
-   `purchase()` and carries a `DO NOT SHIP` banner. A store build must swap the controller;
-   if it doesn't, purchase is inert rather than wrong.
+1. **Placeholder prices leaking into a store build.** `devPurchaseController` resolves
+   `{ kind: "unavailable" }` from `purchase()` — it never throws and never charges — and the
+   file carries a `DO NOT SHIP` banner. A store build must swap the controller; if it
+   doesn't, purchase is inert rather than wrong. (It must not throw: the screen's `error`
+   state is reserved for genuine failures, and "billing isn't configured" is not one.)
 2. **"No scroll to CTA" is device-dependent.** At large Android font scales the screen will
    scroll. Accepted (see Screen anatomy).
 3. **`plans` FEATURES key is user-visible** in Help search. The `label` reads "Plans & billing";
