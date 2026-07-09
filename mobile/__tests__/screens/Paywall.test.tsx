@@ -147,6 +147,18 @@ describe("Paywall screen", () => {
 
   // Alert.alert is a no-op on RN-web, and this screen ships to /app/mentible. Guard the
   // real defect — importing or calling it — not the spelling. Comment prose may say "Alert".
+  it("renders the preview banner in the ready state", async () => {
+    await renderReady();
+    expect(screen.getByLabelText("preview banner")).toBeTruthy();
+  });
+
+  it("preview banner text names the preview state", async () => {
+    await renderReady();
+    expect(screen.getByLabelText("preview banner")).toHaveTextContent(
+      "Preview — paid plans aren't purchasable yet. Bring-your-own-key works today.",
+    );
+  });
+
   it("never imports Alert from react-native, and never calls Alert.alert", () => {
     const src = require("fs").readFileSync(
       require("path").join(__dirname, "../../app/paywall.tsx"),

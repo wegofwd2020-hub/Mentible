@@ -101,6 +101,15 @@ export default function PaywallScreen() {
       <PageContainer>
         <HelpButton topic="plans" label="Plans & billing" />
 
+        {/* Preview banner — same border-left "read this before you trust what
+            follows" idiom as usage.tsx's disclaimer. This screen shows placeholder
+            prices and can't take a real purchase yet; say so before the pitch. */}
+        <View style={styles.previewBanner} accessibilityLabel="preview banner">
+          <Text style={styles.previewBannerText}>
+            Preview — paid plans aren't purchasable yet. Bring-your-own-key works today.
+          </Text>
+        </View>
+
         <Text style={styles.h1}>Generate books with your key or ours</Text>
 
         <View style={styles.benefits}>
@@ -176,6 +185,14 @@ export default function PaywallScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1 },
+  previewBanner: {
+    backgroundColor: colors.surface,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  previewBannerText: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
   h1: {
     color: colors.text,
     fontSize: typography.sizeXl,
