@@ -27,6 +27,10 @@ export const READER_CSS = `
   --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
   --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
 
+  /* The iframe set this on :root. The reader div now owns its own scrollbar, so
+     without it a light-themed browser paints a light scrollbar on a dark pane. */
+  color-scheme: dark;
+
   background: var(--bg);
   color: var(--text);
   font-family: var(--serif);
