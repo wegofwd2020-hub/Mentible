@@ -151,3 +151,78 @@ Android renderer and the web fallback.
 - SEO/SSR (that was the Next.js-repo thesis, explicitly not chosen).
 - Interactive quiz reveal (fast-follow after v1 static reveal).
 - Any backend/auth/billing change.
+
+---
+
+## D7 verification (2026-07-10)
+
+Run against the real app (`EXPO_PUBLIC_NATIVE_READER=1 npx expo start --web`), plus a
+headless pass over the whole bundled corpus. **Result: D7 satisfied. No sanitization
+fallback (spec D7's animation-tag allowlist extension) was needed beyond the three tags
+already allowlisted in `sanitize.ts`.**
+
+### Headless pass — all 30 topics of `claude-certified-architect-foundations`
+
+Every topic pushed through the real `renderTopicToSafeHtml`:
+
+| Measure | Result |
+|---|---|
+| `svg` fences in → `<svg>` elements out | **26 → 26** (none dropped) |
+| `<animate>` surviving | **47** |
+| `<animateMotion>` surviving | **15** |
+| `<style>` (CSS keyframes) inside SVG | **1** |
+| `.mermaid` blocks | **99** |
+| `$$` display-math delimiters | **118** |
+| `<script>` in output | **0** |
+| event-handler attributes in output | **0** |
+| `<use>` / `<mpath>` / `xlink:href` in source | **0 / 0 / 0** |
+
+The last row settles the reviewer's concern that `FORBID_ATTR: ["xlink:href"]` strips
+legitimate `<use xlink:href="#id">` and `<mpath>` references: this corpus contains none.
+`<animateTransform>` and `<set>` are allowlisted but unused by these books.
+
+### Browser drive — topic `ts-1-6` (1 animated SVG, 5 Mermaid diagrams, 12 display-math blocks)
+
+Flag ON:
+
+- `iframeCount: 0`; `.mentible-reader` mounted; 0 `<script>`, 0 event-handler attributes.
+- Real semantic DOM: `h1` + 11 `h2`, 82 `<p>`, 58 `<li>`.
+- **Whole-topic selection: 27,067 characters in a single range** (the iframe trapped
+  selection inside the frame).
+- **Browser find-in-page works** — topic text is in `document.body`.
+- 5/5 Mermaid diagrams rendered to `<svg>`, dark theme, labels legible.
+- 22 KaTeX nodes, 6 `.katex-display` blocks rendered.
+- **The animated SVG animates.** `<animate attributeName="opacity" values="1;0.2;1"
+  dur="2s" repeatCount="indefinite">` survived sanitization intact; driving the SVG clock
+  to t=0/1/2 yields computed opacity `1` / `0.2` / `1`.
+- Reader scrolls (`scrollHeight` 19497 > `clientHeight` 480), so the ported
+  `overflow-y: auto; height: 100%` resolves correctly inside the react-native-web
+  `View` chain. No flex-height regression.
+- Console clean: no errors, no KaTeX/Mermaid warnings.
+
+Flag OFF (default, i.e. what ships):
+
+- `iframeCount: 1`, `sandbox="allow-scripts"`, delivered via `srcDoc`, `src` null,
+  **no `allow-same-origin`**. `.mentible-reader` absent. Last week's token-exfil fix intact.
+
+### Findings recorded, not fixed here
+
+1. **Mermaid's output is not covered by our sanitizer.** `mermaid.run()` writes into the
+   DOM *after* the DOMPurify pass, so `SANITIZE_CONFIG`'s `FORBID_TAGS: [foreignObject]`
+   never sees it — and Mermaid emits **78 `<foreignObject>`** nodes for HTML labels. On
+   this corpus their contents are only `br/div/span`, with 0 scripts, 0 handlers, 0
+   anchors, 0 `javascript:` URLs. Safety therefore rests on Mermaid's *own* internal
+   DOMPurify under `securityLevel: "strict"` — which is exactly why D4 mandates strict
+   mode. Worth an explicit adversarial test (feed a hostile ```mermaid source) before the
+   D1 flip.
+2. `securityLevel: "strict"` did **not** visibly degrade any of the 5 diagrams versus the
+   iframe's `securityLevel: "loose"`.
+3. The `<style>` element inside one SVG fence survives sanitization (DOMPurify's SVG
+   profile keeps it), so its CSS-keyframes animation works.
+
+### Known, accepted parity difference
+
+An ordinary ` ```js ` code fence renders **escaped** in the native reader and **unescaped**
+in the iframe (`contentHtml.ts` never escaped default fences — masked by the sandbox). The
+native behaviour is the correct one. A topic whose code sample contains `<b>` will look
+different between the two readers; this is a fix, not a regression.
