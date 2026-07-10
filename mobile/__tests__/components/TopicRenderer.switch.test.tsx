@@ -29,7 +29,7 @@ jest.mock("@/constants/readerFlag", () => ({
 
 jest.mock("@/reader/NativeTopicReader", () => ({
   NativeTopicReader: () =>
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     require("react").createElement("div", { className: "native-reader-stand-in" }),
 }));
 
@@ -40,7 +40,7 @@ afterAll(() => {
   Platform.OS = "ios";
 });
 
-// eslint-disable-next-line import/first
+ 
 import { TopicRenderer } from "@/components/LessonRenderer";
 
 const topic: GeneratedTopic = {
@@ -51,13 +51,19 @@ const topic: GeneratedTopic = {
   },
 };
 
+// `react-test-renderer` ships no type declarations in this repo, so RNTL's
+// `ReactTestInstance` degrades and `findAll`'s predicate parameter would be an
+// implicit `any` (TS7006 under noImplicitAny). Annotate it explicitly.
+ 
+type TestNode = { type: unknown; props: any };
+
 function renderWithFlag(flagOn: boolean) {
   mockFlagOn = flagOn;
   const { UNSAFE_root } = render(<TopicRenderer topic={topic} />);
   return {
-    iframes: UNSAFE_root.findAll((n) => n.type === ("iframe" as never)),
+    iframes: UNSAFE_root.findAll((n: TestNode) => n.type === ("iframe" as never)),
     natives: UNSAFE_root.findAll(
-      (n) => n.type === ("div" as never) && n.props.className === "native-reader-stand-in",
+      (n: TestNode) => n.type === ("div" as never) && n.props.className === "native-reader-stand-in",
     ),
   };
 }

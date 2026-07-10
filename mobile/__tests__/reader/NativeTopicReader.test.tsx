@@ -34,14 +34,23 @@ const topic = (body: string): GeneratedTopic => ({
   },
 });
 
+// `react-test-renderer` ships no type declarations in this repo, so RNTL's
+// `ReactTestInstance` degrades and `findAll`'s predicate parameter would be an
+// implicit `any` (TS7006 under noImplicitAny). Annotate it explicitly. Props are
+// untyped host-element props, so `any` is the honest type here.
+ 
+type TestNode = { type: unknown; props: any };
+
 const readerDiv = (root: ReturnType<typeof render>["UNSAFE_root"]) =>
-  root.findAll((n) => n.type === ("div" as never) && n.props.className === "mentible-reader")[0];
+  root.findAll(
+    (n: TestNode) => n.type === ("div" as never) && n.props.className === "mentible-reader",
+  )[0];
 
 beforeEach(() => jest.clearAllMocks());
 
 it("renders the topic content inline — no iframe anywhere in the tree", () => {
   const { UNSAFE_root } = render(<NativeTopicReader topic={topic("Hello **world**.")} />);
-  expect(UNSAFE_root.findAll((n) => n.type === ("iframe" as never))).toHaveLength(0);
+  expect(UNSAFE_root.findAll((n: TestNode) => n.type === ("iframe" as never))).toHaveLength(0);
   expect(readerDiv(UNSAFE_root)!.props.dangerouslySetInnerHTML.__html).toContain("<strong>world</strong>");
 });
 
@@ -68,7 +77,7 @@ it("does not crash when mounted without a real DOM node, and leaves math as text
 
 it("emits a scoped stylesheet — every rule sits under the reader root class", () => {
   const { UNSAFE_root } = render(<NativeTopicReader topic={topic("x")} />);
-  const style = UNSAFE_root.findAll((n) => n.type === ("style" as never))[0];
+  const style = UNSAFE_root.findAll((n: TestNode) => n.type === ("style" as never))[0];
   const css: string = style!.props.children;
   // Extract each rule's selector: the text before "{" in every "…{…}" block. Do NOT
   // filter lines ending in "{" — most rules in readerStyles.ts are single-line, so
