@@ -1505,13 +1505,15 @@ it("SECURITY: a hostile topic yields no executable markup in the injected html",
   expect(html).not.toMatch(/javascript:/i);
 });
 
-// Documents the RNTL limitation rather than pretending to test the DOM pass: under
-// react-test-renderer `ref.current` is null, so the effect's guard short-circuits and
-// enhanceReaderNode is never reached. What this proves is that the guard holds and the
-// component does not crash. The real behaviour is covered by enhance.test.ts.
-it("guards the DOM pass when there is no real node (react-test-renderer)", () => {
-  expect(() => render(<NativeTopicReader topic={topic("$$x^2$$")} />)).not.toThrow();
+// Under react-test-renderer `ref.current` is null, so the effect's guard short-circuits
+// and enhanceReaderNode is never reached. This test pins the guard: without it the effect
+// would throw on `node.querySelector` when mounted outside a browser. The pass itself is
+// covered against a real DOM node in enhance.test.ts.
+it("does not crash when mounted without a real DOM node, and leaves math as text", () => {
+  const { UNSAFE_root } = render(<NativeTopicReader topic={topic("$$x^2$$")} />);
   expect(enhanceReaderNode).not.toHaveBeenCalled();
+  // The math survived sanitization as literal text, ready for the KaTeX pass on web.
+  expect(readerDiv(UNSAFE_root)!.props.dangerouslySetInnerHTML.__html).toContain("$$x^2$$");
 });
 
 it("emits a scoped stylesheet — every rule sits under the reader root class", () => {
@@ -1861,16 +1863,22 @@ through the existing test infra (`sanitize.ts` is TypeScript — `node -e` canno
 Add a temporary case to `mobile/__tests__/reader/sanitize.test.ts`:
 
 ```ts
-it("TEMP diagnostic — what survives?", () => {
-  const failing = `<svg>…paste the failing figure's markup here…</svg>`;
-  // eslint-disable-next-line no-console
-  console.log(sanitizeFragment(failing));
-  expect(true).toBe(true);
-});
+// TEMPORARY diagnostic — delete once the dropped tag is identified.
+// Asserts the real requirement (the figure keeps its animation), so it goes RED
+// and names the tag rather than merely printing.
+it.each(["animate", "animateTransform", "set", "animateMotion"])(
+  "TEMP diagnostic — the failing figure keeps <%s>",
+  (tag) => {
+    const failing = `<svg>…paste the failing figure's markup here…</svg>`;
+    const out = sanitizeFragment(failing);
+    if (!new RegExp(`<${tag}[\\s/>]`, "i").test(failing)) return; // figure doesn't use it
+    expect(new RegExp(`<${tag}[\\s/>]`, "i").test(out)).toBe(true);
+  },
+);
 ```
 
 Run: `cd mobile && npx jest __tests__/reader/sanitize.test.ts -t "TEMP diagnostic"`
-Diff the logged output against the input to find the dropped tag.
+The RED case names the dropped tag.
 
 Then add **only that animation tag** to `ANIMATION_TAGS` in `src/reader/sanitize.ts`, add a
 permanent keep-test for it, and add a paired attack test proving the `attributeName="href"`
