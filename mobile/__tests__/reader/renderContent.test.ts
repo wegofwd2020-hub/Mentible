@@ -30,30 +30,41 @@ const topic = (over: Partial<GeneratedTopic> = {}): GeneratedTopic => ({
 /**
  * Every content type must satisfy this. The load-bearing assertion of the suite.
  *
- * DEVIATION FROM THE BRIEF (documented in task-4-report.md): the brief's on*
- * check was `not.toMatch(/\son\w+\s*=/i)`, a bare substring test. escapeHtml()
- * HTML-escapes `"` to `&quot;`, but sanitizeFragment's single DOMPurify pass
- * necessarily parses the whole fragment into a DOM and re-serializes it — and
- * per the WHATWG HTML fragment-serialization algorithm, only `&`, `<`, `>` are
- * re-escaped in text-node content, not `"`. So an escaped payload like
- * `x onerror="alert(1)"` legitimately round-trips back to a literal `x
- * onerror="alert(1)"` *string* inside inert text (e.g. inside an `<h1>`), which
- * the bare substring regex flags even though no live attribute exists (proven:
- * `mobile/node_modules` jsdom does the same unescape with DOMPurify removed
- * from the pipeline entirely). This is standard browser behaviour, not a
- * sanitizer weakness, and is unrelated to sanitize.ts.
- *
- * The tightened regex below requires the on*= to sit inside an actual
- * unescaped tag (`<tagname ... on\w+=`), which only a live DOM attribute can
- * produce — inert escaped text (`&lt;img ... onerror=`) can never match it
- * because its `<` is an entity, not a literal `<`. Verified this still catches
- * a real unstripped handler (e.g. a bare `<img src=x onerror="alert(1)">`).
+ * Asserts over the PARSED DOM, not the serialized string. HTML text-node
+ * serialization never re-escapes `"`, so an inert, escaped payload like
+ * `&lt;img src=x onerror="alert(1)"&gt;` round-trips with a literal ` onerror="`
+ * substring in it — a string regex flags that as executable when it is plain
+ * text. Parsing settles the question: an attribute only exists if an element
+ * exists.
  */
 function expectNoExecutableArtifacts(html: string) {
-  expect(html).not.toMatch(/<script/i);
-  expect(html).not.toMatch(/<[a-z][^<>]*\son\w+\s*=/i);
-  expect(html).not.toMatch(/javascript:/i);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const el of Array.from(doc.body.querySelectorAll("*"))) {
+    for (const attr of Array.from(el.attributes)) {
+      expect(attr.name.toLowerCase().startsWith("on")).toBe(false);
+    }
+    for (const name of ["href", "src", "xlink:href"]) {
+      const v = el.getAttribute(name);
+      if (v != null) expect(/^\s*javascript:/i.test(v)).toBe(false);
+    }
+  }
+  expect(doc.querySelectorAll("script").length).toBe(0);
 }
+
+describe("expectNoExecutableArtifacts (helper self-test)", () => {
+  it("throws on live executable markup", () => {
+    expect(() => expectNoExecutableArtifacts('<img src="x" onerror="alert(1)">')).toThrow();
+    expect(() => expectNoExecutableArtifacts('<svg onload="alert(1)"></svg>')).toThrow();
+    expect(() => expectNoExecutableArtifacts('<a title="a>b" onclick="steal()">x</a>')).toThrow();
+    expect(() => expectNoExecutableArtifacts('<a href="javascript:alert(1)">x</a>')).toThrow();
+    expect(() => expectNoExecutableArtifacts('<p></p><script>alert(1)</script>')).toThrow();
+  });
+
+  it("does not throw on genuinely inert escaped text", () => {
+    expect(() => expectNoExecutableArtifacts('<h1>&lt;img src=x onerror="alert(1)"&gt;</h1>')).not.toThrow();
+    expect(() => expectNoExecutableArtifacts('<p>Read about the javascript: URL scheme.</p>')).not.toThrow();
+  });
+});
 
 describe("lesson", () => {
   it("renders title, synopsis, objectives, sections, takeaways", () => {
