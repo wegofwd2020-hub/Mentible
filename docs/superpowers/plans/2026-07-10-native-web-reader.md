@@ -1774,8 +1774,12 @@ Expected: full suite PASS (including the existing `__tests__/components/LessonRe
 
 Then confirm the native bundle cannot reach the web-only libs:
 
-Run: `cd mobile && grep -rn "dompurify\|from \"marked\"\|mermaid\|katex" src/ --include=*.ts --include=*.tsx | grep -v "\.web\.tsx" | grep -vE "^src/reader/(sanitize|markdown|enhance)\.ts" | grep -v "^src/types/katex-auto-render.d.ts"`
+Run: `cd mobile && grep -rnE "(from|require\()\s*['\"](dompurify|marked|mermaid|katex)" src/ app/ --include=*.ts --include=*.tsx | grep -v "\.web\.tsx" | grep -vE "src/reader/(sanitize|markdown|enhance)\.ts"`
 Expected: **no output**. Any hit means a web-only import leaked into a file metro will bundle for Android.
+
+Match **import/require statements**, not bare substrings. A substring grep for `mermaid|katex` returns ~16 false positives — CSS class names in `readerStyles.ts`, comments that *mention* the libraries, the CDN `<script>` URLs inside `contentHtml.ts`'s iframe HTML template, and a Help keywords array — and buries any real hit.
+
+**Ordering note:** this check cannot pass while the `reader-lab` spike exists. `src/reader-lab/nativeRender.ts` statically imports `marked` and `dompurify` and has no `.web` suffix, so metro pulls both into the Android bundle graph regardless of its runtime `Platform.OS` guard. Task 10 deletes the spike. If you are running Task 9 before Task 10, delete `mobile/app/reader-lab.tsx` and `mobile/src/reader-lab/` first (nothing references them).
 
 (`sanitize.ts`, `markdown.ts`, and `enhance.ts` are reachable only from `NativeTopicReader.web.tsx` — directly or via `renderContent.ts` — so they never enter the native graph. `NativeTopicReader.tsx`, the file metro *does* bundle for Android, imports none of them. Verify that by eye too.)
 
