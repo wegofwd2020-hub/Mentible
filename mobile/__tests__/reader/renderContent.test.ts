@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { renderTopicToSafeHtml } from "@/reader/renderContent";
-import type { GeneratedTopic } from "@/types/book";
+import type { GeneratedTopic, QuizSet } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 
 const XSS = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
@@ -178,6 +178,79 @@ describe("optional sections", () => {
     const html = renderTopicToSafeHtml(topic());
     expect(html).not.toContain("Tutorial");
     expect(html).not.toContain("Experiment");
+  });
+});
+
+const quizSet = (over: Partial<QuizSet> = {}): QuizSet => ({
+  set_number: 1,
+  questions: [{
+    question_id: "q1",
+    question_text: "What is $x$?",
+    question_type: "multiple_choice",
+    options: [
+      { option_id: "A", text: "Wrong" },
+      { option_id: "B", text: "Right" },
+    ],
+    correct_option: "B",
+    explanation: "Because **B**.",
+    difficulty: "easy",
+  }],
+  total_questions: 1,
+  passing_score: null,
+  estimated_duration_minutes: null,
+  ...over,
+});
+
+describe("quiz", () => {
+  it("renders questions, options, and marks the correct one", () => {
+    const html = renderTopicToSafeHtml(topic({ quizSets: [quizSet()] }));
+    expect(html).toContain("<h2>Quiz</h2>");
+    expect(html).toContain("What is $x$?");
+    expect(html).toContain("Wrong");
+    expect(html).toContain('class="correct"');
+  });
+
+  // Spec D6: v1 reveal is STATIC — answer and explanation are always in the DOM.
+  // No in-page script, no React reveal state.
+  it("shows the answer and explanation statically", () => {
+    const html = renderTopicToSafeHtml(topic({ quizSets: [quizSet()] }));
+    expect(html).toContain('<div class="quiz-answer">');
+    expect(html).toContain("B");
+    expect(html).toContain("<strong>B</strong>");
+    expect(html).toContain("easy");
+  });
+
+  it("labels each set when there is more than one", () => {
+    const html = renderTopicToSafeHtml(topic({ quizSets: [quizSet(), quizSet({ set_number: 2 })] }));
+    expect(html).toContain("Set 1");
+    expect(html).toContain("Set 2");
+  });
+
+  it("omits the set label for a single set", () => {
+    expect(renderTopicToSafeHtml(topic({ quizSets: [quizSet()] }))).not.toContain("Set 1");
+  });
+
+  it("omits the quiz block for an empty quizSets array", () => {
+    expect(renderTopicToSafeHtml(topic({ quizSets: [] }))).not.toContain("<h2>Quiz</h2>");
+  });
+
+  it("SECURITY: neutralises a payload in every quiz field", () => {
+    const html = renderTopicToSafeHtml(
+      topic({
+        quizSets: [quizSet({
+          questions: [{
+            question_id: "q1",
+            question_text: XSS,
+            question_type: "multiple_choice",
+            options: [{ option_id: XSS, text: XSS }],
+            correct_option: XSS,
+            explanation: XSS,
+            difficulty: XSS,
+          }],
+        })],
+      }),
+    );
+    expectNoExecutableArtifacts(html);
   });
 });
 

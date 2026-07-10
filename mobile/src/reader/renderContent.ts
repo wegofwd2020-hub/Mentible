@@ -8,7 +8,7 @@
 //
 // Web-only. Exactly ONE sanitize pass, at the bottom of renderTopicToSafeHtml.
 
-import type { GeneratedTopic, ExperimentOutput, TutorialOutput } from "@/types/book";
+import type { GeneratedTopic, ExperimentOutput, QuizSet, TutorialOutput } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 import { sanitizeFragment } from "@/reader/sanitize";
 import { escapeHtml, li, md, stripDupHeading } from "@/reader/markdown";
@@ -52,6 +52,34 @@ function renderTutorial(tut: TutorialOutput): string {
   return h;
 }
 
+// Static reveal (spec D6): the answer and explanation are always present. The
+// iframe revealed them with in-page JS; the native reader has no in-page script,
+// and interactive reveal is the fast-follow that gates the D1 flag flip.
+function renderQuizzes(sets: QuizSet[]): string {
+  let h = `${DIVIDER}<h2>Quiz</h2>`;
+  for (const set of sets) {
+    if (sets.length > 1 && set.set_number != null) {
+      h += `<h3>Set ${escapeHtml(set.set_number)}</h3>`;
+    }
+    (set.questions ?? []).forEach((q, i) => {
+      h += '<div class="quiz-q">';
+      h += `<div class="quiz-qtext">${md(`${i + 1}. ${q.question_text || ""}`)}</div>`;
+      h += '<ul class="quiz-options">';
+      for (const o of q.options ?? []) {
+        const correct = o.option_id === q.correct_option;
+        h += `<li class="${correct ? "correct" : ""}"><b>${escapeHtml(o.option_id)}.</b> `;
+        h += `${escapeHtml(o.text)}${correct ? " ✓" : ""}</li>`;
+      }
+      h += "</ul>";
+      h += `<div class="quiz-answer"><b>Answer:</b> ${escapeHtml(q.correct_option)}</div>`;
+      if (q.explanation) h += `<div class="quiz-expl">${md(q.explanation)}</div>`;
+      if (q.difficulty) h += `<div class="difficulty">${escapeHtml(q.difficulty)}</div>`;
+      h += "</div>";
+    });
+  }
+  return h;
+}
+
 function renderExperiment(exp: ExperimentOutput): string {
   let h = `${DIVIDER}<h2>${escapeHtml(exp.experiment_title || "Experiment")}</h2>`;
   if (exp.materials?.length) {
@@ -85,6 +113,7 @@ function renderExperiment(exp: ExperimentOutput): string {
 export function renderTopicToSafeHtml(topic: GeneratedTopic): string {
   let html = renderLesson(topic.lesson);
   if (topic.tutorial) html += renderTutorial(topic.tutorial);
+  if (topic.quizSets?.length) html += renderQuizzes(topic.quizSets);
   if (topic.experiment) html += renderExperiment(topic.experiment);
   return sanitizeFragment(html);
 }
