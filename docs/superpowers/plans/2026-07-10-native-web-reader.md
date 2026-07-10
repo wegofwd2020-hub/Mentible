@@ -1520,8 +1520,14 @@ it("emits a scoped stylesheet — every rule sits under the reader root class", 
   const { UNSAFE_root } = render(<NativeTopicReader topic={topic("x")} />);
   const style = UNSAFE_root.findAll((n) => n.type === ("style" as never))[0];
   const css: string = style!.props.children;
-  const selectors = css.split("\n").filter((l) => l.trim().endsWith("{"));
-  expect(selectors.length).toBeGreaterThan(10);
+  // Extract each rule's selector: the text before "{" in every "…{…}" block. Do NOT
+  // filter lines ending in "{" — most rules in readerStyles.ts are single-line, so
+  // that would inspect only ~10 of the ~49 rules and silently under-test the invariant.
+  const selectors = css
+    .split("}")
+    .map((block) => block.split("{")[0]!.trim())
+    .filter(Boolean);
+  expect(selectors.length).toBeGreaterThan(40); // 49 rules ported from the iframe
   for (const sel of selectors) expect(sel).toContain(".mentible-reader");
 });
 ```
