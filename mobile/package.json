@@ -38,6 +38,7 @@
     "fflate": "^0.8.3",
     "katex": "^0.16.9",
     "marked": "^9.1.6",
+    "mermaid": "^10.9.6",
     "pretty-format": "29.7.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
