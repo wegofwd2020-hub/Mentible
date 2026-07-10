@@ -57,6 +57,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
     "@types/react-dom": "~19.0.4",
+    "babel-plugin-dynamic-import-node": "^2.3.3",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~9.2.0",
     "eslint-plugin-react-hooks": "^6.1.1",
