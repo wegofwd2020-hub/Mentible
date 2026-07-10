@@ -4,6 +4,8 @@ import type { GeneratedTopic } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 import { buildHtml, buildTopicHtml } from "@/components/contentHtml";
 import { colors } from "@/constants/theme";
+import { USE_NATIVE_WEB_READER } from "@/constants/readerFlag";
+import { NativeTopicReader } from "@/reader/NativeTopicReader";
 
 // Re-export the pure builders so existing importers keep working
 // (`@/components/LessonRenderer` was their home before the contentHtml split).
@@ -83,8 +85,27 @@ export function LessonRenderer({ lesson }: { lesson: LessonOutput }) {
   return <HtmlView html={html} label="Lesson content" />;
 }
 
-/** Renders a full book topic — lesson plus any tutorial / quiz sets / experiment. */
+/**
+ * Renders a full book topic — lesson plus any tutorial / quiz sets / experiment.
+ *
+ * Two implementations. The default is the sandboxed iframe (web) / WebView (native)
+ * below. On web with EXPO_PUBLIC_NATIVE_READER=1 it delegates to NativeTopicReader,
+ * which renders into the app's own DOM — real text selection, find-in-page, semantic
+ * headings, bundled fonts. The switch lives here (not at the two call sites) so the
+ * Studio topic screen and the shared-draft reader can never drift apart.
+ *
+ * Flipping the flag's default is the spec's D1 "flip"; it is gated on the interactive
+ * quiz reveal landing, since v1 of the native reader reveals answers statically (D6).
+ *
+ * `NativeTopicReader` resolves to a throwing stub off-web, so the flag being false on
+ * native is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
+ */
 export function TopicRenderer({ topic }: { topic: GeneratedTopic }) {
+  if (USE_NATIVE_WEB_READER) return <NativeTopicReader topic={topic} />;
+  return <IframeTopicRenderer topic={topic} />;
+}
+
+function IframeTopicRenderer({ topic }: { topic: GeneratedTopic }) {
   const html = useMemo(() => buildTopicHtml(topic), [topic]);
   return <HtmlView html={html} label="Topic content" />;
 }
