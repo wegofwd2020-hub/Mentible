@@ -28,11 +28,13 @@ flag until parity is verified, then the web default flips.
 
 | # | Decision |
 |---|---|
-| D1 | **Flag-gated until parity, then flip.** Build the native web reader behind a web-only flag while the iframe stays the web default. Reach full parity on real books, verify, then flip the flag so native is the web default. The iframe path is retained for Android and as a web fallback. No user-visible regression at any point. |
+| D1 | **Flag-gated until parity, then flip.** Build the native web reader behind a web-only flag while the iframe stays the web default. Reach full parity on real books, verify, then flip the flag so native is the web default. The iframe path is retained for Android and as a web fallback. No user-visible regression at any point. **Flip gate (added 2026-07-10):** because v1 ships *static* quiz reveal (D6), flipping the flag before interactive reveal lands would itself be a regression — so **the flip is gated on the interactive-reveal fast-follow**, not on v1. v1 = build + verify behind the flag, flag stays off. |
 | D2 | **Lazy-load Mermaid per topic.** `marked` / `DOMPurify` / `KaTeX` bundle normally (~400KB). Mermaid (~3MB) loads via dynamic `import()` only when a topic actually contains a ```mermaid block. Prose-only topics never pay for it; once a diagram topic is opened, diagrams are offline-capable. |
 | D3 | **Web-only.** The native renderer is a `.web` path. `Platform.OS !== "web"` keeps the `react-native-webview` renderer untouched — `DOMPurify`/`marked`/`mermaid` must never be imported on native. |
 | D4 | **Sanitization is mandatory and load-bearing.** With no iframe boundary, all content (model- and, via ADR-027, other-user-authored) is untrusted. DOMPurify runs over every rendered fragment. The config must permit KaTeX output (MathML/SVG spans) and Mermaid output (SVG) while stripping `<script>`, event handlers, and `javascript:`/`data:` URLs. The spike's security tests (0 scripts, 0 `onerror`) become the parity gate for every content type. |
 | D5 | **Parity is defined by the existing iframe.** The native reader renders the same content types the iframe does — lesson, tutorial, quiz sets, experiment, plus ```mermaid and ```svg fences and KaTeX math — and ports `contentHtml.ts`'s stylesheet so the look matches or beats it. |
+| D6 | *(confirmed 2026-07-10)* **Quiz reveal is static in v1.** Answer + explanation always visible; no in-page JS, no React reveal state. Interactive reveal (a `QuizBlock` with click-to-reveal) is the fast-follow that gates the D1 flip. |
+| D7 | *(confirmed 2026-07-10)* **Model-authored ```svg is sanitized strictly, then verified on real books.** DOMPurify's SVG profile is the boundary — stricter than the iframe's regex `<script>` strip. Because animated SVG is a shipped product capability, the build includes an explicit verification task: render every diagram/SVG topic in both default-library books under the flag and diff against the iframe. If sanitization strips animation constructs (`<animate>`, `<animateTransform>`, `<set>`, `<animateMotion>`), allowlist those **tags only** — they carry no script capability. Never allowlist `on*` handlers, `<script>`, or `<foreignObject>` to fix a render. |
 
 ## Architecture
 
@@ -127,13 +129,15 @@ Android renderer and the web fallback.
 
 ## Risks
 
-1. **Quiz interactivity.** The iframe quiz reveals answers via in-page JS. Under the
-   native path there's no in-frame script; the reveal must be React state (a small
-   `QuizBlock` component) OR static "answer + explanation shown" for v1. v1 ships
-   static reveal; interactive reveal is a fast-follow. Flagged, not silently dropped.
-2. **DOMPurify vs KaTeX/Mermaid output.** Too-strict config blanks math/diagrams;
-   too-loose re-opens XSS. The per-type security tests + real-book verification are
-   the guard. Mermaid input stays escaped-until-rendered; `securityLevel: strict`.
+1. **Quiz interactivity.** *(resolved — D6.)* The iframe quiz reveals answers via
+   in-page JS; the native path has no in-frame script. v1 ships static reveal.
+   Because that is a regression relative to the iframe, the D1 flag flip is gated on
+   the interactive-reveal fast-follow, so no web user ever sees the downgrade.
+2. **DOMPurify vs KaTeX/Mermaid/animated-SVG output.** Too-strict config blanks
+   math/diagrams/animations; too-loose re-opens XSS. The per-type security tests +
+   the D7 real-book verification pass are the guard. Mermaid input stays
+   escaped-until-rendered; `securityLevel: strict`. Animation-tag allowlisting (D7)
+   is the *only* sanctioned loosening.
 3. **Mermaid bundle.** Even lazy, a diagram topic pulls ~3MB. Acceptable per D2;
    logged so it's a known cost, not a surprise.
 4. **Parity drift.** `contentHtml.ts` (iframe) and `renderContent.ts` (native) now
