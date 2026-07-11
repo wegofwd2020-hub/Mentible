@@ -106,6 +106,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     keywords: [
       "read", "reading", "open", "book", "library", "tabs", "navigate", "menu",
       "topic", "lesson", "export", "epub", "pdf", "tour", "studio", "shelf",
+      "quiz", "question", "answer", "reveal", "score",
     ],
     blocks: [
       {
@@ -123,6 +124,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "text",
         text: "New here? Your Library already has a book ready to open, so you can start reading before authoring anything of your own.",
+      },
+      {
+        kind: "text",
+        text: "Quizzes inside a book are interactive: tap an option to answer. Your choice locks in, the correct answer is highlighted, and the explanation appears so you can check your reasoning.",
       },
       { kind: "action", label: "Replay the app tour", step: "tour" },
     ],

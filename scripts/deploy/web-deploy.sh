@@ -74,6 +74,10 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mo
   if [ -n "$DEMO_FLAG" ]; then
     # Read-only demo: demo flag on, Supabase OFF (auth unavailable → no sign-in).
     export EXPO_PUBLIC_DEMO_MODE=1
+    # D1 flip (demo first, 2026-07-11): enable the native web reader on the demo
+    # surface only. The full app keeps the iframe until its own follow-up PR. Web-only
+    # by construction — readerFlag.ts also gates on Platform.OS === "web".
+    export EXPO_PUBLIC_NATIVE_READER=1
   else
     # Full app: Supabase on (accounts), demo flag off.
     export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
