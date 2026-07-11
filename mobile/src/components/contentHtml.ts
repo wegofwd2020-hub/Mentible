@@ -1,15 +1,13 @@
 // Pure HTML-document builders for the content reader. No React/RN imports, so
 // the markup logic is unit-testable in plain jest.
 //
-// The reader is a self-contained HTML document rendered in a WebView (native)
-// or iframe (web): markdown via `marked`, maths via KaTeX, diagrams via Mermaid
-// — all CDN-loaded and run in-page (RN has no DOM, so rendering can't happen in
-// the bundle). `buildHtml` renders a single lesson (the original single-lesson
-// path); `buildTopicHtml` renders a full multi-format topic (lesson + optional
-// tutorial + quiz sets + experiment) for the book reader.
+// The reader is a self-contained HTML document rendered in a react-native-webview
+// on native (web uses the real-DOM reader in `src/reader/`): markdown via `marked`,
+// maths via KaTeX, diagrams via Mermaid — all CDN-loaded and run in-page (RN has no
+// DOM, so rendering can't happen in the bundle). `buildTopicHtml` renders a full
+// multi-format topic (lesson + optional tutorial + quiz sets + experiment).
 
 import type { GeneratedTopic } from "@/types/book";
-import type { LessonOutput } from "@/types/lesson";
 import { colors } from "@/constants/theme";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
@@ -312,11 +310,6 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 </script>
 </body>
 </html>`;
-}
-
-/** Single lesson — the original single-lesson reader path. */
-export function buildHtml(lesson: LessonOutput): string {
-  return htmlDocument(JSON.stringify(lesson), "html += renderLesson(DATA);");
 }
 
 /** Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment. */

@@ -1,4 +1,4 @@
-import { buildHtml, buildTopicHtml } from "@/components/contentHtml";
+import { buildTopicHtml } from "@/components/contentHtml";
 import type { GeneratedTopic } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 
@@ -27,23 +27,6 @@ function topic(extra: Partial<GeneratedTopic> = {}): GeneratedTopic {
     ...extra,
   };
 }
-
-describe("buildHtml (single lesson)", () => {
-  it("produces a full HTML document with the libs wired", () => {
-    const html = buildHtml(lesson);
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("marked.min.js");
-    expect(html).toContain("katex.min.js");
-    expect(html).toContain("mermaid");
-    expect(html).toContain("renderLesson(DATA)");
-  });
-
-  it("embeds the lesson data", () => {
-    const html = buildHtml(lesson);
-    expect(html).toContain("Why Context Engineering Emerged");
-    expect(html).toContain("Intro **body**.");
-  });
-});
 
 describe("buildTopicHtml (multi-format topic)", () => {
   it("always dispatches the lesson and conditionally the extras", () => {
@@ -118,7 +101,7 @@ describe("animated SVG (free animated-visual path)", () => {
   // The WebView JS can't run in jest, so assert the renderer/CSS are wired —
   // a ```svg fenced block is dropped inline (animated) instead of a code block.
   it("wires the svg fenced-block renderer + figure styling", () => {
-    const html = buildHtml(lesson);
+    const html = buildTopicHtml(topic());
     expect(html).toContain("lang === 'svg'"); // the renderer branch
     expect(html).toContain("anim-svg"); // figure class + CSS
     expect(html).toContain("<script[\\s\\S]"); // the <script>-strip regex (not a real tag)

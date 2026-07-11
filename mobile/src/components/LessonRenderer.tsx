@@ -1,60 +1,29 @@
 import React, { useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import type { GeneratedTopic } from "@/types/book";
-import type { LessonOutput } from "@/types/lesson";
-import { buildHtml, buildTopicHtml } from "@/components/contentHtml";
+import { buildTopicHtml } from "@/components/contentHtml";
 import { colors } from "@/constants/theme";
-import { USE_NATIVE_WEB_READER } from "@/constants/readerFlag";
 import { NativeTopicReader } from "@/reader/NativeTopicReader";
 
-// Re-export the pure builders so existing importers keep working
+// Re-export the pure builder so existing importers keep working
 // (`@/components/LessonRenderer` was their home before the contentHtml split).
-export { buildHtml, buildTopicHtml };
+export { buildTopicHtml };
 
 // react-native-webview is native-only. Import lazily so the web bundle never
 // tries to resolve it (it has no web entry point and would throw at load time).
 const WebView = Platform.OS !== "web" ? require("react-native-webview").default : null;
 
-// ── Shared WebView/iframe host ────────────────────────────────────────────────
-// Both renderers differ only in the HTML they build; the platform plumbing
-// (blob iframe on web, react-native-webview on native) is identical.
+// ── Native WebView host ───────────────────────────────────────────────────────
+// The native topic reader: renders built topic HTML in a react-native-webview.
+// Web renders through NativeTopicReader instead (see TopicRenderer), so this host
+// only ever mounts on native.
 
 interface HtmlViewProps {
   html: string;
   label: string;
 }
 
-function HtmlViewWeb({ html, label }: HtmlViewProps) {
-  // `srcDoc` (not a blob: URL) is deliberate. A blob: URL inherits this page's
-  // origin, and a sandboxed frame has a *null* origin — so a sandboxed frame
-  // cannot load a parent-origin blob and renders blank. `srcDoc` embeds the HTML
-  // directly, which loads correctly under the sandbox. `useMemo` keeps the string
-  // identity stable so the frame doesn't reload on unrelated re-renders.
-  const srcDoc = useMemo(() => html, [html]);
-
-  return (
-    <View style={styles.container}>
-      {/* @ts-ignore — <iframe> is web-only; whether RN/react-native-web types know it
-          depends on what's in scope, so @ts-ignore (not @ts-expect-error) avoids both a
-          type error and an "unused directive" error. This branch only renders on web. */}
-      <iframe
-        srcDoc={srcDoc}
-        // SECURITY: without a sandbox this frame is SAME-ORIGIN with the app, so its
-        // (model- or, via ADR-027 sharing, other-user-authored) content could read
-        // localStorage — where the Supabase session and the BYOK LLM key live on web
-        // — and exfiltrate them. `allow-scripts` keeps KaTeX/Mermaid/marked working;
-        // withholding `allow-same-origin` gives the frame a null origin that cannot
-        // reach the parent's storage. NEVER add allow-same-origin here: combined with
-        // allow-scripts it lets the frame remove its own sandbox.
-        sandbox="allow-scripts"
-        style={{ flex: 1, border: "none", width: "100%", height: "100%" }}
-        title={label}
-      />
-    </View>
-  );
-}
-
-function HtmlViewNative({ html, label }: HtmlViewProps) {
+function HtmlView({ html, label }: HtmlViewProps) {
   return (
     <View style={styles.container}>
       <WebView
@@ -72,40 +41,25 @@ function HtmlViewNative({ html, label }: HtmlViewProps) {
   );
 }
 
-function HtmlView(props: HtmlViewProps) {
-  if (Platform.OS === "web") return <HtmlViewWeb {...props} />;
-  return <HtmlViewNative {...props} />;
-}
-
 // ── Public renderers ──────────────────────────────────────────────────────────
-
-/** Renders a single lesson (single-lesson generate path). */
-export function LessonRenderer({ lesson }: { lesson: LessonOutput }) {
-  const html = useMemo(() => buildHtml(lesson), [lesson]);
-  return <HtmlView html={html} label="Lesson content" />;
-}
 
 /**
  * Renders a full book topic — lesson plus any tutorial / quiz sets / experiment.
  *
- * Two implementations. The default is the sandboxed iframe (web) / WebView (native)
- * below. On web with EXPO_PUBLIC_NATIVE_READER=1 it delegates to NativeTopicReader,
- * which renders into the app's own DOM — real text selection, find-in-page, semantic
- * headings, bundled fonts. The switch lives here (not at the two call sites) so the
- * Studio topic screen and the shared-draft reader can never drift apart.
+ * Web renders the native reader (real DOM: selection, find-in-page, semantic
+ * headings, bundled fonts). Native renders the same content through a WebView.
+ * The switch lives here (not at the two call sites) so the Studio topic screen and
+ * the shared-draft reader can never drift apart.
  *
- * Flipping the flag's default is the spec's D1 "flip"; it is gated on the interactive
- * quiz reveal landing, since v1 of the native reader reveals answers statically (D6).
- *
- * `NativeTopicReader` resolves to a throwing stub off-web, so the flag being false on
- * native is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
+ * `NativeTopicReader` resolves to a throwing stub off-web, so the `Platform.OS`
+ * guard is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
  */
 export function TopicRenderer({ topic }: { topic: GeneratedTopic }) {
-  if (USE_NATIVE_WEB_READER) return <NativeTopicReader topic={topic} />;
-  return <IframeTopicRenderer topic={topic} />;
+  if (Platform.OS === "web") return <NativeTopicReader topic={topic} />;
+  return <WebViewTopicRenderer topic={topic} />;
 }
 
-function IframeTopicRenderer({ topic }: { topic: GeneratedTopic }) {
+function WebViewTopicRenderer({ topic }: { topic: GeneratedTopic }) {
   const html = useMemo(() => buildTopicHtml(topic), [topic]);
   return <HtmlView html={html} label="Topic content" />;
 }

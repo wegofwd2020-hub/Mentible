@@ -2,9 +2,9 @@
 // this file everywhere else, which is what keeps DOMPurify / marked / mermaid out
 // of the native bundle entirely (spec D3).
 //
-// It should never render: `USE_NATIVE_WEB_READER` is false off-web, so
-// `TopicRenderer` always picks the react-native-webview path. Throwing makes a
-// wiring mistake loud instead of shipping a blank screen.
+// It should never render: `TopicRenderer` guards on `Platform.OS === "web"`, so
+// off-web it always picks the react-native-webview path. Throwing makes a wiring
+// mistake loud instead of shipping a blank screen.
 import type { GeneratedTopic } from "@/types/book";
 
 export function NativeTopicReader(_props: { topic: GeneratedTopic }): never {
