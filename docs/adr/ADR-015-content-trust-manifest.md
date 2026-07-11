@@ -1,6 +1,6 @@
 # ADR-015 — The Content Trust Manifest (one trust contract, many front-ends)
 
-**Status:** Proposed — 2026-06-14 (awaiting decision)
+**Status:** Accepted — **built** (2026-07-11 currency pass; matches `docs/STATUS.md`). SBQ-TRUST-001/002 shipped; the manifest renders via `mobile/src/components/TrustBadge.tsx` and `wegofwd-llm` v0.2.0 carries the trust submodule. The §8 "open question" on ADR-016 D6/D7 reconciliation is answered in code (`TrustBadge` content-version + staleness).
 **Decision-maker:** Sivakumar Mambakkam / WeGoFwd
 **Relates to:** ADR-012 (shared `wegofwd-llm` seam), ADR-011 (Mentible⇄Pramana
 Consumable Package), ADR-001 (BYOK security model), ADR-016 (one provider per piece

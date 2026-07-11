@@ -1,6 +1,6 @@
 # ADR-016 — One provider per piece of content; explicit fallback, compare, and visible provenance
 
-**Status:** Proposed — 2026-06-11
+**Status:** Accepted — **built** (2026-07-11 currency pass; matches `docs/STATUS.md`). Per-book provider pin + visible provenance (D6/D7) live via `mobile/src/components/TrustBadge.tsx` (per-unit indicator, staleness affordance, content-version line).
 **Decision-maker:** Sivakumar Mambakkam
 **Relates:** **ADR-005** (hybrid multi-provider key handling — this decides how
 *many* providers serve one piece of content, which ADR-005 left open). **ADR-006**

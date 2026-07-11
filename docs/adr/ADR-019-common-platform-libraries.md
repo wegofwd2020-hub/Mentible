@@ -1,8 +1,14 @@
 # ADR-019 — Common platform functionality as installable libraries (extract on the second consumer)
 
-**Status:** Proposed — 2026-06-15 · _amended 2026-06-19 (D4 "second consumer" trigger
-MET) · amended 2026-06-30 (billing = mechanism vs policy split → a `wegofwd-billing`
-candidate)_
+**Status:** Accepted — **partially executed** (currency pass 2026-07-11) · _amended
+2026-06-19 (D4 "second consumer" trigger MET) · amended 2026-06-30 (billing =
+mechanism vs policy split → a `wegofwd-billing` candidate)_
+> **Currency note (2026-07-11):** `wegofwd-llm` (ADR-012) and `wegofwd-secure` are
+> extracted and consumed (`backend/requirements.txt`); `wegofwd-identity` /
+> `wegofwd-billing` deliberately stay in-repo (pattern-first). The body's D3 premise
+> "`backend/src/auth/` is empty" is now **stale** — `auth/` was populated when ADR-014
+> shipped (`verifier.py`, `principal.py`, `admin.py`, …) — but the *conclusion*
+> (defer the identity/billing package extraction) still holds.
 **Decision-maker:** Sivakumar Mambakkam
 
 > **Amendment — 2026-06-30 (`wegofwd-billing`: split managed-billing mechanism from

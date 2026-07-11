@@ -1,6 +1,6 @@
 # ADR-006 — Rebrand to "Mentible"; audience stays self-learner (+ professionals)
 
-**Status:** Accepted — 2026-05-29 *(name pending trademark/domain clearance)*
+**Status:** Accepted — 2026-05-29 *(name pending trademark/domain clearance)* · **D3 superseded (2026-07-11 currency pass):** the repo/folder **was renamed to `Mentible`** on 2026-07-03 (GitHub `wegofwd2020-hub/Mentible`); D3's "repo name unchanged, rename is optional" no longer holds.
 **Decision-maker:** Sivakumar Mambakkam
 **Revises:** SCOPE.md **D5** and **D19** (public brand changes from "StudyBuddy Q"
 to **"Mentible"**). **Reaffirms D6** (standalone, self-learner audience, **no

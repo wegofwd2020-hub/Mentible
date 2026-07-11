@@ -91,11 +91,14 @@ fair-use cap" is reinterpreted as a **cost-control lever**, not just storage.
 2. **BYOK multi-provider** — extend the existing passthrough path to N providers
    (per-provider key in body; ADR-001 discipline per provider). **✅ Built.**
 3. **Managed-key vault** — secrets manager, rotation, per-job use; the new at-rest
-   regime. Gated behind accounts. **⏳ Not built.**
+   regime. Gated behind accounts. **✅ Built, dormant** (2026-07-11 currency pass —
+   `backend/src/billing/vault.py`; managed billing Phases 1–6, PRs #236–#241, off by default).
 4. **Accounts + metering** — auth, per-user usage records, rate limits, plan caps.
    **◑ Partial:** accounts (ADR-014) + rate limits (D9) + usage capture Phase 1 are
    **built**; server-side usage records + plan caps are **not**.
-5. **Billing** — subscription token allowance + overage policy. **⏳ Not built.**
+5. **Billing** — subscription token allowance + overage policy. **✅ Built, dormant**
+   (2026-07-11 currency pass — `backend/src/billing/{plans,entitlement_repo,revenuecat,pricing,usage_repo,access}.py`;
+   Phases 1–6 shipped, off by default pending the owner's RevenueCat setup).
 
 > **Phases 3–5 are scoped in [`docs/MANAGED_BILLING_BUILD_PLAN.md`](../MANAGED_BILLING_BUILD_PLAN.md)**
 > (vault + managed generation fork + server-side metering + plans/entitlements/caps +

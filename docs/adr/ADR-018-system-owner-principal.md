@@ -1,6 +1,6 @@
 # ADR-018 — System-owner (super-admin) principal: default application & library ownership
 
-**Status:** Proposed — 2026-06-15
+**Status:** Accepted — **built & in active use** (2026-07-11 currency pass; matches `docs/STATUS.md` and CLAUDE.md pitfall #7). `backend/src/core/{owner_cli,system_owner}.py`, `SYSTEM_OWNER_SECRET` wired into CI + compose + conftest; both default-library books published/signed via `owner_cli`.
 **Decision-maker:** Sivakumar Mambakkam
 **Amends:** the `CLAUDE.md` non-negotiable **"Single-tenant by user, no RLS… one
 user account = one isolated library"** — introduces exactly **one** privileged

@@ -1,6 +1,6 @@
 # ADR-007 — Book templates / theme system (content vs. presentation)
 
-**Status:** Accepted — 2026-06-03
+**Status:** Accepted — 2026-06-03 · **NOT yet built (2026-07-11 currency pass):** the staged plan is unstarted — the compiler still uses the hardcoded theme (`compiler/src/{tokens,cover,pdf,mermaid}.ts`); no `templateId`/`BookTemplate`, no `compiler/src/templates/`, no `mentible-professional@1.0`. Decision stands; implementation deferred.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-003 (book authoring), ADR-004 (two-product split + artifacts),
 `docs/ARTIFACT_PIPELINE.md`. Builds on the house-style work in PRs #48–#53

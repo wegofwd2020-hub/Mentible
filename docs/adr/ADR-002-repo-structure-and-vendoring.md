@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted — 2026-04-25 |
+| **Status** | Accepted — 2026-04-25 · **Amended by ADR-012 / ADR-019 (currency pass 2026-07-11):** the LLM-**provider** vendoring this ADR covered is superseded by the shared `wegofwd-llm` package — `pipeline/providers/*` are a deprecated rollback path only (`pipeline/VENDORED.md`). `prompts.py` / `content_format_validator.py` / `toc_structurer.py` remain vendored as described. |
 | **Decision-maker** | Sivakumar Mambakkam |
 | **Related** | SCOPE.md §8 · CLAUDE.md "Repository layout" |
 

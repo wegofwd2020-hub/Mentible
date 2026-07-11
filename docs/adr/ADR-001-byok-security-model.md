@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted — 2026-04-25 · **Amended by ADR-005 (2026-05-29)** |
+| **Status** | Accepted — 2026-04-25 · **Amended by ADR-005 (2026-05-29)** · **Currency note (2026-07-11):** the discipline holds, but two mechanisms below are dated — generation runs as a FastAPI **BackgroundTask**, not Celery (`backend/src/generate/tasks.py`), and the per-job envelope crypto now lives in the shared **wegofwd-secure** package (ADR-019); `byok_envelope.py` is a re-export shim. |
 | **Decision-maker** | Sivakumar Mambakkam |
 | **Supersedes** | — |
 | **Superseded by** | — |

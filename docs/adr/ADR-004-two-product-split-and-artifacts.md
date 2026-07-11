@@ -1,6 +1,6 @@
 # ADR-004 — Two-product split: paid authoring + free offline reader; artifact-based delivery
 
-**Status:** Proposed
+**Status:** Proposed — **partially realized (diverged), currency pass 2026-07-11.** The in-app reader was built *inside this app* (`mobile/src/reader/` — a real-DOM native reader on web, react-native-webview on native), reverting toward ADR-003 D2 rather than D1's "authoring app has no reader." The **separate, free, standalone reader app/repo** (D1) and the EPUB3 **interactive-quiz JS layer** (D3) remain **unbuilt**. The artifact export (EPUB3/PDF compiler) and the money model shipped.
 **Date:** 2026-05-27
 **Revises:** ADR-003 **D2** (reading is no longer Q's *own* in-app reader; it moves
 to a separate app, and EPUB3 becomes the *primary* delivery artifact rather than an
