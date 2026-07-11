@@ -9,7 +9,6 @@
 // tutorial + quiz sets + experiment) for the book reader.
 
 import type { GeneratedTopic } from "@/types/book";
-import type { LessonOutput } from "@/types/lesson";
 import { colors } from "@/constants/theme";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
@@ -312,11 +311,6 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 </script>
 </body>
 </html>`;
-}
-
-/** Single lesson — the original single-lesson reader path. */
-export function buildHtml(lesson: LessonOutput): string {
-  return htmlDocument(JSON.stringify(lesson), "html += renderLesson(DATA);");
 }
 
 /** Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment. */
