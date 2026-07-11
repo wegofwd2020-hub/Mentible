@@ -258,11 +258,11 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 |---|---|---|
 | 001 | BYOK security model (Pattern B) | Accepted (amended → hybrid by 005) |
 | 002 | Repo structure & vendoring | Accepted |
-| 003 | Book authoring | Proposed |
-| 004 | Two-product split + artifacts | Proposed |
+| 003 | Book authoring | **Accepted — built** (the shipped Books-only product) |
+| 004 | Two-product split + artifacts | Proposed — partially realized (in-app reader built; the separate reader app + EPUB3 quiz layer are not) |
 | 005 | Multi-provider LLM + hybrid keys | Accepted |
 | 006 | Rebrand to Mentible + audience scope | Accepted (name pending TM) |
-| 007 | Book templates & theme system | Accepted |
+| 007 | Book templates & theme system | Accepted — **not yet built** (staged plan unstarted; compiler theme still hardcoded) |
 | 008 | Release lifecycle & watermarking | Accepted |
 | 009 | Books-only (remove Query) | Accepted |
 | 010 | Narrative/animated-character mode | Proposed |
@@ -277,6 +277,13 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 | 019 | Common platform libraries | Accepted — `wegofwd-llm` + `wegofwd-secure` extracted |
 | 020 | Super-admin operator role | **Accepted — built & verified live** (admin API + audit + mobile console) |
 | 021 | Everyone Library (UGC) + moderation | Proposed — design-only (build deferred) |
+| 022 | Account deletion removes Supabase identity | **Accepted — built** (`identity_admin`; OFF in prod, no service-role key) |
+| 023 | Reader engagement (downloads/ratings/feedback) | Proposed — not built |
+| 024 | Book QR codes + deep-link share surface | Proposed — not built |
+| 025 | New-edition redistribution | Proposed — not built |
+| 026 | Shared `wegofwd-video` generation library | Accepted (2026-06-30; cross-repo package, no Mentible footprint) |
+| 027 | Collaborative draft sharing + release permissions | Proposed — **D2–D4 built** (invite-based draft sharing + version-scoped comments, PRs #267/#268/#271, 2026-07-05); D5–D8 gated on ADR-021 |
+| 028 | Open Shelves — free book-repo feeds | Proposed — design-only (not built) |
 
 ---
 
