@@ -20,16 +20,20 @@ RUN npm run build && npm prune --omit=dev
 
 # Add the heavy, optional render tools — PINNED for reproducible builds. Kept out
 # of the committed package.json (CI stays light); installed only into the image.
+# No bundled browser is downloaded (skip flags below); puppeteer + vivliostyle both
+# drive the SYSTEM Chromium apt-installed in stage 2.
 #
-# Puppeteer (Mermaid diagrams + cover raster) downloads its OWN matched Chromium
-# into a cache dir we copy into the final image, so puppeteer and its browser can
-# never drift apart. An UNPINNED puppeteer pointed at the system Chromium was
-# exactly the break that took down `Publish to Library`: `npm install puppeteer`
-# silently pulled a version whose Chromium the apt `chromium` couldn't satisfy, so
-# the browser failed to launch the instant a diagram render started. Vivliostyle
-# (PDF) still uses the system Chromium via SBQ_CHROMIUM, so it needs no browser.
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
-    PUPPETEER_CACHE_DIR=/build/compiler/.puppeteer
+# WHY PINNED: `npm install puppeteer` (UNPINNED) took down `Publish to Library`.
+# The final image's base (`python:3.11-slim`) tracks Debian trixie, whose apt
+# `chromium` is very recent (150). The unpinned install had pulled an OLDER
+# puppeteer (24.x, built for ~Chrome 140) that couldn't drive the newer system
+# Chromium, so the browser failed to launch the instant a diagram render started.
+# publishBook always sends diagrams=true, so every publish hit it. Pinning
+# puppeteer@25.3.0 matches its supported Chrome (150) to the trixie apt chromium.
+# NOTE: don't try to have puppeteer download its own Chromium here — the build host
+# can't reach the Chrome-for-Testing CDN, and the apt chromium already matches.
+ENV PUPPETEER_SKIP_DOWNLOAD=1 \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install --no-save puppeteer@25.3.0 mermaid@11.16.0 @vivliostyle/cli@11.0.4
 
 # ── Stage 2: Python runtime + Node + Chromium + built compiler ────────────────
@@ -58,12 +62,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # here; PUPPETEER_EXECUTABLE_PATH + SBQ_NO_SANDBOX drive Mermaid's Puppeteer.
 RUN printf '#!/bin/sh\nexec /usr/bin/chromium --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage "$@"\n' \
       > /usr/local/bin/chromium-nosandbox && chmod +x /usr/local/bin/chromium-nosandbox
-# Puppeteer uses the matched Chromium it downloaded in stage 1 (copied below) via
-# PUPPETEER_CACHE_DIR — deliberately NOT the system Chromium, so a puppeteer bump
-# can't outrun its browser. SBQ_NO_SANDBOX still forces --no-sandbox (Chromium
-# can't sandbox in this container). Vivliostyle keeps using the system Chromium
-# wrapper via SBQ_CHROMIUM.
-ENV PUPPETEER_CACHE_DIR=/app/compiler/.puppeteer \
+# Puppeteer (Mermaid + cover raster) drives the system Chromium; the pinned
+# puppeteer@25.3.0 matches its Chrome major (150). SBQ_NO_SANDBOX forces
+# --no-sandbox (Chromium can't sandbox in this container). Vivliostyle uses the
+# same system Chromium via the SBQ_CHROMIUM wrapper.
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     SBQ_NO_SANDBOX=1 \
     SBQ_CHROMIUM=/usr/local/bin/chromium-nosandbox
 
@@ -80,8 +83,6 @@ COPY pipeline/ /app/pipeline/
 COPY --from=compiler-build /build/compiler/dist /app/compiler/dist
 COPY --from=compiler-build /build/compiler/node_modules /app/compiler/node_modules
 COPY --from=compiler-build /build/compiler/package.json /app/compiler/package.json
-# Puppeteer's matched Chromium (downloaded in stage 1). PUPPETEER_CACHE_DIR points here.
-COPY --from=compiler-build /build/compiler/.puppeteer /app/compiler/.puppeteer
 
 # Fail the build if the compiler can't load at the final image paths.
 RUN node -e "require('/app/compiler/dist/epub.js'); require('/app/compiler/dist/pdfRender.js'); console.log('compiler runtime OK')"
