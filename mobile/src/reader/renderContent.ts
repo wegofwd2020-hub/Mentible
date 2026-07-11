@@ -52,9 +52,9 @@ function renderTutorial(tut: TutorialOutput): string {
   return h;
 }
 
-// Static reveal (spec D6): the answer and explanation are always present. The
-// iframe revealed them with in-page JS; the native reader has no in-page script,
-// and interactive reveal is the fast-follow that gates the D1 flag flip.
+// Interactive reveal (spec 2026-07-11): options are buttons carrying their id and
+// correctness; the answer/explanation live in a `hidden` block that quizReveal.ts
+// (enhance pass) unhides once the learner picks. `data-answered=""` = unanswered.
 function renderQuizzes(sets: QuizSet[]): string {
   let h = `${DIVIDER}<h2>Quiz</h2>`;
   for (const set of sets) {
@@ -62,19 +62,20 @@ function renderQuizzes(sets: QuizSet[]): string {
       h += `<h3>Set ${escapeHtml(set.set_number)}</h3>`;
     }
     (set.questions ?? []).forEach((q, i) => {
-      h += '<div class="quiz-q">';
+      h += '<div class="quiz-q" data-answered="">';
       h += `<div class="quiz-qtext">${md(`${i + 1}. ${q.question_text || ""}`)}</div>`;
-      h += '<ul class="quiz-options">';
+      h += '<ul class="quiz-options" role="group">';
       for (const o of q.options ?? []) {
         const correct = o.option_id === q.correct_option;
-        h += `<li class="${correct ? "correct" : ""}"><b>${escapeHtml(o.option_id)}.</b> `;
-        h += `${escapeHtml(o.text)}${correct ? " ✓" : ""}</li>`;
+        h += `<li><button type="button" class="quiz-opt" data-oid="${escapeHtml(o.option_id)}" data-correct="${correct}">`;
+        h += `<b>${escapeHtml(o.option_id)}.</b> ${escapeHtml(o.text)}</button></li>`;
       }
       h += "</ul>";
+      h += '<div class="quiz-reveal" hidden>';
       h += `<div class="quiz-answer"><b>Answer:</b> ${escapeHtml(q.correct_option)}</div>`;
       if (q.explanation) h += `<div class="quiz-expl">${md(q.explanation)}</div>`;
       if (q.difficulty) h += `<div class="difficulty">${escapeHtml(q.difficulty)}</div>`;
-      h += "</div>";
+      h += "</div></div>";
     });
   }
   return h;
