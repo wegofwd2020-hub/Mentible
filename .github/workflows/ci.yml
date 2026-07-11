@@ -178,3 +178,33 @@ jobs:
             exit 1
           fi
           echo "✓ No real key fragments found"
+
+  # ── 5. Security: hostile ```mermaid source cannot XSS the native web reader ───
+  # The native reader has no iframe boundary, so a hostile diagram source that
+  # escaped Mermaid's internal sanitizer would run with access to the app's
+  # localStorage secrets. Mermaid renders AFTER our DOMPurify pass, so only its
+  # `securityLevel:"strict"` config stands in the way. jsdom can't run Mermaid
+  # (needs SVG layout), so this drives real headless Chrome over the real reader
+  # pipeline. See mobile/security/run-mermaid-xss-security.mjs.
+  mobile-mermaid-xss:
+    name: Mobile — Mermaid-XSS defence (real Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install mobile deps
+        working-directory: mobile
+        run: npm ci
+      - name: Set up Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+      - name: Adversarial hostile-mermaid-source test
+        working-directory: mobile
+        env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: npm run test:mermaid-security
