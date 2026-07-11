@@ -1,6 +1,6 @@
 # ADR-027 — Collaborative draft sharing & the release / Open-Library permission model
 
-**Status:** Proposed — 2026-07-03
+**Status:** Proposed — 2026-07-03 · **D2–D4 BUILT 2026-07-05 (2026-07-11 currency pass).** The invite-based hosted draft-sharing slice shipped (PRs #267/#268/#271): `shared_draft`/`draft_invitation`/`draft_comment` (migrations 0007/0008), `backend/src/sharing/router.py` mounted in `main.py`, mobile `DraftCommentThread`/`FeedbackBadge`. **D5–D8** (Open-Library publish, registration-gated reading, `tags`) remain **unbuilt**, gated on ADR-021 D8. The ADR's original "capture-only / none built now" framing is superseded.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-021 (Everyone / "Open" Library & moderation — this ADR sets its
 read-access + engagement permission matrix and **amends its D3 "publicly readable"**;

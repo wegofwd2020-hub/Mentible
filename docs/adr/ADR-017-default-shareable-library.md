@@ -1,6 +1,6 @@
 # ADR-017 — Default shareable library (seeded books in the source tree)
 
-**Status:** Proposed — 2026-06-15
+**Status:** Accepted — **built** (2026-07-11 currency pass; matches `docs/STATUS.md`). Bundled default library ships + seeds on first run: `library/manifest.json` + `library/books/`, `mobile/src/storage/{bundledLibrary,seedLibrary}.ts`, `useSeedDefaultLibrary` wired in `app/_layout.tsx`. See the "As-built" section below.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-003 (book authoring), ADR-004 (two-product split + artifacts),
 ADR-009 (Books-only). Amends locked decisions **D4** (local-only at MVP — adds a

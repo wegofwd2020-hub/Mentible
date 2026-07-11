@@ -1,11 +1,17 @@
 # ADR-014 — User accounts & the per-provider credential set (BYOK-first identity)
 
-**Status:** Accepted — **built & deployed** (updated 2026-06-27). IdP = Supabase
+**Status:** Accepted — **built & deployed** (updated 2026-06-27; currency pass 2026-07-11). IdP = Supabase
 (O1/O5); JWKS verify + account / per-provider credential-set API + mobile Account page
 shipped; device tracking added. **Google sign-in verified live on production**
 (`mambakkam.net/app/mentible`, 2026-06-27). _Original: Proposed 2026-06-11._
 Still deferred: zero-knowledge library **sync** (O2) and usage Phase 2 (device-local only for now).
 **Decision-maker:** Sivakumar Mambakkam
+
+> **Currency note (2026-07-11):** ADR-027's **draft sharing** (D2–D4, built 2026-07-05)
+> is a deliberate, explicit **exception** to this ADR's device-local / zero-knowledge
+> default — it stores `book_json` **in plaintext server-side** (`shared_draft`). It is
+> invite-scoped, not the public model. D8's "keys device-local by default" is unchanged
+> for BYOK credentials; only shared *drafts* are hosted.
 
 > **Decisions made (2026-06-16).** **O1 → Supabase** (bundles auth + the synced-library
 > Postgres + per-user RLS — "one user = one isolated library" is a textbook single-table

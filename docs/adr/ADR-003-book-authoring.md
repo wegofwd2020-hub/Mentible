@@ -1,6 +1,6 @@
 # ADR-003 — Book Authoring (StudyBuddy Q grows up)
 
-**Status:** Proposed
+**Status:** Accepted — **built** (currency pass 2026-07-11). Book authoring (TOC → `/structure` → editable topic tree → generate-all → in-app reader → export) is the shipped Books-only product (ADR-009). D2's "Q's own reader" was realized as the in-app native reader — see ADR-004.
 **Date:** 2026-05-26
 **Supersedes/relocates:** StudyBuddy_OnDemand ADR-002 (EPUB/reading) + ADR-003
 (standalone packaging), per OnDemand ADR-004 D5 ("Q grows up: book authoring").

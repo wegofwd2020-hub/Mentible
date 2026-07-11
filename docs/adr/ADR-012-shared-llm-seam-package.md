@@ -1,6 +1,6 @@
 # ADR-012 — Shared LLM provider seam as an installable package
 
-**Status:** Accepted — 2026-06-09
+**Status:** Accepted — 2026-06-09 · **built** (`wegofwd-llm[anthropic]@v0.2.0` pinned in `backend/requirements.txt`; `pipeline/VENDORED.md` points at the package). *Currency note 2026-07-11:* D1 said the legacy `pipeline/providers/{base,anthropic}.py` are deleted per consumer on migration — in Mentible they're **retained as a documented rollback path** (see `VENDORED.md`), not yet deleted.
 **Decision-maker:** Sivakumar Mambakkam
 **Amends:** **ADR-002** (the provider layer graduates from a *vendored copy* to a
 *shared package dependency* — this fires ADR-002's own stated review trigger:
