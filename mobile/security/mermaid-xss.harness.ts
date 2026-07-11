@@ -51,6 +51,9 @@ function topicWithMermaid(source: string): GeneratedTopic {
 }
 
 window.__runMermaidPayload = async (mermaidSource, id) => {
+  // Reset per payload so `executed` reports only THIS source's result — otherwise the
+  // sentinel accumulates and every later payload's breach line re-reports an earlier hit.
+  window.__xssExecuted = [];
   const host = document.createElement("div");
   host.className = "mentible-reader";
   document.body.appendChild(host);
