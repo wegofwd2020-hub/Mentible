@@ -23,6 +23,7 @@ export const READER_CSS = `
   --muted: ${colors.textMuted};
   --primary: ${colors.primary};
   --success: ${colors.success};
+  --error: ${colors.error};
   --warning: ${colors.warning};
   --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
   --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
@@ -102,8 +103,18 @@ export const READER_CSS = `
   border-radius: 8px; padding: 12px 14px; margin: 12px 0;
 }
 .${READER_ROOT_CLASS} .quiz-options { list-style: none; padding-left: 0; margin: 8px 0; }
-.${READER_ROOT_CLASS} .quiz-options li { padding: 4px 0; color: var(--text2); }
-.${READER_ROOT_CLASS} .quiz-options li.correct { color: var(--success); font-weight: 600; }
+.${READER_ROOT_CLASS} .quiz-options li { padding: 2px 0; }
+.${READER_ROOT_CLASS} .quiz-opt {
+  display: block; width: 100%; text-align: left; padding: 6px 8px; margin: 0;
+  font: inherit; color: var(--text2); background: transparent;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.${READER_ROOT_CLASS} .quiz-opt:hover:not([disabled]) { background: var(--surface); }
+.${READER_ROOT_CLASS} .quiz-opt[disabled] { cursor: default; }
+.${READER_ROOT_CLASS} .quiz-opt.correct { color: var(--success); font-weight: 600; }
+.${READER_ROOT_CLASS} .quiz-opt.correct::after { content: " ✓"; }
+.${READER_ROOT_CLASS} .quiz-opt.incorrect { color: var(--error); }
+.${READER_ROOT_CLASS} .quiz-opt.incorrect::after { content: " ✗"; }
 .${READER_ROOT_CLASS} .quiz-answer { margin-top: 8px; color: var(--success); font-size: 0.9em; }
 .${READER_ROOT_CLASS} .quiz-expl { color: var(--text2); font-size: 0.9em; }
 .${READER_ROOT_CLASS} .difficulty { margin-top: 6px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }

@@ -10,6 +10,7 @@
 // Web-only.
 
 import renderMathInElement from "katex/contrib/auto-render";
+import { wireQuizzes } from "@/reader/quizReveal";
 
 /** Render `$…$` / `$$…$$` in place. Mermaid and raw-SVG figures are skipped. */
 export function renderMath(node: HTMLElement): void {
@@ -51,6 +52,7 @@ export async function renderDiagrams(
 export function enhanceReaderNode(node: HTMLElement): () => void {
   let cancelled = false;
   renderMath(node);
+  wireQuizzes(node);
   void renderDiagrams(node, () => cancelled);
   return () => {
     cancelled = true;

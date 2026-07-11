@@ -46,6 +46,31 @@ const readerDiv = (root: ReturnType<typeof render>["UNSAFE_root"]) =>
     (n: TestNode) => n.type === ("div" as never) && n.props.className === "mentible-reader",
   )[0];
 
+// Tags that carry script capability or an embedding boundary — none may survive.
+const FORBIDDEN_TAGS = new Set(["script", "iframe", "object", "embed", "form", "foreignobject"]);
+
+// A string-regex security assertion is unreliable on serialized HTML: WHATWG
+// re-escapes only `& < >` in text nodes (not `"`), so an inert, ESCAPED payload
+// round-trips with a literal ` onerror="` substring that `/\son\w+=/` false-flags;
+// and a tag-anchored regex misses attributes like `<a title="a>b" onclick=…>`. Parse
+// the fragment and walk the real DOM instead (jsdom env). Collect every violation so a
+// failure names it. See the sanitize-boundary notes (DOMParser, not regex).
+function assertNoExecutableMarkup(html: string): void {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const violations: string[] = [];
+  for (const el of Array.from(doc.querySelectorAll("*"))) {
+    const tag = el.localName.toLowerCase();
+    if (FORBIDDEN_TAGS.has(tag)) violations.push(`forbidden <${tag}>`);
+    for (const attr of Array.from(el.attributes)) {
+      if (/^on/i.test(attr.name)) violations.push(`<${tag}> event handler ${attr.name}=`);
+      if (attr.value.replace(/\s+/g, "").toLowerCase().includes("javascript:")) {
+        violations.push(`<${tag} ${attr.name}="…javascript:…">`);
+      }
+    }
+  }
+  expect(violations).toEqual([]);
+}
+
 beforeEach(() => jest.clearAllMocks());
 
 it("renders the topic content inline — no iframe anywhere in the tree", () => {
@@ -55,13 +80,18 @@ it("renders the topic content inline — no iframe anywhere in the tree", () => 
 });
 
 it("SECURITY: a hostile topic yields no executable markup in the injected html", () => {
+  // The `<a title="a>b" onclick=…>` case is deliberate: a tag-anchored regex would
+  // miss the handler, but the DOM walk inspects every parsed attribute.
   const { UNSAFE_root } = render(
-    <NativeTopicReader topic={topic('<img src=x onerror="alert(1)"><script>alert(2)</script>')} />,
+    <NativeTopicReader
+      topic={topic(
+        '<img src=x onerror="alert(1)"><script>alert(2)</script>' +
+          '<a title="a>b" onclick="steal()" href="javascript:alert(3)">x</a>',
+      )}
+    />,
   );
   const html: string = readerDiv(UNSAFE_root)!.props.dangerouslySetInnerHTML.__html;
-  expect(html).not.toMatch(/<script/i);
-  expect(html).not.toMatch(/\son\w+\s*=/i);
-  expect(html).not.toMatch(/javascript:/i);
+  assertNoExecutableMarkup(html);
 });
 
 // Under react-test-renderer `ref.current` is null, so the effect's guard short-circuits

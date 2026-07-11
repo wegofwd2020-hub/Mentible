@@ -202,22 +202,27 @@ const quizSet = (over: Partial<QuizSet> = {}): QuizSet => ({
 });
 
 describe("quiz", () => {
-  it("renders questions, options, and marks the correct one", () => {
+  it("renders each option as a button carrying its id and correctness", () => {
     const html = renderTopicToSafeHtml(topic({ quizSets: [quizSet()] }));
     expect(html).toContain("<h2>Quiz</h2>");
     expect(html).toContain("What is $x$?");
+    expect(html).toMatch(/<button[^>]+class="quiz-opt"[^>]+data-oid="A"[^>]+data-correct="false"/);
+    expect(html).toMatch(/<button[^>]+data-oid="B"[^>]+data-correct="true"/);
     expect(html).toContain("Wrong");
-    expect(html).toContain('class="correct"');
+    // No answer marker leaks into the option list at render time.
+    expect(html).not.toContain('class="correct"');
+    expect(html).not.toContain(" ✓");
   });
 
-  // Spec D6: v1 reveal is STATIC — answer and explanation are always in the DOM.
-  // No in-page script, no React reveal state.
-  it("shows the answer and explanation statically", () => {
+  // The answer/explanation are present in the DOM but inside a `hidden` block, so they
+  // stay out of find-in-page/selection until quizReveal (Task 2) unhides them.
+  it("keeps the answer and explanation inside a hidden reveal block", () => {
     const html = renderTopicToSafeHtml(topic({ quizSets: [quizSet()] }));
+    expect(html).toContain('data-answered=""');
+    expect(html).toMatch(/<div class="quiz-reveal" hidden/);
     expect(html).toContain('<div class="quiz-answer">');
-    expect(html).toContain("B");
-    expect(html).toContain("<strong>B</strong>");
-    expect(html).toContain("easy");
+    expect(html).toContain("<strong>B</strong>"); // explanation markdown
+    expect(html).toContain("easy"); // difficulty
   });
 
   it("labels each set when there is more than one", () => {

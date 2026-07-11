@@ -24,6 +24,11 @@ jest.mock("katex/contrib/auto-render", () => ({
   default: (...a: unknown[]) => mockRenderMathInElement(...a),
 }));
 
+const mockWireQuizzes = jest.fn();
+jest.mock("@/reader/quizReveal", () => ({
+  wireQuizzes: (...a: unknown[]) => mockWireQuizzes(...a),
+}));
+
 function nodeWith(html: string): HTMLElement {
   const el = document.createElement("div");
   el.innerHTML = html;
@@ -84,6 +89,12 @@ describe("renderDiagrams — lazy (spec D2)", () => {
 });
 
 describe("enhanceReaderNode", () => {
+  it("wires quiz reveal over the mounted node", () => {
+    const node = nodeWith('<div class="quiz-q" data-answered=""></div>');
+    enhanceReaderNode(node);
+    expect(mockWireQuizzes).toHaveBeenCalledWith(node);
+  });
+
   it("runs the math pass immediately and returns a cleanup function", () => {
     const cleanup = enhanceReaderNode(nodeWith("<p>$x$</p>"));
     expect(mockRenderMathInElement).toHaveBeenCalled();

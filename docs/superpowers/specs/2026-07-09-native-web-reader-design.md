@@ -70,10 +70,18 @@ DOMPurify config is the security boundary now. Requirements:
 - **Strip:** `<script>`, all `on*` event handlers, `javascript:` URLs, `<iframe>`,
   `<object>`, `<embed>`, `<form>`.
 - **Keep:** the HTML marked emits; KaTeX's output (`<span class="katex">…`, MathML);
-  Mermaid's rendered `<svg>`. Mermaid runs *after* the DOMPurify pass on trusted,
-  library-produced SVG — but its **input** (the ```mermaid source text) is
-  untrusted, so it is escaped as text until Mermaid renders it, and Mermaid is
-  configured `securityLevel: "strict"` (no click handlers, no HTML labels).
+  Mermaid's rendered `<svg>`. Mermaid runs *after* the DOMPurify pass and writes into
+  the live DOM, so our sanitizer never inspects its output — its **input** (the
+  ```mermaid source text) is untrusted, so it is escaped as text until Mermaid renders
+  it, and Mermaid is configured `securityLevel: "strict"`. Under strict, Mermaid still
+  emits `<foreignObject>` HTML labels but runs its **own** internal DOMPurify over their
+  contents (stripping handlers, `<script>`, `javascript:` URLs) and disables click
+  callbacks — so the safety of a hostile diagram source rests entirely on that internal
+  pass. **Verified 2026-07-11:** an adversarial 9-vector test in real headless Chrome
+  (`mobile/security/run-mermaid-xss-security.mjs`, CI job `mobile-mermaid-xss`) confirms
+  mermaid@10.9.6 neutralizes every vector; it goes red if `securityLevel` is weakened.
+  A defence-in-depth re-sanitize of Mermaid's output is **not** viable — DOMPurify blanks
+  the xhtml label text ("Start"/"Choice"/"End" → empty), breaking the diagram.
 - **`<svg>` from ```svg fences is untrusted** (model-authored) and MUST go through
   DOMPurify with SVG profile — scripts and event handlers stripped (the spike
   confirmed DOMPurify does this). The current iframe path only regex-strips
