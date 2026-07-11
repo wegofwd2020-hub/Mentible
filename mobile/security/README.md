@@ -2,11 +2,10 @@
 
 ## `run-mermaid-xss-security.mjs` — hostile-```mermaid-source test
 
-**What it guards.** The native web reader (`src/reader/`, behind
-`EXPO_PUBLIC_NATIVE_READER`) renders a book topic into the app's own DOM instead of a
-sandboxed iframe. That removed the origin boundary, so a hostile ```mermaid source that
-escaped sanitization would execute with access to `localStorage` — where the Supabase
-session and the BYOK LLM key live.
+**What it guards.** The native web reader (`src/reader/`) renders a book topic into the
+app's own DOM — it is the reader on web. There is no sandboxed iframe boundary, so a
+hostile ```mermaid source that escaped sanitization would execute with access to
+`localStorage` — where the Supabase session and the BYOK LLM key live.
 
 **The gap it covers.** `sanitize.ts` (DOMPurify) is the one boundary for reader content,
 but Mermaid renders its `<svg>` **after** that pass, straight into the live DOM
