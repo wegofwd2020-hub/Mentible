@@ -18,14 +18,19 @@ COPY compiler/src ./src
 # Build, then drop devDeps (typescript, jest, …) keeping runtime deps.
 RUN npm run build && npm prune --omit=dev
 
-# Add the heavy, optional render tools WITHOUT their bundled browsers — the
-# final image ships a system Chromium both are pointed at. Kept out of the
-# committed package.json (CI stays light); installed only into the image.
-# puppeteer + mermaid drive the batched one-browser diagram renderer; vivliostyle
-# renders the PDF.
-ENV PUPPETEER_SKIP_DOWNLOAD=1 \
-    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm install --no-save puppeteer mermaid @vivliostyle/cli
+# Add the heavy, optional render tools — PINNED for reproducible builds. Kept out
+# of the committed package.json (CI stays light); installed only into the image.
+#
+# Puppeteer (Mermaid diagrams + cover raster) downloads its OWN matched Chromium
+# into a cache dir we copy into the final image, so puppeteer and its browser can
+# never drift apart. An UNPINNED puppeteer pointed at the system Chromium was
+# exactly the break that took down `Publish to Library`: `npm install puppeteer`
+# silently pulled a version whose Chromium the apt `chromium` couldn't satisfy, so
+# the browser failed to launch the instant a diagram render started. Vivliostyle
+# (PDF) still uses the system Chromium via SBQ_CHROMIUM, so it needs no browser.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PUPPETEER_CACHE_DIR=/build/compiler/.puppeteer
+RUN npm install --no-save puppeteer@25.3.0 mermaid@11.16.0 @vivliostyle/cli@11.0.4
 
 # ── Stage 2: Python runtime + Node + Chromium + built compiler ────────────────
 FROM python:3.11-slim
@@ -53,7 +58,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # here; PUPPETEER_EXECUTABLE_PATH + SBQ_NO_SANDBOX drive Mermaid's Puppeteer.
 RUN printf '#!/bin/sh\nexec /usr/bin/chromium --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage "$@"\n' \
       > /usr/local/bin/chromium-nosandbox && chmod +x /usr/local/bin/chromium-nosandbox
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+# Puppeteer uses the matched Chromium it downloaded in stage 1 (copied below) via
+# PUPPETEER_CACHE_DIR — deliberately NOT the system Chromium, so a puppeteer bump
+# can't outrun its browser. SBQ_NO_SANDBOX still forces --no-sandbox (Chromium
+# can't sandbox in this container). Vivliostyle keeps using the system Chromium
+# wrapper via SBQ_CHROMIUM.
+ENV PUPPETEER_CACHE_DIR=/app/compiler/.puppeteer \
     SBQ_NO_SANDBOX=1 \
     SBQ_CHROMIUM=/usr/local/bin/chromium-nosandbox
 
@@ -70,9 +80,16 @@ COPY pipeline/ /app/pipeline/
 COPY --from=compiler-build /build/compiler/dist /app/compiler/dist
 COPY --from=compiler-build /build/compiler/node_modules /app/compiler/node_modules
 COPY --from=compiler-build /build/compiler/package.json /app/compiler/package.json
+# Puppeteer's matched Chromium (downloaded in stage 1). PUPPETEER_CACHE_DIR points here.
+COPY --from=compiler-build /build/compiler/.puppeteer /app/compiler/.puppeteer
 
 # Fail the build if the compiler can't load at the final image paths.
 RUN node -e "require('/app/compiler/dist/epub.js'); require('/app/compiler/dist/pdfRender.js'); console.log('compiler runtime OK')"
+# Fail the build if Puppeteer's Chromium can't actually LAUNCH here — `require`
+# alone never catches a puppeteer↔Chromium mismatch or a missing shared lib, which
+# is precisely how the `Publish to Library` break shipped undetected. This turns a
+# silent runtime failure at publish time into a loud build failure.
+RUN node -e "const p=require('/app/compiler/node_modules/puppeteer'); p.launch({headless:true,args:['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']}).then(async b=>{const v=await b.version();await b.close();console.log('puppeteer chromium launch OK:',v)}).catch(e=>{console.error('CHROMIUM LAUNCH FAILED:',e.message);process.exit(1)})"
 
 WORKDIR /app
 EXPOSE 8000
