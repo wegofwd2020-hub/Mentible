@@ -4,7 +4,6 @@ import type { GeneratedTopic } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 import { buildHtml, buildTopicHtml } from "@/components/contentHtml";
 import { colors } from "@/constants/theme";
-import { USE_NATIVE_WEB_READER } from "@/constants/readerFlag";
 import { NativeTopicReader } from "@/reader/NativeTopicReader";
 
 // Re-export the pure builders so existing importers keep working
@@ -88,20 +87,16 @@ export function LessonRenderer({ lesson }: { lesson: LessonOutput }) {
 /**
  * Renders a full book topic — lesson plus any tutorial / quiz sets / experiment.
  *
- * Two implementations. The default is the sandboxed iframe (web) / WebView (native)
- * below. On web with EXPO_PUBLIC_NATIVE_READER=1 it delegates to NativeTopicReader,
- * which renders into the app's own DOM — real text selection, find-in-page, semantic
- * headings, bundled fonts. The switch lives here (not at the two call sites) so the
- * Studio topic screen and the shared-draft reader can never drift apart.
+ * Web renders the native reader (real DOM: selection, find-in-page, semantic
+ * headings, bundled fonts). Native renders the same content through a WebView.
+ * The switch lives here (not at the two call sites) so the Studio topic screen and
+ * the shared-draft reader can never drift apart.
  *
- * Flipping the flag's default is the spec's D1 "flip"; it is gated on the interactive
- * quiz reveal landing, since v1 of the native reader reveals answers statically (D6).
- *
- * `NativeTopicReader` resolves to a throwing stub off-web, so the flag being false on
- * native is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
+ * `NativeTopicReader` resolves to a throwing stub off-web, so the `Platform.OS`
+ * guard is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
  */
 export function TopicRenderer({ topic }: { topic: GeneratedTopic }) {
-  if (USE_NATIVE_WEB_READER) return <NativeTopicReader topic={topic} />;
+  if (Platform.OS === "web") return <NativeTopicReader topic={topic} />;
   return <IframeTopicRenderer topic={topic} />;
 }
 
