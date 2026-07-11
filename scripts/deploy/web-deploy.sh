@@ -82,6 +82,10 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mo
     # Full app: Supabase on (accounts), demo flag off.
     export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
     export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
+    # D1 flip (full app, follow-up to the demo-first flip): enable the native web
+    # reader on /app/mentible now that it has soaked on the demo. Web-only —
+    # readerFlag.ts also gates on Platform.OS === "web".
+    export EXPO_PUBLIC_NATIVE_READER=1
   fi
   # --clear is REQUIRED: without it, an export reuses a stale metro asset cache
   # from a prior build with different env (e.g. an app build before a demo build)
