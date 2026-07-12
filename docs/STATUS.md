@@ -284,6 +284,8 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 | 026 | Shared `wegofwd-video` generation library | Accepted (2026-06-30; cross-repo package, no Mentible footprint) |
 | 027 | Collaborative draft sharing + release permissions | Proposed — **D2–D4 built** (invite-based draft sharing + version-scoped comments, PRs #267/#268/#271, 2026-07-05); D5–D8 gated on ADR-021 |
 | 028 | Open Shelves — free book-repo feeds | Proposed — design-only (not built) |
+| 029 | Library-grounded references (RAG over the device shelf) | Proposed — design-only (not built); depends on 028 |
+| 030 | Content currency agent (watch manifest → new-edition trigger) | Proposed — design-only (not built); depends on 028 + 029 |
 
 ---
 
