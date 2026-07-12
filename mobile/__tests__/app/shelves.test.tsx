@@ -1,0 +1,45 @@
+import { render, fireEvent } from "@testing-library/react-native";
+
+const add = jest.fn().mockResolvedValue(true);
+const remove = jest.fn();
+const refresh = jest.fn();
+const refreshAllSources = jest.fn();
+let mockHookState: any;
+jest.mock("@/openshelves/useOpenShelves", () => ({ useOpenShelves: () => mockHookState }));
+jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
+import { Alert } from "@/lib/alert";
+import ShelvesScreen from "@/../app/(tabs)/shelves";
+
+const src = (id: string) => ({ id, url: `https://ex.org/${id}`, title: id, addedAt: "T0", lastRefreshedAt: null, isStarter: false, entryCount: 1 });
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockHookState = { sources: [], loading: false, busy: false, error: null, add, remove, refresh, refreshAllSources, reload: jest.fn() };
+});
+
+test("empty state when no sources", () => {
+  const { getByText } = render(<ShelvesScreen />);
+  expect(getByText(/no sources yet/i)).toBeTruthy();
+});
+
+test("adding a source confirms via Alert before calling add (P0-8)", () => {
+  const { getByTestId } = render(<ShelvesScreen />);
+  fireEvent.changeText(getByTestId("add-source-input"), "https://ex.org/f");
+  fireEvent.press(getByTestId("add-source-submit"));
+  // The confirm was raised, and add is NOT called until its button fires.
+  expect(Alert.alert).toHaveBeenCalledTimes(1);
+  expect(add).not.toHaveBeenCalled();
+  // Drive the confirm's "Add" button.
+  const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+  const addBtn = buttons.find((b: any) => b.text === "Add");
+  addBtn.onPress();
+  expect(add).toHaveBeenCalledWith("https://ex.org/f");
+});
+
+test("renders a row per source and surfaces the hook error", () => {
+  mockHookState = { ...mockHookState, sources: [src("a"), src("b")], error: "boom" };
+  const { getByTestId, getByText } = render(<ShelvesScreen />);
+  expect(getByTestId("remove-a")).toBeTruthy();
+  expect(getByTestId("remove-b")).toBeTruthy();
+  expect(getByText("boom")).toBeTruthy();
+});
