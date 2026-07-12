@@ -1,8 +1,9 @@
 # Server-hosted library + hosted RAG + storage tiers — design brief (pre-ADR)
 
-**Status:** DRAFT — brainstorm in progress (2026-07-12). Not a decision yet; captures
-the direction chosen so far + the legal analysis, with open decisions listed. Becomes
-a full ADR (candidate **ADR-032**) once the open decisions below are resolved.
+**Status:** COMPANION to **ADR-032** (2026-07-12). The §5 open decisions are now resolved
+and the decision record lives in `docs/adr/ADR-032-server-hosted-library-and-rag.md`; this
+brief is retained for the detailed **copyright / DMCA legal analysis (§4)** and the design
+rationale. Where they differ, **ADR-032 governs**.
 **Decision-maker:** Sivakumar Mambakkam
 **Supersedes / amends (if accepted):** ADR-028 D2/D3/D6 (device-local, per-device,
 neutral-conduit, preferences-not-profiles), ADR-014 (device-local / zero-knowledge

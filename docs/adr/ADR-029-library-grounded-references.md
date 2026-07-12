@@ -1,6 +1,8 @@
 # ADR-029 — Library-grounded references: topic → citations from the personal shelf
 
-**Status:** Proposed — 2026-07-10
+**Status:** Proposed — 2026-07-10 · **amended by ADR-032 (2026-07-12): dual-mode** — the
+device-local design below is the **free tier**; a **hosted** mode (server FTS now,
+managed-key embeddings Phase 2) is added for the paid tier.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-028 (Open Shelves — downloads create the external half of the
 corpus; rights strings and source refs come from feed metadata), ADR-015
