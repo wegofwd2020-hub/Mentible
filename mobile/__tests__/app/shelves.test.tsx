@@ -36,6 +36,18 @@ test("adding a source confirms via Alert before calling add (P0-8)", () => {
   expect(add).toHaveBeenCalledWith("https://ex.org/f");
 });
 
+test("removing a source confirms via Alert before calling remove", () => {
+  mockHookState = { ...mockHookState, sources: [src("a")] };
+  const { getByTestId } = render(<ShelvesScreen />);
+  fireEvent.press(getByTestId("remove-a"));
+  expect(Alert.alert).toHaveBeenCalledTimes(1);
+  expect(remove).not.toHaveBeenCalled();
+  const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+  const removeBtn = buttons.find((b: any) => b.text === "Remove");
+  removeBtn.onPress();
+  expect(remove).toHaveBeenCalledWith("a");
+});
+
 test("renders a row per source and surfaces the hook error", () => {
   mockHookState = { ...mockHookState, sources: [src("a"), src("b")], error: "boom" };
   const { getByTestId, getByText } = render(<ShelvesScreen />);

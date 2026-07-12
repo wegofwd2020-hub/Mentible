@@ -5,7 +5,7 @@
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, spacing, typography, radius } from "@/constants/theme";
+import { colors, spacing, typography } from "@/constants/theme";
 import { useOpenShelves } from "@/openshelves/useOpenShelves";
 import { AddSourceForm } from "@/openshelves/AddSourceForm";
 import { SourceRow } from "@/openshelves/SourceRow";
