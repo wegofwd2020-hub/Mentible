@@ -1,6 +1,8 @@
 # ADR-030 — Content currency agent: watching the world so editions stay current
 
-**Status:** Proposed — 2026-07-10
+**Status:** Proposed — 2026-07-10 · **amended by ADR-032 (2026-07-12):** the author-side
+BYOK check (D2) stays the free/BYOK path; the **scheduled/background** form (D4) lives on
+the **hosted** tier.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-008 (release lifecycle — the agent is the missing *upstream
 trigger* for a new edition), ADR-025 (new-edition redistribution — the downstream
