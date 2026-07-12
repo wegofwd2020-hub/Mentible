@@ -47,7 +47,7 @@ export default function ShelvesScreen() {
           ) : null}
         </View>
 
-        {shelves.sources.length === 0 ? (
+        {shelves.loading && shelves.sources.length === 0 ? null : shelves.sources.length === 0 ? (
           <Text style={styles.empty}>No sources yet. Add an OPDS catalog URL above.</Text>
         ) : (
           shelves.sources.map((s) => (

@@ -45,7 +45,9 @@ export function useOpenShelves() {
 
   const remove = useCallback(async (id: string) => {
     setBusy(true);
+    setError(null);
     try { await removeSource(id); await reload(); }
+    catch (err) { setError(toMessage(err)); }
     finally { setBusy(false); }
   }, [reload]);
 
@@ -59,7 +61,9 @@ export function useOpenShelves() {
 
   const refreshAllSources = useCallback(async () => {
     setBusy(true);
+    setError(null);
     try { await refreshAll(); await reload(); }
+    catch (err) { setError(toMessage(err)); }
     finally { setBusy(false); }
   }, [reload]);
 

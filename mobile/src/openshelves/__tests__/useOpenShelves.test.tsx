@@ -52,3 +52,12 @@ test("remove reloads the list", async () => {
   await act(async () => { await result.current.remove("a"); });
   expect(result.current.sources).toEqual([]);
 });
+
+test("remove maps an error instead of leaving it unhandled", async () => {
+  (listSources as jest.Mock).mockResolvedValue([src("a")]);
+  (removeSource as jest.Mock).mockRejectedValue(new Error("delete failed"));
+  const { result } = renderHook(() => useOpenShelves());
+  await waitFor(() => expect(result.current.sources.length).toBe(1));
+  await act(async () => { await result.current.remove("a"); });
+  expect(result.current.error).toBe("delete failed");
+});
