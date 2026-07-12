@@ -286,6 +286,7 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 | 028 | Open Shelves — free book-repo feeds | Proposed — design-only (not built) |
 | 029 | Library-grounded references (RAG over the device shelf) | Proposed — design-only (not built); depends on 028 |
 | 030 | Content currency agent (watch manifest → new-edition trigger) | Proposed — design-only (not built); depends on 028 + 029 |
+| 031 | Operator-granted managed access (comp/trial allowances + feature entitlements + BYOK graduation) | Proposed — ~85% built (managed vault/plans/entitlement/metering/admin-grant exist, off); net-new = feature-gating axis (EPUB/PDF export); amends ADR-005 D6 |
 
 ---
 
