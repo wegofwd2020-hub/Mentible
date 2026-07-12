@@ -101,3 +101,14 @@ test("relative URLs are preserved (resolved against feed base later)", () => {
   const e = parseOpds12(xml).entries[0];
   expect(e.links[0].href).toBe("/book/1.epub");
 });
+
+test("tab/newline-obfuscated javascript scheme is rejected", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>u4</id><title>t</title>
+    <link rel="http://opds-spec.org/image" href="java&#9;script:alert(1)" type="image/png"/>
+    <link rel="http://opds-spec.org/acquisition" href="java\nscript:alert(1)" type="application/epub+zip"/>
+  </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  expect(e.coverUrl).toBeNull();
+  expect(e.links.every((l) => !/javascript:/i.test(l.href))).toBe(true);
+});

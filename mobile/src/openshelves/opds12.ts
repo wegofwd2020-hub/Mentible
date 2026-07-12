@@ -42,7 +42,7 @@ function firstLangKey(entry: any): string | null {
 // schemes. Relative URLs (no scheme) are allowed — they resolve against the feed
 // base later. Returns null for empty or disallowed-scheme URLs.
 function sanitizeUrl(raw: unknown): string | null {
-  const decoded = decodeEntities(String(raw ?? "")).trim();
+  const decoded = decodeEntities(String(raw ?? "")).replace(/[\t\r\n]/g, "").trim();
   if (!decoded) return null;
   const m = decoded.match(/^([a-z][a-z0-9+.-]*):/i);
   if (m) {
