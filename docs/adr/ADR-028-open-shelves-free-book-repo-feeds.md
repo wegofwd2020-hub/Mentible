@@ -58,7 +58,7 @@ source ref, fetched-at). Supported formats are the **OPDS family only** — OPDS
 (Atom) at MVP, OPDS 2.0 (JSON) as the first follow-on adapter — behind one seam
 (`validate` / `fetch_feed` / `parse_entries`). **No bespoke-format adapters, no
 scraping.** An unrecognized feed fails with a specific "unsupported format" message
-that names OPDS and refers the user to **support@mentible.mambakkam.net**, turning
+that names OPDS and refers the user to **support_mentible@mambakkam.net**, turning
 format demand into a measurable support signal while keeping the parser surface —
 our attack surface — small.
 
