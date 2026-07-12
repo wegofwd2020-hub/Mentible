@@ -6,7 +6,7 @@
 import { XMLParser } from "fast-xml-parser";
 import type { AcquisitionLink, FeedEntry } from "./types";
 import { FeedParseError } from "./errors";
-import { mediaTypeFromMime, toPlainText } from "./normalize";
+import { decodeEntities, mediaTypeFromMime, toPlainText } from "./normalize";
 
 export const MAX_ENTRIES = 5000;
 const SUPPORT = "support_mentible@mambakkam.net";
@@ -37,23 +37,39 @@ function firstLangKey(entry: any): string | null {
   return t || null;
 }
 
+// Sanitize a feed-provided URL: decode XML entities (the parser runs with
+// processEntities:false, so &amp; etc. arrive literal) and reject dangerous
+// schemes. Relative URLs (no scheme) are allowed — they resolve against the feed
+// base later. Returns null for empty or disallowed-scheme URLs.
+function sanitizeUrl(raw: unknown): string | null {
+  const decoded = decodeEntities(String(raw ?? "")).trim();
+  if (!decoded) return null;
+  const m = decoded.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (m) {
+    const scheme = m[1].toLowerCase();
+    if (scheme !== "http" && scheme !== "https") return null; // block javascript:/data:/file:/etc
+  }
+  return decoded;
+}
+
 function parseLinks(entry: any): { links: AcquisitionLink[]; cover: string | null; canonical: string | null } {
   const links: AcquisitionLink[] = [];
   let cover: string | null = null;
   let canonical: string | null = null;
   for (const l of asArray<any>(entry.link)) {
-    const href = String(l["@_href"] ?? "");
     const rel = String(l["@_rel"] ?? "");
-    const type = String(l["@_type"] ?? "");
-    if (!href) continue;
+    const type = decodeEntities(String(l["@_type"] ?? ""));
+    if (!l["@_href"]) continue;
     if (/image|thumbnail/i.test(rel)) {
-      if (!cover) cover = href;
+      if (!cover) cover = sanitizeUrl(l["@_href"]);
       continue;
     }
     if (rel === "alternate" || rel === "self") {
-      if (!canonical) canonical = href;
+      if (!canonical) canonical = sanitizeUrl(l["@_href"]);
     }
     if (/acquisition|open-access/i.test(rel) || /epub|pdf|audio|video|mobi/i.test(type)) {
+      const href = sanitizeUrl(l["@_href"]);
+      if (!href) continue;
       links.push({ href, mimeType: type, rel });
     }
   }

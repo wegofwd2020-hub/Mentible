@@ -70,3 +70,34 @@ test("entry count is capped at MAX_ENTRIES", () => {
     `</feed>`;
   expect(parseOpds12(many).entries.length).toBe(MAX_ENTRIES);
 });
+
+test("entity-encoded ampersands in URLs are decoded", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>u1</id><title>t</title>
+    <link rel="http://opds-spec.org/acquisition" href="https://ex.org/m.epub?a=1&amp;b=2" type="application/epub+zip"/>
+  </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  expect(e.links[0].href).toBe("https://ex.org/m.epub?a=1&b=2");
+});
+
+test("javascript: and data: URLs are rejected", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>u2</id><title>t</title>
+    <link rel="http://opds-spec.org/image" href="javascript:alert(1)" type="image/png"/>
+    <link rel="http://opds-spec.org/acquisition" href="data:text/html,x" type="application/epub+zip"/>
+    <link rel="alternate" href="https://ex.org/ok"/>
+  </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  expect(e.coverUrl).toBeNull();                 // javascript: image rejected
+  expect(e.links.every((l) => !l.href.startsWith("data:"))).toBe(true); // data: acquisition dropped
+  expect(e.canonicalUrl).toBe("https://ex.org/ok");
+});
+
+test("relative URLs are preserved (resolved against feed base later)", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>u3</id><title>t</title>
+    <link rel="http://opds-spec.org/acquisition" href="/book/1.epub" type="application/epub+zip"/>
+  </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  expect(e.links[0].href).toBe("/book/1.epub");
+});

@@ -19,7 +19,7 @@ function isValidCodePoint(cp: number): boolean {
   );
 }
 
-function decodeEntities(s: string): string {
+export function decodeEntities(s: string): string {
   return s
     .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
       const cp = parseInt(h, 16);
