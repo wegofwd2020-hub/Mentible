@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { addSource } from "../feedStore";
 import { listSources } from "../feedSourcesStore";
 import { getEntries } from "../feedEntriesStore";
-import { FeedSourceError } from "../errors";
+import { FeedSourceError, FeedParseError } from "../errors";
 
 const OPDS = `<feed xmlns="http://www.w3.org/2005/Atom"><title>Lib</title>
   <entry><id>e1</id><title>Book One</title>
@@ -35,4 +35,11 @@ test("an unreachable feed throws and persists nothing", async () => {
   const boom = async () => { throw new Error("network down"); };
   await expect(addSource("https://ex.org/feed", { ...fixedOpts, fetchImpl: boom as any })).rejects.toBeInstanceOf(FeedSourceError);
   expect(await listSources()).toEqual([]);
+});
+
+test("a non-OPDS feed body throws and persists nothing", async () => {
+  const notOpds = async () => ({ ok: true, status: 200, headers: { get: () => null }, text: async () => `<rss version="2.0"><channel/></rss>` } as unknown as Response);
+  await expect(addSource("https://ex.org/feed", { ...fixedOpts, fetchImpl: notOpds as any })).rejects.toBeInstanceOf(FeedParseError);
+  expect(await listSources()).toEqual([]);
+  expect(await getEntries("src-1")).toEqual([]);
 });

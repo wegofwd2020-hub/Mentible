@@ -50,4 +50,16 @@ test("refreshAll refreshes each source and isolates failures", async () => {
   const out = await refreshAll({ fetchImpl: boom as any, now: () => "T1" });
   expect(out["s1"]).toEqual({ added: 1, updated: 0, removed: 0 }); // +z
   expect("error" in (out["s2"] as any)).toBe(true); // f2 failed, isolated
+  // P0-4 for the failed member of the batch: s2's previous catalog is intact.
+  expect((await getEntries("s2")).map((x) => x.id)).toEqual(["b"]);
+});
+
+test("refresh counts a changed entry as updated and persists the new version", async () => {
+  // First fetch: entry "a" with title "Old".
+  const v1 = `<feed xmlns="http://www.w3.org/2005/Atom"><title>Lib</title><entry><id>a</id><title>Old</title></entry></feed>`;
+  const v2 = `<feed xmlns="http://www.w3.org/2005/Atom"><title>Lib</title><entry><id>a</id><title>New</title></entry></feed>`;
+  await addSource("https://ex.org/f", { fetchImpl: resp(v1) as any, now: () => "T0", newId: () => "s1" });
+  const r = await refreshSource("s1", { fetchImpl: resp(v2) as any, now: () => "T1" });
+  expect(r).toEqual({ added: 0, updated: 1, removed: 0 });
+  expect((await getEntries("s1"))[0].title).toBe("New");
 });
