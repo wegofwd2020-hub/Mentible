@@ -7,7 +7,7 @@ import { FeedRefreshError } from "../errors";
 const feed = (entries: string) =>
   `<feed xmlns="http://www.w3.org/2005/Atom"><title>Lib</title>${entries}</feed>`;
 const e = (id: string) => `<entry><id>${id}</id><title>t</title></entry>`;
-const resp = (xml: string) => async () =>
+const resp = (xml: string) => async (_u?: string) =>
   ({ ok: true, status: 200, headers: { get: () => null }, text: async () => xml } as unknown as Response);
 
 const addOpts = (xml: string) => ({ fetchImpl: resp(xml) as any, now: () => "T0", newId: () => "s1" });
