@@ -39,7 +39,7 @@ availability + industry habit-collection survey — the evidence base for §6b/�
 - **D5 RESOLVED (decision by Siva, 2026-07-10): only published standard feed
   formats are supported** — the OPDS family (OPDS 1.2 at P0; OPDS 2.0 at P1).
   Non-standard or unrecognized feed formats are not parsed; the add-source
-  failure path refers the user to **support@mentible.mambakkam.net** so demand
+  failure path refers the user to **support_mentible@mambakkam.net** so demand
   for additional formats is captured rather than lost. P0-2 acceptance criteria
   and Non-Goals updated accordingly.
 
@@ -182,7 +182,7 @@ personalization operate as a pure function of *(device-local declared preference
 - *(v0.4, per D5)* **No non-standard feed formats.** Only published standard feed
   formats (the OPDS family) are parsed. Bespoke JSON APIs, scraping, plain
   RSS/Atom book lists, and any other format are out of scope; the in-app failure
-  message directs users to **support@mentible.mambakkam.net** to request support
+  message directs users to **support_mentible@mambakkam.net** to request support
   for an additional format. This keeps the parser surface small (a security
   property — see §7) and turns format demand into a measurable support signal.
 - *(v0.8)* **No scraping or unofficial Goodreads APIs.** Goodreads' public API is
@@ -242,7 +242,7 @@ personalization operate as a pure function of *(device-local declared preference
 | # | Requirement | Acceptance criteria (abridged) |
 |---|---|---|
 | P0-1 | **User-managed sources (R1).** Add repo by URL; list, view details, remove. Removal purges that source's cached entries | Given a valid feed URL is added, when add completes, then the source appears in Sources with entry count and last-refreshed time; given removal, then no entries from it remain |
-| P0-2 | **Feed format support: OPDS 1.2 (Atom) as the required baseline**, structured for additional adapters (OPDS 2.0/JSON as first follow-on). One seam: `validate`, `fetch_feed`, `parse_entries`. *(v0.4, per D5)* Only published standard formats are accepted — no bespoke-format adapters | Given an OPDS 1.2 feed, entries parse with title/author/links; given a non-standard or unrecognized feed, add fails with an "unsupported format" message that names the supported standard (OPDS) and refers the user to **support@mentible.mambakkam.net** to request additional format support |
+| P0-2 | **Feed format support: OPDS 1.2 (Atom) as the required baseline**, structured for additional adapters (OPDS 2.0/JSON as first follow-on). One seam: `validate`, `fetch_feed`, `parse_entries`. *(v0.4, per D5)* Only published standard formats are accepted — no bespoke-format adapters | Given an OPDS 1.2 feed, entries parse with title/author/links; given a non-standard or unrecognized feed, add fails with an "unsupported format" message that names the supported standard (OPDS) and refers the user to **support_mentible@mambakkam.net** to request additional format support |
 | P0-3 | **Feed-info-only storage (R3).** Local store holds source records + entry metadata (title, author(s), description, cover URL, license/rights string, **language, category/subject terms, media type** *(v0.3 — the filterable fields)*, content links, source ref, fetched-at). **No content payloads persisted** | Code review + storage inspection show no content file paths; app storage growth from a 10k-entry feed stays within the metadata budget (see §7) |
 | P0-4 | **Manual refresh (R4)**, per-source and refresh-all. Refresh is idempotent: entries upsert on stable identity (feed entry ID), removed entries are pruned, partial failure leaves the previous good cache intact | Given refresh fails mid-way, then the prior catalog remains; given the same feed refreshed twice, then no duplicates exist |
 | P0-5 | **Starter list (R5; composition per D3).** Ships with three owner-curated sources: **Internet Archive** (candidate: the BookServer OPDS catalog, scoped to public-domain/direct-download collections — see D3a), **Project Gutenberg** (candidate: `https://m.gutenberg.org/ebooks.opds/`), and **Feedbooks public-domain** (candidate: the public-domain section of `https://catalog.feedbooks.com/catalog/index.atom`) — delivered via remote config so the list can be revised without release; user can hide starter sources but the list itself is owner-managed | Given a fresh install, the three starter sources are present and browsable; given the remote list changes, clients reflect it on next config fetch; each starter feed passes D3a verification before ship |
@@ -390,7 +390,7 @@ into the app; scraping and unofficial APIs are excluded by non-goal.
 | D3 | ~~Starter list composition~~ — **RESOLVED 2026-07-10 (Siva): Internet Archive, Project Gutenberg, Feedbooks public-domain** (three sources). Stewardship: owner-managed via remote config; record in ADR-020's scope | Siva | Closed |
 | D3a | *(v0.7, residual — launch prerequisite)* Verify each starter feed live: valid OPDS parse, HTTPS availability (P0-8), and an IA entry-point scoped to public-domain/direct-download collections — IA's lending items require an account (conflicts with R2; would surface P0-9 errors). If IA's BookServer feed proves dead or auth-heavy, fall back candidates: Standard Ebooks OPDS, ManyBooks OPDS — owner's call at that point | Engineering verification | No (for ADR); Yes (for ship) |
 | D4 | Is web-platform source asymmetry (CORS) acceptable for v1, or does a metadata-only proxy ship? | Engineering spike | No |
-| D5 | ~~Feed formats beyond OPDS?~~ — **RESOLVED 2026-07-10 (Siva): published standard formats only** (OPDS family). Additional-format requests route to support@mentible.mambakkam.net; revisit only if support volume shows real demand for a specific published standard | Siva | Closed |
+| D5 | ~~Feed formats beyond OPDS?~~ — **RESOLVED 2026-07-10 (Siva): published standard formats only** (OPDS family). Additional-format requests route to support_mentible@mambakkam.net; revisit only if support volume shows real demand for a specific published standard | Siva | Closed |
 | D6 | ~~User-added-source liability model~~ — **RESOLVED 2026-07-10 (Siva): neutral conduit.** Curated open-library starter list provided; user-added libraries trigger an add-time warning; Mentible cannot and does not block the content — no denylist, no inspection. Residual (non-blocking): final warning copy + optional matching ToS clause | Siva (residual: copy + legal glance) | Closed |
 | D7 | Media entries (audio/video) at P0 or P1? Recommendation: P1 — P0 filters to book media types to keep the reading-surface decision (D2) singular | Siva | No |
 | D8 | ~~Maturity filtering strategy~~ — **RESOLVED 2026-07-10 (Siva): Option 1, metadata-flag-only.** Hide only what the feed explicitly flags; no heuristics, no inspection; honest settings copy. P0-3 schema stores the flag | Siva | Closed |
