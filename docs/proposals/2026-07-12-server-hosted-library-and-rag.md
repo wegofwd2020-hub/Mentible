@@ -2,7 +2,7 @@
 
 **Status:** DRAFT — brainstorm in progress (2026-07-12). Not a decision yet; captures
 the direction chosen so far + the legal analysis, with open decisions listed. Becomes
-a full ADR (candidate **ADR-031**) once the open decisions below are resolved.
+a full ADR (candidate **ADR-032**) once the open decisions below are resolved.
 **Decision-maker:** Sivakumar Mambakkam
 **Supersedes / amends (if accepted):** ADR-028 D2/D3/D6 (device-local, per-device,
 neutral-conduit, preferences-not-profiles), ADR-014 (device-local / zero-knowledge
@@ -152,7 +152,7 @@ practical and normal. What makes it safe is the *combination*, and it must clear
 ## 6. Next steps
 
 1. Resolve §5 open decisions (one at a time — continue the brainstorm).
-2. Promote this brief to **ADR-031 — Server-hosted library + hosted RAG + storage
+2. Promote this brief to **ADR-032 — Server-hosted library + hosted RAG + storage
    tiers**, amending ADR-028 D2/D3/D6, ADR-014, ADR-001, and reshaping ADR-029/030.
 3. Flag the **legal review** (ToS rights-rep/indemnification + DMCA agent + takedown +
    repeat-infringer policy) as a launch-gating prerequisite, before any hosting ships.
