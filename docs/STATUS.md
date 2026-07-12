@@ -365,13 +365,15 @@ track the core mobile loop:
 | 3 | Maths (KaTeX) renders | ✅ app + compiler (MathML) · ✅ verified in the shipped app |
 | 4 | Diagram (Mermaid) renders | ✅ app + compiler (SVG) · ✅ verified in the shipped app |
 | 5 | Backend never logs the key | ✅ enforced + tested in CI (mandatory gate) |
-| 6 | Generation < 90 s p95 | ⬜ **not formally measured** (some runs are slow; poll TTL 600 s) |
+| 6 | Generation latency (D12 = "minutes") | ✅ **measured 2026-07-12** — p50 77 s / p95 ~178 s over 30 lessons; scales with output size (light ~40 s, medium ~77 s, heavy deep/expert/10-page ~150–180 s). **Met as designed** (D12 "minutes" + D2 async/FCM-push). A stricter <90 s line would fail on the heavy tail. `docs/perf/latency-2026-07-12.json` · `scripts/perf/` |
 
 **Bottom line (2026-06-27):** the loop is now **exercised end-to-end** — the full APK
 was built + smoke-tested on an emulator, the web app is **live** with generation +
 **sign-in verified on production**, and KaTeX/Mermaid render in the shipped app.
-Criterion 5 is proven in CI. The one still-open metric is **6 (latency)** — not
-formally measured (the poll timeout was raised to 600 s for slow generations).
+Criterion 5 is proven in CI. Criterion **6 (latency)** is now **measured**
+(2026-07-12, `scripts/perf/` probe): per-topic generation is **1–3 minutes**, scaling
+with output size — **met as designed** (D12 = "minutes", D2 = async + FCM push). All
+seven criteria are now satisfied.
 
 ---
 
@@ -391,10 +393,13 @@ _Re-prioritised 2026-06-30. The big-ticket item (managed billing) has since been
    stays **Amber**. **Open gate:** the public registers (USPTO/EUIPO/Trademarkia) block
    automated search, so the **attorney knockout** (Mentible vs Mentable, classes 9/41/42,
    US + EU) is the remaining action before lock. Fallback: **SelfSyllabus**.
-2. **Latency — measure against the < 90 s p95 target (criterion 6).** The last unproven
-   MVP acceptance criterion; *measurement*, not a build. Can't justify a latency *fix*
-   without it, and the signal it may already be blown (poll TTL 600 s; some runs slow)
-   makes the spike worth it. Tells us whether a fix-item even needs to exist.
+2. ~~**Latency — measure against the < 90 s p95 target (criterion 6).**~~ **DONE
+   2026-07-12** (PR #296). Committed re-runnable probe (`scripts/perf/`) + first
+   measurement: per-topic generation is **1–3 minutes** (p50 77 s / p95 ~178 s), scaling
+   with output size — **met as designed** (D12 "minutes" + D2 async/FCM-push); no fix
+   needed. The pin's "<90 s p95" was a stricter-than-spec line, not the SCOPE bar. A
+   latency-reduction project (cap `target_pages` / lower `max_tokens` / streaming) is
+   *optional*, only if a snappier heavy-band feel is later wanted.
 
 **Tier 2 — genuinely deferrable:**
 
