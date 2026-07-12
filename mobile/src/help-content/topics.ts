@@ -304,4 +304,41 @@ export const HELP_TOPICS: HelpTopic[] = [
       { kind: "link", label: "See plans →", href: "/paywall" },
     ],
   },
+  {
+    id: "open-shelves",
+    title: "Add & manage free book repos (Open Shelves)",
+    featureKey: "open-shelves",
+    keywords: [
+      "open shelves", "shelves", "opds", "catalog", "repo", "repository",
+      "source", "free books", "add source", "refresh", "remove",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Open Shelves lets you add free book catalogs (OPDS feeds) as sources, then browse and manage them from the Shelves tab. A few starter libraries are included, so you always have somewhere to start.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the Shelves tab and enter an OPDS catalog URL, then tap Add.",
+          "Confirm the warning — user-added sources are outside Mentible's curation, and you're responsible for what you add and read.",
+          "Tap a source to refresh it and pick up new entries, or use Refresh all to refresh every source at once.",
+          "Remove a source you no longer want; its catalog entries are removed from this device.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          {
+            term: "Is a source curated?",
+            def: "Only the starter libraries are curated by us. Any catalog you add yourself is your responsibility — we don't vet or moderate third-party feeds.",
+          },
+          {
+            term: "Authenticated repos",
+            def: "Catalogs that require sign-in aren't supported yet — add public, no-auth OPDS catalogs.",
+          },
+        ],
+      },
+    ],
+  },
 ];
