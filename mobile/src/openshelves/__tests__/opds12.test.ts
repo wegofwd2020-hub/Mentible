@@ -123,3 +123,14 @@ test("link rel and mimeType are plaintext-normalized (no markup survives)", () =
   expect(link.rel).not.toMatch(/[<>]/);
   expect(link.mimeType).not.toMatch(/[<>]|script/i);
 });
+
+test("numeric-looking ids are preserved as strings, not coerced to NaN", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><id>e1</id><title>t</title></entry>
+    <entry><id>e2</id><title>t</title></entry>
+    <entry><id>12345</id><title>t</title></entry>
+    <entry><id>007</id><title>t</title></entry>
+  </feed>`;
+  const { entries } = parseOpds12(xml);
+  expect(entries.map((e) => e.id)).toEqual(["e1", "e2", "12345", "007"]);
+});
