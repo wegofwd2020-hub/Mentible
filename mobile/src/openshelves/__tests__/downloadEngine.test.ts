@@ -59,6 +59,15 @@ test("nothing downloadable (video) throws FeedSourceError", async () => {
   await expect(downloadEntry(v, "s1", BASE, fakeIO())).rejects.toBeInstanceOf(FeedSourceError);
 });
 
+test("re-downloading the same entry clears the destination and succeeds", async () => {
+  const io = fakeIO();
+  await downloadEntry(entry(), "s1", BASE, io);       // first
+  const rec = await downloadEntry(entry(), "s1", BASE, io); // second (same entryId → same finalPath)
+  expect(rec.entryId).toBe("e1");
+  // the final path was removed before at least one move (destination cleared)
+  expect(io.removed.some((p) => !p.endsWith(".part"))).toBe(true);
+});
+
 test("removeDownload deletes the file and the record", async () => {
   const io = fakeIO();
   await downloadEntry(entry(), "s1", BASE, io);

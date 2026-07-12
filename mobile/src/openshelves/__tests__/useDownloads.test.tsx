@@ -26,3 +26,16 @@ test("remove calls the engine and reloads", async () => {
   expect(removeDownload).toHaveBeenCalledWith("a", expect.anything());
   expect(result.current.items).toEqual([]);
 });
+
+test("removeAll removes every item then reloads to empty", async () => {
+  (listDownloads as jest.Mock)
+    .mockResolvedValueOnce([rec("a"), rec("b")]) // initial mount
+    .mockResolvedValueOnce([rec("a"), rec("b")]) // removeAll reads the list to iterate
+    .mockResolvedValueOnce([]);                  // reload after
+  (removeDownload as jest.Mock).mockResolvedValue(undefined);
+  const { result } = renderHook(() => useDownloads());
+  await waitFor(() => expect(result.current.items.length).toBe(2));
+  await act(async () => { await result.current.removeAll(); });
+  expect(removeDownload).toHaveBeenCalledTimes(2);
+  expect(result.current.items).toEqual([]);
+});

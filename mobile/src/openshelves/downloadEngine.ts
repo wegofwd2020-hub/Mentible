@@ -60,6 +60,7 @@ export async function downloadEntry(
     throw new FeedSourceError("Download was empty.");
   }
 
+  await io.remove(finalPath).catch(() => {});
   await io.move(partPath, finalPath);
   const rec: DownloadRecord = {
     entryId: entry.id,
