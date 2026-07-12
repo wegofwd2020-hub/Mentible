@@ -61,3 +61,10 @@ test("remove maps an error instead of leaving it unhandled", async () => {
   await act(async () => { await result.current.remove("a"); });
   expect(result.current.error).toBe("delete failed");
 });
+
+test("a failing initial load surfaces an error and stops loading", async () => {
+  (listSources as jest.Mock).mockRejectedValue(new Error("read failed"));
+  const { result } = renderHook(() => useOpenShelves());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.error).toBe("read failed");
+});

@@ -4,16 +4,9 @@
 // the store; components stay presentational.
 import { useCallback, useEffect, useState } from "react";
 import type { FeedSource } from "./types";
-import { FeedSourceError } from "./errors";
 import { listSources } from "./feedSourcesStore";
 import { addSource, removeSource, refreshSource, refreshAll } from "./feedStore";
-
-function toMessage(err: unknown): string {
-  if (err instanceof FeedSourceError && err.authRequired) {
-    return "Authenticated repos aren't supported yet.";
-  }
-  return (err as Error)?.message ?? "Something went wrong.";
-}
+import { toMessage } from "./errorMessage";
 
 export function useOpenShelves() {
   const [sources, setSources] = useState<FeedSource[]>([]);
@@ -22,8 +15,13 @@ export function useOpenShelves() {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    setSources(await listSources());
-    setLoading(false);
+    try {
+      setSources(await listSources());
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void reload(); }, [reload]);

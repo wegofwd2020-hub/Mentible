@@ -33,3 +33,11 @@ test("refresh calls refreshSource then reloads", async () => {
   expect(refreshSource).toHaveBeenCalledWith("s1");
   expect(result.current.entries.map((e) => e.id)).toEqual(["a", "c"]);
 });
+
+test("a failing initial load surfaces an error and stops loading", async () => {
+  (getSource as jest.Mock).mockRejectedValue(new Error("read failed"));
+  (getEntries as jest.Mock).mockResolvedValue([]);
+  const { result } = renderHook(() => useSourceCatalog("s1"));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.error).toBe("read failed");
+});

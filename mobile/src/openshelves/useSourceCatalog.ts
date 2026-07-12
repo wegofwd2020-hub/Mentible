@@ -3,17 +3,10 @@
 // per-source refresh. Read-only over the plan-2 stores; components stay dumb.
 import { useCallback, useEffect, useState } from "react";
 import type { FeedEntry, FeedSource } from "./types";
-import { FeedSourceError } from "./errors";
 import { getSource } from "./feedSourcesStore";
 import { getEntries } from "./feedEntriesStore";
 import { refreshSource } from "./feedStore";
-
-function toMessage(err: unknown): string {
-  if (err instanceof FeedSourceError && err.authRequired) {
-    return "Authenticated repos aren't supported yet.";
-  }
-  return (err as Error)?.message ?? "Something went wrong.";
-}
+import { toMessage } from "./errorMessage";
 
 export function useSourceCatalog(sourceId: string) {
   const [source, setSource] = useState<FeedSource | null>(null);
@@ -23,10 +16,15 @@ export function useSourceCatalog(sourceId: string) {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [s, e] = await Promise.all([getSource(sourceId), getEntries(sourceId)]);
-    setSource(s);
-    setEntries(e);
-    setLoading(false);
+    try {
+      const [s, e] = await Promise.all([getSource(sourceId), getEntries(sourceId)]);
+      setSource(s);
+      setEntries(e);
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
   }, [sourceId]);
 
   useEffect(() => { void reload(); }, [reload]);
