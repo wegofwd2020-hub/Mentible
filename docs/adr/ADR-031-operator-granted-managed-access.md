@@ -118,6 +118,34 @@ per-account spend ceiling cap the blast radius. If comp grants ever become **sel
 an explicit anti-Sybil gate (device/identity limits, rate) is a **prerequisite** — and is
 out of scope here.
 
+### D9 — Super-admin **observability + state control** of the comped "free keys"
+
+The owner must be able to **see how the free keys are being used** and **change the state
+of a provision**, both through the audited super-admin surface (ADR-020,
+`require_super_admin`, read-only metadata — never user *content*).
+
+**View (usage).** Two granularities:
+- **Per-user free-key usage** — for a given account, its entitlement **joined to consumed
+  spend against the allowance**: plan, period, `cost_micros` used, remaining, % of
+  allowance, and a **near-cap flag**. The building block exists (`usage_repo.period_usage`);
+  what exists today is only **fleet-aggregate** spend (`GET /billing/usage-summary`) and the
+  **bare** entitlement (`GET …/entitlement`, no consumption). Joining entitlement × usage
+  per user is **net-new** (small) — this is the observability gap.
+- **Fleet of active comps** — a list of accounts holding a comp entitlement with each one's
+  consumption and expiry, so a runaway or an expiring trial is visible at a glance.
+
+**Change state.** Already available and audited — this ADR **records** it as the state
+lever, no new mechanism:
+- `PUT /api/v1/admin/users/{sub}/entitlement` — **grant / extend** (new `period_days`) /
+  **terminate** (`status=canceled`). A **soft pause** uses `status=past_due` (already in
+  `ENTITLEMENT_STATUSES`); **resume** re-grants `active`. `resolve_access` only honors an
+  `active`, in-period entitlement, so a non-`active` status **immediately** stops managed
+  access (lazy, at next request — D2).
+- Account-level `suspend` / `reactivate` / `delete` remain the coarser levers.
+
+Every view is metadata-only and gated; every state change is written to `admin_audit`
+(actor, action, target, timestamp) — the audit trail already carries `entitlement.set:…`.
+
 ---
 
 ## Open questions
@@ -181,6 +209,8 @@ today. Anonymous/BYOK remains the zero-entitlement baseline.
    admin API (Open question 3).
 5. **Activation**: flip eligibility from the staff allowlist to real granted entitlements;
    confirm both `/generate` and export consult `access` (D1).
+6. **Super-admin usage view**: per-user entitlement × consumed-spend endpoint + active-comps
+   fleet list; state control reuses the existing audited `PUT …/entitlement` (D9).
 
 ## Follow-up tickets
 
@@ -189,4 +219,7 @@ today. Anonymous/BYOK remains the zero-entitlement baseline.
 - **SBQ-GRANT-003** — comp/trial plan catalogue in `plans.py` (staged plan 3).
 - **SBQ-GRANT-004** — owner grant/extend/terminate console (staged plan 4; Open question 3).
 - **SBQ-GRANT-005** — user-facing allowance/expiry + BYOK-graduation prompts (Open question 4).
+- **SBQ-GRANT-006** — super-admin per-user free-key usage view (entitlement × consumed spend
+  vs allowance, near-cap flag) + active-comps fleet list (D9). State control (grant/extend/
+  pause/terminate) reuses the existing audited `PUT …/entitlement`.
 - *(carried)* per-grant allowance override (Open question 2); Phase-4 payment unification (Open question 5).
