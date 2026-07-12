@@ -28,10 +28,12 @@ In this Claude Code session, set the key yourself so the harness never handles i
 
 ## Run
 
-From the repo root:
+Needs `httpx` on the path — a clean system `python3` will `ModuleNotFoundError`.
+Use the backend venv (which already has it), from the repo root:
 
 ```bash
-python3 -m scripts.perf.latency_probe
+.venv/bin/python3 -m scripts.perf.latency_probe
+# or: source .venv/bin/activate && python3 -m scripts.perf.latency_probe
 ```
 
 Runs 30 jobs (~a few minutes, one at a time). Prints a per-job line, then the

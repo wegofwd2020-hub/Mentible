@@ -60,7 +60,7 @@ def test_summarize_pass():
     rows = [_row(float(x)) for x in range(10, 40)]  # 10..39s, 30 successes
     s = summarize(rows, budget_s=90.0)
     assert s.n_success == 30 and s.n_timeout == 0 and s.n_failed == 0
-    assert s.p95 == 39.0 and s.max == 39.0
+    assert s.p95 == 38.0 and s.max == 39.0  # nearest-rank p95 of 30 pts = index 28
     assert s.n_over_budget == 0
     assert s.passed is True
 
