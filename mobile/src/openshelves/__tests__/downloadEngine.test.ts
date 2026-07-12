@@ -47,6 +47,13 @@ test("a download error quarantines: no record, throws", async () => {
   expect(await listDownloads()).toEqual([]);
 });
 
+test("a non-2xx response quarantines even with a non-empty body", async () => {
+  const io = fakeIO({ download: jest.fn(async () => ({ bytes: 5000, status: 404 })) as any });
+  await expect(downloadEntry(entry(), "s1", BASE, io)).rejects.toThrow(/HTTP 404/);
+  expect(await listDownloads()).toEqual([]);
+  expect(io.removed.length).toBe(1); // .part cleaned up
+});
+
 test("nothing downloadable (video) throws FeedSourceError", async () => {
   const v = entry({ mediaType: "video", links: [{ href: "https://ex.org/v.mp4", mimeType: "video/mp4", rel: "x" }] });
   await expect(downloadEntry(v, "s1", BASE, fakeIO())).rejects.toBeInstanceOf(FeedSourceError);

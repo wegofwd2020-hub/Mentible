@@ -10,7 +10,7 @@ import { deleteDownloadRecord, getDownload, putDownload, type DownloadRecord } f
 export interface Downloader {
   dir: string;
   ensureDir(dir: string): Promise<void>;
-  download(url: string, destPath: string): Promise<{ bytes: number }>;
+  download(url: string, destPath: string): Promise<{ bytes: number; status?: number }>;
   move(fromPath: string, toPath: string): Promise<void>;
   remove(path: string): Promise<void>;
 }
@@ -44,11 +44,16 @@ export async function downloadEntry(
   const partPath = `${finalPath}.part`;
 
   let bytes = 0;
+  let status: number | undefined;
   try {
-    ({ bytes } = await io.download(target.url, partPath));
+    ({ bytes, status } = await io.download(target.url, partPath));
   } catch (err) {
     await io.remove(partPath).catch(() => {});
     throw new FeedSourceError(`Download failed: ${(err as Error).message}`);
+  }
+  if (status !== undefined && status !== 0 && (status < 200 || status >= 300)) {
+    await io.remove(partPath).catch(() => {});
+    throw new FeedSourceError(`Download failed: HTTP ${status}.`);
   }
   if (!bytes || bytes <= 0) {
     await io.remove(partPath).catch(() => {});

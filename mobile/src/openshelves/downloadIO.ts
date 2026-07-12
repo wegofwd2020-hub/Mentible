@@ -15,10 +15,10 @@ const nativeIO: Downloader = {
     const info = await FileSystem.getInfoAsync(dir);
     if (!info.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   },
-  async download(url: string, destPath: string): Promise<{ bytes: number }> {
-    await FileSystem.downloadAsync(url, destPath);
+  async download(url: string, destPath: string): Promise<{ bytes: number; status?: number }> {
+    const res = await FileSystem.downloadAsync(url, destPath);
     const info = await FileSystem.getInfoAsync(destPath);
-    return { bytes: info.exists ? (info.size ?? 0) : 0 };
+    return { bytes: (info as any).size ?? 0, status: res.status };
   },
   async move(fromPath: string, toPath: string): Promise<void> {
     await FileSystem.moveAsync({ from: fromPath, to: toPath });
@@ -34,14 +34,14 @@ const nativeIO: Downloader = {
 const webIO: Downloader = {
   dir: "",
   async ensureDir(): Promise<void> {},
-  async download(url: string): Promise<{ bytes: number }> {
+  async download(url: string): Promise<{ bytes: number; status?: number }> {
     const a = document.createElement("a");
     a.href = url;
     a.download = "";
     document.body.appendChild(a);
     a.click();
     a.remove();
-    return { bytes: 0 };
+    return { bytes: 0, status: 0 };
   },
   async move(): Promise<void> {},
   async remove(): Promise<void> {},
