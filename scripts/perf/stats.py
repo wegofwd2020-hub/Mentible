@@ -15,6 +15,7 @@ class Row:
     status: str            # "done" | "failed" | "timeout"
     elapsed_s: float | None
     output_chars: int | None
+    error: str | None = None   # why a non-"done" job failed (submit or worker)
 
 
 @dataclass
@@ -33,6 +34,7 @@ class Summary:
     passed: bool
     verdict_reason: str
     by_band: dict = field(default_factory=dict)
+    sample_errors: list = field(default_factory=list)  # distinct non-"done" error strings
 
 
 def percentile(sorted_vals: list[float], q: float) -> float:
@@ -90,9 +92,18 @@ def summarize(rows: list[Row], budget_s: float = 90.0) -> Summary:
         for b in bands
     }
 
+    # Distinct error strings from non-"done" rows, so a systemic failure is
+    # self-explaining from the summary alone (order-preserving dedup).
+    sample_errors: list[str] = []
+    for r in rows:
+        if r.status != "done" and r.error and r.error not in sample_errors:
+            sample_errors.append(r.error)
+    if sample_errors and not passed:
+        reason = f"{reason} — errors: {'; '.join(sample_errors)}"
+
     return Summary(
         n_total=len(rows), n_success=len(successes), n_timeout=n_timeout,
         n_failed=n_failed, mean=mean, p50=p50, p90=p90, p95=p95, max=mx,
         n_over_budget=n_over, pct_over_budget=pct_over, passed=passed,
-        verdict_reason=reason, by_band=by_band,
+        verdict_reason=reason, by_band=by_band, sample_errors=sample_errors,
     )

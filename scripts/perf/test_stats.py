@@ -2,10 +2,22 @@ import math
 from scripts.perf.stats import Row, percentile, summarize
 
 
-def _row(elapsed, status="done", band="heavy"):
+def _row(elapsed, status="done", band="heavy", error=None):
     return Row(band=band, format="lesson", depth="deep", level="expert",
                target_pages=8, status=status, elapsed_s=elapsed,
-               output_chars=(100 if elapsed else None))
+               output_chars=(100 if elapsed else None), error=error)
+
+
+def test_sample_errors_captured_and_deduped_in_reason():
+    rows = ([_row(10.0) for _ in range(5)]
+            + [_row(None, status="failed", error="format 'quiz' not yet supported in this MVP")
+               for _ in range(3)]
+            + [_row(None, status="failed", error="invalid token")])
+    s = summarize(rows, budget_s=90.0)
+    assert s.passed is False
+    # distinct, order-preserving
+    assert s.sample_errors == ["format 'quiz' not yet supported in this MVP", "invalid token"]
+    assert "format 'quiz'" in s.verdict_reason and "invalid token" in s.verdict_reason
 
 
 def test_percentile_nearest_rank():

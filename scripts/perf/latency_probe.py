@@ -38,12 +38,16 @@ class ConfigError(Exception):
 
 def _load_config() -> tuple[str, str, str]:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    # JWT is OPTIONAL: BYOK /generate is not auth-gated (the backend treats a
+    # missing Authorization header as anonymous and accepts the request). A
+    # present-but-INVALID token, however, is rejected with 400 "invalid token" —
+    # so only send the header when a token is actually provided. Auth is verified
+    # at submit and does not affect generation latency, so the anonymous BYOK path
+    # measures the same number.
     jwt = os.environ.get("MENTIBLE_TEST_JWT", "").strip()
     base = os.environ.get("MENTIBLE_API_BASE", DEFAULT_BASE).strip().rstrip("/")
     if not key:
         raise ConfigError("ANTHROPIC_API_KEY is not set")
-    if not jwt:
-        raise ConfigError("MENTIBLE_TEST_JWT is not set")
     host = urlparse(base).hostname or ""
     if not base.startswith("https://") and host not in ("localhost", "127.0.0.1"):
         raise ConfigError(f"refusing non-https base {base!r} (TLS required)")
@@ -65,9 +69,20 @@ def _build_body(entry: CorpusEntry, key: str) -> dict:
     }
 
 
+def _submit_error(resp: httpx.Response) -> str:
+    """A short, safe error string from a non-202 submit — the FastAPI `detail`
+    field if present, else the status code. Never contains the key (the key is in
+    the request body we sent, never echoed in an error response)."""
+    try:
+        detail = resp.json().get("detail")
+    except (ValueError, AttributeError):
+        detail = None
+    return f"submit HTTP {resp.status_code}: {detail}" if detail else f"submit HTTP {resp.status_code}"
+
+
 async def _run_one(client: httpx.AsyncClient, base: str, jwt: str,
                    entry: CorpusEntry, key: str) -> Row:
-    headers = {"Authorization": f"Bearer {jwt}"}
+    headers = {"Authorization": f"Bearer {jwt}"} if jwt else {}
     base_row = dict(band=entry.band, format=entry.format, depth=entry.depth,
                     level=entry.level, target_pages=entry.target_pages)
     t0 = time.perf_counter()
@@ -75,11 +90,13 @@ async def _run_one(client: httpx.AsyncClient, base: str, jwt: str,
         resp = await client.post(f"{base}/api/v1/generate",
                                  json=_build_body(entry, key), headers=headers)
     except httpx.HTTPError as exc:
-        print(f"  submit error: {type(exc).__name__}")
-        return Row(**base_row, status="failed", elapsed_s=None, output_chars=None)
+        err = f"submit error: {type(exc).__name__}"
+        print(f"  {err}")
+        return Row(**base_row, status="failed", elapsed_s=None, output_chars=None, error=err)
     if resp.status_code != 202:
-        print(f"  submit failed: HTTP {resp.status_code}")
-        return Row(**base_row, status="failed", elapsed_s=None, output_chars=None)
+        err = _submit_error(resp)
+        print(f"  {err}")
+        return Row(**base_row, status="failed", elapsed_s=None, output_chars=None, error=err)
     job_id = resp.json()["job_id"]
 
     while True:
@@ -87,7 +104,8 @@ async def _run_one(client: httpx.AsyncClient, base: str, jwt: str,
         elapsed = time.perf_counter() - t0
         if elapsed > JOB_TIMEOUT_S:
             print(f"  timeout after {elapsed:.0f}s")
-            return Row(**base_row, status="timeout", elapsed_s=None, output_chars=None)
+            return Row(**base_row, status="timeout", elapsed_s=None, output_chars=None,
+                       error=f"exceeded {JOB_TIMEOUT_S:.0f}s job timeout")
         try:
             jr = await client.get(f"{base}/api/v1/jobs/{job_id}", headers=headers)
         except httpx.HTTPError:
@@ -103,8 +121,9 @@ async def _run_one(client: httpx.AsyncClient, base: str, jwt: str,
             print(f"  done in {elapsed:.1f}s ({chars} chars)")
             return Row(**base_row, status="done", elapsed_s=elapsed, output_chars=chars)
         if status == "failed":
-            print(f"  job failed: {payload.get('error')}")
-            return Row(**base_row, status="failed", elapsed_s=None, output_chars=None)
+            err = payload.get("error")
+            print(f"  job failed: {err}")
+            return Row(**base_row, status="failed", elapsed_s=None, output_chars=None, error=err)
 
 
 async def _run_all(base: str, jwt: str, key: str) -> list[Row]:
@@ -133,6 +152,10 @@ def _print_report(summary: Summary) -> None:
     print("by band:")
     for band, st in summary.by_band.items():
         print(f"  {band:6}  n={st['n']:2}  p50 {_fmt(st['p50'])}  p95 {_fmt(st['p95'])}")
+    if summary.sample_errors:
+        print("errors seen:")
+        for e in summary.sample_errors:
+            print(f"  - {e}")
     verdict = "PASS" if summary.passed else "FAIL"
     print("-" * 60)
     print(f"VERDICT: {verdict} — {summary.verdict_reason}")
@@ -155,7 +178,9 @@ def main() -> int:
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
-    print(f"probing {base} — {len(CORPUS)} jobs, sequential, budget {BUDGET_S:.0f}s\n")
+    auth = "authenticated" if jwt else "anonymous (no JWT)"
+    print(f"probing {base} — {len(CORPUS)} jobs, sequential, {auth}, "
+          f"budget {BUDGET_S:.0f}s\n")
     rows = asyncio.run(_run_all(base, jwt, key))
     summary = summarize(rows, budget_s=BUDGET_S)
     _print_report(summary)

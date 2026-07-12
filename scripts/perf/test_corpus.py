@@ -23,6 +23,13 @@ def test_corpus_entries_use_valid_enum_values():
         assert 0 <= e.target_pages <= 100
 
 
+def test_every_entry_is_lesson_format():
+    # Only `lesson` is wired in the MVP worker; `explanation`/`quiz` are rejected
+    # with "format 'X' not yet supported in this MVP" (D13). Guard against
+    # re-introducing an unsupported format that would fail every job.
+    assert all(e.format == "lesson" for e in CORPUS)
+
+
 def test_bands_have_expected_weighting():
     heavy = [e for e in CORPUS if e.band == "heavy"]
     assert all(e.depth == "deep" and e.level == "expert" for e in heavy)
