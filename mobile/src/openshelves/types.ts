@@ -32,4 +32,5 @@ export interface FeedSource {
   addedAt: string; // ISO 8601
   lastRefreshedAt: string | null;
   isStarter: boolean; // from the owner-curated starter list (spec P0-5)
+  entryCount: number; // cached count for the Sources list (spec P0-1)
 }
