@@ -36,6 +36,7 @@
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
     "expo-web-browser": "~14.2.0",
+    "fast-xml-parser": "^4.5.7",
     "fflate": "^0.8.3",
     "katex": "^0.16.9",
     "marked": "^9.1.6",
