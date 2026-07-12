@@ -1,0 +1,370 @@
+{
+  "budget_s": 90.0,
+  "rows": [
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 10,
+      "status": "timeout",
+      "elapsed_s": null,
+      "output_chars": null,
+      "error": "exceeded 180s job timeout"
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 9,
+      "status": "done",
+      "elapsed_s": 180.1154288599937,
+      "output_chars": 34187,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 9,
+      "status": "done",
+      "elapsed_s": 157.03958921600133,
+      "output_chars": 27152,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 8,
+      "status": "done",
+      "elapsed_s": 170.15303853199293,
+      "output_chars": 27255,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 8,
+      "status": "done",
+      "elapsed_s": 178.45690252599888,
+      "output_chars": 31061,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 10,
+      "status": "timeout",
+      "elapsed_s": null,
+      "output_chars": null,
+      "error": "exceeded 180s job timeout"
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 8,
+      "status": "done",
+      "elapsed_s": 150.3375772920117,
+      "output_chars": 24928,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 7,
+      "status": "done",
+      "elapsed_s": 150.37822191801388,
+      "output_chars": 27110,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 7,
+      "status": "done",
+      "elapsed_s": 148.73904712300282,
+      "output_chars": 26914,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 7,
+      "status": "done",
+      "elapsed_s": 167.42648670299968,
+      "output_chars": 30772,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 8,
+      "status": "done",
+      "elapsed_s": 156.5542682170053,
+      "output_chars": 26605,
+      "error": null
+    },
+    {
+      "band": "heavy",
+      "format": "lesson",
+      "depth": "deep",
+      "level": "expert",
+      "target_pages": 8,
+      "status": "done",
+      "elapsed_s": 168.06942849799816,
+      "output_chars": 28743,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "timeout",
+      "elapsed_s": null,
+      "output_chars": null,
+      "error": "exceeded 180s job timeout"
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 64.92248737999762,
+      "output_chars": 12293,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 76.62615834201279,
+      "output_chars": 14287,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 81.66331299000012,
+      "output_chars": 15117,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 66.55623648299661,
+      "output_chars": 12964,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 76.74083149399667,
+      "output_chars": 15547,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 76.65864640798827,
+      "output_chars": 14858,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 80.07407902499835,
+      "output_chars": 14280,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 85.00407748500584,
+      "output_chars": 16138,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 75.06338653199782,
+      "output_chars": 14690,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 73.38823671100545,
+      "output_chars": 14268,
+      "error": null
+    },
+    {
+      "band": "medium",
+      "format": "lesson",
+      "depth": "standard",
+      "level": "professional",
+      "target_pages": 3,
+      "status": "done",
+      "elapsed_s": 76.76038341900858,
+      "output_chars": 14741,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 41.676032105999184,
+      "output_chars": 7829,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 45.02860625600442,
+      "output_chars": 9116,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 36.747374540005694,
+      "output_chars": 7082,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 54.98367297100776,
+      "output_chars": 10651,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 38.37101375999919,
+      "output_chars": 7430,
+      "error": null
+    },
+    {
+      "band": "light",
+      "format": "lesson",
+      "depth": "quick",
+      "level": "student",
+      "target_pages": 0,
+      "status": "done",
+      "elapsed_s": 43.33018547399843,
+      "output_chars": 7655,
+      "error": null
+    }
+  ],
+  "summary": {
+    "n_total": 30,
+    "n_success": 27,
+    "n_timeout": 3,
+    "n_failed": 0,
+    "mean": 100.77276704670523,
+    "p50": 76.76038341900858,
+    "p90": 170.15303853199293,
+    "p95": 178.45690252599888,
+    "max": 180.1154288599937,
+    "n_over_budget": 10,
+    "pct_over_budget": 37.03703703703704,
+    "passed": false,
+    "verdict_reason": "p95 178.5s >= 90s; 3 timeout(s) \u2014 errors: exceeded 180s job timeout",
+    "by_band": {
+      "heavy": {
+        "n": 10,
+        "p50": 157.03958921600133,
+        "p95": 180.1154288599937
+      },
+      "light": {
+        "n": 6,
+        "p50": 41.676032105999184,
+        "p95": 54.98367297100776
+      },
+      "medium": {
+        "n": 11,
+        "p50": 76.65864640798827,
+        "p95": 85.00407748500584
+      }
+    },
+    "sample_errors": [
+      "exceeded 180s job timeout"
+    ]
+  }
+}
