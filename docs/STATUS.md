@@ -287,6 +287,7 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 | 029 | Library-grounded references (RAG over the device shelf) | Proposed — design-only (not built); depends on 028 |
 | 030 | Content currency agent (watch manifest → new-edition trigger) | Proposed — design-only (not built); depends on 028 + 029 |
 | 031 | Operator-granted managed access (comp/trial allowances + feature entitlements + BYOK graduation) | Proposed — ~85% built (managed vault/plans/entitlement/metering/admin-grant exist, off); net-new = feature-gating axis (EPUB/PDF export) + per-user comp-usage view for super-admin (D9); amends ADR-005 D6 |
+| 032 | Server-hosted library + hosted RAG + storage tiers | **DRAFT brief** (`docs/proposals/2026-07-12-server-hosted-library-and-rag.md`) — pre-ADR; content-scope + legal analysis decided, §5 open decisions unresolved. Would reverse ADR-028 D2/D3/D6 + ADR-014 + ADR-001, reshape ADR-029/030 |
 
 ---
 
