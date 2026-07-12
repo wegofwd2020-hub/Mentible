@@ -291,19 +291,19 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    color: colors.text, ...typography.body,
+    color: colors.text, fontSize: typography.sizeMd,
   },
   button: {
     backgroundColor: colors.primary, borderRadius: radius.md,
     paddingVertical: spacing.sm, alignItems: "center",
   },
-  buttonText: { color: colors.onPrimary, ...typography.button },
-  warning: { color: colors.textMuted, ...typography.caption },
-  error: { color: colors.error, ...typography.caption },
+  buttonText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "600" },
+  warning: { color: colors.textMuted, fontSize: typography.sizeXs },
+  error: { color: colors.error, fontSize: typography.sizeXs },
 });
 ```
 
-> Implementer: confirm the exact token names in `@/constants/theme` (e.g. `colors.onPrimary`, `colors.error`, `typography.button`/`caption`). If a token is named differently, use the nearest existing one — do not invent new theme tokens. Grep `mobile/src/constants/theme.ts` first.
+> Theme API (confirmed against `mobile/src/constants/theme.ts`): `typography` exposes font *sizes* (`sizeXs/sizeSm/sizeMd/sizeLg/sizeXl/sizeXxl`) + families, NOT composite style objects — style text with `fontSize: typography.sizeMd` + `fontWeight`, as `app/(tabs)/settings.tsx` does. On-primary text is `colors.primaryText`. Use these exact tokens.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -411,15 +411,15 @@ export function SourceRow({ source, onRefresh, onRemove, busy }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
   meta: { flex: 1, minWidth: 0 },
-  title: { color: colors.text, ...typography.body },
-  sub: { color: colors.textMuted, ...typography.caption },
+  title: { color: colors.text, fontSize: typography.sizeMd },
+  sub: { color: colors.textMuted, fontSize: typography.sizeXs },
   action: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm },
-  actionText: { color: colors.primary, ...typography.button },
+  actionText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   removeText: { color: colors.error },
 });
 ```
 
-> Implementer: same theme-token caveat as Task 2 — verify token names, don't invent.
+> Theme API confirmed (see Task 2 note): use `fontSize: typography.sizeMd`/`sizeXs`, not `...typography.*` objects.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -573,16 +573,16 @@ export default function ShelvesScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
   content: { paddingVertical: spacing.lg },
-  heading: { color: colors.text, ...typography.h1, marginBottom: spacing.xs },
-  blurb: { color: colors.textMuted, ...typography.body, marginBottom: spacing.lg },
+  heading: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700", marginBottom: spacing.xs },
+  blurb: { color: colors.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.lg },
   listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg },
-  sectionTitle: { color: colors.text, ...typography.h2 },
-  refreshAll: { color: colors.primary, ...typography.button },
-  empty: { color: colors.textMuted, ...typography.body, marginTop: spacing.md },
+  sectionTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "600" },
+  refreshAll: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
+  empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });
 ```
 
-> Implementer: verify theme token names (`typography.h1`/`h2`, `colors.background`) against `mobile/src/constants/theme.ts`; use the nearest existing token if a name differs. The screen import path in the test (`@/../app/(tabs)/shelves`) must resolve — if the alias form fails, import via the relative path the repo's other `__tests__/app/*` tests use (check `__tests__/app/book-shared.test.tsx`).
+> Theme tokens confirmed (`colors.background`, `typography.sizeXxl/sizeXl/sizeMd` + `fontWeight`). The screen import path in the test (`@/../app/(tabs)/shelves`) must resolve — if the alias form fails, import via the relative path the repo's other `__tests__/app/*` tests use (check `__tests__/app/book-shared.test.tsx`).
 
 - [ ] **Step 4: Run test to verify it passes**
 
