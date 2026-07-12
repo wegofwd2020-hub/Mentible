@@ -396,7 +396,8 @@ _Re-prioritised 2026-06-30. The big-ticket item (managed billing) has since been
    confirmed the exact "Mentible" spelling is **unused** (ownability signal); status
    stays **Amber**. **Open gate:** the public registers (USPTO/EUIPO/Trademarkia) block
    automated search, so the **attorney knockout** (Mentible vs Mentable, classes 9/41/42,
-   US + EU) is the remaining action before lock. Fallback: **SelfSyllabus**.
+   US + EU) is the remaining action before lock. Fallback: **SelfSyllabus**. **The
+   instruction-to-counsel brief is ready to send:** `docs/trademark-knockout-brief.md`.
 2. ~~**Latency — measure against the < 90 s p95 target (criterion 6).**~~ **DONE
    2026-07-12** (PR #296). Committed re-runnable probe (`scripts/perf/`) + first
    measurement: per-topic generation is **1–3 minutes** (p50 77 s / p95 ~178 s), scaling
