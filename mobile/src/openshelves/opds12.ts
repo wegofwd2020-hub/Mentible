@@ -15,6 +15,12 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   processEntities: false, // XXE guarantee — never expand entities
+  // Tag-value type coercion is off: fast-xml-parser's numeric sniffer treats
+  // bare ids like "e1"/"e2" as pseudo-scientific-notation and silently
+  // corrupts them to NaN, breaking the stable reconcile key (spec P0-4). All
+  // text fields are strings by construction here; `text()`/`toPlainText()`
+  // already normalize them explicitly.
+  parseTagValue: false,
   isArray: (name) =>
     name === "entry" || name === "link" || name === "author" || name === "category",
 });
