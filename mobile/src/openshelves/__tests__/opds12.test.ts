@@ -112,3 +112,14 @@ test("tab/newline-obfuscated javascript scheme is rejected", () => {
   expect(e.coverUrl).toBeNull();
   expect(e.links.every((l) => !/javascript:/i.test(l.href))).toBe(true);
 });
+
+test("link rel and mimeType are plaintext-normalized (no markup survives)", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>n1</id><title>t</title>
+    <link rel="acquisition&lt;img src=x onerror=1&gt;" href="https://ex.org/m.epub" type="application/epub+zip&lt;script&gt;"/>
+  </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  const link = e.links[0];
+  expect(link.rel).not.toMatch(/[<>]/);
+  expect(link.mimeType).not.toMatch(/[<>]|script/i);
+});

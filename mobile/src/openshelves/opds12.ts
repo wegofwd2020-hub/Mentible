@@ -57,8 +57,8 @@ function parseLinks(entry: any): { links: AcquisitionLink[]; cover: string | nul
   let cover: string | null = null;
   let canonical: string | null = null;
   for (const l of asArray<any>(entry.link)) {
-    const rel = String(l["@_rel"] ?? "");
-    const type = decodeEntities(String(l["@_type"] ?? ""));
+    const rel = toPlainText(String(l["@_rel"] ?? ""));
+    const type = toPlainText(String(l["@_type"] ?? ""));
     if (!l["@_href"]) continue;
     if (/image|thumbnail/i.test(rel)) {
       if (!cover) cover = sanitizeUrl(l["@_href"]);
