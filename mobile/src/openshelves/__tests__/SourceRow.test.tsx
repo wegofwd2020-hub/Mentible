@@ -27,3 +27,12 @@ test("refresh and remove buttons call callbacks with the id", () => {
   expect(onRefresh).toHaveBeenCalledWith("s1");
   expect(onRemove).toHaveBeenCalledWith("s1");
 });
+
+test("pressing the title/meta area calls onOpen with the id", () => {
+  const onOpen = jest.fn();
+  const { getByTestId } = render(
+    <SourceRow source={src()} onRefresh={jest.fn()} onRemove={jest.fn()} onOpen={onOpen} />
+  );
+  fireEvent.press(getByTestId("open-s1"));
+  expect(onOpen).toHaveBeenCalledWith("s1");
+});

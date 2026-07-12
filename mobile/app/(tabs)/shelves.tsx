@@ -3,6 +3,7 @@
 // list/refresh/remove sources. User-added sources are warned (P0-8, neutral
 // conduit) and never blocked. No auth required.
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, spacing, typography } from "@/constants/theme";
@@ -15,6 +16,7 @@ const WARNING =
 
 export default function ShelvesScreen() {
   const shelves = useOpenShelves();
+  const router = useRouter();
 
   const confirmAdd = (url: string) => {
     Alert.alert("Add this source?", WARNING, [
@@ -51,7 +53,14 @@ export default function ShelvesScreen() {
           <Text style={styles.empty}>No sources yet. Add an OPDS catalog URL above.</Text>
         ) : (
           shelves.sources.map((s) => (
-            <SourceRow key={s.id} source={s} busy={shelves.busy} onRefresh={shelves.refresh} onRemove={confirmRemove} />
+            <SourceRow
+              key={s.id}
+              source={s}
+              busy={shelves.busy}
+              onRefresh={shelves.refresh}
+              onRemove={confirmRemove}
+              onOpen={(id) => router.push(`/shelves/${id}`)}
+            />
           ))
         )}
       </PageContainer>

@@ -8,19 +8,20 @@ interface Props {
   source: FeedSource;
   onRefresh: (id: string) => void;
   onRemove: (id: string) => void;
+  onOpen?: (id: string) => void;
   busy?: boolean;
 }
 
-export function SourceRow({ source, onRefresh, onRemove, busy }: Props) {
+export function SourceRow({ source, onRefresh, onRemove, onOpen, busy }: Props) {
   const { id, title, url, entryCount, lastRefreshedAt } = source;
   return (
     <View style={styles.row}>
-      <View style={styles.meta}>
+      <Pressable testID={`open-${id}`} style={styles.meta} onPress={() => onOpen?.(id)}>
         <Text style={styles.title} numberOfLines={1}>{title ?? url}</Text>
         <Text style={styles.sub}>
           {entryCount} items · Last refreshed: {lastRefreshedAt ?? "Never"}
         </Text>
-      </View>
+      </Pressable>
       <Pressable testID={`refresh-${id}`} style={styles.action} onPress={() => onRefresh(id)} disabled={busy}>
         <Text style={styles.actionText}>Refresh</Text>
       </Pressable>

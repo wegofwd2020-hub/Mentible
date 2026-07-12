@@ -104,6 +104,7 @@ export default function RootLayout() {
             headerBackTitle: "Library",
           }}
         />
+        <Stack.Screen name="shelves/[sourceId]" options={{ headerShown: false }} />
         <Stack.Screen
           name="sign-in"
           options={{ title: "Sign in", headerBackTitle: "Settings" }}

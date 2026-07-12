@@ -7,6 +7,7 @@ const refreshAllSources = jest.fn();
 let mockHookState: any;
 jest.mock("@/openshelves/useOpenShelves", () => ({ useOpenShelves: () => mockHookState }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 import { Alert } from "@/lib/alert";
 import ShelvesScreen from "@/../app/(tabs)/shelves";
 
