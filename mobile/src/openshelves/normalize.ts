@@ -10,18 +10,33 @@ const NAMED: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
 };
 
+function isValidCodePoint(cp: number): boolean {
+  return (
+    Number.isFinite(cp) &&
+    cp >= 0 &&
+    cp <= 0x10ffff &&
+    !(cp >= 0xd800 && cp <= 0xdfff)
+  );
+}
+
 function decodeEntities(s: string): string {
   return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+      const cp = parseInt(h, 16);
+      return isValidCodePoint(cp) ? String.fromCodePoint(cp) : "";
+    })
+    .replace(/&#(\d+);/g, (_, d) => {
+      const cp = parseInt(d, 10);
+      return isValidCodePoint(cp) ? String.fromCodePoint(cp) : "";
+    })
     .replace(/&([a-zA-Z]+);/g, (m, name) => (name in NAMED ? NAMED[name] : m));
 }
 
 export function toPlainText(raw: string | null | undefined): string {
   if (raw == null) return "";
-  const noTags = String(raw).replace(/<[^>]*>/g, " ");
-  const decoded = decodeEntities(noTags);
-  const collapsed = decoded.replace(/\s+/g, " ").trim();
+  const decoded = decodeEntities(String(raw));
+  const noTags = decoded.replace(/<[^>]*>/g, " ");
+  const collapsed = noTags.replace(/\s+/g, " ").trim();
   return collapsed.length > MAX_FIELD_LEN ? collapsed.slice(0, MAX_FIELD_LEN) : collapsed;
 }
 

@@ -23,6 +23,18 @@ test("nullish → empty string", () => {
   expect(toPlainText(undefined)).toBe("");
 });
 
+test("hostile numeric entities do not throw and are dropped", () => {
+  expect(() => toPlainText("&#99999999;x")).not.toThrow();
+  expect(() => toPlainText("&#x110000;y")).not.toThrow();
+  expect(toPlainText("&#99999999;x")).toBe("x");
+  expect(toPlainText("&#x110000;y")).toBe("y");
+});
+
+test("entity-encoded tags do not survive as markup", () => {
+  const out = toPlainText("&lt;script&gt;alert(1)&lt;/script&gt;");
+  expect(out).not.toMatch(/<script|<\/script/i);
+});
+
 test("media type maps from MIME", () => {
   expect(mediaTypeFromMime("application/epub+zip")).toBe("book");
   expect(mediaTypeFromMime("application/pdf")).toBe("book");
