@@ -45,3 +45,51 @@ test("oversized body (no content-length, long text) → FeedParseError", async (
   const fake = async () => res("x".repeat(MAX_FEED_BYTES + 1));
   await expect(fetchFeed("https://ex.org/f", fake as any)).rejects.toBeInstanceOf(FeedParseError);
 });
+
+test("validateFeedUrl blocks loopback / private / link-local hosts", () => {
+  for (const u of [
+    "https://localhost/f", "https://127.0.0.1/f", "https://10.0.0.1/f",
+    "https://172.16.0.1/f", "https://192.168.1.1/f", "https://169.254.169.254/f",
+    "https://[::1]/f",
+  ]) {
+    expect(() => validateFeedUrl(u)).toThrow(FeedSourceError);
+  }
+});
+
+test("validateFeedUrl allows normal public hosts", () => {
+  expect(validateFeedUrl("https://m.gutenberg.org/ebooks.opds/")).toContain("gutenberg.org");
+  expect(validateFeedUrl("https://8.8.8.8/f")).toContain("8.8.8.8");
+});
+
+test("streaming body over the cap → FeedParseError (cap not defeated by missing content-length)", async () => {
+  // A Response whose body streams > MAX_FEED_BYTES in chunks, with NO content-length.
+  const big = new Uint8Array(1024 * 1024); // 1 MiB chunk
+  let sent = 0;
+  const target = MAX_FEED_BYTES + 1;
+  const reader = {
+    read: async () => {
+      if (sent > target) return { done: true, value: undefined };
+      sent += big.byteLength;
+      return { done: false, value: big };
+    },
+    cancel: async () => {},
+  };
+  const fake = async () => ({
+    ok: true, status: 200,
+    headers: { get: () => null }, // no content-length
+    body: { getReader: () => reader },
+    text: async () => { throw new Error("should not buffer via text()"); },
+  }) as unknown as Response;
+  await expect(fetchFeed("https://ex.org/f", fake as any)).rejects.toBeInstanceOf(FeedParseError);
+});
+
+test("streaming body under the cap → decoded text", async () => {
+  const enc = new TextEncoder().encode("<feed/>");
+  let done = false;
+  const reader = { read: async () => (done ? { done: true, value: undefined } : ((done = true), { done: false, value: enc })), cancel: async () => {} };
+  const fake = async () => ({
+    ok: true, status: 200, headers: { get: () => null },
+    body: { getReader: () => reader }, text: async () => "unused",
+  }) as unknown as Response;
+  await expect(fetchFeed("https://ex.org/f", fake as any)).resolves.toBe("<feed/>");
+});
