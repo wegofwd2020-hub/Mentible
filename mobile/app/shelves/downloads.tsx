@@ -28,7 +28,7 @@ export default function DownloadsScreen() {
       <PageContainer>
         <Text style={styles.title}>Downloads</Text>
         <View style={styles.headerRow}>
-          <Text style={styles.sub}>{dl.items.length} items · {mb(dl.total)}</Text>
+          <Text style={styles.sub}>{dl.items.length} {dl.items.length === 1 ? "item" : "items"} · {mb(dl.total)}</Text>
           {dl.items.length > 0 ? (
             <Pressable testID="del-all" onPress={confirmDeleteAll}><Text style={styles.delAll}>Delete all</Text></Pressable>
           ) : null}
