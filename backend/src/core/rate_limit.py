@@ -108,3 +108,52 @@ async def enforce_rate_limit(
             detail="rate limit exceeded; slow down",
             headers={"Retry-After": str(retry)},
         )
+
+
+async def enforce_feed_rate_limit(
+    request: Request,
+    r: redis.Redis = Depends(get_redis),
+) -> None:
+    """Per-IP limiter for the anonymous Open Shelves feed fetch — FAIL-CLOSED.
+
+    `enforce_rate_limit` above fails OPEN on purpose: a limiter outage must not
+    take down /generate, which needs Redis anyway. That logic inverts here. This
+    endpoint takes no auth and fetches arbitrary URLs, so the limiter IS the
+    abuse control — failing open would turn a Redis outage into an unlimited
+    open fetcher. We would rather refuse service than become an abuse relay.
+    """
+    if not settings.rate_limit_enabled:
+        return
+
+    host = request.client.host if request.client else "unknown"
+    identity = f"feed:{host}"
+    now = int(time.time())
+
+    try:
+        allowed, retry = await _window_hit(
+            r,
+            f"rl:feed:min:{identity}:{now // _MINUTE}",
+            settings.feed_fetch_per_minute,
+            _MINUTE,
+        )
+        if allowed:
+            allowed, retry = await _window_hit(
+                r,
+                f"rl:feed:day:{identity}:{now // _DAY}",
+                settings.feed_fetch_per_day,
+                _DAY,
+            )
+    except Exception:
+        log.warning("feed_rate_limit_backend_error")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="feed fetching is temporarily unavailable",
+        ) from None
+
+    if not allowed:
+        log.info("feed_rate_limited", identity=identity, retry_after=retry)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many feed requests. Try again in a minute.",
+            headers={"Retry-After": str(retry)},
+        )
