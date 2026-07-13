@@ -346,6 +346,10 @@ export const HELP_TOPICS: HelpTopic[] = [
             term: "Where downloads live",
             def: "Downloads are stored on this device only — they're never uploaded, synced, or tied to your account, so a download exists only where you made it. On the web app, Download hands the file to your browser instead, and it is not stored in the app for offline reading.",
           },
+          {
+            term: "Catalogs on the web app",
+            def: "In a browser, Mentible asks its own server to fetch the catalog listing, because browsers block sites from reading most catalogs directly. Only the listing goes through us — the book itself always downloads straight from the library to you.",
+          },
         ],
       },
       { kind: "link", label: "Open Shelves →", href: "/shelves" },
