@@ -27,8 +27,16 @@ export async function proxyErrorFor(resp: Response): Promise<Error> {
   let message = "";
   try {
     const body = await resp.json();
-    code = body?.detail?.code ?? "";
-    message = body?.detail?.message ?? "";
+    const detail = body?.detail;
+    if (typeof detail === "string") {
+      // The rate limiter (and other non-router raisers) may emit a plain
+      // string `detail` instead of the router's {code, message} shape.
+      // Use it directly rather than reading .code/.message off a string.
+      message = detail;
+    } else {
+      code = detail?.code ?? "";
+      message = detail?.message ?? "";
+    }
   } catch {
     // A non-JSON error body (a gateway's own 502 page, say) — fall through.
   }

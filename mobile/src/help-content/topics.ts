@@ -111,7 +111,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible has five places along the top of the app: Library (your finished books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+        text: "Mentible has six places along the top of the app: Library (your finished books), Shelves (browse free book catalogs and download books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
       },
       {
         kind: "steps",

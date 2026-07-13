@@ -55,6 +55,12 @@ async def test_429_over_the_limit():
     with pytest.raises(HTTPException) as exc:
         await enforce_feed_rate_limit(FakeRequest(), r)
     assert exc.value.status_code == 429
+    # Structured detail so the mobile mapper (feedTransport.ts proxyErrorFor)
+    # can read .code/.message instead of getting a bare string.
+    assert exc.value.detail == {
+        "code": "rate_limited",
+        "message": "Too many feed requests. Try again in a minute.",
+    }
 
 
 @pytest.mark.asyncio
@@ -63,6 +69,10 @@ async def test_redis_down_FAILS_CLOSED_with_503():
     with pytest.raises(HTTPException) as exc:
         await enforce_feed_rate_limit(FakeRequest(), DeadRedis())
     assert exc.value.status_code == 503
+    assert exc.value.detail == {
+        "code": "unavailable",
+        "message": "Feed fetching is temporarily unavailable. Try again shortly.",
+    }
 
 
 @pytest.mark.asyncio

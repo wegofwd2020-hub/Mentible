@@ -29,7 +29,7 @@ _STATUS_FOR = {
     "not_https": status.HTTP_400_BAD_REQUEST,
     "blocked_host": status.HTTP_400_BAD_REQUEST,
     "not_a_feed": status.HTTP_400_BAD_REQUEST,
-    "too_large": status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+    "too_large": status.HTTP_413_CONTENT_TOO_LARGE,
     "auth_required": status.HTTP_502_BAD_GATEWAY,
     "upstream_error": status.HTTP_502_BAD_GATEWAY,
 }

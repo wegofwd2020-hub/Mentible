@@ -112,3 +112,48 @@ async def test_url_param_is_required():
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         resp = await c.get("/api/v1/shelves/feed")
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_limiter_dependency_is_actually_wired_to_the_route():
+    """The other tests in this module override `enforce_feed_rate_limit` away
+    (see `_no_rate_limit` above), so deleting
+    `dependencies=[Depends(enforce_feed_rate_limit)]` from the route would fail
+    NONE of them. This test undoes that override for its own duration so the
+    REAL limiter runs, then forces its Redis dependency to always error. The
+    limiter is fail-closed (unlike /generate's), so if it's actually wired in,
+    this must come back 503 with the limiter's own error code — proving the
+    dependency executes per-request, not just that the route works.
+
+    Mutation check performed manually: with
+    `dependencies=[Depends(enforce_feed_rate_limit)]` temporarily deleted from
+    the route in router.py, this test failed (got 200, not 503); restoring the
+    dependency made it pass again.
+    """
+    from backend.src.core.redis_dep import get_redis as core_get_redis
+
+    class DeadRedis:
+        async def incr(self, key: str) -> int:
+            raise ConnectionError("redis is down")
+
+        async def expire(self, key: str, ttl: int) -> None:
+            raise ConnectionError("redis is down")
+
+        async def ttl(self, key: str) -> int:
+            raise ConnectionError("redis is down")
+
+    async def _dead_redis():
+        return DeadRedis()
+
+    # Let the real `enforce_feed_rate_limit` dependency run for this test only.
+    app.dependency_overrides.pop(shelves_router.enforce_feed_rate_limit, None)
+    app.dependency_overrides[core_get_redis] = _dead_redis
+    try:
+        resp = await _call("https://ex.org/f.opds")
+        assert resp.status_code == 503
+        assert resp.json()["detail"]["code"] == "unavailable"
+    finally:
+        app.dependency_overrides.pop(core_get_redis, None)
+        # The module's autouse fixture re-applies the no-op override before
+        # the NEXT test via its own setup; nothing else to restore here.
+        pass

@@ -125,6 +125,10 @@ async def enforce_feed_rate_limit(
     if not settings.rate_limit_enabled:
         return
 
+    # Clients with no resolvable IP (request.client is None) all share one
+    # "unknown" bucket, fail-closed like everyone else. Behind a correctly
+    # configured proxy request.client is always set, so this is a rare edge
+    # case, not the common path.
     host = request.client.host if request.client else "unknown"
     identity = f"feed:{host}"
     now = int(time.time())
@@ -147,13 +151,19 @@ async def enforce_feed_rate_limit(
         log.warning("feed_rate_limit_backend_error")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="feed fetching is temporarily unavailable",
+            detail={
+                "code": "unavailable",
+                "message": "Feed fetching is temporarily unavailable. Try again shortly.",
+            },
         ) from None
 
     if not allowed:
         log.info("feed_rate_limited", identity=identity, retry_after=retry)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many feed requests. Try again in a minute.",
+            detail={
+                "code": "rate_limited",
+                "message": "Too many feed requests. Try again in a minute.",
+            },
             headers={"Retry-After": str(retry)},
         )

@@ -53,3 +53,25 @@ test("an unparseable error body still yields a usable message", async () => {
   expect(err).toBeInstanceOf(FeedSourceError);
   expect(err.message).toMatch(/could not reach the feed/i);
 });
+
+test("rate_limited maps to FeedSourceError carrying the limiter's copy, not the generic fallback", async () => {
+  const resp = {
+    json: async () => ({
+      detail: { code: "rate_limited", message: "Too many feed requests. Try again in a minute." },
+    }),
+    status: 429,
+  } as Response;
+  const err = await proxyErrorFor(resp);
+  expect(err).toBeInstanceOf(FeedSourceError);
+  expect(err.message).toBe("Too many feed requests. Try again in a minute.");
+});
+
+test("a plain string detail (not the {code,message} shape) is used as the message directly", async () => {
+  const resp = {
+    json: async () => ({ detail: "boom" }),
+    status: 500,
+  } as Response;
+  const err = await proxyErrorFor(resp);
+  expect(err).toBeInstanceOf(FeedSourceError);
+  expect(err.message).toBe("boom");
+});
