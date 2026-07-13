@@ -42,17 +42,29 @@ async def test_happy_path_returns_the_upstream_bytes_unchanged():
 
 @pytest.mark.asyncio
 async def test_no_credentials_are_ever_forwarded_upstream():
-    seen: dict[str, str] = {}
+    """Even a client carrying credentials by default must never leak them upstream --
+    not on the initial hop, and not on a cross-host redirect hop (ADR-028 no-auth
+    guardrail must be enforced by the module, not by the caller passing a clean client).
+    """
+    seen_by_host: dict[str, dict[str, str]] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen.update({k.lower(): v for k, v in request.headers.items()})
+        seen_by_host[request.url.host] = {k.lower(): v for k, v in request.headers.items()}
+        if request.url.host == "ex.org":
+            return httpx.Response(302, headers={"location": "https://cdn.example/f.opds"})
         return httpx.Response(200, content=FEED, headers={"content-type": ATOM})
 
-    async with client_for(handler) as c:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        headers={"Authorization": "Bearer SECRET", "Cookie": "sess=1"},
+    )
+    async with client as c:
         await fetch_feed("https://ex.org/f.opds", c, public)
 
-    assert "authorization" not in seen
-    assert "cookie" not in seen
+    assert set(seen_by_host) == {"ex.org", "cdn.example"}
+    for host, seen in seen_by_host.items():
+        assert "authorization" not in seen, f"leaked Authorization to {host}"
+        assert "cookie" not in seen, f"leaked Cookie to {host}"
 
 
 @pytest.mark.asyncio

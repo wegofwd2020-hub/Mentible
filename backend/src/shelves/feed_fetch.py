@@ -15,10 +15,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from backend.src.core.log_redaction import get_logger
 from backend.src.shelves.url_guard import Resolver, assert_fetchable, default_resolver
-
-log = get_logger("shelves.feed_fetch")
 
 MAX_FEED_BYTES = 8 * 1024 * 1024  # keep in step with mobile MAX_FEED_BYTES
 TIMEOUT_S = 10.0
@@ -78,13 +75,20 @@ async def fetch_feed(
             # No auth of any kind reaches a third-party host (ADR-028 no-auth guardrail).
             headers={"accept": "application/atom+xml, application/xml;q=0.9, text/xml;q=0.8"},
         )
-        response = await client.send(request, stream=True, follow_redirects=False)
+        # Strip any credential the injected client carries by default (e.g. an
+        # Authorization/Cookie set on the client itself). build_request() merges
+        # client.headers into the request, so this must happen AFTER build_request,
+        # on every hop -- the guarantee must not depend on the caller's client being
+        # credential-free (ADR-028 no-auth guardrail).
+        request.headers.pop("authorization", None)
+        request.headers.pop("cookie", None)
+        response = await client.send(
+            request, stream=True, follow_redirects=False, auth=None
+        )
 
         if response.is_redirect:
             location = response.headers.get("location", "")
             await response.aclose()
-            if not location:
-                raise FeedFetchError("The feed responded with an error.", "upstream_error")
             # Re-validate EVERY hop: auto-following is how public -> 127.0.0.1 gets in.
             current = await assert_fetchable(str(httpx.URL(current).join(location)), resolve)
             continue
