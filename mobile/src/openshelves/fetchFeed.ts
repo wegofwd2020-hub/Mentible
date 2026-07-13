@@ -2,6 +2,7 @@
 // with the no-auth guardrail (spec P0-8/P0-9). No auth is ever sent; content is
 // never stored. `fetchImpl` is injectable so tests never touch the network.
 import { FeedParseError, FeedSourceError } from "./errors";
+import { feedRequestUrl, proxyErrorFor, usesFeedProxy } from "./feedTransport";
 
 export const MAX_FEED_BYTES = 8 * 1024 * 1024;
 
@@ -49,9 +50,12 @@ export async function fetchFeed(url: string, fetchImpl: typeof fetch = fetch): P
   const clean = validateFeedUrl(url);
   let resp: Response;
   try {
-    resp = await fetchImpl(clean, { method: "GET" });
+    resp = await fetchImpl(feedRequestUrl(clean), { method: "GET" });
   } catch (err) {
     throw new FeedSourceError(`Could not reach the feed: ${(err as Error).message}`);
+  }
+  if (usesFeedProxy && !resp.ok) {
+    throw await proxyErrorFor(resp);    // the backend already classified it
   }
   if (resp.status === 401 || resp.status === 403) {
     throw new FeedSourceError("Authenticated repos aren't supported yet.", { authRequired: true });

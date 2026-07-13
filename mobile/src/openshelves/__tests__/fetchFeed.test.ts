@@ -93,3 +93,14 @@ test("streaming body under the cap → decoded text", async () => {
   }) as unknown as Response;
   await expect(fetchFeed("https://ex.org/f", fake as any)).resolves.toBe("<feed/>");
 });
+
+test("fetchFeed requests the feed URL itself on native", async () => {
+  const seen: string[] = [];
+  const fake = (async (u: string) => {
+    seen.push(u);
+    return { ok: true, status: 200, headers: { get: () => null }, text: async () => "<feed/>" } as any;
+  }) as unknown as typeof fetch;
+
+  await fetchFeed("https://ex.org/f.opds", fake);
+  expect(seen[0]).toBe("https://ex.org/f.opds"); // no proxy on native
+});
