@@ -38,6 +38,10 @@ export default function ShelvesScreen() {
         <Text style={styles.heading}>Open Shelves</Text>
         <Text style={styles.blurb}>Browse free book catalogs (OPDS). Add a repo by URL.</Text>
 
+        <Pressable testID="open-downloads" onPress={() => router.push("/shelves/downloads")}>
+          <Text style={styles.downloadsLink}>Downloads</Text>
+        </Pressable>
+
         <AddSourceForm onSubmit={confirmAdd} busy={shelves.busy} error={shelves.error} />
 
         <View style={styles.listHeader}>
@@ -72,7 +76,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
   content: { paddingVertical: spacing.lg },
   heading: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700", marginBottom: spacing.xs },
-  blurb: { color: colors.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.lg },
+  blurb: { color: colors.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },
+  downloadsLink: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600", marginBottom: spacing.lg },
   listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg },
   sectionTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "600" },
   refreshAll: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },

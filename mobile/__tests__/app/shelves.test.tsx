@@ -7,7 +7,8 @@ const refreshAllSources = jest.fn();
 let mockHookState: any;
 jest.mock("@/openshelves/useOpenShelves", () => ({ useOpenShelves: () => mockHookState }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 import { Alert } from "@/lib/alert";
 import ShelvesScreen from "@/../app/(tabs)/shelves";
 
@@ -21,6 +22,12 @@ beforeEach(() => {
 test("empty state when no sources", () => {
   const { getByText } = render(<ShelvesScreen />);
   expect(getByText(/no sources yet/i)).toBeTruthy();
+});
+
+test("Downloads is reachable from the Shelves tab, even with no sources", () => {
+  const { getByTestId } = render(<ShelvesScreen />);
+  fireEvent.press(getByTestId("open-downloads"));
+  expect(mockPush).toHaveBeenCalledWith("/shelves/downloads");
 });
 
 test("adding a source confirms via Alert before calling add (P0-8)", () => {

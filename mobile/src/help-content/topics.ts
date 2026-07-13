@@ -311,6 +311,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     keywords: [
       "open shelves", "shelves", "opds", "catalog", "repo", "repository",
       "source", "free books", "add source", "refresh", "remove",
+      "download", "downloads", "offline", "storage", "delete download",
     ],
     blocks: [
       {
@@ -337,8 +338,17 @@ export const HELP_TOPICS: HelpTopic[] = [
             term: "Authenticated repos",
             def: "Catalogs that require sign-in aren't supported yet — add public, no-auth OPDS catalogs.",
           },
+          {
+            term: "Downloading for offline reading",
+            def: "Open an entry and tap Download. The file is fetched straight from the source library to your device — it never passes through Mentible. Books and audio can be downloaded; video is streaming-only. See everything you've saved, its size, and delete individual items (or all of them) under Downloads on the Shelves tab.",
+          },
+          {
+            term: "Where downloads live",
+            def: "Downloads are stored on this device only — they're never uploaded, synced, or tied to your account, so a download exists only where you made it. On the web app, Download hands the file to your browser instead, and it is not stored in the app for offline reading.",
+          },
         ],
       },
+      { kind: "link", label: "Open Shelves →", href: "/shelves" },
     ],
   },
 ];
