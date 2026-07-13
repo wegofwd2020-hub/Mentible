@@ -1007,7 +1007,8 @@ git commit -m "feat(shelves): GET /api/v1/shelves/feed — anonymous metadata-on
 - Consumes: `resolveBaseUrl` from `@/api/client`; `FeedSourceError`, `FeedParseError` from `./errors`.
 - Produces:
   - `export const usesFeedProxy: boolean` — `Platform.OS === "web"`.
-  - `export function feedRequestUrl(feedUrl: string): string` — native → `feedUrl`; web → `${resolveBaseUrl()}/api/v1/shelves/feed?url=${encodeURIComponent(feedUrl)}`.
+  - `export function feedRequestUrl(feedUrl: string, isWeb?: boolean): string` — `isWeb` defaults to `usesFeedProxy`. When false → `feedUrl` unchanged; when true → `${resolveBaseUrl()}/api/v1/shelves/feed?url=${encodeURIComponent(feedUrl)}`.
+    **`isWeb` is a parameter, not a module constant read at call time, because jest-expo runs the NATIVE preset — `Platform.OS === "web"` is never true under test, so a module-level branch would be untestable and any test of it would be vacuous.** (Same reasoning as `supportsOfflineDownloads` in the downloads plan.)
   - `export async function proxyErrorFor(resp: Response): Promise<Error>` — reads the backend's `{"detail":{"code","message"}}` body and returns the matching `FeedSourceError` / `FeedParseError` (`auth_required` → `FeedSourceError` with `authRequired: true`; `too_large` → `FeedParseError`).
 
 **Notes for the implementer:** `validateFeedUrl` still runs client-side, unchanged — it is a UX affordance (fail fast, same copy on both platforms), **not** a security control; the server re-validates everything. `fetchFeed` keeps ONE body: only the request URL and the error mapping differ.
@@ -1027,13 +1028,21 @@ const FEED = "https://m.gutenberg.org/ebooks/2701.opds";
 test("native fetches the feed directly (ADR-028: device -> source)", () => {
   expect(Platform.OS).not.toBe("web"); // jest-expo runs the native preset
   expect(usesFeedProxy).toBe(false);
-  expect(feedRequestUrl(FEED)).toBe(FEED);
+  expect(feedRequestUrl(FEED, false)).toBe(FEED);
 });
 
-test("proxy URL encodes the feed URL as a query param", () => {
-  // Exercised directly: the web branch is unreachable under the native jest preset.
-  const url = `https://api.test/api/v1/shelves/feed?url=${encodeURIComponent(FEED)}`;
-  expect(url).toContain("url=https%3A%2F%2Fm.gutenberg.org%2Febooks%2F2701.opds");
+test("web routes through the backend, with the feed URL encoded as a query param", () => {
+  expect(feedRequestUrl(FEED, true)).toBe(
+    "https://api.test/api/v1/shelves/feed?url=https%3A%2F%2Fm.gutenberg.org%2Febooks%2F2701.opds",
+  );
+});
+
+test("a feed URL carrying its own query string survives encoding intact", () => {
+  const withQuery = "https://ex.org/search.opds?q=whale&sort=downloads";
+  const proxied = feedRequestUrl(withQuery, true);
+  // The whole feed URL must sit in ONE query param — its & must not split ours.
+  const parsed = new URL(proxied);
+  expect(parsed.searchParams.get("url")).toBe(withQuery);
 });
 
 test("auth_required maps to FeedSourceError{authRequired}", async () => {
@@ -1102,8 +1111,11 @@ import { FeedParseError, FeedSourceError } from "./errors";
 
 export const usesFeedProxy = Platform.OS === "web";
 
-export function feedRequestUrl(feedUrl: string): string {
-  if (!usesFeedProxy) return feedUrl;
+// `isWeb` is a parameter, not a constant read inside the body: jest-expo runs the
+// NATIVE preset, so Platform.OS === "web" is never true under test and a module-level
+// branch could only be tested vacuously.
+export function feedRequestUrl(feedUrl: string, isWeb: boolean = usesFeedProxy): string {
+  if (!isWeb) return feedUrl;
   return `${resolveBaseUrl()}/api/v1/shelves/feed?url=${encodeURIComponent(feedUrl)}`;
 }
 
