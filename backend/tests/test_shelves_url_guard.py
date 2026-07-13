@@ -74,11 +74,37 @@ async def test_rejects_when_ANY_resolved_address_is_private():
 
 @pytest.mark.asyncio
 async def test_literal_private_ip_host_is_rejected_without_dns():
-    async def _explode(host: str) -> list[str]:
-        raise AssertionError("must not resolve a literal IP")
+    calls: list[str] = []
+
+    async def _recording(host: str) -> list[str]:
+        calls.append(host)
+        return ["93.184.216.34"]
 
     with pytest.raises(BlockedUrlError):
-        await assert_fetchable("https://127.0.0.1/f.opds", _explode)
+        await assert_fetchable("https://127.0.0.1/f.opds", _recording)
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_literal_public_ip_host_is_allowed_without_dns():
+    calls: list[str] = []
+
+    async def _recording(host: str) -> list[str]:
+        calls.append(host)
+        return ["93.184.216.34"]
+
+    url = "https://93.184.216.34/f.opds"
+    assert await assert_fetchable(url, _recording) == url
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_hostname_resolving_to_cgnat_ip_is_rejected():
+    with pytest.raises(BlockedUrlError) as exc:
+        await assert_fetchable(
+            "https://evil.example.org/f.opds", resolver_returning("100.64.0.1")
+        )
+    assert exc.value.reason == "blocked_host"
 
 
 @pytest.mark.asyncio

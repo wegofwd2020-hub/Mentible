@@ -44,6 +44,7 @@ def _is_blocked_ip(raw: str) -> bool:
         or ip.is_reserved
         or ip.is_multicast
         or ip.is_unspecified
+        or not ip.is_global  # belt-and-suspenders: also catches CGNAT (100.64.0.0/10) etc.
     )
 
 
