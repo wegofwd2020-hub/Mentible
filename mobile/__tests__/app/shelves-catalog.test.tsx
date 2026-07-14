@@ -46,3 +46,15 @@ test("tapping a navigation entry drills in; Back returns to the root", async () 
   fireEvent.press(getByTestId("browse-back"));         // back to root
   expect(queryByTestId("entry-nav")).toBeTruthy();
 });
+
+test("renders the catalog-refresh control and calls useSourceCatalog's refresh on press", () => {
+  const { getByTestId } = render(<CatalogScreen />);
+  fireEvent.press(getByTestId("catalog-refresh"));
+  expect(mockCatalog.refresh).toHaveBeenCalledTimes(1);
+});
+
+test("a top-level source-catalog error (cat.error) renders on screen", () => {
+  mockCatalog = { ...mockCatalog, error: "Could not load this source." };
+  const { getByText } = render(<CatalogScreen />);
+  expect(getByText("Could not load this source.")).toBeTruthy();
+});

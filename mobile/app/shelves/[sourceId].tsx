@@ -30,11 +30,17 @@ export default function CatalogScreen() {
         <Text style={styles.title}>{browser.frame.title}</Text>
         <View style={styles.headerRow}>
           <Text style={styles.sub}>{shown.length} items</Text>
-          {browser.canGoBack ? (
-            <Pressable testID="browse-back" onPress={browser.back}><Text style={styles.back}>‹ Back</Text></Pressable>
-          ) : null}
+          <View style={styles.headerActions}>
+            {browser.canGoBack ? (
+              <Pressable testID="browse-back" onPress={browser.back}><Text style={styles.back}>‹ Back</Text></Pressable>
+            ) : null}
+            <Pressable testID="catalog-refresh" onPress={() => void cat.refresh()} disabled={cat.busy}>
+              <Text style={styles.refresh}>Refresh</Text>
+            </Pressable>
+          </View>
         </View>
-        {browser.error ? <Text style={styles.error}>{browser.error}</Text> : null}
+        {cat.error ? <Text testID="catalog-error" style={styles.error}>{cat.error}</Text> : null}
+        {browser.error ? <Text testID="browse-error" style={styles.error}>{browser.error}</Text> : null}
         {cat.loading && shown.length === 0 ? null : shown.length === 0 ? (
           <Text style={styles.empty}>No items in this catalog.</Text>
         ) : (
@@ -59,8 +65,10 @@ const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
   title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: spacing.md },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   sub: { color: colors.textMuted, fontSize: typography.sizeMd },
   back: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
+  refresh: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   error: { color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });
