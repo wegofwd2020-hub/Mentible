@@ -12,7 +12,7 @@
 // would never show its entries once they load. So `pushed` holds only the
 // sub-feed frames the user has drilled into; the root frame itself is always
 // derived fresh from the current `root` prop.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { fetchFeed } from "./fetchFeed";
 import { parseOpds12 } from "./opds12";
 import { resolveUrl } from "./downloadTarget";
@@ -30,6 +30,16 @@ export function useFeedBrowser(root: BrowseFrame) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Request-generation guard (see review finding #1): `back()` and every new
+  // `enter()` call bump this counter, "claiming" the current generation. A
+  // fetch in flight captures the generation it started with; when it resolves,
+  // it only applies its result if that generation is still current. This is
+  // what lets `back()` (or a second, faster `enter()`) cut a stale drill-in
+  // fetch off at the knees instead of it landing on whatever frame is current
+  // by the time it resolves. Aborting the underlying fetch isn't necessary —
+  // discarding its result is enough.
+  const genRef = useRef(0);
+
   const frame = pushed.length > 0 ? pushed[pushed.length - 1] : root;
   const canGoBack = pushed.length > 0;
   const crumbs = useMemo(() => [root.title, ...pushed.map((f) => f.title)], [root.title, pushed]);
@@ -38,20 +48,25 @@ export function useFeedBrowser(root: BrowseFrame) {
     if (!entry.navigationUrl) return;
     const url = resolveUrl(frame.url, entry.navigationUrl);
     if (!url) { setError("That catalog link isn't valid."); return; }
+    const myGen = ++genRef.current;
     setLoading(true);
     setError(null);
     try {
       const xml = await fetchFeed(url);
       const { entries } = parseOpds12(xml);
+      if (genRef.current !== myGen) return; // superseded by a back() or a newer enter()
       setPushed((s) => [...s, { title: entry.title, url, entries }]);
+      setLoading(false);
     } catch (err) {
+      if (genRef.current !== myGen) return;
       setError(toMessage(err));
-    } finally {
       setLoading(false);
     }
   }, [frame.url]);
 
   const back = useCallback(() => {
+    genRef.current++; // invalidate any in-flight enter() — its result is now unwanted
+    setLoading(false);
     setError(null);
     setPushed((s) => (s.length > 0 ? s.slice(0, -1) : s));
   }, []);
