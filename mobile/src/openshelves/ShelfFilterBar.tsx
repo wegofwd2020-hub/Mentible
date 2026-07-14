@@ -12,9 +12,17 @@ interface Props {
 }
 
 export function ShelfFilterBar({ entries, prefs, onChange }: Props) {
-  const langs = Array.from(
-    new Set(entries.map((e) => (e.language ? primarySubtag(e.language) : null)).filter((l): l is string => !!l)),
-  ).sort();
+  const langSet = new Set(
+    entries.map((e) => (e.language ? primarySubtag(e.language) : null)).filter((l): l is string => !!l),
+  );
+  // Always render the active pref as a chip, even if the current frame has
+  // zero entries in that language (e.g. drilling from a "fr" root pref into
+  // an all-English sub-feed). Without this the selected chip silently
+  // vanishes: the list correctly empties out, but nothing on screen shows a
+  // filter is active or lets the user recover except the always-present
+  // "all" chip — it reads as a bug, not a filtered-to-zero result.
+  if (prefs.language !== "all") langSet.add(prefs.language);
+  const langs = Array.from(langSet).sort();
   const choices: string[] = ["all", ...langs];
 
   return (
