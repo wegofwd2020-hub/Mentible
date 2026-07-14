@@ -28,3 +28,28 @@ test("corrupt blob reads back as empty, never throws", async () => {
   await AsyncStorage.setItem("sbq_feed_entries_s1", "{not json");
   expect(await getEntries("s1")).toEqual([]);
 });
+
+test("legacy stored entry missing navigationUrl normalizes to null", async () => {
+  // Simulates data persisted before navigationUrl existed on FeedEntry: the key
+  // is entirely absent from the JSON, so a naive JSON.parse cast would leave it
+  // `undefined`, not `null` (spec: old entries must read as null).
+  const legacyEntry = {
+    id: "legacy-1",
+    title: "t",
+    authors: [],
+    summary: "",
+    coverUrl: null,
+    language: null,
+    categories: [],
+    mediaType: "book",
+    rightsText: null,
+    mature: null,
+    links: [],
+    canonicalUrl: null,
+    // navigationUrl intentionally absent
+  };
+  await AsyncStorage.setItem("sbq_feed_entries_s1", JSON.stringify([legacyEntry]));
+  const entries = await getEntries("s1");
+  expect(entries).toHaveLength(1);
+  expect(entries[0].navigationUrl).toBeNull();
+});

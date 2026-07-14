@@ -12,7 +12,15 @@ export async function getEntries(sourceId: string): Promise<FeedEntry[]> {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as FeedEntry[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // Legacy-stored entries (pre-navigationUrl) lack the field entirely, which
+    // would deserialize as `undefined`, not the `string | null` the type
+    // promises. Normalize at the read boundary so old data can't be
+    // misread by `=== null` / `!== null` checks downstream.
+    return (parsed as FeedEntry[]).map((entry) => ({
+      ...entry,
+      navigationUrl: entry.navigationUrl ?? null,
+    }));
   } catch {
     return [];
   }
