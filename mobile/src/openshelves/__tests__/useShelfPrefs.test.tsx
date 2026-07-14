@@ -49,3 +49,29 @@ test("setPrefs on a write failure reverts in-memory state and does not reject", 
 
   expect(result.current.prefs).toEqual(previous);
 });
+
+test("two same-render setPrefs calls revert to the first call's committed value, not the pre-both snapshot", async () => {
+  const { result } = renderHook(() => useShelfPrefs());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+
+  const A = { language: "es", hideMature: false };
+  const B = { language: "fr", hideMature: true };
+
+  jest
+    .spyOn(AsyncStorage, "setItem")
+    .mockResolvedValueOnce(undefined) // A succeeds
+    .mockRejectedValueOnce(new Error("disk full")); // B fails
+
+  // Same closure, both calls issued before any re-render can land between
+  // them (no `await` separates the two invocations below).
+  const setPrefs = result.current.setPrefs;
+  await act(async () => {
+    const p1 = setPrefs(A);
+    const p2 = setPrefs(B);
+    await Promise.all([p1, p2]);
+  });
+
+  // B's revert must land on A (the value committed by the call before it),
+  // not on the pre-both value that was current when both closures ran.
+  expect(result.current.prefs).toEqual(A);
+});
