@@ -23,6 +23,11 @@ export interface BrowseFrameRef {
   entries: FeedEntry[];
 }
 
+// Intentionally unbounded-but-small: one entry per distinct source the user
+// has opened the catalog screen for in this process lifetime, not per
+// navigation. `clearBrowseFrame` exists for a future "source removed"
+// cleanup (deleting a source should probably drop its entry here too); no
+// caller does that yet.
 const frames = new Map<string, BrowseFrameRef>();
 
 export function publishBrowseFrame(sourceId: string, url: string, entries: FeedEntry[]): void {
@@ -34,8 +39,20 @@ export function getBrowseFrame(sourceId: string): BrowseFrameRef | null {
 }
 
 // Test-only escape hatch (also handy for an eventual "leave this source"
-// cleanup) — not required for correctness, since a stale frame that doesn't
-// contain the requested entryId simply falls through to the stored catalog.
+// cleanup).
+//
+// A stale frame here is NOT caught by the [entryId].tsx fallback: it falls
+// through to the stored catalog only when the requested entryId is absent
+// from the stale frame. If a stale frame happens to contain an entry whose
+// id COLLIDES with a root-level entry, it resolves silently against the
+// stale frame's (wrong) base URL. The registry stays correct today only
+// because the catalog screen's publish effect is keyed on `browser.frame`'s
+// identity and therefore re-fires on both enter() AND back() (see
+// useFeedBrowser.back(), which replaces `pushed` with a new array) —
+// overwriting the registry with the true root frame before the user can tap
+// anything. That re-fire-on-back() behavior is pinned by a regression test
+// in shelves-catalog.test.tsx; don't assume the fallback alone makes a
+// stale frame safe.
 export function clearBrowseFrame(sourceId: string): void {
   frames.delete(sourceId);
 }

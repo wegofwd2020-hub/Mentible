@@ -1,5 +1,6 @@
 import { render, fireEvent } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getBrowseFrame } from "@/openshelves/browseContext";
 
 const mockPush = jest.fn();
 let mockCatalog: any;
@@ -54,6 +55,41 @@ test("tapping a navigation entry drills in; Back returns to the root", async () 
   expect(mockPush).not.toHaveBeenCalled();             // navigation ≠ open detail
   fireEvent.press(getByTestId("browse-back"));         // back to root
   expect(queryByTestId("entry-nav")).toBeTruthy();
+});
+
+test("invariant pin: back() republishes the root frame to browseContext, not a stale sub-feed frame", async () => {
+  // browseContext's safety net for a resolved-against-the-wrong-base-URL
+  // collision (see browseContext.ts) rests entirely on the catalog screen's
+  // publish effect re-firing on back() too, so the registry is overwritten
+  // with the true root frame before the user can tap a colliding root leaf.
+  // This test pins that: it does NOT touch browseContext's API, only reads
+  // it via getBrowseFrame after driving the same drill-in/Back flow used
+  // above.
+  const nav = entry("nav"); (nav as any).navigationUrl = "/sub.opds";
+  mockCatalog = { ...mockCatalog, source: { ...mockCatalog.source, url: "https://ex.org/c.opds" }, entries: [nav] };
+  const fetchFeed = require("@/openshelves/fetchFeed").fetchFeed as jest.Mock;
+  const parseOpds12 = require("@/openshelves/opds12").parseOpds12 as jest.Mock;
+  fetchFeed.mockResolvedValue("<feed/>");
+  parseOpds12.mockReturnValue({ feedTitle: "Sub", entries: [entry("child")] });
+
+  const { getByTestId, findByTestId } = render(<CatalogScreen />);
+  fireEvent.press(getByTestId("entry-nav")); // drill in
+  expect(await findByTestId("entry-child")).toBeTruthy();
+
+  // Sanity check: mid-drill-in, the registry holds the sub-feed frame.
+  const subFrame = getBrowseFrame("s1");
+  expect(subFrame?.entries.map((e: any) => e.id)).toEqual(["child"]);
+
+  fireEvent.press(getByTestId("browse-back")); // back to root
+  await findByTestId("entry-nav");
+
+  // The registry must reflect the ROOT frame again — both its url (the base
+  // relative acquisition links resolve against) and its entries — not the
+  // stale sub-feed frame that would resolve a colliding entry id against
+  // the wrong base URL.
+  const rootFrame = getBrowseFrame("s1");
+  expect(rootFrame?.url).toBe("https://ex.org/c.opds");
+  expect(rootFrame?.entries.map((e: any) => e.id)).toEqual(["nav"]);
 });
 
 test("invariant pin: drilling into a sub-feed never persists its entries", async () => {

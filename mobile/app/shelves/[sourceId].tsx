@@ -35,6 +35,12 @@ export default function CatalogScreen() {
   // after this screen and useFeedBrowser's `pushed` stack are gone) can
   // still resolve a leaf entry reached only inside a sub-feed, against the
   // URL of the frame it actually came from (see FIX 1 / browseContext.ts).
+  // Keying on `browser.frame` (an object that changes identity on every
+  // enter() AND every back()) is load-bearing: it's what keeps the registry
+  // from ever going stale, since back() replaces `pushed` with a new array
+  // (see useFeedBrowser.back()) and this effect re-fires and overwrites the
+  // registry with the true root frame. See browseContext.ts for what breaks
+  // if a future change makes this effect skip a back() transition.
   useEffect(() => {
     if (sourceId) publishBrowseFrame(sourceId, browser.frame.url, browser.frame.entries);
   }, [sourceId, browser.frame]);
