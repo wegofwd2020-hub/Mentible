@@ -11,6 +11,9 @@ import { colors, spacing, typography } from "@/constants/theme";
 import { useSourceCatalog } from "@/openshelves/useSourceCatalog";
 import { useFeedBrowser } from "@/openshelves/useFeedBrowser";
 import { EntryRow } from "@/openshelves/EntryRow";
+import { ShelfFilterBar } from "@/openshelves/ShelfFilterBar";
+import { useShelfPrefs } from "@/openshelves/useShelfPrefs";
+import { filterEntries } from "@/openshelves/filterEntries";
 
 export default function CatalogScreen() {
   const { sourceId } = useLocalSearchParams<{ sourceId: string }>();
@@ -22,14 +25,15 @@ export default function CatalogScreen() {
     [cat.source?.title, cat.source?.url, cat.entries],
   );
   const browser = useFeedBrowser(root);
-  const shown = browser.frame.entries;
+  const { prefs, setPrefs, loading: prefsLoading } = useShelfPrefs();
+  const shown = filterEntries(browser.frame.entries, prefs);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <PageContainer>
         <Text style={styles.title}>{browser.frame.title}</Text>
         <View style={styles.headerRow}>
-          <Text style={styles.sub}>{shown.length} items</Text>
+          <Text style={styles.sub}>{shown.length} of {browser.frame.entries.length} shown</Text>
           <View style={styles.headerActions}>
             {browser.canGoBack ? (
               <Pressable testID="browse-back" onPress={browser.back}><Text style={styles.back}>‹ Back</Text></Pressable>
@@ -39,6 +43,15 @@ export default function CatalogScreen() {
             </Pressable>
           </View>
         </View>
+        {/* Mount-race guard: useShelfPrefs starts with defaultPrefs()+loading:true
+            before the persisted value resolves. Rendering the bar during that
+            window would let a press build `{ ...prefs, ... }` on the still-default
+            prefs and clobber a real stored value on write — so withhold the bar
+            (not the filtered list; filtering with the in-flight default is safe)
+            until the persisted prefs have actually loaded. */}
+        {!prefsLoading ? (
+          <ShelfFilterBar entries={browser.frame.entries} prefs={prefs} onChange={(p) => void setPrefs(p)} />
+        ) : null}
         {cat.error ? <Text testID="catalog-error" style={styles.error}>{cat.error}</Text> : null}
         {browser.error ? <Text testID="browse-error" style={styles.error}>{browser.error}</Text> : null}
         {cat.loading && shown.length === 0 ? null : shown.length === 0 ? (

@@ -9,6 +9,14 @@ jest.mock("expo-router", () => ({
 jest.mock("@/openshelves/useSourceCatalog", () => ({ useSourceCatalog: () => mockCatalog }));
 jest.mock("@/openshelves/fetchFeed", () => ({ fetchFeed: jest.fn() }));
 jest.mock("@/openshelves/opds12", () => ({ parseOpds12: jest.fn() }));
+// This file predates the Task 7 filter bar and isn't testing filtering/prefs
+// (see shelves-catalog-filter.test.tsx for that) — stub useShelfPrefs as
+// already-loaded with neutral prefs so these tests stay deterministic and
+// don't trip a real-hook act() warning from its async load settling after
+// a synchronous assertion.
+jest.mock("@/openshelves/useShelfPrefs", () => ({
+  useShelfPrefs: () => ({ prefs: { language: "all", hideMature: true }, setPrefs: jest.fn(), loading: false }),
+}));
 import CatalogScreen from "@/../app/shelves/[sourceId]";
 
 const entry = (id: string) => ({ id, title: id, authors: ["A"], summary: "", coverUrl: null, language: null, categories: [], mediaType: "book", rightsText: null, mature: null, links: [], canonicalUrl: null });
