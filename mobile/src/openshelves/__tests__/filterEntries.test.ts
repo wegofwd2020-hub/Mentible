@@ -40,3 +40,41 @@ test("deviceLocale reduces a raw locale to its primary subtag", () => {
   expect(deviceLocale("en-GB")).toBe("en");
   expect(deviceLocale("")).toBe("en"); // fallback
 });
+
+test("non-string language values never throw and the entry is kept (unknown => keep)", () => {
+  const list = [
+    e({ id: "num", language: 5 as any }),
+    e({ id: "obj", language: {} as any }),
+    e({ id: "arr", language: ["en"] as any }),
+  ];
+  expect(() => filterEntries(list, prefs({ language: "en" }))).not.toThrow();
+  expect(filterEntries(list, prefs({ language: "en" })).map((x) => x.id)).toEqual(["num", "obj", "arr"]);
+});
+
+test("empty-string language is the unknown-=>-keep boundary", () => {
+  const list = [e({ id: "empty", language: "" })];
+  expect(filterEntries(list, prefs({ language: "en" })).map((x) => x.id)).toEqual(["empty"]);
+});
+
+test("pref language is normalized: 'EN' and 'en-US' still match an 'en' entry", () => {
+  const list = [e({ id: "en", language: "en" })];
+  expect(filterEntries(list, prefs({ language: "EN" })).map((x) => x.id)).toEqual(["en"]);
+  expect(filterEntries(list, prefs({ language: "en-US" })).map((x) => x.id)).toEqual(["en"]);
+});
+
+test("prefs missing language falls back to 'all' (nothing dropped by language)", () => {
+  const list = [e({ id: "en", language: "en" }), e({ id: "fr", language: "fr" })];
+  const legacyPrefs = { hideMature: true } as any as ShelfPrefs; // simulates an older persisted shape
+  expect(filterEntries(list, legacyPrefs).map((x) => x.id)).toEqual(["en", "fr"]);
+});
+
+test("prefs missing hideMature falls back to true (a mature:true entry is hidden)", () => {
+  const list = [e({ id: "mat", mature: true }), e({ id: "ok", mature: false })];
+  const legacyPrefs = { language: "all" } as any as ShelfPrefs; // simulates an older persisted shape
+  expect(filterEntries(list, legacyPrefs).map((x) => x.id)).toEqual(["ok"]);
+});
+
+test("filterEntries never throws and returns [] for an empty entry list", () => {
+  expect(() => filterEntries([], prefs())).not.toThrow();
+  expect(filterEntries([], prefs())).toEqual([]);
+});

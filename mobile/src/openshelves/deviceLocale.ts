@@ -2,6 +2,7 @@
 // not tracked (ADR-028 §6b): it only seeds the default; the user changes it in the
 // filter bar. No expo-localization dependency (spec F4).
 import { Platform } from "react-native";
+import { primarySubtag } from "./filterEntries";
 
 export function deviceLocale(raw?: string): string {
   let value = raw;
@@ -16,6 +17,5 @@ export function deviceLocale(raw?: string): string {
       value = undefined;
     }
   }
-  const primary = (value ?? "").split(/[-_]/)[0].trim().toLowerCase();
-  return primary || "en";
+  return primarySubtag(value) || "en";
 }
