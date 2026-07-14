@@ -3,6 +3,7 @@ import { getPrefs, putPrefs, defaultPrefs } from "../shelfPrefsStore";
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  jest.restoreAllMocks();
 });
 
 test("absent → defaults (hideMature true, a language string)", async () => {
@@ -20,4 +21,19 @@ test("round-trips a saved pref", async () => {
 test("corrupt blob → defaults", async () => {
   await AsyncStorage.setItem("sbq_open_shelves_prefs", "not json");
   expect(await getPrefs()).toEqual(defaultPrefs());
+});
+
+test.each([
+  ["{}", "{}"],
+  ["null", "null"],
+  ["[]", "[]"],
+  ['wrong field types', '{"language":123,"hideMature":"yes"}'],
+])("valid JSON but wrong shape (%s) → defaults", async (_label, blob) => {
+  await AsyncStorage.setItem("sbq_open_shelves_prefs", blob);
+  expect(await getPrefs()).toEqual(defaultPrefs());
+});
+
+test("getItem rejecting (storage I/O failure) → defaults, does not throw", async () => {
+  jest.spyOn(AsyncStorage, "getItem").mockRejectedValueOnce(new Error("keystore boom"));
+  await expect(getPrefs()).resolves.toEqual(defaultPrefs());
 });

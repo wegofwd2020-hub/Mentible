@@ -9,10 +9,13 @@ export function defaultPrefs(): ShelfPrefs {
   return { language: deviceLocale(), hideMature: true };
 }
 
+// Total: a corrupt/partial JSON blob AND an underlying storage-read failure
+// (corrupted keystore, I/O error — real on-device) must both fall back to
+// defaults. Never throw, never reject — the catalog screen depends on this.
 export async function getPrefs(): Promise<ShelfPrefs> {
-  const raw = await AsyncStorage.getItem(KEY);
-  if (!raw) return defaultPrefs();
   try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (!raw) return defaultPrefs();
     const p = JSON.parse(raw);
     if (typeof p?.language === "string" && typeof p?.hideMature === "boolean") {
       return { language: p.language, hideMature: p.hideMature };
