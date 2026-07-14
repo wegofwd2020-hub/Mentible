@@ -21,7 +21,11 @@ export function EntryRow({ entry, onPress }: Props) {
       <View style={styles.meta}>
         <Text style={styles.title} numberOfLines={2}>{entry.title}</Text>
         <Text style={styles.author} numberOfLines={1}>{author}</Text>
-        <Text style={styles.badge}>{entry.mediaType}</Text>
+        {entry.navigationUrl && entry.links.length === 0 ? (
+          <Text testID="entry-browse" style={styles.browse}>Browse ›</Text>
+        ) : (
+          <Text style={styles.badge}>{entry.mediaType}</Text>
+        )}
       </View>
     </Pressable>
   );
@@ -35,4 +39,5 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
   author: { color: colors.textMuted, fontSize: typography.sizeSm },
   badge: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
+  browse: { color: colors.primary, fontSize: typography.sizeXs, fontWeight: "600", marginTop: 2 },
 });
