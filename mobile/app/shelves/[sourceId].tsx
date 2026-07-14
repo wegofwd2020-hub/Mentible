@@ -4,7 +4,7 @@
 // sub-feed on demand; those entries are transient and never written to the
 // store). No downloads here (later plan).
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, spacing, typography } from "@/constants/theme";
@@ -14,6 +14,7 @@ import { EntryRow } from "@/openshelves/EntryRow";
 import { ShelfFilterBar } from "@/openshelves/ShelfFilterBar";
 import { useShelfPrefs } from "@/openshelves/useShelfPrefs";
 import { filterEntries } from "@/openshelves/filterEntries";
+import { publishBrowseFrame } from "@/openshelves/browseContext";
 
 export default function CatalogScreen() {
   const { sourceId } = useLocalSearchParams<{ sourceId: string }>();
@@ -27,6 +28,16 @@ export default function CatalogScreen() {
   const browser = useFeedBrowser(root);
   const { prefs, setPrefs, loading: prefsLoading } = useShelfPrefs();
   const shown = filterEntries(browser.frame.entries, prefs);
+
+  // Publish the current frame (root OR a drilled-in sub-feed) to the
+  // transient in-memory browseContext registry — NOT AsyncStorage, NOT any
+  // store — so the [entryId] route (a separate expo-router push, mounted
+  // after this screen and useFeedBrowser's `pushed` stack are gone) can
+  // still resolve a leaf entry reached only inside a sub-feed, against the
+  // URL of the frame it actually came from (see FIX 1 / browseContext.ts).
+  useEffect(() => {
+    if (sourceId) publishBrowseFrame(sourceId, browser.frame.url, browser.frame.entries);
+  }, [sourceId, browser.frame]);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>

@@ -1,4 +1,5 @@
 import { render, fireEvent } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const mockPush = jest.fn();
 let mockCatalog: any;
@@ -53,6 +54,29 @@ test("tapping a navigation entry drills in; Back returns to the root", async () 
   expect(mockPush).not.toHaveBeenCalled();             // navigation ≠ open detail
   fireEvent.press(getByTestId("browse-back"));         // back to root
   expect(queryByTestId("entry-nav")).toBeTruthy();
+});
+
+test("invariant pin: drilling into a sub-feed never persists its entries", async () => {
+  // Sub-feed entries are transient (spec N2) — only the top-level source
+  // catalog is ever written to AsyncStorage. This is a BEHAVIORAL pin, not
+  // just a structural one: it spies on the real (jest-mocked) AsyncStorage
+  // and asserts drilling in never calls setItem with the sub-feed's entries,
+  // guarding against a future change (e.g. a browse-context handoff) that
+  // accidentally routes through persistence.
+  const nav = entry("nav"); (nav as any).navigationUrl = "/sub.opds";
+  mockCatalog = { ...mockCatalog, source: { ...mockCatalog.source, url: "https://ex.org/c.opds" }, entries: [nav] };
+  const fetchFeed = require("@/openshelves/fetchFeed").fetchFeed as jest.Mock;
+  const parseOpds12 = require("@/openshelves/opds12").parseOpds12 as jest.Mock;
+  fetchFeed.mockResolvedValue("<feed/>");
+  parseOpds12.mockReturnValue({ feedTitle: "Sub", entries: [entry("child")] });
+
+  const setItemSpy = jest.spyOn(AsyncStorage, "setItem");
+  const { getByTestId, findByTestId } = render(<CatalogScreen />);
+  fireEvent.press(getByTestId("entry-nav")); // drill in
+  expect(await findByTestId("entry-child")).toBeTruthy();
+
+  expect(setItemSpy).not.toHaveBeenCalled();
+  setItemSpy.mockRestore();
 });
 
 test("renders the catalog-refresh control and calls useSourceCatalog's refresh on press", () => {

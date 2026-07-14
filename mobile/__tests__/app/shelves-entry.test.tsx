@@ -19,6 +19,7 @@ const mockDownloadEntry = jest.fn();
 jest.mock("@/openshelves/downloadEngine", () => ({ downloadEntry: (...a: any[]) => mockDownloadEntry(...a) }));
 
 import EntryDetailScreen from "@/../app/shelves/[sourceId]/[entryId]";
+import { publishBrowseFrame, clearBrowseFrame } from "@/openshelves/browseContext";
 
 const EPUB = { href: "/a.epub", mimeType: "application/epub+zip", rel: "http://opds-spec.org/acquisition" };
 const entry = (over: any = {}) => ({
@@ -35,6 +36,7 @@ beforeEach(() => {
     entries: [entry()],
     loading: false, busy: false, error: null, reload: jest.fn(), refresh: jest.fn(),
   };
+  clearBrowseFrame("s1");
 });
 
 test("native: downloads through the engine, resolving the link against the source feed URL", async () => {
@@ -77,4 +79,43 @@ test("an entry with no downloadable link has no Download button", () => {
   mockCatalog = { ...mockCatalog, entries: [entry({ links: [] })] };
   const { queryByTestId } = render(<EntryDetailScreen />);
   expect(queryByTestId("download-entry")).toBeNull();
+});
+
+// FIX 1 — a leaf entry reached only inside a drilled-in sub-feed is never in
+// the stored catalog (cat.entries). The catalog screen publishes the current
+// browse frame to the transient browseContext registry before pushing; this
+// screen must resolve from that registry first, falling back to the stored
+// catalog only when no browse context is present (see FIX 1 test 3 below).
+test("a leaf entry that exists ONLY in a drilled-in sub-feed opens on the detail screen", () => {
+  const subOnlyEntry = entry({ title: "Sub-feed Only Book" });
+  publishBrowseFrame("s1", "https://ex.org/ebooks/2701/opds/", [subOnlyEntry]);
+  mockCatalog = { ...mockCatalog, entries: [] }; // NOT in the stored root catalog
+
+  const { getByText, getByTestId } = render(<EntryDetailScreen />);
+  expect(getByText("Sub-feed Only Book")).toBeTruthy();
+  expect(getByTestId("download-entry")).toBeTruthy();
+});
+
+test("its download target resolves against the SUB-FEED's URL, not the root's", async () => {
+  const subUrl = "https://ex.org/ebooks/2701/opds/";
+  const rootUrl = "https://ex.org/feed.atom"; // deliberately a different base than subUrl
+  const relLink = { href: "download.epub", mimeType: "application/epub+zip", rel: "http://opds-spec.org/acquisition" };
+  const subOnlyEntry = entry({ links: [relLink] });
+  publishBrowseFrame("s1", subUrl, [subOnlyEntry]);
+  mockCatalog = { ...mockCatalog, source: { ...mockCatalog.source, url: rootUrl }, entries: [] };
+
+  const { getByTestId, getByText } = render(<EntryDetailScreen />);
+  fireEvent.press(getByTestId("download-entry"));
+
+  await waitFor(() => expect(getByText(/saved on this device/i)).toBeTruthy());
+  // baseFeedUrl passed to the engine must be the sub-feed's URL (a relative
+  // href means something different resolved against the root feed).
+  expect(mockDownloadEntry).toHaveBeenCalledWith(subOnlyEntry, "s1", subUrl, mockIO);
+});
+
+test("regression: a root/stored entry still opens with no browse context set (fallback path)", () => {
+  clearBrowseFrame("s1"); // simulate an app restart / deep link — no browse context published
+  const { getByText, getByTestId } = render(<EntryDetailScreen />);
+  expect(getByText("Moby Dick")).toBeTruthy();
+  expect(getByTestId("download-entry")).toBeTruthy();
 });
