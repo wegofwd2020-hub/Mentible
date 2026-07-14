@@ -4,7 +4,7 @@ import type { FeedEntry } from "../types";
 const mk = (id: string, title = "t"): FeedEntry => ({
   id, title, authors: [], summary: "", coverUrl: null, language: null,
   categories: [], mediaType: "book", rightsText: null, mature: null,
-  links: [], canonicalUrl: null,
+  links: [], canonicalUrl: null, navigationUrl: null,
 });
 
 test("adds new entries", () => {

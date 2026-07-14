@@ -58,10 +58,13 @@ function sanitizeUrl(raw: unknown): string | null {
   return decoded;
 }
 
-function parseLinks(entry: any): { links: AcquisitionLink[]; cover: string | null; canonical: string | null } {
+function parseLinks(entry: any): {
+  links: AcquisitionLink[]; cover: string | null; canonical: string | null; navigation: string | null;
+} {
   const links: AcquisitionLink[] = [];
   let cover: string | null = null;
   let canonical: string | null = null;
+  let navigation: string | null = null;
   for (const l of asArray<any>(entry.link)) {
     const rel = toPlainText(String(l["@_rel"] ?? ""));
     const type = toPlainText(String(l["@_type"] ?? ""));
@@ -70,16 +73,23 @@ function parseLinks(entry: any): { links: AcquisitionLink[]; cover: string | nul
       if (!cover) cover = sanitizeUrl(l["@_href"]);
       continue;
     }
-    if (rel === "alternate" || rel === "self") {
-      if (!canonical) canonical = sanitizeUrl(l["@_href"]);
-    }
-    if (/acquisition|open-access/i.test(rel) || /epub|pdf|audio|video|mobi/i.test(type)) {
+    const isAcquisition = /acquisition|open-access/i.test(rel) || /epub|pdf|audio|video|mobi/i.test(type);
+    if (isAcquisition) {
       const href = sanitizeUrl(l["@_href"]);
       if (!href) continue;
       links.push({ href, mimeType: type, rel });
+      continue;
+    }
+    // Navigation: an explicit subsection, or an opds-catalog-profile link that isn't acquisition.
+    if (!navigation && (rel === "subsection" || /profile=opds-catalog/i.test(type))) {
+      navigation = sanitizeUrl(l["@_href"]);
+      continue;
+    }
+    if (rel === "alternate" || rel === "self") {
+      if (!canonical) canonical = sanitizeUrl(l["@_href"]);
     }
   }
-  return { links, cover, canonical };
+  return { links, cover, canonical, navigation };
 }
 
 function isMature(entry: any): boolean | null {
@@ -100,7 +110,7 @@ function toEntry(raw: any): FeedEntry | null {
   const categories = asArray<any>(raw.category)
     .map((c) => toPlainText(String(c["@_label"] ?? c["@_term"] ?? "")))
     .filter((t) => t.length > 0);
-  const { links, cover, canonical } = parseLinks(raw);
+  const { links, cover, canonical, navigation } = parseLinks(raw);
   const primaryMime = links.find((l) => mediaTypeFromMime(l.mimeType) !== "other")?.mimeType ?? null;
   return {
     id,
@@ -115,6 +125,7 @@ function toEntry(raw: any): FeedEntry | null {
     mature: isMature(raw),
     links,
     canonicalUrl: canonical,
+    navigationUrl: navigation,
   };
 }
 

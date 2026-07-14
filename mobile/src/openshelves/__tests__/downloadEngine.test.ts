@@ -9,7 +9,7 @@ const entry = (over: Partial<FeedEntry> = {}): FeedEntry => ({
   id: "e1", title: "Book", authors: [], summary: "", coverUrl: null, language: null, categories: [],
   mediaType: "book", rightsText: null, mature: null,
   links: [{ href: "https://ex.org/a.epub", mimeType: "application/epub+zip", rel: "http://opds-spec.org/acquisition" }],
-  canonicalUrl: null, ...over,
+  canonicalUrl: null, navigationUrl: null, ...over,
 });
 
 function fakeIO(over: Partial<Downloader> = {}): Downloader & { moved: string[]; removed: string[] } {

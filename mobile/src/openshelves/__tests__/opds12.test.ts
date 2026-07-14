@@ -134,3 +134,31 @@ test("numeric-looking ids are preserved as strings, not coerced to NaN", () => {
   const { entries } = parseOpds12(xml);
   expect(entries.map((e) => e.id)).toEqual(["e1", "e2", "12345", "007"]);
 });
+
+test("captures a subsection navigation link as navigationUrl", () => {
+  const xml = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><id>nav1</id><title>Whale books</title>
+      <link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="/ebooks/2701.opds"/>
+    </entry></feed>`;
+  const { entries } = parseOpds12(xml);
+  expect(entries[0].navigationUrl).toBe("/ebooks/2701.opds");
+  expect(entries[0].links).toEqual([]);
+});
+
+test("classifies an opds-catalog link with no rel as navigation", () => {
+  const xml = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><id>nav2</id><title>Shelf</title>
+      <link type="application/atom+xml;profile=opds-catalog" href="/sub.opds"/>
+    </entry></feed>`;
+  expect(parseOpds12(xml).entries[0].navigationUrl).toBe("/sub.opds");
+});
+
+test("a downloadable entry has navigationUrl null and keeps its acquisition link", () => {
+  const xml = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><id>book1</id><title>Moby Dick</title>
+      <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/a.epub"/>
+    </entry></feed>`;
+  const e = parseOpds12(xml).entries[0];
+  expect(e.navigationUrl).toBeNull();
+  expect(e.links.map((l) => l.mimeType)).toContain("application/epub+zip");
+});

@@ -5,6 +5,7 @@ import type { FeedEntry } from "../types";
 const mk = (id: string): FeedEntry => ({
   id, title: "t", authors: [], summary: "", coverUrl: null, language: null,
   categories: [], mediaType: "book", rightsText: null, mature: null, links: [], canonicalUrl: null,
+  navigationUrl: null,
 });
 
 beforeEach(async () => { await AsyncStorage.clear(); });

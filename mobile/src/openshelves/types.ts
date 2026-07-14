@@ -23,6 +23,7 @@ export interface FeedEntry {
   mature: boolean | null; // feed maturity flag where present (spec D8/F-4)
   links: AcquisitionLink[];
   canonicalUrl: string | null;
+  navigationUrl: string | null; // subsection/opds-catalog link → drill-in (spec N1)
 }
 
 export interface FeedSource {

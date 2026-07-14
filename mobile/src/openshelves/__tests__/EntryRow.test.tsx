@@ -4,7 +4,8 @@ import type { FeedEntry } from "../types";
 
 const entry = (over: Partial<FeedEntry> = {}): FeedEntry => ({
   id: "e1", title: "Moby Dick", authors: ["Herman Melville"], summary: "", coverUrl: null,
-  language: null, categories: [], mediaType: "book", rightsText: null, mature: null, links: [], canonicalUrl: null, ...over,
+  language: null, categories: [], mediaType: "book", rightsText: null, mature: null, links: [], canonicalUrl: null,
+  navigationUrl: null, ...over,
 });
 
 test("renders title, author, and media badge", () => {

@@ -5,7 +5,7 @@ import type { FeedEntry } from "../types";
 const entry = (over: Partial<FeedEntry> = {}): FeedEntry => ({
   id: "e1", title: "Moby Dick", authors: ["Herman Melville"], summary: "A whale.", coverUrl: null,
   language: null, categories: [], mediaType: "book", rightsText: "Public Domain", mature: null,
-  links: [], canonicalUrl: "https://ex.org/moby", ...over,
+  links: [], canonicalUrl: "https://ex.org/moby", navigationUrl: null, ...over,
 });
 
 test("shows provenance: source, rights, and view-at-source", () => {

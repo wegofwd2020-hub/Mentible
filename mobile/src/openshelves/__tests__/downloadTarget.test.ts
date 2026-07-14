@@ -5,7 +5,7 @@ const BASE = "https://ex.org/catalog/index.atom";
 const link = (href: string, mimeType: string, rel = "http://opds-spec.org/acquisition"): AcquisitionLink => ({ href, mimeType, rel });
 const entry = (links: AcquisitionLink[], mediaType: FeedEntry["mediaType"] = "book"): FeedEntry => ({
   id: "e1", title: "t", authors: [], summary: "", coverUrl: null, language: null, categories: [],
-  mediaType, rightsText: null, mature: null, links, canonicalUrl: null,
+  mediaType, rightsText: null, mature: null, links, canonicalUrl: null, navigationUrl: null,
 });
 
 test("resolveUrl keeps absolute https, resolves relative against the feed, rejects non-http", () => {
