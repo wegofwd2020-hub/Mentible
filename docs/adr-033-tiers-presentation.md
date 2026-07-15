@@ -1,9 +1,11 @@
 # ADR-033 — Free vs paid, at a glance (for a non-technical audience)
 
 > Plain-language companion to `docs/adr/ADR-033-per-user-private-hosted-library.md`,
-> written for presenting to non-technical folks. Interactive/visual version (mock
-> device screens + concept illustrations, light/dark): artifact `52f0fb35` — see the
-> chat that produced this. This file is the read-and-digest copy.
+> written for presenting to non-technical folks. This file is the read-and-digest copy.
+> **Editable slide deck with the graphics:** `docs/adr-033-tiers-presentation.pptx`
+> (5 slides — mock device screens, the three concept cards, and the comparison table;
+> the "can *you* read it?" answer is in the Paid slide's speaker notes). Interactive
+> web version: artifact `52f0fb35`.
 
 **One line:** The same app, two ways to keep your library. Free stays on your device.
 Paid gives you a private library that follows you everywhere.
