@@ -131,6 +131,20 @@ export interface ExperimentOutput {
   conclusion_prompt: string;
 }
 
+// An image file attached by the author to a topic (media feature slice 1).
+// Ref only: bytes live on device at `media/<bookId>/<id>.<ext>` (see mediaStore);
+// they are never stored in this JSON. Rendered in a Figures block and inflated
+// into the compile payload as a data: URI.
+export interface TopicImage {
+  id: string; // randomUUID (@/lib/uuid)
+  file: string; // device-relative, e.g. "media/<bookId>/<id>.jpg"
+  mime: string; // one of MIME_ALLOWLIST
+  caption?: string; // plain-text caption / alt
+  width?: number;
+  height?: number;
+  addedAt: string; // ISO
+}
+
 // One topic's generated content, produced by the generate-all loop (lesson
 // only) or imported from a migrated book (lesson + any of the extras).
 export interface GeneratedTopic {
@@ -151,6 +165,8 @@ export interface GeneratedTopic {
   // Monotonic regeneration count for this unit (ADR-016 D7 content version).
   // Bumped by setTopicContent on every overwrite; absent/0 = original generation.
   revisionCount?: number;
+  // Author-attached images for this topic (ordered = render order). Refs only.
+  images?: TopicImage[];
 }
 
 // Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on
