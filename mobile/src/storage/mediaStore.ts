@@ -39,14 +39,15 @@ export async function attachImage(book: Book, topicId: string, src: PickedImage)
   const gen = book.content?.[topicId];
   if (!gen) throw new MediaCapError("Add content to this topic before attaching a figure.");
   if (!isAllowedMime(src.mime)) throw new MediaCapError("Only JPEG, PNG or WebP images are supported.");
-  if (typeof src.fileSize === "number" && src.fileSize > MAX_IMAGE_BYTES) {
-    throw new MediaCapError("That image is too large (max 10 MB).");
-  }
   if (topicImages(book, topicId).length >= MAX_IMAGES_PER_TOPIC) {
     throw new MediaCapError(`A topic can hold at most ${MAX_IMAGES_PER_TOPIC} figures.`);
   }
-  if ((await bookMediaBytes(book)) + (src.fileSize ?? 0) > MAX_MEDIA_PER_BOOK_BYTES) {
-    throw new MediaCapError("This book has reached its image storage limit.");
+  // Cheap early-out: a known-oversize source can be rejected before the (costly)
+  // EXIF strip. Not authoritative — `fileSize` is optional and may be absent
+  // (e.g. expo-image-picker) — the real cap enforcement is below, against the
+  // stripped file's actual on-disk size.
+  if (typeof src.fileSize === "number" && src.fileSize > MAX_IMAGE_BYTES) {
+    throw new MediaCapError("That image is too large (max 10 MB).");
   }
 
   // Re-encode to strip EXIF (incl. GPS). No transform ops = format/quality pass only.
@@ -54,6 +55,18 @@ export async function attachImage(book: Book, topicId: string, src: PickedImage)
     compress: 0.9,
     format: SAVE_FORMAT[src.mime],
   });
+
+  // Enforce the size caps against the REAL on-disk size of the stripped file —
+  // `src.fileSize` is optional and may be absent, so it must never be the sole
+  // gate (that would let an oversize image bypass both caps).
+  const info = await FileSystem.getInfoAsync(stripped.uri);
+  const bytes = info.exists && typeof info.size === "number" ? info.size : (src.fileSize ?? 0);
+  if (bytes > MAX_IMAGE_BYTES) {
+    throw new MediaCapError("That image is too large (max 10 MB).");
+  }
+  if ((await bookMediaBytes(book)) + bytes > MAX_MEDIA_PER_BOOK_BYTES) {
+    throw new MediaCapError("This book has reached its image storage limit.");
+  }
 
   const ext = extForMime(src.mime)!;
   const id = randomUUID();
