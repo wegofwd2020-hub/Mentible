@@ -10,6 +10,7 @@
 
 import type { GeneratedTopic, ExperimentOutput, QuizSet, TutorialOutput } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
+import { renderFiguresHtml } from "@/lib/figuresHtml";
 import { sanitizeFragment } from "@/reader/sanitize";
 import { escapeHtml, li, md, stripDupHeading } from "@/reader/markdown";
 
@@ -111,10 +112,17 @@ function renderExperiment(exp: ExperimentOutput): string {
 }
 
 /** Untrusted topic → sanitized HTML fragment, safe to inject into the app DOM. */
-export function renderTopicToSafeHtml(topic: GeneratedTopic): string {
+export function renderTopicToSafeHtml(
+  topic: GeneratedTopic,
+  dataUrls?: Map<string, string>,
+): string {
   let html = renderLesson(topic.lesson);
   if (topic.tutorial) html += renderTutorial(topic.tutorial);
   if (topic.quizSets?.length) html += renderQuizzes(topic.quizSets);
   if (topic.experiment) html += renderExperiment(topic.experiment);
+  // `renderFiguresHtml` has a JS twin (`renderFigures` in RENDER_HELPERS_JS,
+  // @/components/contentHtml) for the WebView, which can't import bundle modules.
+  // Keep both in step.
+  if (topic.images?.length && dataUrls?.size) html += renderFiguresHtml(topic.images, dataUrls);
   return sanitizeFragment(html);
 }

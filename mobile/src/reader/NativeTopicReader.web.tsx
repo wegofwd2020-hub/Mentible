@@ -15,9 +15,15 @@ import { READER_CSS, READER_ROOT_CLASS } from "@/reader/readerStyles";
 import { enhanceReaderNode } from "@/reader/enhance";
 import { colors } from "@/constants/theme";
 
-export function NativeTopicReader({ topic }: { topic: GeneratedTopic }) {
+export function NativeTopicReader({
+  topic,
+  figures,
+}: {
+  topic: GeneratedTopic;
+  figures?: Map<string, string>;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const html = useMemo(() => renderTopicToSafeHtml(topic), [topic]);
+  const html = useMemo(() => renderTopicToSafeHtml(topic, figures), [topic, figures]);
 
   // KaTeX and (lazily) Mermaid, over the mounted node. `ref.current` is null under
   // react-test-renderer, so this guard also makes the component test-safe.

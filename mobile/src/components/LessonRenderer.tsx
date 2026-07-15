@@ -53,14 +53,30 @@ function HtmlView({ html, label }: HtmlViewProps) {
  *
  * `NativeTopicReader` resolves to a throwing stub off-web, so the `Platform.OS`
  * guard is what keeps DOMPurify/marked/mermaid out of the native bundle (D3).
+ *
+ * `figures` (from `useTopicFigures`) is an optional id → data:URL map for any
+ * author-attached images (media feature) — passed through to whichever
+ * renderer is active so both surfaces can inline the same figures.
  */
-export function TopicRenderer({ topic }: { topic: GeneratedTopic }) {
-  if (Platform.OS === "web") return <NativeTopicReader topic={topic} />;
-  return <WebViewTopicRenderer topic={topic} />;
+export function TopicRenderer({
+  topic,
+  figures,
+}: {
+  topic: GeneratedTopic;
+  figures?: Map<string, string>;
+}) {
+  if (Platform.OS === "web") return <NativeTopicReader topic={topic} figures={figures} />;
+  return <WebViewTopicRenderer topic={topic} figures={figures} />;
 }
 
-function WebViewTopicRenderer({ topic }: { topic: GeneratedTopic }) {
-  const html = useMemo(() => buildTopicHtml(topic), [topic]);
+function WebViewTopicRenderer({
+  topic,
+  figures,
+}: {
+  topic: GeneratedTopic;
+  figures?: Map<string, string>;
+}) {
+  const html = useMemo(() => buildTopicHtml(topic, figures), [topic, figures]);
   return <HtmlView html={html} label="Topic content" />;
 }
 

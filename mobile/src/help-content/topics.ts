@@ -304,4 +304,32 @@ export const HELP_TOPICS: HelpTopic[] = [
       { kind: "link", label: "See plans →", href: "/paywall" },
     ],
   },
+  {
+    id: "attach-figures",
+    title: "Add figures to a topic",
+    featureKey: "figures",
+    keywords: ["image", "figure", "photo", "picture", "attach", "diagram", "camera", "media"],
+    blocks: [
+      {
+        kind: "text",
+        text: "You can attach images — a photo, a diagram, a scan — to any topic that already has content. They appear in a Figures section when you read the topic and are included when you export the book. Your figures stay on your device; nothing is sent to the AI.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a topic that has generated content.",
+          "Tap Add figure, then Choose from library or Take photo.",
+          "Add an optional caption. The image is saved on your device.",
+          "Export the book to include your figures in the EPUB or PDF.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Supported formats", def: "JPEG, PNG and WebP, up to 10 MB each." },
+          { term: "Where are my images stored?", def: "On your device only. Location data (EXIF/GPS) is stripped automatically." },
+        ],
+      },
+    ],
+  },
 ];

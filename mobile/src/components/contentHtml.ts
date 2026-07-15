@@ -137,6 +137,22 @@ const RENDER_HELPERS_JS = `
     }
     return h;
   }
+
+  // Twin of \`renderFiguresHtml\` in @/lib/figuresHtml — kept byte-for-byte
+  // behaviour-equal (same markup) on purpose; the WebView can't import bundle
+  // modules, so this is intentional duplication. Keep both in step.
+  function renderFigures(images, urls) {
+    var figs = '';
+    (images || []).forEach(function (img) {
+      var src = urls[img.id];
+      if (!src) return;
+      var cap = img.caption ? '<figcaption>' + escHtml(img.caption) + '</figcaption>' : '';
+      figs += '<figure class="attached-figure"><img src="' + escHtml(src) + '" alt="'
+        + escHtml(img.caption || '') + '">' + cap + '</figure>';
+    });
+    if (!figs) return '';
+    return '<hr class="section-divider"><section class="figures"><h3>Figures</h3>' + figs + '</section>';
+  }
 `;
 
 function htmlDocument(dataJson: string, bodyJs: string): string {
@@ -312,13 +328,24 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 </html>`;
 }
 
-/** Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment. */
-export function buildTopicHtml(topic: GeneratedTopic): string {
+/**
+ * Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment /
+ * attached figures. `dataUrls` (from `useTopicFigures`) is folded into `DATA` as
+ * `__figureUrls` so the in-page `renderFigures` twin (see RENDER_HELPERS_JS above —
+ * kept in step with `@/lib/figuresHtml`'s `renderFiguresHtml`) can resolve each
+ * image id to its data: URL.
+ */
+export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, string>): string {
+  const data = {
+    ...topic,
+    __figureUrls: dataUrls ? Object.fromEntries(dataUrls) : {},
+  };
   return htmlDocument(
-    JSON.stringify(topic),
+    JSON.stringify(data),
     `html += renderLesson(DATA.lesson);
      if (DATA.tutorial) html += renderTutorial(DATA.tutorial);
      if (DATA.quizSets && DATA.quizSets.length) html += renderQuizzes(DATA.quizSets);
-     if (DATA.experiment) html += renderExperiment(DATA.experiment);`,
+     if (DATA.experiment) html += renderExperiment(DATA.experiment);
+     if (DATA.images && DATA.images.length) html += renderFigures(DATA.images, DATA.__figureUrls);`,
   );
 }

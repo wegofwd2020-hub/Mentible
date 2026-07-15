@@ -276,7 +276,7 @@ for V1 -> Lessons; Eplanation; Quiz;
 | Image generation | ❌ defer to v2 (different model, cost, content-safety story) |
 
 **Open question: confirm v1 visual aids?**
-**Decided: Option (b) — all of the ✅ items in v1:** KaTeX (maths), Mermaid (flowcharts/diagrams), attributed blockquotes, GFM tables, "AI picks the right visual" prompt step. Image generation deferred to v2. Renderer pipeline already produces all of these together — porting to React Native is one set of library imports (`react-native-katex` or `react-native-math-view` for KaTeX; Mermaid via WebView; markdown-it for blockquotes/tables).
+**Decided: Option (b) — all of the ✅ items in v1:** KaTeX (maths), Mermaid (flowcharts/diagrams), attributed blockquotes, GFM tables, "AI picks the right visual" prompt step. Image generation deferred to v2. Renderer pipeline already produces all of these together — porting to React Native is one set of library imports (`react-native-katex` or `react-native-math-view` for KaTeX; Mermaid via WebView; markdown-it for blockquotes/tables). **Media slice 1:** author-supplied attached images (device-local, attach-only) — see `docs/superpowers/specs/2026-07-15-topic-images-attach-design.md`; AI processing of media remains deferred (ADR-034 gates).
 
 ---
 
