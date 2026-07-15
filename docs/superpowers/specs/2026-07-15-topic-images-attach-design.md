@@ -67,9 +67,11 @@ export interface GeneratedTopic {
 }
 ```
 
-**Refs only — bytes never in `book.json`.** The JSON holds a lightweight ref; bytes
-live in device file storage (§3). This keeps `book.json` small, fast to load/save, and
-cheap for the (later) hosted-sync slice to reason about.
+**Refs only — bytes never in stored `book.json`.** The JSON holds a lightweight ref;
+bytes live in device file storage (§3). This keeps `book.json` small, fast to load/save,
+and cheap for the (later) hosted-sync slice to reason about. Bytes are materialized into
+base64 `data:` URIs only in two **transient** places that never persist: the reader's
+figure resolver (§5) and the compile payload (§6).
 
 `images` hangs off `GeneratedTopic` (not `TopicNode`) because that is the per-topic
 content container the reader and compiler already consume, and it is what gets pruned
@@ -91,9 +93,10 @@ flow is a later refinement, not slice 1.)
   fresh id, strip metadata (§8), then append the ref to `topic.images`.
 - **Delete path:** removing an image deletes the file **and** the ref (both, atomically
   from the user's view — ref removed in the store, file deleted best-effort after).
-- **Orphan cleanup:** on book save, after `content` pruning, delete any file under
-  `media/<bookId>/` not referenced by a surviving `TopicImage.file` (mirrors the
-  existing orphaned-`GeneratedTopic` prune). Guards against refs lost to a crash.
+- **Orphan cleanup:** `saveBook` (`bookStore.ts:82`) is AsyncStorage-only (no FS), so
+  media GC is a separate **async companion** `pruneOrphanMedia(book)` called alongside
+  save: after the existing `content` prune, delete any file under `media/<bookId>/` not
+  referenced by a surviving `TopicImage.file`. Guards against refs lost to a crash.
 - **Caps (reuse ADR-028 Open Shelves storage-accounting pattern):**
   - mime allowlist: `image/jpeg`, `image/png`, `image/webp` only (reject others at pick).
   - per-image byte cap (e.g. 10 MB — exact value set in the plan).
@@ -127,69 +130,86 @@ flow is a later refinement, not slice 1.)
 
 ---
 
-## §5 — Reader rendering
+## §5 — Reader rendering (two render paths, kept in step)
 
-The native web reader builds one sanitized HTML fragment per topic
-(`mobile/src/reader/renderContent.ts` → `renderTopicToSafeHtml`, single DOMPurify pass
-at the bottom). `renderContent.ts` is **pure — no React, no I/O** — so it cannot read
-image bytes itself.
+There are **two** topic renderers, and they already mirror each other by design:
+- **Web** — `mobile/src/reader/renderContent.ts` → `renderTopicToSafeHtml(topic)` (a
+  **pure** function, single DOMPurify pass at the bottom; `NativeTopicReader.web.tsx:20`).
+- **In-app / native** — `mobile/src/components/contentHtml.ts` `buildTopicHtml(...)`,
+  rendered inside a WebView by `TopicRenderer`/`LessonRenderer.tsx`. Already carries
+  `img { max-width:100% }` CSS (`contentHtml.ts:227`).
 
-**Design:** the caller resolves each `TopicImage.file` → a displayable **data URL**
-(read the device file as base64 via `expo-file-system`) and passes a
-`Map<imageId, dataUrl>` (a "figure resolver") into `renderTopicToSafeHtml`. The renderer
-emits a **Figures** `<figure>`/`<figcaption>` block using those data URLs as `<img src>`.
-Resolution (I/O) stays in the impure caller; the renderer stays pure and unit-testable.
+Both are **pure string builders — no I/O** — so neither can read image bytes itself. The
+Figures block must be added to **both**, kept in step (a shared helper avoids drift).
+
+**Design:** the caller resolves each `TopicImage.file` → a **data URL** (read the device
+file as base64 via `expo-file-system`) and passes a `Map<imageId, dataUrl>` ("figure
+resolver") into the builder. The builder emits a **Figures** `<figure>`/`<figcaption>`
+block using those data URLs as `<img src>`. Resolution (I/O) stays in the impure caller
+(a small `useTopicFigures(topic)` hook that reads files into the map); the builders stay
+pure and unit-testable. `renderTopicToSafeHtml(topic, figures?)` gains an optional second
+arg; `buildTopicHtml` likewise — absent ⇒ no Figures block (backward compatible).
 
 - Figures block position: appended after the topic content (after Key takeaways),
   rendered only when `topic.images?.length`.
-- **Security (reuse `mobile/src/reader/sanitize.ts`):** the existing `html` profile
-  already permits `<img>`, `<figure>`, `<figcaption>` (confirm `<figure>`/`<figcaption>`
-  are in the allowlist; add if missing). `src` is **always** a `data:` URL we produced
-  from a device file — **never a remote URL**. This is the whole image security surface:
-  no `http(s)://` src ever reaches the sanitizer, so no tracking-pixel / SSRF / external
-  fetch is possible. Captions are `escapeHtml`'d (plain text, not markdown).
+- **Security (reuse `mobile/src/reader/sanitize.ts`):** the `USE_PROFILES: { html }`
+  config already permits `<img>`/`<figure>`/`<figcaption>` (a test pins that a
+  `data:image/png` `src` survives the pass; add `<figure>`/`<figcaption>` to the profile
+  only if the test shows they are stripped). `src` is **always** a `data:` URL we produced
+  from a device file — **never a remote URL**. That is the whole image security surface: no
+  `http(s)://` src ever reaches the sanitizer, so no tracking-pixel / SSRF / external fetch
+  is possible. Captions are `escapeHtml`'d (plain text, not markdown).
 - Alt text: `<img alt>` = the caption (or "" if none), for a11y parity with the EPUB.
 
 ---
 
-## §6 — Compiler (the paid artifact stays free to produce)
+## §6 — Compiled artifact: app inflates, compiler UNCHANGED
 
-The Node compiler already extracts `data:image/…;base64,…` `src`s from chapter XHTML
-into packaged EPUB manifest resources — `compiler/src/epub.ts:84 packImages()` (used
-today for cover/logo). Slice 1 **reuses this path**:
+**Reality (from the codebase map):** the compiler is a **remote HTTP service**. The app
+POSTs the whole `Book` as JSON (`mobile/src/api/client.ts:260`, `JSON.stringify(book)`)
+to `POST /api/v1/export/jobs`; there is **no media channel** and no way to hand it a
+`/media` directory. Images can only reach it as base64 `data:` URIs already inline in the
+Book's markdown, which the existing `compiler/src/epub.ts:84 packImages()` extracts into
+`OEBPS/images/img-NNN.ext`. **Chosen approach (A): the app inflates refs → data: URIs into
+a transient copy of the Book at export time; the compiler needs no change and no redeploy.**
 
-- The compile input carries `book.json` **+ the media files** (the caller hands the
-  compiler the `media/<bookId>/` directory alongside the book).
-- For each `topic.images` ref, the compiler reads the file, base64-encodes it, and emits
-  a `<figure><img src="data:…"><figcaption>…</figcaption></figure>` into that topic's
-  chapter XHTML. `packImages()` then pulls the data URI into an `ImageRes` manifest entry
-  and rewrites the `src` to `../images/img-NNN.ext` — no new packaging code needed.
-- The `MEDIA_EXT` map (`epub.ts:70`) already covers jpeg/png/webp — aligned with the §3
-  allowlist.
-- **PDF path:** the PDF renderer consumes the same XHTML with inline `data:` `<img>` (it
-  does not require manifest extraction). Confirm the PDF branch embeds the figure images;
-  add if the PDF path diverges from EPUB XHTML assembly.
-- Captions become `<figcaption>`; alt text carried for EPUB Accessibility 1.1 metadata
-  (the compiler already derives a11y access modes — attached images add `visual` to
-  `accessMode`).
+- **Two representations of a Book:**
+  - *Stored* (AsyncStorage, `.book.json`): `topic.images` are **refs only** (§2). Bytes
+    never in stored JSON.
+  - *Compile payload* (transient, built in the export path, never persisted): a deep copy
+    where, for each topic with images, a synthetic trailing **"Figures"** section is added
+    to `lesson.sections` whose `body_markdown` is one `![Fig N. <caption>](data:<mime>;base64,…)`
+    per image, in author order. `expo-image-manipulator`/`expo-file-system` produce the
+    base64 (already EXIF-stripped on attach).
+- The inflation lives in the export client seam (`mobile/src/lib/trackedExport.ts` /
+  `mobile/src/api/client.ts exportBook`), applied to `epub` **and** `pdf` jobs alike (both
+  take the same Book payload). `packImages()` handles EPUB packaging; the PDF path renders
+  the same inline `<img data:>` markdown — no divergence, no compiler edit.
+- Fidelity trade (accepted): captions ride as markdown alt text (`<img alt>`), not semantic
+  `<figure>/<figcaption>`. `MEDIA_EXT` (`epub.ts:70`) already covers jpeg/png/webp; the
+  compiler's existing `images.length>0 ⇒ visual access mode` (`epub.ts:307`) fires for free.
+- **Not this slice:** first-class compiler `images[]` + semantic `<figure>` output (would
+  need a compiler change + backend redeploy) — deferred as later polish.
 
 ---
 
-## §7 — Export / import (the lifecycle cost we accepted)
+## §7 — Export / import (bundle via fflate — already a dep)
 
-Today a book exports as a single `.book.json`. With bytes now off-JSON, export becomes a
-**bundle**:
+Today a book exports as a single `.book.json` (`ExportBookJsonButton.tsx` →
+`downloadTextArtifact`). With bytes off-JSON, export becomes a **zip bundle** built with
+**`fflate`** — already a mobile dependency (`epubCover.ts:1` imports `unzipSync`), so no
+new package. Delivery switches to the bytes writer `downloadArtifact` (`epubLibrary.ts:59`).
 
-- **Export:** a zip containing `book.json` + a `media/` folder (the referenced files
-  only — orphan-pruned first). Refs inside `book.json` stay device-relative
-  (`media/<bookId>/<id>.ext`).
-- **Import:** unzip → restore files under `media/<newBookId>/` → rewrite each
-  `TopicImage.file` to the new bookId path (import assigns a fresh book id). Validate each
-  media file on import: mime in allowlist, within byte cap, re-strip EXIF (§8). A ref with
-  a missing/invalid file is dropped with a surfaced warning — import never silently keeps a
-  dangling ref.
-- Backward compat: a legacy plain-`.book.json` (no media) imports unchanged — absence of a
-  `media/` entry ⇒ zero images.
+- **Export:** `fflate.zipSync({ "book.json": <utf8 bytes>, "media/<id>.ext": <file bytes>, … })`
+  — only files still referenced by a surviving `TopicImage` (orphan-pruned first). Refs in
+  `book.json` are rewritten to bundle-relative (`media/<id>.ext`) on the way out. Extension
+  `.book.zip` (a legacy `.book.json` with no images may still take the plain-JSON path).
+- **Import:** add a zip branch to `pickBookFile.ts` (mirror `pickEpubFile`, returning bytes)
+  → `fflate.unzipSync` → `parseBook(book.json)` → for each media entry, re-validate (mime
+  allowlist, byte cap, **re-strip EXIF** §8) and write to `media/<newBookId>/<id>.ext`, then
+  rewrite each `TopicImage.file` to the new bookId path (import assigns a fresh id). A ref
+  whose file is missing/invalid is dropped with a surfaced warning — never a dangling ref.
+- Backward compat: a plain `.book.json` (no media) imports unchanged via the existing path.
 
 ---
 
@@ -216,26 +236,30 @@ Today a book exports as a single `.book.json`. With bytes now off-JSON, export b
 - **Storage lifecycle:** attach writes a file + ref; delete removes both; deleting a book
   cascades its media dir; orphan prune deletes an unreferenced file; each cap
   (per-image / per-topic / per-book / mime) rejects cleanly with no partial write.
-- **Reader:** `renderTopicToSafeHtml` with a figure-resolver map emits a Figures block;
-  captions are escaped; **every `<img src>` in the parsed output is a `data:` URL** (assert
-  over the DOM, per the local-only invariant); no figures block when `images` empty.
-- **Compiler:** a topic with one image compiles to an EPUB whose manifest contains the
-  packaged `images/img-001.<ext>` resource and whose chapter XHTML references it; PDF embeds
-  the figure.
-- **Export/import round-trip:** a book with an image exports to a bundle and re-imports with
-  the image byte-identical (modulo the deliberate EXIF strip) and the ref rewritten to the
-  new bookId.
+- **Reader (both paths):** `renderTopicToSafeHtml(topic, figures)` and `buildTopicHtml(...,
+  figures)` each emit a Figures block; captions are escaped; **every `<img src>` in the
+  parsed output is a `data:` URL** (assert over the DOM, per the local-only invariant); no
+  Figures block when `images` empty or no resolver passed.
+- **Compile inflation (app-side, pure):** the payload builder turns a topic with an image
+  ref into a **transient** copy carrying a trailing "Figures" section whose `body_markdown`
+  is `![Fig 1. cap](data:…)`; assert the **stored** book is untouched (refs only, no data:
+  URI) and the payload's markdown carries the data: URI in author order. (The remote
+  compiler is unchanged; `packImages` extraction is already covered by compiler tests.)
+- **Export/import round-trip:** a book with an image exports to a `.book.zip` bundle
+  (fflate) and re-imports with the image byte-identical (modulo the deliberate EXIF strip)
+  and the ref rewritten to the new bookId; a plain legacy `.book.json` still imports.
 - **EXIF:** a fixture image with GPS EXIF has that metadata absent after attach/import.
-- Coverage: mobile RNTL/jest for store + UX; pure jsdom-jest for `renderContent`; compiler
-  jest for `packImages` integration. (No live services — CLAUDE.md testing rule.)
+- Coverage: mobile RNTL/jest for store + UX; pure jsdom-jest for the reader builders and the
+  payload builder. (No live services — CLAUDE.md testing rule.)
 
 ---
 
 ## §10 — Docs, ADR & help
 
 - **Help (Definition of Done, CLAUDE.md):** shipping the attach UX means adding a `FEATURES`
-  key + a Help topic (`mobile/src/constants/helpContent.ts`) in the same PR — the coverage
-  gate enforces it.
+  key in `mobile/src/help-content/features.ts` + a `HelpTopic` with that `featureKey` in
+  `mobile/src/help-content/topics.ts`, in the same PR — the coverage gate
+  (`mobile/__tests__/help/coverage.test.ts` → `uncoveredFeatures`) enforces it.
 - **SCOPE.md:** this slice introduces the **author-supplied media class** + a device blob
   layer; note it amends the "defer rich media" posture for images (attach-only).
 - **ADR:** slice 1 does not need its own ADR (it is a free, device-local extension consistent
