@@ -7,7 +7,9 @@
 // mistake loud instead of shipping a blank screen.
 import type { GeneratedTopic } from "@/types/book";
 
-export function NativeTopicReader(_props: { topic: GeneratedTopic }): never {
+export function NativeTopicReader(
+  _props: { topic: GeneratedTopic; figures?: Map<string, string> },
+): never {
   throw new Error(
     "NativeTopicReader is web-only (spec D3). Native must render TopicRenderer's WebView path.",
   );
