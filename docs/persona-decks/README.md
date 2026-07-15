@@ -6,15 +6,20 @@ audience and walks them through the same story in their own language:
 > **their problem → start free, on your device → *your knowledge library* → how the RAG engine
 > works → a library bigger than your shelf → the free→paid trigger → the payoff.**
 
-Each deck is a native, editable 8-slide PowerPoint (PowerPoint / Keynote). An interactive web
-version of each is also published as a private artifact (links below).
+Each deck is a native, editable 8-slide PowerPoint (PowerPoint / Keynote). Every persona gets its
+**own visual world** — a distinct layout language, background motif, and "knowledge library"
+metaphor — so no deck reads as a recolored template. An interactive web version of each is also
+published as a private artifact.
 
-| Deck (.pptx) | Persona | Accent |
-|---|---|---|
-| `mentible-for-physicians.pptx` | Dr. Anaya — internal-medicine physician | clinical teal-blue |
-| `mentible-for-medical-students.pptx` | Sam — second-year medical student | learning green |
-| `mentible-for-screenwriters.pptx` | Mara — feature screenwriter | creative plum |
-| `mentible-for-security-architects.pptx` | Dev — software security architect | steel indigo |
+| Deck (.pptx) | Persona | Visual world | "Knowledge library" is… |
+|---|---|---|---|
+| `mentible-for-physicians.pptx` | Dr. Anaya — internal-medicine physician | **clinical chart** — chart headers, EKG-line motif, teal-blue | a **tabbed clinical binder** |
+| `mentible-for-medical-students.pptx` | Sam — second-year medical student | **notebook** — ruled paper, spiral binding, highlighter, green | a **fan of flashcards** |
+| `mentible-for-screenwriters.pptx` | Mara — feature screenwriter | **screenplay** — film-strip rail, scene slugs, `CUT TO:`, dialogue blocks, warm plum | a **corkboard of index cards** |
+| `mentible-for-security-architects.pptx` | Dev — software security architect | **blueprint / terminal** — dark grid, monospace, `$` prompts, steel-indigo/cyan | a **schematic system-map** |
+
+Mentible's hero lines are set in each world's native form: screenplay **dialogue** (writer), a
+**chart note** (physician), a **study-buddy note** (student), a `// code comment` (architect).
 
 **Shared spine of every deck**
 
@@ -32,11 +37,11 @@ version of each is also published as a private artifact (links below).
 - **Free** = device-local, zero-knowledge. **Paid** = private hosted, synced across devices (ADR-033).
 - Grounding in your own material = ADR-029 (retrieval / RAG); curated external texts = ADR-028 (Open Shelves).
 
-**Interactive web artifacts (private)**
-- Physician — https://claude.ai/code/artifact/8e074707-fae7-4828-802a-2631e0e84d1e
-- Medical student — https://claude.ai/code/artifact/4473f9db-6ba0-4293-9223-5f4ff0d50209
-- Screenwriter — https://claude.ai/code/artifact/27be8328-3bd9-4d6d-aae6-027aa828675e
-- Security architect — https://claude.ai/code/artifact/2854a656-097a-40b7-98ec-5df26ff37865
+**Interactive web artifacts (private) — each in its own world**
+- Physician (clinical chart) — https://claude.ai/code/artifact/57dbed2a-ae9d-4fe0-8d0b-c8f37bdde95f
+- Medical student (notebook) — https://claude.ai/code/artifact/1499095d-7d96-4ba7-92a8-2a52bffae8c7
+- Screenwriter (screenplay) — https://claude.ai/code/artifact/a7ad5f88-f2ee-4ec6-b3e9-278515581617
+- Security architect (blueprint) — https://claude.ai/code/artifact/bd2a7043-8093-46a4-8716-07d5b7de1006
 
 *Personas are illustrative. See `docs/adr/ADR-033-per-user-private-hosted-library.md` for the
 decision these decks dramatize.*
