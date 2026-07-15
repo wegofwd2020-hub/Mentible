@@ -28,7 +28,17 @@ jest.mock("expo-file-system", () => {
   };
 });
 jest.mock("expo-image-manipulator", () => ({
-  manipulateAsync: jest.fn(async (uri: string) => ({ uri: uri + ".stripped", width: 10, height: 8 })),
+  // Real expo-image-manipulator writes a new file with (re-encoded) content
+  // derived from the source uri. This mock must propagate the SOURCE FILE'S
+  // BYTES to the "stripped" uri — not just fabricate a placeholder — otherwise
+  // the round-trip test below can't tell real bytes from the mock's own
+  // "COPIED" fallback (see the expo-file-system copyAsync mock above).
+  manipulateAsync: jest.fn(async (uri: string) => {
+    const strippedUri = `${uri}.stripped`;
+    const fs = require("expo-file-system");
+    fs.__files[strippedUri] = fs.__files[uri];
+    return { uri: strippedUri, width: 10, height: 8 };
+  }),
   SaveFormat: { JPEG: "jpeg", PNG: "png", WEBP: "webp" },
 }));
 
@@ -89,9 +99,11 @@ describe("bookBundle", () => {
     expect(back.id).not.toBe(book.id); // fresh id on import
     expect(back.content!.t1.images![0].file).toMatch(new RegExp(`^media/${back.id}/`));
 
-    // The bytes actually landed at the new path (through the EXIF-strip pipeline).
+    // The ORIGINAL bytes actually landed at the new path (through the
+    // EXIF-strip pipeline) — not just some placeholder value. Compare against
+    // the exact base64 seeded above, not merely "is defined".
     const writtenPath = `file:///doc/${back.content!.t1.images![0].file}`;
-    expect((FileSystem as any).__files[writtenPath]).toBeDefined();
+    expect((FileSystem as any).__files[writtenPath]).toBe("aW1hZ2UtYnl0ZXM=");
   });
 
   it("keeps a book with no images out of the media/ folder (book.json only content)", async () => {
@@ -127,6 +139,29 @@ describe("bookBundle", () => {
     const zipMissingMedia = zipSync({ "book.json": entries["book.json"] });
     const back = await parseBookBundle(zipMissingMedia);
     expect(back.content!.t1.images ?? []).toHaveLength(0);
+  });
+
+  it("drops an image with a missing/non-string file ref without aborting the import, keeping a valid sibling", async () => {
+    const book = bookWithImage();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    const validImage = book.content!.t1.images![0]; // file: "media/bk1/img1.png"
+    const malformedImage = { id: "img-bad", mime: "image/png" }; // no `file` at all
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: {
+            t1: { ...book.content!.t1, images: [validImage, malformedImage] },
+          },
+        }),
+      ),
+      "media/img1.png": strToU8("image-bytes"),
+    });
+
+    const back = await parseBookBundle(bundle); // must not throw
+    const imgs = back.content!.t1.images ?? [];
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0].id).toBe("img1");
   });
 
   it("drops a ref whose media entry exceeds the size cap", async () => {

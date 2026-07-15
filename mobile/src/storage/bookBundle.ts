@@ -73,7 +73,10 @@ export async function exportBookBundle(book: Book): Promise<Uint8Array> {
         mediaFiles[entryKey] = new Uint8Array(fromBase64(b64));
         nextImages.push({ ...img, file: entryKey });
       } catch {
-        // File missing on disk — drop the ref rather than bundle a dangling one.
+        // File missing on disk — drop the ref rather than bundle a dangling one,
+        // but warn so an export losing an image isn't silent (symmetric with
+        // the collected warnings on import, below).
+        console.warn(`[bookBundle] could not read media file for image ${img.id} (${img.file}); dropped from export.`);
       }
     }
     nextContent[topicId] = { ...gen, images: nextImages };
@@ -115,8 +118,9 @@ async function writeImportedMedia(
  * parses `book.json` (via `parseBook`), assigns it a FRESH id (so re-importing
  * a bundle never collides with the original on-device copy), then restores
  * each referenced media file — re-stripping EXIF — under the new id's media
- * dir. A ref whose bundled file is absent, disallowed, or oversize is dropped
- * (with a collected warning) rather than left dangling.
+ * dir. A ref whose bundled file is absent, structurally malformed, disallowed,
+ * or oversize is dropped (with a collected warning) rather than left dangling
+ * or aborting the whole import.
  */
 export async function parseBookBundle(bytes: Uint8Array): Promise<Book> {
   const entries = unzipSync(bytes);
@@ -137,6 +141,17 @@ export async function parseBookBundle(bytes: Uint8Array): Promise<Book> {
     }
     const nextImages: TopicImage[] = [];
     for (const img of images) {
+      // parseBook does not deep-validate content[topicId].images[] — this bundle
+      // came from parseBook's structural-only pass, so `img` may not actually be
+      // a well-formed TopicImage. Guard before touching img.file (basenameOf
+      // calls .split on it): a missing/non-string file must be dropped with a
+      // warning like any other bad ref, never thrown — a single malformed image
+      // entry must not abort the whole import.
+      if (!img || typeof img !== "object" || typeof img.file !== "string" || img.file.length === 0) {
+        const label = img && typeof (img as { id?: unknown }).id === "string" ? (img as { id: string }).id : "?";
+        warnings.push(`Image ${label} has a missing/invalid file path; dropped.`);
+        continue;
+      }
       const entryKey = `media/${basenameOf(img.file)}`;
       const data = entries[entryKey];
       if (!data) {
