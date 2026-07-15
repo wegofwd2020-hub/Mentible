@@ -1,9 +1,9 @@
 # Mentible — how you get value (learn → author → carry)
 
 > Plain-language companion showing how different people get value from Mentible.
-> **Editable slide deck with the graphics:** `docs/adr-033-persona-value-deck.pptx`
+> **Editable slide deck with the graphics:** `docs/adr-033-decks/persona-value-loop.pptx`
 > (6 slides — the loop, four personas, and a recap). Interactive web version:
-> artifact `b00964cf`. This file is the read-and-digest copy.
+> `docs/adr-033-web/persona-value-loop.html` (artifact `b00964cf`). This file is the read-and-digest copy.
 
 **The through-line:** your own library becomes something you learn from and write
 with — private, and on every device.
