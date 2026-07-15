@@ -12,6 +12,8 @@ ADR-020 (super-admin operates on metadata only — never touches hosted content)
 Shelves device-local downloads — the free-tier baseline), ADR-031 (the `Plan`/entitlement/storage
 machinery this tier reuses).
 **Companion:** `docs/superpowers/specs/2026-07-15-adr-033-per-user-private-hosted-library-design.md`.
+**Plain-language explainers:** `docs/adr-033-user-facing-view.md` (the two-tier user view + diagrams) ·
+`docs/adr-033-tiers-presentation.md` (free-vs-paid for a non-technical audience).
 
 ---
 
