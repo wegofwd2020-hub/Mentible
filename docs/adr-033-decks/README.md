@@ -24,7 +24,7 @@ version of each is published as a private artifact.
 
 | Deck (.pptx) | Persona | Visual world | "Knowledge library" is… |
 |---|---|---|---|
-| `mentible-for-physicians.pptx` | Dr. Anaya — internal-medicine physician | **clinical chart** — chart headers, EKG-line motif, teal-blue | a **tabbed clinical binder** |
+| `mentible-for-physicians.pptx` | Dr. Anaya — internal-medicine physician | **clinical chart** — chart headers, EKG-line motif, teal-blue | a **tabbed clinical binder** *(v2: + honest PHI/HIPAA slide, truthful data-locality, validation-proof placeholder — see `docs/research/`)* |
 | `mentible-for-medical-students.pptx` | Sam — second-year medical student | **notebook** — ruled paper, spiral binding, highlighter, green | a **fan of flashcards** |
 | `mentible-for-screenwriters.pptx` | Mara — feature screenwriter | **screenplay** — film-strip rail, scene slugs, `CUT TO:`, dialogue blocks, warm plum | a **corkboard of index cards** |
 | `mentible-for-security-architects.pptx` | Dev — software security architect | **blueprint / terminal** — dark grid, monospace, `$` prompts, steel-indigo/cyan | a **schematic system-map** |
