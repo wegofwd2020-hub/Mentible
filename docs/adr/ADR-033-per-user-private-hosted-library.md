@@ -13,8 +13,9 @@ Shelves device-local downloads — the free-tier baseline), ADR-031 (the `Plan`/
 machinery this tier reuses).
 **Companion:** `docs/superpowers/specs/2026-07-15-adr-033-per-user-private-hosted-library-design.md`.
 **Plain-language explainers:** `docs/adr-033-user-facing-view.md` (the two-tier user view + diagrams) ·
-`docs/adr-033-tiers-presentation.md` (free-vs-paid for a non-technical audience) ·
-`docs/adr-033-tiers-presentation.pptx` (editable 5-slide deck with the graphics).
+`docs/adr-033-tiers-presentation.md` + `.pptx` (free-vs-paid for a non-technical audience — 6-slide deck) ·
+`docs/adr-033-persona-value.md` + `docs/adr-033-persona-value-deck.pptx` (how four personas — doctor,
+med student, screenwriter, security architect — get value via the learn→author→carry loop).
 
 ---
 
