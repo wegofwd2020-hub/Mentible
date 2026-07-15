@@ -63,7 +63,7 @@
   <p class="sec">Patient chart · intake</p>
   <h1>Hi, Dr. Anaya. I'm Mentible.</h1>
   <p class="lede">Your papers, the notes you trust, your guidance — I'll write and answer from them, in <b>your</b> evidence, never a chatbot's guesses.</p>
-  <div class="note"><div class="k">NOTE — MENTIBLE</div><p>I read only what you trust, and I cite it back to you. No guessing near a patient.</p></div>
+  <div class="note"><div class="k">NOTE — MENTIBLE</div><p>I answer only from the sources you give me, and I show my citations — so you verify before anything reaches a patient.</p></div>
   <div class="who"><div class="k">PATIENT</div><b>Dr. Anaya</b> <span>· internal-medicine physician</span></div>
 
   <section><p class="sec">Section 01 — problem list</p><h2>Your evidence is scattered, and you can't hand a patient a guess</h2>
@@ -80,7 +80,17 @@
       <div class="stp"><div class="k">STEP 2</div><h4>Hand me your sources</h4><p>Guidelines, papers, drug ref, notes — they become your knowledge library.</p></div>
       <div class="stp"><div class="k">STEP 3</div><h4>Ask, or hand me a draft</h4><p>I answer and write from your own evidence.</p></div>
     </div>
-    <p class="free">✓ On the free tier I live entirely on your device. I can't see your library — and neither can anyone else.</p></section>
+    <p class="free">✓ Free tier: your library stays on your device — and what happens to a note when you ask the AI to use it is in the next section.</p></section>
+
+  <section><p class="sec">Section 02b — patient data (PHI)</p><h2>Before you add patient data — the honest version</h2>
+    <p class="narr">A "Case notes" tab can hold PHI. Here is exactly where it goes on each tier — so you decide, not discover.</p>
+    <div class="uni" style="margin-top:1.1rem">
+      <div class="sb" style="border-color:var(--med)"><h4 style="color:var(--med)">Free · on your device</h4>
+        <p style="margin:.2rem 0 0;font-size:.92rem;color:var(--muted)">Your library stays on your device. But when you ask, the relevant passage is sent to the AI model to draft the answer — so it leaves the device for that request. <b style="color:var(--ink)">De-identify before entering PHI.</b></p></div>
+      <div class="sb" style="border-color:#B5822E"><h4 style="color:#B5822E">Paid · private hosted</h4>
+        <p style="margin:.2rem 0 0;font-size:.92rem;color:var(--muted)">Content lives on our servers — encrypted at rest, access-controlled, but <b style="color:var(--ink)">not zero-knowledge</b>. A signed BAA is required before entering PHI. No BAA yet → don't enter identifiable patient data.</p></div>
+    </div>
+    <div class="out" style="margin-top:1rem"><b>We'd rather tell you this up front</b> than have you find out in an audit. Source transparency + your review — you stay the decider.</div></section>
 
   <section><p class="sec">Section 03 — your knowledge library</p><h2>This becomes your knowledge library</h2>
     <p class="narr">Not my memory — <b>yours</b>. The sources you chose and trust, filed in one chart I've read cover to cover.</p>
@@ -99,13 +109,15 @@
       <p><b>You ask:</b> "Draft a patient handout on starting a DOAC — plain language."</p>
       <p><b>I retrieve:</b> the exact passages in your anticoagulation guideline &amp; drug reference.</p>
       <p><b>I answer:</b> a handout from your evidence, citing your sources — ready to check &amp; hand over.</p></div>
-    <div class="note"><div class="k">NOTE — HOW TO THINK OF ME</div><p>The resident who's read every guideline on your chart and cites chapter and verse — never a stranger guessing.</p></div></section>
+    <div class="note"><div class="k">NOTE — HOW TO THINK OF ME</div><p>Like a diligent resident: it works from your sources and shows its citations — you verify before you sign off.</p></div>
+    <p class="free" style="color:var(--vit);font-family:ui-monospace,monospace;font-size:.82rem;margin-top:.8rem">PROOF (your data here): retrieved passage matched the cited source in __% of N test queries · physician-reviewed.</p></section>
 
   <section><p class="sec">Section 05 — beyond your shelf</p><h2>Your knowledge library can outgrow your physical shelf</h2>
     <p class="narr">I can pull authoritative reference and public-domain texts into your knowledge library from <b>curated catalogs</b> — then ground every answer at a physician's depth.</p>
     <div class="uni"><div class="sb"><h4>What you bring</h4><span class="t">guidelines</span><span class="t">papers</span><span class="t">notes</span></div>
       <div class="op">＋</div><div class="sb"><h4>What I pull in</h4><span class="t">reference texts</span><span class="t">curated catalogs</span></div></div>
-    <div class="out"><b>= one knowledge library</b> — broader than your shelf, still curated, still private.</div></section>
+    <div class="out"><b>= one knowledge library</b> — broader than your shelf, still curated, still private.</div>
+    <p class="cap" style="text-align:center;font-style:italic;color:var(--muted);font-size:.86rem;margin-top:.7rem">Reference texts are general background, labeled — never a substitute for a current guideline. Every answer shows which of your sources it used.</p></section>
 
   <section><p class="sec">Section 06 — plan · upgrade</p><h2>Take me everywhere — at the bedside, not just the desk</h2>
     <div class="upg"><div class="k">▲ UPGRADE</div>
