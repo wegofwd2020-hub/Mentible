@@ -1,5 +1,12 @@
 # Mentible ADR-033 decks
 
+> **Status: product vision, not a shipped product.** These decks dramatize the *experience
+> ADR-033/029 describe* (grounded AI over your own library + private hosted sync). Today the
+> device-local library + lexical search are the live parts; the grounded-AI drafting and hosted
+> sync shown in the decks are **on the roadmap** (ADR-029 is Proposed/design-only; ADR-033 is
+> gated on the managed-billing launch). Each deck's title slide carries a "◆ PRODUCT VISION" banner
+> saying so.
+
 Every editable PowerPoint deck that explains ADR-033, in one folder. The **standalone HTML
 sources** of the interactive web version of each deck live alongside in `docs/adr-033-web/`.
 
