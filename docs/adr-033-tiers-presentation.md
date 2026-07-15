@@ -2,11 +2,11 @@
 
 > Plain-language companion to `docs/adr/ADR-033-per-user-private-hosted-library.md`,
 > written for presenting to non-technical folks. This file is the read-and-digest copy.
-> **Editable slide deck with the graphics:** `docs/adr-033-tiers-presentation.pptx`
+> **Editable slide deck with the graphics:** `docs/adr-033-decks/tiers-free-vs-paid.pptx`
 > (6 slides — free tier (phone mockup + icon callouts), paid tier (multi-device), a
 > "one day, three devices" journey, the three concept cards, and the comparison table;
 > the "can *you* read it?" answer is in the Paid slide's speaker notes). Interactive
-> web version: artifact `52f0fb35`.
+> web version: `docs/adr-033-web/tiers-free-vs-paid.html` (artifact `52f0fb35`).
 
 **One line:** The same app, two ways to keep your library. Free stays on your device.
 Paid gives you a private library that follows you everywhere.

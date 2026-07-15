@@ -1,15 +1,26 @@
-# Mentible persona decks
+# Mentible ADR-033 decks
 
-Per-persona presentation decks — **Mentible introduces itself** (first-person voice) to each
-audience and walks them through the same story in their own language:
+Every editable PowerPoint deck that explains ADR-033, in one folder. The **standalone HTML
+sources** of the interactive web version of each deck live alongside in `docs/adr-033-web/`.
+
+## General explainers
+
+| Deck (.pptx) | What it is | Web source |
+|---|---|---|
+| `tiers-free-vs-paid.pptx` | Free-vs-paid, at a glance — for a non-technical audience (mock screens, three concept cards, a "one day, three devices" journey, comparison table) | `docs/adr-033-web/tiers-free-vs-paid.html` |
+| `persona-value-loop.pptx` | How four personas get value via the **learn → author → carry** loop | `docs/adr-033-web/persona-value-loop.html` |
+
+## Per-persona decks — Mentible introduces itself
+
+Each deck is Mentible speaking first-person to one audience and walking the same story in their
+own language:
 
 > **their problem → start free, on your device → *your knowledge library* → how the RAG engine
 > works → a library bigger than your shelf → the free→paid trigger → the payoff.**
 
-Each deck is a native, editable 8-slide PowerPoint (PowerPoint / Keynote). Every persona gets its
-**own visual world** — a distinct layout language, background motif, and "knowledge library"
-metaphor — so no deck reads as a recolored template. An interactive web version of each is also
-published as a private artifact.
+Every persona gets its **own visual world** — a distinct layout language, background motif, and
+"knowledge library" metaphor — so no deck reads as a recolored template. An interactive web
+version of each is published as a private artifact.
 
 | Deck (.pptx) | Persona | Visual world | "Knowledge library" is… |
 |---|---|---|---|
