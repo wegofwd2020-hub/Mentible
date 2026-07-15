@@ -515,23 +515,57 @@ export function renderTopicToSafeHtml(
 }
 ```
 
-- [ ] **Step 6: Wire into the WebView builder.** In `mobile/src/components/contentHtml.ts`, add the import and thread the arg into `buildTopicHtml` (line 316) — append the figures HTML into the body string before it is wrapped by `htmlDocument(...)`:
+- [ ] **Step 6: Wire into the WebView builder (JS twin, not a Node concat).**
+`mobile/src/components/contentHtml.ts` does NOT build HTML in Node — it ships
+`JSON.stringify(topic)` as `DATA` plus a JS snippet that runs the render functions
+*inside the WebView* (`RENDER_HELPERS_JS`, `:16-140`; `buildTopicHtml`, `:316-324`). So
+the shared TS `renderFiguresHtml` cannot be called here. Add a **mirrored** `renderFigures`
+JS function to the injected bundle and fold the resolved URLs into `DATA`.
 
-```ts
-import { renderFiguresHtml } from "@/lib/figuresHtml";
+  6a. In `RENDER_HELPERS_JS`, after `renderExperiment` (before the closing backtick at
+  `:139-140`), add the twin of `renderFiguresHtml` (keep it byte-for-byte behaviour-equal
+  to `@/lib/figuresHtml`; `escHtml` already exists in this bundle):
+
+```js
+  function renderFigures(images, urls) {
+    var figs = '';
+    (images || []).forEach(function (img) {
+      var src = urls[img.id];
+      if (!src) return;
+      var cap = img.caption ? '<figcaption>' + escHtml(img.caption) + '</figcaption>' : '';
+      figs += '<figure class="attached-figure"><img src="' + escHtml(src) + '" alt="'
+        + escHtml(img.caption || '') + '">' + cap + '</figure>';
+    });
+    if (!figs) return '';
+    return '<hr class="section-divider"><section class="figures"><h3>Figures</h3>' + figs + '</section>';
+  }
 ```
+
+  6b. Change `buildTopicHtml` (`:316-324`) to accept the resolver, fold the URLs into
+  `DATA`, and call the twin in the body script:
 
 ```ts
 export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, string>): string {
-  const figures =
-    topic.images?.length && dataUrls?.size ? renderFiguresHtml(topic.images, dataUrls) : "";
+  const data = {
+    ...topic,
+    __figureUrls: dataUrls ? Object.fromEntries(dataUrls) : {},
+  };
   return htmlDocument(
-    /* existing body expression */ + figures,  // append figures to the assembled body
+    JSON.stringify(data),
+    `html += renderLesson(DATA.lesson);
+     if (DATA.tutorial) html += renderTutorial(DATA.tutorial);
+     if (DATA.quizSets && DATA.quizSets.length) html += renderQuizzes(DATA.quizSets);
+     if (DATA.experiment) html += renderExperiment(DATA.experiment);
+     if (DATA.images && DATA.images.length) html += renderFigures(DATA.images, DATA.__figureUrls);`,
   );
 }
 ```
 
-(Read `contentHtml.ts:316-330` and insert `figures` into the concatenated body string passed to `htmlDocument`; do not alter the document shell.)
+  No import from `@/lib/figuresHtml` here — the WebView can't load bundle modules; the twin
+  is intentional duplication, kept in step with the shared builder (note it in a comment on
+  both). Security parity: the WebView is the native isolation boundary (its content is not
+  DOMPurified, same as today's lesson HTML); `src` is our `data:` URL and captions are
+  `escHtml`'d, so the local-only invariant holds.
 
 - [ ] **Step 7: Sanitize proof test** — `mobile/__tests__/reader/figures-sanitize.test.ts` (jsdom env; the reader already relies on jsdom for DOMPurify):
 
@@ -651,7 +685,160 @@ it("adds an image from the library", async () => {
 Run: `cd mobile && npx jest __tests__/components/FiguresPanel.test.tsx`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `FiguresPanel.tsx`.** Renders the topic's images (thumbnails via `useTopicFigures`), an "Add figure" button opening a library/camera choice, per-image caption edit + delete. On any mutation: call the store, `await saveBook(next)`, `await pruneOrphanMedia(next)`, then `onBookChange(next)`. Wrap `attachImage` in try/catch and surface `MediaCapError.message` via `Alert.alert` (from `@/lib/alert`). Use `expo-image-picker` with `mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1`; map the asset to `PickedImage` (`{ uri, mime: asset.mimeType, width, height, fileSize: asset.fileSize }`). Voice: "Add figure", "Choose from library", "Take photo" — never "upload to AI". Include a one-line note "Figures stay on your device."
+- [ ] **Step 3: Implement `FiguresPanel.tsx`** (full component):
+
+```tsx
+import React, { useState } from "react";
+import { View, Text, Image, Pressable, TextInput, StyleSheet, ActivityIndicator } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import type { Book } from "@/types/book";
+import { attachImage, deleteImage, pruneOrphanMedia, type PickedImage, MediaCapError } from "@/storage/mediaStore";
+import { saveBook } from "@/storage/bookStore";
+import { useTopicFigures } from "@/reader/useTopicFigures";
+import { Alert } from "@/lib/alert";
+import { colors, spacing } from "@/constants/theme";
+
+export function FiguresPanel({
+  book, topicId, onBookChange,
+}: { book: Book; topicId: string; onBookChange: (b: Book) => void }) {
+  const topic = book.content?.[topicId];
+  const urls = useTopicFigures(topic);
+  const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);
+
+  async function persist(next: Book) {
+    await saveBook(next);
+    await pruneOrphanMedia(next);
+    onBookChange(next);
+  }
+
+  async function ingest(asset: ImagePicker.ImagePickerAsset) {
+    const src: PickedImage = {
+      uri: asset.uri,
+      mime: asset.mimeType ?? "image/jpeg",
+      width: asset.width, height: asset.height, fileSize: asset.fileSize,
+    };
+    try {
+      setBusy(true);
+      await persist(await attachImage(book, topicId, src));
+    } catch (e) {
+      Alert.alert("Couldn't add figure", e instanceof MediaCapError ? e.message : "Please try another image.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fromLibrary() {
+    setPicking(false);
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("Permission needed", "Allow photo access to add a figure."); return; }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1,
+    });
+    if (!res.canceled && res.assets[0]) await ingest(res.assets[0]);
+  }
+
+  async function fromCamera() {
+    setPicking(false);
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { Alert.alert("Permission needed", "Allow camera access to take a photo."); return; }
+    const res = await ImagePicker.launchCameraAsync({ quality: 1 });
+    if (!res.canceled && res.assets[0]) await ingest(res.assets[0]);
+  }
+
+  async function remove(imageId: string) {
+    setBusy(true);
+    try { await persist(await deleteImage(book, topicId, imageId)); }
+    finally { setBusy(false); }
+  }
+
+  async function editCaption(imageId: string, caption: string) {
+    const gen = book.content?.[topicId];
+    if (!gen?.images) return;
+    const images = gen.images.map((i) => (i.id === imageId ? { ...i, caption } : i));
+    const next: Book = {
+      ...book,
+      content: { ...book.content, [topicId]: { ...gen, images } },
+      updatedAt: new Date().toISOString(),
+    };
+    await persist(next);
+  }
+
+  const images = topic?.images ?? [];
+
+  return (
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Figures</Text>
+        <Pressable
+          style={styles.addBtn}
+          onPress={() => setPicking((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel="Add figure to this topic"
+          disabled={busy}
+        >
+          <Text style={styles.addBtnText}>＋ Add figure</Text>
+        </Pressable>
+      </View>
+
+      {picking && (
+        <View style={styles.chooser}>
+          <Pressable style={styles.chooserBtn} onPress={fromLibrary}>
+            <Text style={styles.chooserText}>Choose from library</Text>
+          </Pressable>
+          <Pressable style={styles.chooserBtn} onPress={fromCamera}>
+            <Text style={styles.chooserText}>Take photo</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {busy && <ActivityIndicator size="small" color={colors.primary} />}
+
+      {images.map((img) => (
+        <View key={img.id} style={styles.row}>
+          {urls.get(img.id) ? (
+            <Image source={{ uri: urls.get(img.id)! }} style={styles.thumb} resizeMode="cover" />
+          ) : (
+            <View style={[styles.thumb, styles.thumbEmpty]} />
+          )}
+          <TextInput
+            style={styles.caption}
+            defaultValue={img.caption}
+            placeholder="Caption (optional)"
+            placeholderTextColor={colors.textMuted}
+            onEndEditing={(e) => editCaption(img.id, e.nativeEvent.text)}
+            accessibilityLabel="Figure caption"
+          />
+          <Pressable onPress={() => remove(img.id)} accessibilityLabel="Delete figure">
+            <Text style={styles.remove}>✕</Text>
+          </Pressable>
+        </View>
+      ))}
+
+      <Text style={styles.note}>Figures stay on your device. Nothing is sent to the AI.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  title: { fontSize: 16, fontWeight: "600", color: colors.text },
+  addBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.primary, borderRadius: 8 },
+  addBtnText: { color: "#fff", fontWeight: "600" },
+  chooser: { flexDirection: "row", gap: spacing.sm },
+  chooserBtn: { flex: 1, padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: "center" },
+  chooserText: { color: colors.text },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
+  thumbEmpty: { borderWidth: 1, borderColor: colors.border },
+  caption: { flex: 1, color: colors.text, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 4 },
+  remove: { color: colors.textMuted, fontSize: 18, paddingHorizontal: spacing.xs },
+  note: { color: colors.textMuted, fontSize: 12, fontStyle: "italic" },
+});
+```
+
+Confirm `colors`/`spacing` token names against `@/constants/theme`; substitute the nearest existing token if a name differs (e.g. `colors.surface`, `spacing.xs`). `pruneOrphanMedia` is re-exported from `mediaStore` (Task 2). Behaviour must match the tests.
 
 (Full component — follow the existing panel pattern at `[topicId].tsx:209-240` for styling; use `@/constants/theme` colors and `sizeMd` typography API. Keep it under ~180 lines.)
 
@@ -661,9 +848,40 @@ Run: `cd mobile && npx jest __tests__/components/FiguresPanel.test.tsx`
 Expected: PASS.
 
 - [ ] **Step 5: Mount on the topic screen.** In `mobile/app/book/topic/[bookId]/[topicId].tsx`:
-- Import `FiguresPanel` and `useTopicFigures`.
-- Below the action bar (after `:207`), when `topic` is truthy (has content), render `<FiguresPanel book={book} topicId={topicId} onBookChange={setBook} />`.
-- Compute `const figures = useTopicFigures(topic);` and pass it to the renderer: `<TopicRenderer topic={topic} figures={figures} />` — thread `figures` through `LessonRenderer`/`TopicRenderer` into `buildTopicHtml(topic, figures)`.
+
+Add imports:
+
+```ts
+import { FiguresPanel } from "@/components/FiguresPanel";
+import { useTopicFigures } from "@/reader/useTopicFigures";
+```
+
+Compute the resolver near the other derived state (after `:169`):
+
+```ts
+const figures = useTopicFigures(topic);
+```
+
+Replace the `styles.body` block (`:258-266`) so figures render and can be authored (only when the topic has content; `book` and `setBook` already exist as state):
+
+```tsx
+      <View style={styles.body}>
+        {topic ? (
+          <>
+            {canEdit && book && (
+              <FiguresPanel book={book} topicId={topicId} onBookChange={setBook} />
+            )}
+            <TopicRenderer topic={topic} figures={figures} />
+          </>
+        ) : (
+          <View style={styles.centered}>
+            <Text style={styles.missing}>This topic hasn’t been generated yet.</Text>
+          </View>
+        )}
+      </View>
+```
+
+(`canEdit` already gates authoring in this file — reuse it so a read-only viewer sees figures but no editor. If `book`'s state variable has a different name, match it.)
 
 - [ ] **Step 6: Thread `figures` through `TopicRenderer`.** In `mobile/src/components/LessonRenderer.tsx`, add an optional `figures?: Map<string,string>` prop to `TopicRenderer` and pass it to `buildTopicHtml(topic, figures)` (`:62`).
 
