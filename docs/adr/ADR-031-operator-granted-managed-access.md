@@ -153,7 +153,7 @@ Every view is metadata-only and gated; every state change is written to `admin_a
 1. **Feature-flag vocabulary + enforcement points.** Confirm the initial set
    (`export_epub`, `export_pdf`) and whether other capabilities are gated (managed
    *provider choice*, higher `max_tokens`, image/diagram generation, Open-Shelves/RAG
-   once ADR-032 lands). Each flag needs one enforcement site.
+   once the hosted tier (ADR-033) lands). Each flag needs one enforcement site.
 2. **Per-user custom caps (D5).** Named plans now; add a per-grant `allowance_micros`
    override only if operator demand shows it. Decide the trial-plan catalogue.
 3. **Owner UI.** Admin API/CLI is enough to start; decide whether to build a console
