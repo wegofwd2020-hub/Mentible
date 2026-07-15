@@ -93,3 +93,49 @@ export async function pickEpubFile(): Promise<{ name: string; bytes: ArrayBuffer
   }
   return { name, bytes };
 }
+
+async function readPickedBytes(uri: string): Promise<ArrayBuffer> {
+  if (Platform.OS === "web") {
+    return await (await fetch(uri)).arrayBuffer();
+  }
+  const b64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return fromBase64(b64);
+}
+
+// Pick a `.book.zip` bundle (book.json + media/…, see bookBundle.ts) and
+// return its bytes, or null if cancelled. Mirrors pickEpubFile's bytes-picker
+// shape. `.book.zip` has no registered MIME, so Android/most providers report
+// it as octet-stream — allow a broad set (plus a wildcard) to keep it selectable.
+export async function pickBookBundleContents(): Promise<ArrayBuffer | null> {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: ["application/zip", "application/octet-stream", "*/*"],
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  if (res.canceled || !res.assets || res.assets.length === 0) return null;
+  return readPickedBytes(res.assets[0].uri);
+}
+
+export type PickedBookFile = { kind: "json"; text: string } | { kind: "zip"; bytes: ArrayBuffer };
+
+// Pick either a plain `.book.json` (text) or a `.book.zip` bundle (bytes) in a
+// single picker call, and return which kind it was — or null if cancelled.
+// Keeps the "Import a book" screen to one button: a book with attached images
+// exports as a zip bundle (see ExportBookJsonButton.tsx), an image-less book
+// still exports as plain JSON, and this is the shared entry point for both.
+export async function pickBookFileOrBundle(): Promise<PickedBookFile | null> {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: ["application/json", "application/zip", "application/octet-stream", "*/*"],
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  if (res.canceled || !res.assets || res.assets.length === 0) return null;
+  const asset = res.assets[0];
+  const isZip = /\.zip$/i.test(asset.name ?? "") || asset.mimeType === "application/zip";
+  if (isZip) {
+    return { kind: "zip", bytes: await readPickedBytes(asset.uri) };
+  }
+  return { kind: "json", text: await readPickedText(asset.uri) };
+}

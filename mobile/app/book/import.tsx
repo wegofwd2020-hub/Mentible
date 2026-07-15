@@ -2,7 +2,9 @@ import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { importBook } from "@/storage/importBook";
-import { pickBookFileContents } from "@/storage/pickBookFile";
+import { parseBookBundle } from "@/storage/bookBundle";
+import { saveBook } from "@/storage/bookStore";
+import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -49,15 +51,31 @@ function ImportBookScreenInner() {
 
   const handleFileImport = useCallback(async () => {
     setErrorMsg(null);
-    let contents: string | null;
+    let picked: Awaited<ReturnType<typeof pickBookFileOrBundle>>;
     try {
-      contents = await pickBookFileContents();
+      picked = await pickBookFileOrBundle();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Couldn’t read that file.");
       return;
     }
-    if (contents != null) void runImport(contents);
-  }, [runImport]);
+    if (picked == null) return;
+    if (picked.kind === "json") {
+      void runImport(picked.text);
+      return;
+    }
+    // A `.book.zip` bundle (book has attached images) — parse + persist
+    // directly rather than through importBook (which expects JSON text).
+    setErrorMsg(null);
+    setBusy(true);
+    try {
+      const book = await parseBookBundle(new Uint8Array(picked.bytes));
+      await saveBook(book);
+      router.replace(`/book/saved/${book.id}`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Couldn’t import that bundle.");
+      setBusy(false);
+    }
+  }, [runImport, router]);
 
   return (
     <ScrollView
@@ -68,8 +86,10 @@ function ImportBookScreenInner() {
       <PageContainer gap={spacing.sm}>
         <Text style={styles.label}>Import a book</Text>
         <Text style={styles.hint}>
-          Open a book’s JSON file (for example, one exported from the Authoring
-          Studio). It’s saved to this device’s library — nothing is uploaded.
+          Open a book’s exported file — a .book.json (for example, one exported
+          from the Authoring Studio) or a .book.zip bundle (a book with
+          attached images). It’s saved to this device’s library — nothing is
+          uploaded.
         </Text>
 
         <Pressable
@@ -77,10 +97,10 @@ function ImportBookScreenInner() {
           onPress={handleFileImport}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="Choose a JSON file to import"
+          accessibilityLabel="Choose a book file to import"
           accessibilityState={{ disabled: busy }}
         >
-          <Text style={styles.importBtnText}>Choose a JSON file</Text>
+          <Text style={styles.importBtnText}>Choose a book file</Text>
         </Pressable>
 
         <Text style={styles.orHint}>or paste the JSON directly (best for small books):</Text>

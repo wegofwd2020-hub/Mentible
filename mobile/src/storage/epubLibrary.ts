@@ -208,9 +208,10 @@ async function writeIndex(index: EpubMeta[]): Promise<void> {
 }
 
 // Minimal ArrayBuffer → base64 (Hermes has no Buffer/btoa); expo-file-system
-// writes binary only via a base64 string.
+// writes binary only via a base64 string. Exported for reuse by other storage
+// modules that write binary via expo-file-system (e.g. bookBundle.ts).
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-function toBase64(buf: ArrayBuffer): string {
+export function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let out = "";
   for (let i = 0; i < bytes.length; i += 3) {
