@@ -209,6 +209,31 @@ class Settings(BaseSettings):
     # ~100-unit fair-use posture while allowing regeneration/iteration.
     rate_limit_per_day: int = Field(default=500, ge=0)
 
+    # ── CORS ──────────────────────────────────────────────────────────────────
+    # Browser-origin allowlist (comma-separated). Was `*`, which let any site call
+    # the API from a browser. It never leaked the BYOK key — the key rides in the
+    # request BODY (the client sends it deliberately) and credentials are off, so a
+    # third-party page can neither attach the victim's bearer token nor read their
+    # stored key. But `*` did leave the API callable from any browser page, an abuse
+    # surface the per-IP limiter alone had to carry. Native apps ignore CORS entirely;
+    # this only constrains browser clients.
+    cors_allow_origins: str = Field(default="https://mambakkam.net")
+    # Expo web dev serves on an arbitrary localhost port, so allow the loopback
+    # hosts by regex rather than pinning ports. Turn OFF in production.
+    cors_allow_localhost: bool = Field(default=True)
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """Parsed `cors_allow_origins`. Empty entries dropped."""
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        """Loopback-origin regex for local dev, or None when disabled."""
+        if not self.cors_allow_localhost:
+            return None
+        return r"http://(localhost|127\.0\.0\.1)(:\d+)?"
+
     @property
     def resolved_supabase_url(self) -> str:
         """Supabase project base URL for the Auth Admin API. Prefers the explicit
