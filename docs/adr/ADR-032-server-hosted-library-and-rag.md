@@ -1,7 +1,11 @@
 # ADR-032 — Server-hosted library + hosted RAG + storage tiers (the hybrid hosted account)
 
-**Status:** Proposed — 2026-07-12 (the §5 open decisions of the pre-ADR brief are now
-resolved; see D1–D10). Design-only; gated on the managed-billing launch.
+**Status:** Rejected — 2026-07-15 (superseded by ADR-033). Originally Proposed 2026-07-12
+(§5 resolved; see D1–D10). Design-only; never implemented.
+
+> **This decision was rejected.** The document is retained as the record of the broad
+> hosted shape that was considered and narrowed to a per-user *private* hosted tier — see
+> **ADR-033**. Its reasoning has archival value; the body below is unchanged.
 **Decision-maker:** Sivakumar Mambakkam
 **Amends:** ADR-028 D2/D3/D6 (device-local / per-device / neutral-conduit /
 preferences-not-profiles — now the **free-tier** posture, with an opt-in hosted tier
