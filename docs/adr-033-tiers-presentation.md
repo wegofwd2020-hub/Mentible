@@ -3,7 +3,8 @@
 > Plain-language companion to `docs/adr/ADR-033-per-user-private-hosted-library.md`,
 > written for presenting to non-technical folks. This file is the read-and-digest copy.
 > **Editable slide deck with the graphics:** `docs/adr-033-tiers-presentation.pptx`
-> (5 slides — mock device screens, the three concept cards, and the comparison table;
+> (6 slides — free tier (phone mockup + icon callouts), paid tier (multi-device), a
+> "one day, three devices" journey, the three concept cards, and the comparison table;
 > the "can *you* read it?" answer is in the Paid slide's speaker notes). Interactive
 > web version: artifact `52f0fb35`.
 
