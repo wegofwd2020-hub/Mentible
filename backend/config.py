@@ -233,6 +233,7 @@ class Settings(BaseSettings):
         if not self.cors_allow_localhost:
             return None
         return r"http://(localhost|127\.0\.0\.1)(:\d+)?"
+
     @property
     def resolved_supabase_url(self) -> str:
         """Supabase project base URL for the Auth Admin API. Prefers the explicit
