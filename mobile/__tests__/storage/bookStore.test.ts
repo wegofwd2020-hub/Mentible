@@ -1,3 +1,11 @@
+// deleteBook cascades to mediaStore.deleteBookMedia, which calls
+// expo-file-system directly — mock it (repo storage-test pattern, see
+// mediaStore.test.ts / bookBundle.test.ts) so this file stays isolated.
+jest.mock("expo-file-system", () => ({
+  documentDirectory: "file:///doc/",
+  deleteAsync: jest.fn(async () => {}),
+}));
+
 // In-memory AsyncStorage mock — declared before importing the store.
 jest.mock("@react-native-async-storage/async-storage", () => {
   let store: Record<string, string> = {};
@@ -20,6 +28,7 @@ jest.mock("@react-native-async-storage/async-storage", () => {
   };
 });
 
+import * as FileSystem from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   deleteBook,
@@ -113,6 +122,17 @@ describe("bookStore", () => {
 
     expect(await loadBook("b1")).toBeNull();
     expect((await loadBookIndex()).map((m) => m.id)).toEqual(["b2"]);
+  });
+
+  it("cascades to delete the book's media dir (no orphaned images survive deletion)", async () => {
+    await saveBook(makeBook("b1", "First"));
+
+    await deleteBook("b1");
+
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+      "file:///doc/media/b1",
+      expect.objectContaining({ idempotent: true }),
+    );
   });
 });
 

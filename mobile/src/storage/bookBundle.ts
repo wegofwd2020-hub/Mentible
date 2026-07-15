@@ -171,9 +171,18 @@ export async function parseBookBundle(bytes: Uint8Array): Promise<Book> {
         warnings.push(`No file extension for mime "${img.mime}" (image ${img.id}); dropped.`);
         continue;
       }
+      // The incoming img.id is attacker-controlled (parseBook is structural-only,
+      // so it never validated this bundle's contents) and must never reach the
+      // on-disk filename — a crafted id like "../../../../evil" would otherwise
+      // let copyAsync write outside media/<newId>/. Import already reassigns the
+      // book's own identity (newId, above); do the same per-image by minting a
+      // fresh, generator-controlled id and using it for BOTH the filename and the
+      // image's id in the resulting schema. This also sidesteps object-prototype
+      // key hazards further downstream (e.g. "__proto__" as a lookup key).
+      const freshImageId = randomUUID();
       try {
-        const rel = await writeImportedMedia(newId, img.id, ext, img.mime, data);
-        nextImages.push({ ...img, file: rel });
+        const rel = await writeImportedMedia(newId, freshImageId, ext, img.mime, data);
+        nextImages.push({ ...img, id: freshImageId, file: rel });
       } catch {
         warnings.push(`Failed to write image ${img.id}; dropped.`);
       }

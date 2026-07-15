@@ -161,7 +161,46 @@ describe("bookBundle", () => {
     const back = await parseBookBundle(bundle); // must not throw
     const imgs = back.content!.t1.images ?? [];
     expect(imgs).toHaveLength(1);
-    expect(imgs[0].id).toBe("img1");
+    // Import mints a fresh id for every surviving image (closes a path-traversal
+    // hole on the untrusted incoming id — see the "path traversal" test below),
+    // so the surviving image's id is no longer the original "img1".
+    expect(imgs[0].id).not.toBe("img1");
+    expect(imgs[0].id).not.toBe("img-bad");
+    expect(imgs[0].file).toMatch(new RegExp(`^media/${back.id}/[^/]+\\.png$`));
+  });
+
+  it("mints a fresh on-disk id for a bundle's untrusted image id, closing a path-traversal hole", async () => {
+    const book = bookWithImage();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    // parseBook is structural-only, so a bundle's img.id is untrusted. A crafted
+    // id like this must never reach the on-disk filename, or copyAsync would be
+    // asked to write outside media/<newId>/.
+    const maliciousImage = { ...book.content!.t1.images![0], id: "../../../../evil", file: "media/img1.png" };
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: { t1: { ...book.content!.t1, images: [maliciousImage] } },
+        }),
+      ),
+      "media/img1.png": strToU8("image-bytes"),
+    });
+
+    const back = await parseBookBundle(bundle);
+    const imgs = back.content!.t1.images ?? [];
+    expect(imgs).toHaveLength(1);
+    // Fresh, generator-controlled uuid — no ".." segment, filename under the
+    // new book's own media dir.
+    expect(imgs[0].file).toMatch(new RegExp(`^media/${back.id}/[A-Za-z0-9_-]+\\.(jpg|png|webp)$`));
+    expect(imgs[0].id).not.toMatch(/\.\./);
+
+    // The actual write target handed to copyAsync must never contain a ".."
+    // segment — this is the exact mechanism the traversal would have exploited.
+    const copyCalls = (FileSystem.copyAsync as jest.Mock).mock.calls;
+    expect(copyCalls.length).toBeGreaterThan(0);
+    for (const [{ to }] of copyCalls) {
+      expect(to).not.toMatch(/\.\./);
+    }
   });
 
   it("drops a ref whose media entry exceeds the size cap", async () => {

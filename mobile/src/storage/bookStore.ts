@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Book, BookMeta, GeneratedTopic, StructuredTOC } from "@/types/book";
 import { randomUUID } from "@/lib/uuid";
+import { deleteBookMedia } from "@/storage/mediaStore";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 
 // Local-first book storage (ADR-003 D1) — same AsyncStorage shape as the lesson
@@ -135,4 +136,8 @@ export async function deleteBook(id: string): Promise<void> {
       JSON.stringify(index.filter((m) => m.id !== id)),
     ),
   ]);
+  // Cascade-delete media/<id>/ so a deleted book doesn't leave its attached
+  // images behind forever (spec §3 / GDPR wipe posture). Best-effort — the
+  // function already swallows its own errors.
+  await deleteBookMedia(id);
 }
