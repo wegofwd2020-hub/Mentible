@@ -1,5 +1,10 @@
 # Design — Reconcile ADR-029 / ADR-032: device-local retrieval is the answer
 
+> **Superseded by the 2026-07-15 design** (`2026-07-15-adr-033-per-user-private-hosted-library-design.md`).
+> The decision narrowed from "reject hosting outright" to "reject ADR-032's broad shape,
+> **accept a per-user *private* hosted tier** (ADR-033)." This document is retained as the
+> record of the intermediate full-rejection reasoning; its body is unchanged.
+
 **Date:** 2026-07-14
 **Author:** Sivakumar Mambakkam (with Claude)
 **Status:** Approved design — ready for implementation plan

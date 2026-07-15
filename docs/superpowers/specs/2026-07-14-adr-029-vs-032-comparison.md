@@ -1,5 +1,10 @@
 # ADR-029 vs ADR-032 — scope and comparison (decision support for ADR-033)
 
+> **Superseded by the 2026-07-15 design** (`2026-07-15-adr-033-per-user-private-hosted-library-design.md`).
+> The decision narrowed from "reject hosting outright" to "reject ADR-032's broad shape,
+> **accept a per-user *private* hosted tier** (ADR-033)." This document is retained as the
+> record of the intermediate full-rejection reasoning; its body is unchanged.
+
 **Date:** 2026-07-14
 **Purpose:** Lay out exactly what ADR-032 proposed, and compare it dimension-by-dimension
 against ADR-029, so the decision to reject the hosted tier (ADR-033) is legible to a future
