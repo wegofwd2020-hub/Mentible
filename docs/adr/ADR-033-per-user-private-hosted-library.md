@@ -17,7 +17,8 @@ machinery this tier reuses).
 `docs/adr-033-persona-value.md` + `docs/adr-033-persona-value-deck.pptx` (how four personas — doctor,
 med student, screenwriter, security architect — get value via the learn→author→carry loop) ·
 `docs/persona-decks/` (per-persona decks where **Mentible introduces itself** first-person and walks each
-audience through sign-on → *your knowledge library* → the RAG engine → free→paid, in their language — see its README).
+audience through sign-on → *your knowledge library* → the RAG engine → free→paid, in their language — see its README) ·
+`docs/adr-033-web/` (standalone HTML sources of every explainer's interactive web version, one folder, browser-openable).
 
 ---
 

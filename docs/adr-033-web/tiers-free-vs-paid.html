@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/52f0fb35-24da-4eb7-8c8e-00454d83b559 -->
+<title>Mentible — Free vs Paid, at a glance</title>
+<style>
+  :root {
+    --paper:#FBFAF7; --ink:#1B2027; --slate:#5B6470; --line:#E7E3DA;
+    --card:#FFFFFF; --accent:#2E4A6B;
+    --free:#2F8F83; --free-soft:#E7F1EF; --free-line:#BFDDD8; --free-ink:#173F39;
+    --paid:#B5822E; --paid-soft:#F6EEDD; --paid-line:#E4CE9E; --paid-ink:#5A4113;
+    --screen:#FFFFFF; --screen-line:#E7E3DA;
+    --shadow:0 1px 2px rgba(27,32,39,.05), 0 20px 45px -22px rgba(27,32,39,.28);
+    --maxw:64rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#14171C; --ink:#ECEAE3; --slate:#9AA3AE; --line:#2A2F37;
+      --card:#1B1F26; --accent:#89AEDA;
+      --free:#5CC3B4; --free-soft:#12241F; --free-line:#26463F; --free-ink:#B7E7DF;
+      --paid:#E2B564; --paid-soft:#251C0E; --paid-line:#4A3A1E; --paid-ink:#F0D9A8;
+      --screen:#20252D; --screen-line:#333A44;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 24px 55px -26px rgba(0,0,0,.75);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#FBFAF7; --ink:#1B2027; --slate:#5B6470; --line:#E7E3DA;
+    --card:#FFFFFF; --accent:#2E4A6B;
+    --free:#2F8F83; --free-soft:#E7F1EF; --free-line:#BFDDD8; --free-ink:#173F39;
+    --paid:#B5822E; --paid-soft:#F6EEDD; --paid-line:#E4CE9E; --paid-ink:#5A4113;
+    --screen:#FFFFFF; --screen-line:#E7E3DA;
+    --shadow:0 1px 2px rgba(27,32,39,.05), 0 20px 45px -22px rgba(27,32,39,.28);
+  }
+  :root[data-theme="dark"] {
+    --paper:#14171C; --ink:#ECEAE3; --slate:#9AA3AE; --line:#2A2F37;
+    --card:#1B1F26; --accent:#89AEDA;
+    --free:#5CC3B4; --free-soft:#12241F; --free-line:#26463F; --free-ink:#B7E7DF;
+    --paid:#E2B564; --paid-soft:#251C0E; --paid-line:#4A3A1E; --paid-ink:#F0D9A8;
+    --screen:#20252D; --screen-line:#333A44;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 24px 55px -26px rgba(0,0,0,.75);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.55; }
+  .serif { font-family:Charter,"Iowan Old Style",Georgia,"Times New Roman",serif; }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:clamp(1.25rem,4vw,3rem) 1.25rem 4rem; }
+
+  header { text-align:center; padding:1.5rem 0 2.5rem; border-bottom:1px solid var(--line); margin-bottom:3rem; }
+  .eyebrow { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:.72rem;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--slate); margin:0 0 1rem; }
+  h1.serif { font-size:clamp(2.1rem,6vw,3.4rem); line-height:1.05; margin:0 auto .8rem; font-weight:600;
+    letter-spacing:-.015em; max-width:16ch; text-wrap:balance; }
+  .lede { font-size:clamp(1.05rem,2.4vw,1.28rem); color:var(--slate); max-width:46ch; margin:0 auto; text-wrap:pretty; }
+
+  section { margin:0 0 clamp(3rem,7vw,5.5rem); }
+  .band-label { display:flex; align-items:center; gap:.7rem; justify-content:center; margin-bottom:.5rem; }
+  .chip { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:.72rem; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase; padding:.3rem .7rem; border-radius:6px; }
+  .chip.free { color:var(--free); background:var(--free-soft); border:1px solid var(--free-line); }
+  .chip.paid { color:var(--paid); background:var(--paid-soft); border:1px solid var(--paid-line); }
+  h2.serif { text-align:center; font-size:clamp(1.6rem,4vw,2.3rem); font-weight:600; letter-spacing:-.01em;
+    margin:0 0 .5rem; text-wrap:balance; }
+  .sub { text-align:center; color:var(--slate); max-width:52ch; margin:0 auto 2.4rem; font-size:1.02rem; }
+
+  .stage { display:flex; flex-wrap:wrap; gap:2.5rem; align-items:center; justify-content:center; }
+  .callouts { flex:1 1 16rem; max-width:24rem; display:flex; flex-direction:column; gap:1.1rem; }
+  .callout { display:flex; gap:.9rem; align-items:flex-start; }
+  .callout .ic { flex:none; width:2.5rem; height:2.5rem; border-radius:10px; display:grid; place-items:center; }
+  .callout.free .ic { background:var(--free-soft); border:1px solid var(--free-line); color:var(--free); }
+  .callout.paid .ic { background:var(--paid-soft); border:1px solid var(--paid-line); color:var(--paid); }
+  .callout .ic svg { width:1.35rem; height:1.35rem; }
+  .callout b { display:block; font-size:1.02rem; margin-bottom:.1rem; }
+  .callout span { color:var(--slate); font-size:.92rem; }
+
+  /* ---- Phone mockup ---- */
+  .phone { flex:none; width:16rem; background:var(--ink); border-radius:2rem; padding:.7rem;
+    box-shadow:var(--shadow); position:relative; }
+  .phone::before { content:""; position:absolute; top:.85rem; left:50%; transform:translateX(-50%);
+    width:4.5rem; height:.35rem; background:#000; border-radius:99px; opacity:.55; z-index:2; }
+  .screen { background:var(--screen); border-radius:1.5rem; overflow:hidden; border:1px solid var(--screen-line); }
+  .app-top { padding:1.6rem 1rem .7rem; border-bottom:1px solid var(--screen-line); }
+  .app-top .app-name { font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--slate);
+    font-family:ui-monospace,monospace; }
+  .app-top .app-title { font-size:1.1rem; font-weight:650; margin-top:.15rem; }
+  .app-top .app-meta { font-size:.72rem; color:var(--slate); margin-top:.2rem; display:flex; align-items:center; gap:.35rem; }
+  .app-meta .live { width:.5rem; height:.5rem; border-radius:50%; display:inline-block; }
+  .free .app-meta .live { background:var(--free); }
+  .paid .app-meta .live { background:var(--paid); }
+  .book { display:flex; gap:.7rem; align-items:center; padding:.7rem 1rem; border-bottom:1px solid var(--screen-line); }
+  .spine { width:.55rem; height:2.3rem; border-radius:2px; flex:none; }
+  .book .bt { font-size:.85rem; font-weight:600; line-height:1.2; }
+  .book .bs { font-size:.72rem; color:var(--slate); }
+  .app-search { margin:.8rem 1rem 1rem; padding:.55rem .8rem; border-radius:9px; background:var(--paper);
+    border:1px dashed var(--screen-line); font-size:.78rem; color:var(--slate); display:flex; align-items:center; gap:.5rem; }
+
+  /* ---- Multi-device (paid) ---- */
+  .fleet { flex:none; display:flex; align-items:flex-end; gap:1.1rem; justify-content:center; flex-wrap:wrap; }
+  .dev-lap { width:19rem; }
+  .dev-lap .screen { border-radius:.6rem .6rem 0 0; border-bottom:none; }
+  .dev-lap .base { height:.7rem; background:var(--ink); border-radius:0 0 .5rem .5rem;
+    width:22rem; max-width:100%; margin:0 auto; box-shadow:var(--shadow);
+    position:relative; }
+  .dev-lap .base::after { content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:5rem; height:.28rem; background:#000; opacity:.4; border-radius:0 0 6px 6px; }
+  .dev-lap .screen-wrap { border:.5rem solid var(--ink); border-bottom:none; border-radius:.7rem .7rem 0 0;
+    box-shadow:var(--shadow); }
+  .dev-tab { width:10rem; }
+  .dev-tab .screen { border-radius:.9rem; border:.45rem solid var(--ink); box-shadow:var(--shadow); }
+  .dev-phone-sm { width:6.2rem; }
+  .dev-phone-sm .screen { border-radius:1rem; border:.4rem solid var(--ink); box-shadow:var(--shadow); }
+  .mini-top { padding:.7rem .7rem .5rem; border-bottom:1px solid var(--screen-line); }
+  .mini-top .mn { font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--slate); font-family:ui-monospace,monospace; }
+  .mini-top .mt { font-size:.8rem; font-weight:650; margin-top:.1rem; }
+  .mini-book { display:flex; gap:.45rem; align-items:center; padding:.45rem .7rem; border-bottom:1px solid var(--screen-line); }
+  .mini-book .ms { width:.4rem; height:1.4rem; border-radius:2px; flex:none; }
+  .mini-book .mb { font-size:.66rem; font-weight:600; }
+  .sync-note { text-align:center; margin-top:1.4rem; font-size:.85rem; color:var(--paid); font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:.5rem; }
+
+  /* ---- Concept cards ---- */
+  .concepts { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:1.3rem; }
+  .concept { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:1.6rem 1.5rem 1.7rem;
+    box-shadow:var(--shadow); text-align:center; }
+  .concept .art { height:9rem; display:grid; place-items:center; margin-bottom:1rem; }
+  .concept .art svg { width:100%; height:100%; max-width:12rem; }
+  .concept h3.serif { font-size:1.25rem; margin:0 0 .4rem; font-weight:600; }
+  .concept p { color:var(--slate); font-size:.94rem; margin:0; }
+  .concept .kicker { font-family:ui-monospace,monospace; font-size:.66rem; letter-spacing:.12em; text-transform:uppercase;
+    margin-bottom:.6rem; }
+  .concept.free .kicker { color:var(--free); }
+  .concept.paid .kicker { color:var(--paid); }
+  .concept.priv .kicker { color:var(--accent); }
+
+  /* ---- Comparison ---- */
+  .compare { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); }
+  .compare .row { display:grid; grid-template-columns:1.3fr 1fr 1fr; align-items:center; }
+  .compare .row + .row { border-top:1px solid var(--line); }
+  .compare .row > div { padding:.95rem 1.1rem; font-size:.95rem; }
+  .compare .row .q { color:var(--slate); font-weight:500; }
+  .compare .head > div { font-family:ui-monospace,monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; font-weight:600; }
+  .compare .head .f { color:var(--free); }
+  .compare .head .p { color:var(--paid); }
+  .compare .col-f { border-left:1px solid var(--line); background:linear-gradient(var(--free-soft),var(--free-soft)); }
+  .compare .col-p { border-left:1px solid var(--line); background:linear-gradient(var(--paid-soft),var(--paid-soft)); }
+  .compare .val { font-weight:600; }
+  @media (max-width:34rem){
+    .compare .row { grid-template-columns:1fr; }
+    .compare .row > div { padding:.5rem 1rem; }
+    .compare .row .q { padding-top:.9rem; font-weight:600; color:var(--ink); }
+    .compare .col-f, .compare .col-p { border-left:none; }
+    .compare .head { display:none; }
+    .compare .col-f::before { content:"Free · "; color:var(--free); font-weight:700; }
+    .compare .col-p::before { content:"Paid · "; color:var(--paid); font-weight:700; }
+  }
+
+  .footnote { margin-top:1rem; text-align:center; font-size:.82rem; color:var(--slate); }
+  .footnote code { font-family:ui-monospace,monospace; color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Mentible · a simple picture for a non-technical audience</p>
+    <h1 class="serif">Free vs paid, at a glance</h1>
+    <p class="lede">The same app, two ways to keep your library. Free stays on your device. Paid gives you a private library that follows you everywhere.</p>
+  </header>
+
+  <!-- FREE -->
+  <section>
+    <div class="band-label"><span class="chip free">Free</span></div>
+    <h2 class="serif">On your device</h2>
+    <p class="sub">Everything you write and download lives on the phone or tablet in your hand. Nothing is sent anywhere.</p>
+    <div class="stage">
+      <div class="phone free">
+        <div class="screen">
+          <div class="app-top">
+            <div class="app-name">Mentible</div>
+            <div class="app-title">My Library</div>
+            <div class="app-meta"><span class="live"></span> On this device · offline</div>
+          </div>
+          <div class="book"><span class="spine" style="background:var(--free)"></span><div><div class="bt">Photosynthesis, Explained</div><div class="bs">Your draft · 3 chapters</div></div></div>
+          <div class="book"><span class="spine" style="background:var(--accent)"></span><div><div class="bt">Intro to Statistics</div><div class="bs">Your lesson</div></div></div>
+          <div class="book"><span class="spine" style="background:var(--paid)"></span><div><div class="bt">The Wealth of Nations</div><div class="bs">Public-domain download</div></div></div>
+          <div class="app-search">🔍 Search your shelf</div>
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout free"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg></span><div><b>It's all on your device</b><span>Your books, drafts and lessons live here — not on anyone's server.</span></div></div>
+        <div class="callout free"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 0 1 8-8"/><path d="M20 12a8 8 0 0 1-8 8"/><line x1="12" y1="2" x2="12" y2="6"/></svg></span><div><b>Works offline</b><span>On a plane, on the subway — it just works, no signal needed.</span></div></div>
+        <div class="callout free"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><div><b>Only you can see it</b><span>Nothing leaves the device, so there's nothing for us to see.</span></div></div>
+        <div class="callout free"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg></span><div><b>Free — no account needed</b><span>Open the app and start. No sign-up, no cost.</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAID -->
+  <section>
+    <div class="band-label"><span class="chip paid">Paid</span></div>
+    <h2 class="serif">A private library that follows you</h2>
+    <p class="sub">Your library lives in a private space of your own. Open it on your phone, your tablet, or the web — always the same, always up to date.</p>
+    <div class="stage">
+      <div class="callouts">
+        <div class="callout paid"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><div><b>Same library everywhere</b><span>Start on your phone, finish on your laptop — it's already there.</span></div></div>
+        <div class="callout paid"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/></svg></span><div><b>Search everything you've written</b><span>Ask a question, get answers from across your whole library.</span></div></div>
+        <div class="callout paid"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><div><b>Private to you</b><span>Yours alone — never shared, never used to profile you.</span></div></div>
+        <div class="callout paid"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M5 8l7-5 7 5"/><path d="M5 8v8l7 5 7-5V8"/></svg></span><div><b>Room to grow</b><span>Comes with a starting storage &amp; usage allowance; upgrade for more.</span></div></div>
+      </div>
+      <div>
+        <div class="fleet">
+          <div class="dev-phone-sm"><div class="screen"><div class="mini-top"><div class="mn">Phone</div><div class="mt">My Library</div></div><div class="mini-book"><span class="ms" style="background:var(--free)"></span><span class="mb">Photosynth…</span></div><div class="mini-book"><span class="ms" style="background:var(--accent)"></span><span class="mb">Statistics</span></div></div></div>
+          <div class="dev-lap">
+            <div class="screen-wrap"><div class="screen"><div class="mini-top"><div class="mn">Web</div><div class="mt">My Library — all devices in sync</div></div><div class="mini-book"><span class="ms" style="background:var(--free)"></span><span class="mb">Photosynthesis, Explained</span></div><div class="mini-book"><span class="ms" style="background:var(--accent)"></span><span class="mb">Intro to Statistics</span></div><div class="mini-book"><span class="ms" style="background:var(--paid)"></span><span class="mb">The Wealth of Nations</span></div></div></div>
+            <div class="base"></div>
+          </div>
+          <div class="dev-tab"><div class="screen"><div class="mini-top"><div class="mn">Tablet</div><div class="mt">My Library</div></div><div class="mini-book"><span class="ms" style="background:var(--free)"></span><span class="mb">Photosynthesis</span></div><div class="mini-book"><span class="ms" style="background:var(--accent)"></span><span class="mb">Statistics</span></div><div class="mini-book"><span class="ms" style="background:var(--paid)"></span><span class="mb">Wealth of Nations</span></div></div></div>
+        </div>
+        <div class="sync-note">↺ One private library · every device shows the same shelf</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCEPTS -->
+  <section>
+    <h2 class="serif">Three pictures to explain it</h2>
+    <p class="sub">Drop these on a slide. Each one is a plain-language way to describe the choice.</p>
+    <div class="concepts">
+      <div class="concept free">
+        <div class="art">
+          <svg viewBox="0 0 200 150" fill="none" stroke="var(--free)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="72" y="20" width="56" height="98" rx="10" fill="var(--free-soft)"/>
+            <rect x="84" y="40" width="32" height="7" rx="2" fill="var(--free)" stroke="none"/>
+            <rect x="84" y="54" width="32" height="7" rx="2" fill="var(--accent)" stroke="none" opacity=".7"/>
+            <rect x="84" y="68" width="24" height="7" rx="2" fill="var(--paid)" stroke="none" opacity=".7"/>
+            <line x1="90" y1="108" x2="110" y2="108"/>
+            <path d="M40 128 q60 -22 120 0" stroke="var(--slate)" stroke-width="2" stroke-dasharray="4 5" opacity=".6"/>
+          </svg>
+        </div>
+        <div class="kicker">Free</div>
+        <h3 class="serif">A notebook in your bag</h3>
+        <p>It's always with you, it works anywhere, and only you ever open it. But it lives in one place.</p>
+      </div>
+      <div class="concept paid">
+        <div class="art">
+          <svg viewBox="0 0 200 150" fill="none" stroke="var(--paid)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="78" y="52" width="44" height="46" rx="6" fill="var(--paid-soft)"/>
+            <path d="M100 52 v-8" /><circle cx="100" cy="40" r="5" fill="var(--paid)" stroke="none"/>
+            <rect x="88" y="66" width="24" height="4" rx="2" fill="var(--paid)" stroke="none"/>
+            <rect x="88" y="76" width="24" height="4" rx="2" fill="var(--paid)" stroke="none" opacity=".6"/>
+            <circle cx="30" cy="30" r="9" fill="var(--card)"/><circle cx="170" cy="30" r="9" fill="var(--card)"/><circle cx="30" cy="120" r="9" fill="var(--card)"/><circle cx="170" cy="120" r="9" fill="var(--card)"/>
+            <line x1="39" y1="35" x2="80" y2="60" opacity=".55"/><line x1="161" y1="35" x2="120" y2="60" opacity=".55"/>
+            <line x1="39" y1="115" x2="80" y2="90" opacity=".55"/><line x1="161" y1="115" x2="120" y2="90" opacity=".55"/>
+          </svg>
+        </div>
+        <div class="kicker">Paid</div>
+        <h3 class="serif">A private study that follows you</h3>
+        <p>One private room holds your whole library. Every device is a door into the same room.</p>
+      </div>
+      <div class="concept priv">
+        <div class="art">
+          <svg viewBox="0 0 200 150" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M100 24 l50 18 v34 c0 30 -22 46 -50 58 c-28 -12 -50 -28 -50 -58 v-34 z" fill="var(--card)"/>
+            <rect x="86" y="70" width="28" height="22" rx="4" fill="var(--accent)" stroke="none"/>
+            <path d="M90 70 v-6 a10 10 0 0 1 20 0 v6" />
+            <circle cx="100" cy="80" r="3" fill="var(--card)" stroke="none"/>
+          </svg>
+        </div>
+        <div class="kicker">Either way</div>
+        <h3 class="serif">A locked room only you enter</h3>
+        <p>Both tiers are private to you. Free keeps the key on your device; paid keeps your room locked on our side, opened only for you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section>
+    <h2 class="serif">Side by side</h2>
+    <p class="sub">The whole decision in one table — no jargon.</p>
+    <div class="compare">
+      <div class="row head"><div class="q"></div><div class="f">Free · on device</div><div class="p">Paid · private hosted</div></div>
+      <div class="row"><div class="q">Where your library lives</div><div class="col-f val">On your device</div><div class="col-p val">In your private online space</div></div>
+      <div class="row"><div class="q">Use it on all your devices</div><div class="col-f">One device at a time</div><div class="col-p val">Phone, tablet &amp; web — in sync</div></div>
+      <div class="row"><div class="q">Search across your whole library</div><div class="col-f">On that device's shelf</div><div class="col-p val">Everything, from anywhere</div></div>
+      <div class="row"><div class="q">Works offline</div><div class="col-f val">Always</div><div class="col-p">Needs a connection</div></div>
+      <div class="row"><div class="q">Who can see it</div><div class="col-f val">Only you (never leaves device)</div><div class="col-p val">Only you (private, encrypted)</div></div>
+      <div class="row"><div class="q">Cost</div><div class="col-f val">Free</div><div class="col-p">Subscription, with allowance</div></div>
+    </div>
+    <p class="footnote">Illustrates <code>ADR-033 — per-user private hosted library</code>. The free device tier is unchanged; the paid tier is opt-in.</p>
+  </section>
+</div>
+
+</body>
+</html>

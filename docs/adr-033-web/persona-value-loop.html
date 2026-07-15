@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/b00964cf-5330-4fab-aa5c-6d16c27dbd73 -->
+<title>Mentible — How you get value</title>
+<style>
+  :root{
+    --paper:#FBFAF7;--ink:#1B2027;--slate:#5B6470;--line:#E7E3DA;--card:#FFFFFF;
+    --learn:#2E4A6B;--learn-soft:#E6ECF4;--learn-line:#C4D2E4;
+    --author:#2F8F83;--author-soft:#E7F1EF;--author-line:#BFDDD8;
+    --carry:#B5822E;--carry-soft:#F6EEDD;--carry-line:#E4CE9E;
+    --shadow:0 1px 2px rgba(27,32,39,.05),0 14px 34px -18px rgba(27,32,39,.22);
+    --maxw:64rem;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#14171C;--ink:#ECEAE3;--slate:#9AA3AE;--line:#2A2F37;--card:#1B1F26;
+    --learn:#89AEDA;--learn-soft:#16202E;--learn-line:#2C3E55;
+    --author:#5CC3B4;--author-soft:#12241F;--author-line:#26463F;
+    --carry:#E2B564;--carry-soft:#251C0E;--carry-line:#4A3A1E;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.7);
+  }}
+  :root[data-theme="light"]{
+    --paper:#FBFAF7;--ink:#1B2027;--slate:#5B6470;--line:#E7E3DA;--card:#FFFFFF;
+    --learn:#2E4A6B;--learn-soft:#E6ECF4;--learn-line:#C4D2E4;
+    --author:#2F8F83;--author-soft:#E7F1EF;--author-line:#BFDDD8;
+    --carry:#B5822E;--carry-soft:#F6EEDD;--carry-line:#E4CE9E;
+    --shadow:0 1px 2px rgba(27,32,39,.05),0 14px 34px -18px rgba(27,32,39,.22);
+  }
+  :root[data-theme="dark"]{
+    --paper:#14171C;--ink:#ECEAE3;--slate:#9AA3AE;--line:#2A2F37;--card:#1B1F26;
+    --learn:#89AEDA;--learn-soft:#16202E;--learn-line:#2C3E55;
+    --author:#5CC3B4;--author-soft:#12241F;--author-line:#26463F;
+    --carry:#E2B564;--carry-soft:#251C0E;--carry-line:#4A3A1E;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;}
+  .serif{font-family:Charter,"Iowan Old Style",Georgia,"Times New Roman",serif;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.25rem,4vw,3rem) 1.25rem 4rem;}
+
+  header{padding:1.5rem 0 2.5rem;border-bottom:1px solid var(--line);margin-bottom:2.5rem;}
+  .eyebrow{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.72rem;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--slate);margin:0 0 1rem;}
+  h1.serif{font-size:clamp(2rem,5.5vw,3.2rem);line-height:1.06;margin:0 0 .7rem;font-weight:600;
+    letter-spacing:-.015em;max-width:18ch;text-wrap:balance;}
+  .lede{font-size:clamp(1.05rem,2.3vw,1.25rem);color:var(--slate);max-width:52ch;margin:0;text-wrap:pretty;}
+
+  /* The loop */
+  .loop{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:2.2rem 0 .5rem;position:relative;}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.3rem 1.3rem 1.4rem;box-shadow:var(--shadow);position:relative;}
+  .step::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;border-radius:14px 0 0 14px;}
+  .step.learn::before{background:var(--learn);} .step.author::before{background:var(--author);} .step.carry::before{background:var(--carry);}
+  .step .n{font-family:ui-monospace,monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+  .step.learn .n{color:var(--learn);} .step.author .n{color:var(--author);} .step.carry .n{color:var(--carry);}
+  .step h3{margin:.1rem 0 .35rem;font-size:1.15rem;font-weight:650;}
+  .step p{margin:0;color:var(--slate);font-size:.93rem;}
+  .step .ico{width:1.5rem;height:1.5rem;}
+  .loopnote{text-align:center;color:var(--slate);font-size:.9rem;margin:1rem 0 0;font-style:italic;}
+
+  h2.serif{font-size:clamp(1.5rem,3.5vw,2rem);font-weight:600;letter-spacing:-.01em;margin:3.2rem 0 .4rem;text-wrap:balance;}
+  .sub{color:var(--slate);margin:0 0 1.8rem;max-width:56ch;}
+
+  /* Persona cards */
+  .persona{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+    padding:1.5rem 1.6rem 1.7rem;margin-bottom:1.4rem;}
+  .p-head{display:flex;gap:1rem;align-items:center;margin-bottom:.3rem;}
+  .p-badge{flex:none;width:3.2rem;height:3.2rem;border-radius:14px;display:grid;place-items:center;}
+  .p-badge svg{width:1.8rem;height:1.8rem;}
+  .p-title{font-size:1.3rem;font-weight:650;margin:0;}
+  .p-role{color:var(--slate);font-size:.9rem;margin:.1rem 0 0;}
+  .p-lib{display:flex;flex-wrap:wrap;gap:.4rem;margin:1rem 0 1.2rem;align-items:center;}
+  .p-lib .lbl{font-family:ui-monospace,monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);margin-right:.2rem;}
+  .tag{font-size:.78rem;padding:.2rem .6rem;border-radius:20px;background:var(--paper);border:1px solid var(--line);color:var(--ink);}
+  .steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;}
+  @media (max-width:40rem){.steps3{grid-template-columns:1fr;} .loop{grid-template-columns:1fr;}}
+  .mini{border-radius:11px;padding:.85rem .95rem 1rem;border:1px solid var(--line);}
+  .mini.learn{background:var(--learn-soft);border-color:var(--learn-line);}
+  .mini.author{background:var(--author-soft);border-color:var(--author-line);}
+  .mini.carry{background:var(--carry-soft);border-color:var(--carry-line);}
+  .mini .k{font-family:ui-monospace,monospace;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:.35rem;}
+  .mini.learn .k{color:var(--learn);} .mini.author .k{color:var(--author);} .mini.carry .k{color:var(--carry);}
+  .mini p{margin:0;font-size:.88rem;color:var(--ink);line-height:1.42;}
+  .aha{margin:1.1rem 0 0;padding:.7rem .95rem;border-radius:10px;background:var(--paper);border:1px dashed var(--line);
+    font-size:.92rem;}
+  .aha b{color:var(--ink);}
+  .aha .star{color:var(--carry);font-weight:700;margin-right:.4rem;}
+
+  .footnote{margin-top:2.5rem;padding-top:1.3rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--slate);}
+  .footnote code{font-family:ui-monospace,monospace;color:var(--learn);}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Mentible · how people get value · learn → author → carry</p>
+    <h1 class="serif">Your own library, turned into something you learn from and write with</h1>
+    <p class="lede">Mentible runs one loop: <b>learn</b> a topic scoped to you, <b>author</b> content grounded in your own library, and <b>carry</b> that library — private — to every device. Here's how that plays out for four very different people.</p>
+  </header>
+
+  <div class="loop">
+    <div class="step learn">
+      <div class="n"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--learn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l9-3 9 3-9 3-9-3z"/><path d="M21 6v6"/><path d="M6 8.5V13c0 1.5 2.7 3 6 3s6-1.5 6-3V8.5"/></svg> 1 · Learn</div>
+      <h3>Scoped to you</h3>
+      <p>Any topic, at your level, built on what you already know — not a generic chatbot answer.</p>
+    </div>
+    <div class="step author">
+      <div class="n"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--author)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-1.5"/><path d="M2 2l7.5 7.5"/><path d="M2 2l4 12 3-3-4-9z"/></svg> 2 · Author</div>
+      <h3>Grounded in your library</h3>
+      <p>Turn what you keep — books, notes, references — into lessons and documents that cite your own sources.</p>
+    </div>
+    <div class="step carry">
+      <div class="n"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--carry)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><rect x="9" y="8" width="6" height="4" rx="1"/></svg> 3 · Carry</div>
+      <h3>Private, every device</h3>
+      <p>Your library follows your account — phone, tablet, web — and stays yours. Never shared, never used to profile you.</p>
+    </div>
+  </div>
+  <p class="loopnote">The same loop, four lives. Each person leans on the parts that matter most to them.</p>
+
+  <h2 class="serif">Four people, one loop</h2>
+  <p class="sub">What's in their library, what they learn, what they produce, and why carrying it privately matters.</p>
+
+  <!-- DOCTOR -->
+  <div class="persona">
+    <div class="p-head">
+      <div class="p-badge" style="background:var(--learn-soft);border:1px solid var(--learn-line);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--learn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a6 6 0 0 0 12 0V3"/><path d="M6 3H4M18 3h2"/><path d="M12 15v3a3 3 0 0 0 6 0v-1"/><circle cx="19" cy="13" r="2"/></svg>
+      </div>
+      <div><h3 class="p-title">Dr. Anaya</h3><p class="p-role">Internal-medicine physician</p></div>
+    </div>
+    <div class="p-lib"><span class="lbl">Her library</span>
+      <span class="tag">Specialty guidelines</span><span class="tag">Journal PDFs</span><span class="tag">Drug references</span><span class="tag">Her case notes</span></div>
+    <div class="steps3">
+      <div class="mini learn"><div class="k">Learn</div><p>Brush up on a new anticoagulation protocol — at a consultant's depth, not a student's.</p></div>
+      <div class="mini author"><div class="k">Author</div><p>Generate a plain-language patient handout, grounded in her own guideline set, with citations she trusts.</p></div>
+      <div class="mini carry"><div class="k">Carry</div><p>Opens on the ward tablet, the clinic PC, her phone. Sensitive clinical material stays hers — private.</p></div>
+    </div>
+    <p class="aha"><span class="star">★</span><b>The payoff:</b> from the literature she already keeps → a handout a patient can actually read, in minutes.</p>
+  </div>
+
+  <!-- MED STUDENT -->
+  <div class="persona">
+    <div class="p-head">
+      <div class="p-badge" style="background:var(--author-soft);border:1px solid var(--author-line);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--author)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M6 10v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M21 8v5"/></svg>
+      </div>
+      <div><h3 class="p-title">Sam</h3><p class="p-role">Second-year medical student</p></div>
+    </div>
+    <div class="p-lib"><span class="lbl">Their library</span>
+      <span class="tag">Textbooks</span><span class="tag">Lecture slides</span><span class="tag">Past papers</span></div>
+    <div class="steps3">
+      <div class="mini learn"><div class="k">Learn</div><p>Finally understand the RAAS cascade — explained at their level, building on what they already know.</p></div>
+      <div class="mini author"><div class="k">Author</div><p>Turn the chapter into a self-quiz and a one-page summary, grounded in their own textbook.</p></div>
+      <div class="mini carry"><div class="k">Carry</div><p>Commute on the phone, library on the tablet, home on the laptop — same shelf, in sync.</p></div>
+    </div>
+    <p class="aha"><span class="star">★</span><b>The payoff:</b> their own textbooks become quizzes and lessons — not generic web content.</p>
+  </div>
+
+  <!-- SCREENWRITER -->
+  <div class="persona">
+    <div class="p-head">
+      <div class="p-badge" style="background:var(--carry-soft);border:1px solid var(--carry-line);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--carry)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l3-4h4l-3 4M10 7l3-4h4l-3 4M17 7l3-4"/></svg>
+      </div>
+      <div><h3 class="p-title">Mara</h3><p class="p-role">Feature screenwriter</p></div>
+    </div>
+    <div class="p-lib"><span class="lbl">Her library</span>
+      <span class="tag">World research</span><span class="tag">Series bible</span><span class="tag">Character notes</span><span class="tag">Location refs</span></div>
+    <div class="steps3">
+      <div class="mini learn"><div class="k">Learn</div><p>Get up to speed on 1920s barnstorming aviation — scoped to exactly what the story needs.</p></div>
+      <div class="mini author"><div class="k">Author</div><p>Draft scene research briefs grounded in her own corpus, so the world stays consistent — one canon.</p></div>
+      <div class="mini carry"><div class="k">Carry</div><p>Unreleased research and bible never leave her control — private by default — and follow her desk to café.</p></div>
+    </div>
+    <p class="aha"><span class="star">★</span><b>The payoff:</b> a private research library that keeps her world consistent — and her IP hers.</p>
+  </div>
+
+  <!-- SECURITY ARCHITECT -->
+  <div class="persona">
+    <div class="p-head">
+      <div class="p-badge" style="background:var(--learn-soft);border:1px solid var(--learn-line);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--learn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <div><h3 class="p-title">Dev</h3><p class="p-role">Software security architect</p></div>
+    </div>
+    <div class="p-lib"><span class="lbl">His library</span>
+      <span class="tag">ADRs</span><span class="tag">Threat models</span><span class="tag">Runbooks</span><span class="tag">OWASP / NIST</span><span class="tag">Incident write-ups</span></div>
+    <div class="steps3">
+      <div class="mini learn"><div class="k">Learn</div><p>Come up to speed on a new attack class — at an architect's depth, not an intro.</p></div>
+      <div class="mini author"><div class="k">Author</div><p>Produce internal security training and a threat-model brief, grounded in the org's own security library.</p></div>
+      <div class="mini carry"><div class="k">Carry</div><p>Confidential internal material stays private to him; his library is on every work machine.</p></div>
+    </div>
+    <p class="aha"><span class="star">★</span><b>The payoff:</b> the org's own security knowledge becomes onboarding and training — grounded, private, current.</p>
+  </div>
+
+  <p class="footnote">
+    One product, one loop — learn, author, carry. The private, cross-device library is <code>ADR-033</code>; the grounded authoring is <code>ADR-029</code>; the scoped-learning model is the Mentible IP. Personas are illustrative.
+  </p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/bd2a7043-8093-46a4-8716-07d5b7de1006 -->
+<title>Mentible × Dev — a blueprint</title>
+<style>
+  :root{--bg:#141C30;--grid:#212C49;--ink:#E8ECF6;--muted:#94A2C4;--line:#35446E;--node:#1E2A45;--node-l:#3A4B75;
+    --acc:#7C93D6;--cyan:#58C2D6;--warn:#E0B15E;--grn:#59C38C;--maxw:56rem;--shadow:0 10px 30px -14px rgba(0,0,0,.6);}
+  /* single deliberate dark world — light theme kept subtle for legibility */
+  :root[data-theme="light"]{--bg:#1B2338;--grid:#28345A;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:2.2rem 2.2rem;background-attachment:fixed;
+    font-family:ui-monospace,Consolas,Menlo,monospace;line-height:1.55;}
+  .sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;} .serif{font-family:Georgia,serif;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.25rem,4vw,2.5rem) 1.4rem 4rem;}
+  .prompt{color:var(--muted);font-size:.85rem;margin:0 0 1rem;} .prompt b{color:var(--cyan);}
+  h1{font-family:Georgia,serif;font-size:clamp(2rem,5.4vw,3rem);line-height:1.05;margin:.4rem 0 .6rem;color:var(--ink);max-width:15ch;}
+  .lede{font-family:-apple-system,sans-serif;font-size:1.12rem;color:var(--muted);max-width:52ch;} .lede b{color:var(--ink);}
+  .comment{margin:1.4rem 0;background:var(--node);border:1px solid var(--cyan);border-left:5px solid var(--cyan);border-radius:8px;padding:1rem 1.2rem;}
+  .comment .k{color:var(--cyan);font-size:.72rem;font-weight:700;margin-bottom:.3rem;} .comment p{font-family:Georgia,serif;margin:0;font-size:1.08rem;color:var(--ink);}
+  .who{margin-top:1.3rem;} .who .k{color:var(--muted);font-size:.72rem;} .who b{font-family:-apple-system,sans-serif;font-size:1rem;} .who span{color:var(--muted);font-size:.85rem;}
+  section{margin-top:2.8rem;} .sec{color:var(--muted);font-size:.82rem;margin-bottom:.4rem;} .sec b{color:var(--cyan);}
+  h2{font-family:Georgia,serif;font-size:clamp(1.35rem,3.1vw,1.8rem);margin:.1rem 0 .6rem;color:var(--ink);text-wrap:balance;}
+  p.narr{font-family:-apple-system,sans-serif;color:var(--muted);max-width:58ch;} p.narr b{color:var(--ink);}
+  .list p{font-family:-apple-system,sans-serif;margin:.5rem 0;color:var(--muted);} .list b{color:var(--ink);} .arw{color:var(--cyan);font-weight:700;}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-top:1rem;} @media(max-width:40rem){.steps{grid-template-columns:1fr;}}
+  .stp{background:var(--node);border:1px solid var(--node-l);border-radius:8px;padding:1rem;box-shadow:var(--shadow);}
+  .stp .k{color:var(--cyan);font-size:.72rem;font-weight:700;} .stp h4{font-family:-apple-system,sans-serif;margin:.25rem 0 .3rem;font-size:1rem;color:var(--ink);} .stp p{font-family:-apple-system,sans-serif;margin:0;color:var(--muted);font-size:.86rem;}
+  .free{margin-top:1rem;color:var(--grn);font-size:.9rem;}
+  /* system map */
+  .map{position:relative;height:20rem;margin:1.2rem 0;}
+  .hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--cyan);color:#0E1626;font-weight:700;
+    padding:.7rem 1.1rem;border-radius:8px;font-size:.95rem;z-index:2;}
+  .nd{position:absolute;background:var(--node);border:1.5px solid var(--node-l);color:var(--ink);padding:.45rem .8rem;border-radius:8px;font-size:.85rem;font-weight:700;transform:translate(-50%,-50%);}
+  .n1{left:16%;top:24%;} .n2{left:26%;top:80%;} .n3{left:50%;top:92%;} .n4{left:74%;top:80%;} .n5{left:84%;top:24%;}
+  .map svg{position:absolute;inset:0;width:100%;height:100%;z-index:1;}
+  .cap{text-align:center;color:var(--muted);font-style:italic;font-size:.86rem;}
+  .uni{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:1rem;} .sb{flex:1 1 14rem;background:var(--node);border:1px solid var(--node-l);border-radius:8px;padding:1rem;}
+  .sb h4{font-family:-apple-system,sans-serif;margin:0 0 .5rem;color:var(--ink);} .sb .t{display:inline-block;font-size:.74rem;background:var(--bg);border:1px solid var(--node-l);border-radius:3px;padding:.15rem .5rem;margin:.14rem .1rem 0;color:var(--ink);}
+  .uni .op{font-size:1.4rem;color:var(--muted);} .out{margin-top:1rem;padding:.9rem;border-radius:8px;background:var(--node);border:1px solid var(--cyan);text-align:center;} .out b{color:var(--cyan);}
+  .upg{margin-top:1rem;background:var(--node);border:1px solid var(--warn);border-radius:10px;padding:1.2rem 1.4rem;}
+  .upg .k{color:var(--warn);font-size:.72rem;font-weight:700;} .upg .trig{font-family:-apple-system,sans-serif;font-style:italic;margin:.3rem 0 .7rem;color:var(--ink);} .upg ul{font-family:-apple-system,sans-serif;margin:0;padding-left:1.1rem;} .upg li{margin:.3rem 0;font-size:.94rem;color:var(--ink);} .upg li b{color:var(--warn);} .priv{font-family:-apple-system,sans-serif;margin-top:.7rem;font-size:.84rem;color:var(--muted);}
+  .end{margin-top:2.8rem;border:1px solid var(--cyan);border-radius:12px;padding:2rem 1.8rem;background:rgba(88,194,214,.06);}
+  .end .k{color:var(--cyan);font-size:.82rem;} .end p{font-family:Georgia,serif;margin:.5rem 0 0;font-size:1.25rem;line-height:1.5;color:var(--ink);}
+  .foot{font-family:-apple-system,sans-serif;margin-top:2rem;font-size:.78rem;color:var(--muted);} .foot code{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="prompt"><b>$ mentible</b> — init</p>
+  <h1>Hi, Dev. I'm Mentible.</h1>
+  <p class="lede">Your ADRs, threat models, runbooks, and the standards you trust — I'll write and answer from them, grounded in <b>your org's own knowledge</b>, never a chatbot's guesses.</p>
+  <div class="comment"><div class="k">// mentible</div><p>I read only your architecture, and I cite the exact doc. No generic boilerplate.</p></div>
+  <div class="who"><div class="k"># user</div><b>Dev</b> <span>· software security architect</span></div>
+
+  <section><p class="sec"><b>$ mentible</b> — section_01 : the_problem</p>
+    <h2>Your org's security knowledge is scattered, and generic AI leaks context</h2>
+    <div class="list"><p><span class="arw">›</span> <b>Your knowledge is everywhere.</b> ADRs, threat models, runbooks, incident write-ups, standards — across wikis, repos, and heads.</p>
+      <p><span class="arw">›</span> <b>It doesn't onboard anyone.</b> New engineers re-ask the same questions; context lives in people, not one place.</p>
+      <p><span class="arw">›</span> <b>The generic chatbots?</b> Generic OWASP boilerplate, missing YOUR architecture — and you can't paste confidential models into someone's cloud.</p></div></section>
+
+  <section><p class="sec"><b>$ mentible</b> — section_02 : getting_started --free</p>
+    <h2>No sign-up. Nothing leaves your machine.</h2>
+    <p class="narr">Install me, point me at your security library, and we start — everything stays on your own machine.</p>
+    <div class="steps"><div class="stp"><div class="k">step_1</div><h4>Open me up</h4><p>Free to start. No account, works offline.</p></div>
+      <div class="stp"><div class="k">step_2</div><h4>Hand me your knowledge</h4><p>ADRs, threat models, runbooks, standards — they become your knowledge library.</p></div>
+      <div class="stp"><div class="k">step_3</div><h4>Ask, or hand me a draft</h4><p>I answer and write from your org's own knowledge.</p></div></div>
+    <p class="free">✓ On the free tier I live entirely on your machine. I can't see your library — and neither can anyone else.</p></section>
+
+  <section><p class="sec"><b>$ mentible</b> — section_03 : your_knowledge_library</p>
+    <h2>This becomes your knowledge library</h2>
+    <p class="narr">Not my memory — <b>yours</b>. Your org's own docs, mapped — so answers reflect YOUR architecture:</p>
+    <div class="map">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="50" y1="50" x2="16" y2="24" stroke="#35446E" stroke-width=".5"/><line x1="50" y1="50" x2="26" y2="80" stroke="#35446E" stroke-width=".5"/>
+        <line x1="50" y1="50" x2="50" y2="92" stroke="#35446E" stroke-width=".5"/><line x1="50" y1="50" x2="74" y2="80" stroke="#35446E" stroke-width=".5"/>
+        <line x1="50" y1="50" x2="84" y2="24" stroke="#35446E" stroke-width=".5"/></svg>
+      <div class="nd n1">ADRs</div><div class="nd n2">threat_models</div><div class="nd n3">runbooks</div><div class="nd n4">OWASP/NIST</div><div class="nd n5">incidents</div>
+      <div class="hub">your knowledge library</div>
+    </div>
+    <p class="cap">// every node here, you added. I reason about your system, not a generic one.</p></section>
+
+  <section><p class="sec"><b>$ mentible</b> — section_04 : how_i_work</p>
+    <h2>I read your library first — then answer, for your architecture</h2>
+    <p class="narr">Ask me a question or hand me a draft. I don't hand-wave: I <b>find the relevant sections in your library first</b>, then answer grounded in them — citing which docs I used.</p>
+    <div class="list"><p><span class="arw">›</span> <b>you ask:</b> "Draft onboarding on our auth threat model — for a new backend engineer."</p>
+      <p><span class="arw">›</span> <b>i retrieve:</b> the exact sections from your ADRs &amp; threat models.</p>
+      <p><span class="arw">›</span> <b>i answer:</b> a grounded brief citing your own docs — not generic boilerplate.</p></div>
+    <div class="comment"><div class="k">// how to think of me</div><p>The senior engineer who's read every ADR and cites the exact decision — never generic advice.</p></div></section>
+
+  <section><p class="sec"><b>$ mentible</b> — section_05 : beyond_your_repo</p>
+    <h2>Your knowledge library can outgrow your own repo</h2>
+    <p class="narr">You're not limited to your internal docs. I can pull public standards and reference texts into your knowledge library from <b>curated catalogs</b> — grounded in your architecture.</p>
+    <div class="uni"><div class="sb"><h4>what you bring</h4><span class="t">ADRs</span><span class="t">threat_models</span><span class="t">runbooks</span></div>
+      <div class="op">＋</div><div class="sb"><h4>what I pull in</h4><span class="t">public standards</span><span class="t">curated catalogs</span></div></div>
+    <div class="out"><b>= one knowledge library</b> — broader than your repo, still your architecture.</div></section>
+
+  <section><p class="sec"><b>$ mentible</b> — section_06 : upgrade</p>
+    <h2>Take me everywhere — and into every new engineer's onboarding</h2>
+    <div class="upg"><div class="k">▲ upgrade</div>
+      <p class="trig">One day you'll want your security knowledge not just on your laptop, but on every machine and in every new engineer's onboarding. That's when you'll upgrade me.</p>
+      <ul><li><b>One private library, every device</b> — your whole security library and its search, in sync.</li>
+        <li><b>Onboard faster</b> — new engineers ask me and get YOUR architecture's answers, not boilerplate.</li>
+        <li><b>Confidential stays confidential</b> — private, encrypted, never shared, never used to train anyone's model.</li></ul>
+      <p class="priv">Upgrading makes me a private hosted library that follows you. The free device-only version stays as it is.</p></div></section>
+
+  <div class="end"><div class="k">$ mentible --promise</div>
+    <p>Give me your org's security knowledge, and I'll turn it into onboarding, training, and threat-model drafts — grounded in your architecture, confidential by default.</p></div>
+  <p class="foot">Maps to product: private cross-device library = <code>ADR-033</code> · grounding in your own material = <code>ADR-029</code> (RAG) · curated external texts = <code>ADR-028</code>. Free = device-local &amp; zero-knowledge; paid = private hosted. Dev is illustrative.</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/57dbed2a-ae9d-4fe0-8d0b-c8f37bdde95f -->
+<title>Mentible × Dr. Anaya — a clinical chart</title>
+<style>
+  :root{--page:#F3F6F5;--ink:#17242E;--muted:#5A6A72;--line:#D9E0DE;--card:#FFFFFF;
+    --med:#1F5C6B;--med-s:#E4F0F1;--med-l:#BEDDDF;--vit:#C0483C;--maxw:56rem;
+    --shadow:0 1px 2px rgba(23,36,46,.05),0 14px 34px -18px rgba(23,36,46,.22);}
+  @media (prefers-color-scheme:dark){:root{--page:#101619;--ink:#E8EEEF;--muted:#93A1A9;--line:#233037;--card:#172026;
+    --med:#5FB4C0;--med-s:#0F2429;--med-l:#204248;--vit:#E08072;--shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.7);}}
+  :root[data-theme="light"]{--page:#F3F6F5;--ink:#17242E;--muted:#5A6A72;--line:#D9E0DE;--card:#FFFFFF;--med:#1F5C6B;--med-s:#E4F0F1;--med-l:#BEDDDF;--vit:#C0483C;}
+  :root[data-theme="dark"]{--page:#101619;--ink:#E8EEEF;--muted:#93A1A9;--line:#233037;--card:#172026;--med:#5FB4C0;--med-s:#0F2429;--med-l:#204248;--vit:#E08072;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--page);color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.55;}
+  .mono{font-family:ui-monospace,Consolas,Menlo,monospace;} .sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .chartbar{position:sticky;top:0;z-index:5;background:var(--med-s);border-bottom:1px solid var(--med-l);
+    display:flex;justify-content:space-between;align-items:center;padding:.55rem clamp(1rem,4vw,3rem);}
+  .chartbar b{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;letter-spacing:.08em;color:var(--med);}
+  .chartbar .ekg{color:var(--vit);font-family:ui-monospace,monospace;font-size:1rem;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.25rem,4vw,2.5rem) 1.4rem 4rem;}
+  h1{font-size:clamp(2rem,5.4vw,3rem);line-height:1.05;margin:.4rem 0 .6rem;font-weight:600;max-width:16ch;text-wrap:balance;}
+  .lede{font-size:1.18rem;color:var(--muted);max-width:52ch;} .lede b{color:var(--ink);}
+  .note{margin:1.5rem 0;border:1px solid var(--med-l);border-left:5px solid var(--med);border-radius:8px;background:var(--card);padding:1rem 1.2rem;box-shadow:var(--shadow);}
+  .note .k{font-family:ui-monospace,monospace;font-size:.7rem;letter-spacing:.1em;color:var(--med);font-weight:700;margin-bottom:.3rem;}
+  .note p{margin:0;font-size:1.05rem;}
+  .who{margin-top:1.4rem;padding-top:1rem;border-top:1px solid var(--line);} .who .k{font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;}
+  .who b{font-size:1rem;} .who span{color:var(--muted);font-family:ui-monospace,monospace;font-size:.85rem;}
+  section{margin-top:3rem;}
+  .sec{font-family:ui-monospace,monospace;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--med);font-weight:700;margin-bottom:.4rem;}
+  h2{font-size:clamp(1.4rem,3.2vw,1.9rem);margin:.1rem 0 .6rem;font-weight:600;text-wrap:balance;}
+  p.narr{font-size:1.05rem;color:var(--muted);max-width:56ch;} p.narr b{color:var(--ink);}
+  .plist{border-left:4px solid var(--vit);padding-left:1.1rem;margin-top:1rem;} .plist p{margin:.5rem 0;} .plist b{color:var(--ink);}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-top:1.2rem;} @media(max-width:40rem){.steps{grid-template-columns:1fr;}}
+  .stp{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--med);border-radius:8px;padding:1rem;box-shadow:var(--shadow);}
+  .stp .k{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--med);font-weight:700;} .stp h4{margin:.3rem 0 .3rem;font-size:1rem;} .stp p{margin:0;color:var(--muted);font-size:.88rem;}
+  .free{margin-top:1rem;font-family:ui-monospace,monospace;font-size:.86rem;color:var(--med);}
+  /* binder */
+  .binder{margin-top:1.3rem;display:flex;box-shadow:var(--shadow);border-radius:8px;overflow:hidden;border:2px solid var(--med);}
+  .binder .chart{flex:1;background:var(--card);}
+  .binder .chart .hd{background:var(--med-s);font-family:ui-monospace,monospace;font-size:.72rem;color:var(--med);font-weight:700;padding:.5rem .8rem;letter-spacing:.06em;}
+  .binder .row{padding:.6rem .9rem;border-bottom:1px solid var(--line);font-size:.98rem;}
+  .binder .tabs{display:flex;flex-direction:column;}
+  .binder .tab{color:#fff;font-family:-apple-system,sans-serif;font-size:.8rem;font-weight:700;padding:.55rem .7rem;display:flex;align-items:center;min-width:8.5rem;}
+  .cap{margin-top:.8rem;text-align:center;font-style:italic;color:var(--muted);font-size:.9rem;}
+  .uni{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:1.2rem;}
+  .sb{flex:1 1 14rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem;box-shadow:var(--shadow);}
+  .sb h4{margin:0 0 .5rem;font-size:.95rem;} .sb .t{display:inline-block;font-family:ui-monospace,monospace;font-size:.74rem;background:var(--page);border:1px solid var(--line);border-radius:3px;padding:.15rem .5rem;margin:.14rem .1rem 0;}
+  .uni .op{font-size:1.5rem;color:var(--muted);} .out{margin-top:1rem;padding:.9rem;border-radius:8px;background:var(--med-s);border:1px solid var(--med-l);text-align:center;} .out b{color:var(--med);}
+  .upg{margin-top:1.2rem;background:#F6EEDD;border:1px solid #E4CE9E;border-radius:10px;padding:1.3rem 1.5rem;}
+  @media (prefers-color-scheme:dark){.upg{background:#251C0E;border-color:#4A3A1E;}}
+  .upg .k{font-family:ui-monospace,monospace;font-size:.72rem;color:#B5822E;font-weight:700;margin-bottom:.5rem;} .upg .trig{font-style:italic;margin:0 0 .8rem;}
+  .upg ul{margin:0;padding-left:1.1rem;} .upg li{margin:.35rem 0;font-size:.94rem;} .upg li b{color:#B5822E;} .priv{margin-top:.8rem;font-size:.85rem;color:var(--muted);}
+  .end{margin-top:3rem;background:var(--med);color:#fff;border-radius:12px;padding:2rem 1.8rem;box-shadow:var(--shadow);}
+  .end .k{font-family:ui-monospace,monospace;font-size:.72rem;letter-spacing:.1em;opacity:.85;margin-bottom:.5rem;} .end p{margin:0;font-size:1.25rem;font-weight:600;line-height:1.4;}
+  .foot{margin-top:2.4rem;font-size:.78rem;color:var(--muted);} .foot code{font-family:ui-monospace,monospace;color:var(--med);}
+</style>
+</head>
+<body>
+<div class="chartbar"><b>MENTIBLE CLINICAL</b><span class="ekg">√⁄\˄⁄\___</span></div>
+<div class="wrap">
+  <p class="sec">Patient chart · intake</p>
+  <h1>Hi, Dr. Anaya. I'm Mentible.</h1>
+  <p class="lede">Your papers, the notes you trust, your guidance — I'll write and answer from them, in <b>your</b> evidence, never a chatbot's guesses.</p>
+  <div class="note"><div class="k">NOTE — MENTIBLE</div><p>I read only what you trust, and I cite it back to you. No guessing near a patient.</p></div>
+  <div class="who"><div class="k">PATIENT</div><b>Dr. Anaya</b> <span>· internal-medicine physician</span></div>
+
+  <section><p class="sec">Section 01 — problem list</p><h2>Your evidence is scattered, and you can't hand a patient a guess</h2>
+    <div class="plist">
+      <p><b>Your evidence lives everywhere.</b> Guideline PDFs, papers, a drug reference, years of your notes — none of it talks to each other.</p>
+      <p><b>You have no time.</b> Writing a handout or checking a protocol means digging through all of it, by hand.</p>
+      <p><b>The generic chatbots?</b> They sound certain, invent citations, don't answer from your sources. Not safe near a patient.</p>
+    </div></section>
+
+  <section><p class="sec">Section 02 — getting started · free</p><h2>No sign-up. Nothing leaves your laptop.</h2>
+    <p class="narr">Install me, point me at the material you trust, and we begin — everything stays on your own device.</p>
+    <div class="steps">
+      <div class="stp"><div class="k">STEP 1</div><h4>Open me up</h4><p>Free to start. No account, works offline.</p></div>
+      <div class="stp"><div class="k">STEP 2</div><h4>Hand me your sources</h4><p>Guidelines, papers, drug ref, notes — they become your knowledge library.</p></div>
+      <div class="stp"><div class="k">STEP 3</div><h4>Ask, or hand me a draft</h4><p>I answer and write from your own evidence.</p></div>
+    </div>
+    <p class="free">✓ On the free tier I live entirely on your device. I can't see your library — and neither can anyone else.</p></section>
+
+  <section><p class="sec">Section 03 — your knowledge library</p><h2>This becomes your knowledge library</h2>
+    <p class="narr">Not my memory — <b>yours</b>. The sources you chose and trust, filed in one chart I've read cover to cover.</p>
+    <div class="binder">
+      <div class="chart"><div class="hd">CHART — YOUR PRACTICE</div>
+        <div class="row">Guidelines</div><div class="row">Journal papers</div><div class="row">Drug reference</div><div class="row">Case notes</div><div class="row">Society updates</div></div>
+      <div class="tabs">
+        <div class="tab" style="background:#1F5C6B">Guidelines</div><div class="tab" style="background:#2F8F83">Papers</div>
+        <div class="tab" style="background:#3A6EA5">Drug ref</div><div class="tab" style="background:#B5822E">Notes</div><div class="tab" style="background:#6B4E8E">Society</div></div>
+    </div>
+    <p class="cap">Every tab here, you filed. That's the point — I work from your chart, not the web's.</p></section>
+
+  <section><p class="sec">Section 04 — how I work</p><h2>I read your chart first — then I answer, citing your sources</h2>
+    <p class="narr">Ask me a question or hand me a draft. I don't guess: I <b>find the relevant passages in your library first</b>, then write grounded in them — and show which of your sources I used.</p>
+    <div class="plist">
+      <p><b>You ask:</b> "Draft a patient handout on starting a DOAC — plain language."</p>
+      <p><b>I retrieve:</b> the exact passages in your anticoagulation guideline &amp; drug reference.</p>
+      <p><b>I answer:</b> a handout from your evidence, citing your sources — ready to check &amp; hand over.</p></div>
+    <div class="note"><div class="k">NOTE — HOW TO THINK OF ME</div><p>The resident who's read every guideline on your chart and cites chapter and verse — never a stranger guessing.</p></div></section>
+
+  <section><p class="sec">Section 05 — beyond your shelf</p><h2>Your knowledge library can outgrow your physical shelf</h2>
+    <p class="narr">I can pull authoritative reference and public-domain texts into your knowledge library from <b>curated catalogs</b> — then ground every answer at a physician's depth.</p>
+    <div class="uni"><div class="sb"><h4>What you bring</h4><span class="t">guidelines</span><span class="t">papers</span><span class="t">notes</span></div>
+      <div class="op">＋</div><div class="sb"><h4>What I pull in</h4><span class="t">reference texts</span><span class="t">curated catalogs</span></div></div>
+    <div class="out"><b>= one knowledge library</b> — broader than your shelf, still curated, still private.</div></section>
+
+  <section><p class="sec">Section 06 — plan · upgrade</p><h2>Take me everywhere — at the bedside, not just the desk</h2>
+    <div class="upg"><div class="k">▲ UPGRADE</div>
+      <p class="trig">One day you'll want your knowledge library not at your desk, but at the bedside — the ward tablet, the clinic PC, your phone. That's when you'll upgrade me.</p>
+      <ul><li><b>One private library, every device</b> — your whole library and its search, in sync.</li>
+        <li><b>Search everything, anywhere</b> — answered from your full library, at the point of care.</li>
+        <li><b>Still yours alone</b> — private, encrypted, never shared, never used to profile you or your patients.</li></ul>
+      <p class="priv">Upgrading makes me a private <i>hosted</i> library that follows you. The free device-only version stays as it is.</p></div></section>
+
+  <div class="end"><div class="k">ASSESSMENT &amp; PLAN — MY PROMISE TO YOU</div>
+    <p>Give me what you already keep, and I'll hand you back a patient handout — grounded in evidence you trust — at the bedside, in minutes.</p></div>
+  <p class="foot mono">Maps to product: private cross-device library = <code>ADR-033</code> · grounding in your own material = <code>ADR-029</code> (RAG) · curated external texts = <code>ADR-028</code>. Free = device-local &amp; zero-knowledge; paid = private hosted. Dr. Anaya is illustrative.</p>
+</div>
+
+</body>
+</html>
