@@ -200,9 +200,9 @@ Today a book exports as a single `.book.json`. With bytes now off-JSON, export b
   honest line in the UI ("your figures stay on your device") is warranted and sets up the
   later processing gate.
 - **Strip metadata (EXIF) on import into the media dir.** A clinic/whiteboard/set photo can
-  carry GPS + device data; re-encode (or strip the EXIF/APP segments) so the stored file and
-  any exported bundle carry no location metadata. Applied on both attach (§3/§4) and
-  bundle-import (§7).
+  carry GPS + device data; **re-encode via `expo-image-manipulator`** (drops all EXIF incl.
+  GPS) so the stored file and any exported bundle carry no location metadata. Applied on both
+  attach (§3/§4) and bundle-import (§7). See Resolved decisions for the fallback.
 - **Local-only `src` invariant** (§5): the reader's image `src` is always a `data:` URL
   from a device file — never remote. This is asserted in tests over the rendered/parsed DOM.
 - Caps + mime allowlist (§3) bound resource use and reject non-image payloads at the door.
@@ -248,10 +248,22 @@ Today a book exports as a single `.book.json`. With bytes now off-JSON, export b
 
 ## Open questions (for the plan, not blockers)
 
-1. Exact cap values (per-image bytes, per-topic count, per-book total).
-2. EXIF strip mechanism on-device (re-encode via an image lib vs. segment strip) — pick the
-   lightest reliable option available under Expo without adding heavy native deps.
-3. Whether the PDF path already shares the EPUB XHTML assembly (reuse) or needs a small
-   figure-embed addition (confirm during implementation).
-4. Whether to allow images on a topic that has no generated `GeneratedTopic` yet (slice 1
-   default: no — attach only where content exists).
+1. **Exact cap values** (per-image bytes, per-topic count, per-book total). *TBD — set in
+   the implementation plan.*
+3. **PDF figure path.** Whether the PDF renderer already shares the EPUB XHTML assembly
+   (reuse for free) or needs a small figure-embed addition. *TBD — confirm during
+   implementation.*
+
+## Resolved decisions
+
+- **EXIF / metadata strip (was Q2).** Use `expo-image-manipulator` to re-encode every
+  attached/imported image (a format/quality pass) — this drops **all** EXIF, including the
+  privacy-critical **GPS coordinates** and device identifiers, and is available under Expo
+  without a heavy native dependency. Rationale for not using a timestamp-only fallback: the
+  real disclosure risk is embedded **location**, which a "set to system date/time" step would
+  not remove. If (and only if) a re-encode is ever unavailable on a platform, degrade to
+  stripping the EXIF/APPn segments and, at minimum, overwrite the timestamp with the system
+  date/time — never ship the original GPS-bearing metadata.
+- **Attach only where content exists (was Q4).** Images attach only to a topic that already
+  has a `GeneratedTopic`. No images-before-content flow in slice 1. The "Add figure"
+  affordance is shown only on topics with content.
