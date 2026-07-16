@@ -316,7 +316,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Open Shelves lets you add free book catalogs (OPDS feeds) as sources, then browse and manage them from the Shelves tab. A few starter libraries are included, so you always have somewhere to start.",
+        text: "Open Shelves lets you add free book catalogs (OPDS feeds) as sources, then browse and manage them from the Shelves tab. You add the sources yourself — paste an OPDS catalog URL to get started.",
       },
       {
         kind: "steps",
@@ -332,7 +332,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         defs: [
           {
             term: "Is a source curated?",
-            def: "Only the starter libraries are curated by us. Any catalog you add yourself is your responsibility — we don't vet or moderate third-party feeds.",
+            def: "No. Every catalog in Open Shelves is one you added yourself, and it's your responsibility — we don't vet or moderate third-party feeds.",
           },
           {
             term: "Authenticated repos",
