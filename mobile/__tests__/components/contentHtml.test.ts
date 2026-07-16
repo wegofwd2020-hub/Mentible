@@ -2,6 +2,13 @@ import { buildTopicHtml } from "@/components/contentHtml";
 import type { GeneratedTopic } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 
+/** The finished HTML the WebView injects — the body is now rendered in RN (#325). */
+function embeddedHtml(doc: string): string {
+  const m = doc.match(/var DATA = (\{.*?\});\n/s);
+  if (!m) throw new Error("no DATA embed found");
+  return (JSON.parse(m[1]) as { __html: string }).__html;
+}
+
 // The reader builds its body from embedded JSON via in-page JS (marked/KaTeX/
 // Mermaid run in the WebView, which jest can't execute). So these assert the
 // document shell + that each content type's data is embedded only when present,
@@ -29,12 +36,15 @@ function topic(extra: Partial<GeneratedTopic> = {}): GeneratedTopic {
 }
 
 describe("buildTopicHtml (multi-format topic)", () => {
-  it("always dispatches the lesson and conditionally the extras", () => {
-    const html = buildTopicHtml(topic());
-    expect(html).toContain("renderLesson(DATA.lesson)");
-    expect(html).toContain("if (DATA.tutorial)");
-    expect(html).toContain("if (DATA.quizSets");
-    expect(html).toContain("if (DATA.experiment)");
+  // Was: asserted the in-page dispatch SOURCE ("renderLesson(DATA.lesson)",
+  // "if (DATA.tutorial)"). That JS is gone — the body is rendered in RN by the
+  // shared renderer now (#325). Assert the OUTPUT instead, which is what those
+  // strings were standing in for and is not satisfiable by dead source text.
+  it("renders the lesson always, and the extras only when present", () => {
+    const bare = embeddedHtml(buildTopicHtml(topic()));
+    expect(bare).toContain("<h1>"); // the lesson always renders
+    expect(bare).not.toContain("quiz-set");
+    expect(bare).not.toContain("experiment");
   });
 
   it("embeds tutorial / quiz / experiment data only when present", () => {
@@ -98,12 +108,24 @@ describe("buildTopicHtml (multi-format topic)", () => {
 });
 
 describe("animated SVG (free animated-visual path)", () => {
-  // The WebView JS can't run in jest, so assert the renderer/CSS are wired —
-  // a ```svg fenced block is dropped inline (animated) instead of a code block.
-  it("wires the svg fenced-block renderer + figure styling", () => {
-    const html = buildTopicHtml(topic());
-    expect(html).toContain("lang === 'svg'"); // the renderer branch
-    expect(html).toContain("anim-svg"); // figure class + CSS
-    expect(html).toContain("<script[\\s\\S]"); // the <script>-strip regex (not a real tag)
+  // Was: asserted the twin's SOURCE ("lang === 'svg'", the strip regex) because
+  // "the WebView JS can't run in jest". The twin is gone and the markdown is
+  // rendered in RN, so the real output is now directly assertable — a strictly
+  // better test than matching the code that was supposed to produce it.
+  it("drops a ```svg fenced block inline as an animated figure, script-stripped", () => {
+    const html = embeddedHtml(buildTopicHtml(topic({
+      lesson: {
+        ...topic().lesson,
+        sections: [{ heading: "S", body_markdown: "```svg\n<svg><script>evil()</script><rect/></svg>\n```" }],
+      },
+    })));
+    expect(html).toContain('<figure class="anim-svg">'); // inline + animated, not <pre><code>
+    expect(html).toContain("<rect/>");
+    expect(html).not.toContain("<pre><code>");
+    expect(html).not.toContain("evil()"); // native has no DOMPurify — see markdown.ts
+  });
+
+  it("keeps the anim-svg styling in the document", () => {
+    expect(buildTopicHtml(topic())).toContain(".anim-svg");
   });
 });
