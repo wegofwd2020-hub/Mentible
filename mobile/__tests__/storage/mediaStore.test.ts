@@ -25,6 +25,7 @@ jest.mock("expo-image-manipulator", () => ({
 }));
 
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import {
   attachImage, deleteImage, resolveFigureDataUrls, pruneOrphanMedia, MediaCapError,
 } from "@/storage/mediaStore";
@@ -49,6 +50,40 @@ afterEach(() => {
   (FileSystem.getInfoAsync as jest.Mock).mockImplementation((FileSystem as any).__defaultGetInfoAsync);
   (FileSystem.readAsStringAsync as jest.Mock).mockImplementation(async () => "QUJD");
   for (const k of Object.keys((FileSystem as any).__files)) delete (FileSystem as any).__files[k];
+});
+
+// The "figures carry no GPS" guarantee holds only because every ingest
+// RE-ENCODES through manipulateAsync — a copy would preserve EXIF. That strip
+// was verified end-to-end on a real device (2026-07-16: GPS/Make/UserComment
+// canary gone from the stored bytes for jpeg, png and webp; JPEG APP1, PNG
+// eXIf/tEXt and WebP EXIF chunks all absent).
+//
+// The manipulator is mocked here, so these tests cannot observe the strip
+// itself — they lock the pipeline SHAPE the strip depends on. Without them a
+// plausible optimisation ("don't recompress, the file is already small/right
+// format") would reintroduce GPS with the whole suite still green.
+describe("mediaStore EXIF-strip pipeline", () => {
+  it.each([
+    ["image/jpeg", "jpeg"],
+    ["image/png", "png"],
+    ["image/webp", "webp"],
+  ])("re-encodes %s through the manipulator, never copying the source file", async (mime, format) => {
+    const uri = `file:///pick.${format}`;
+    await attachImage(bookWithTopic(), "t1", { uri, mime, fileSize: 10 });
+
+    // Re-encode happened, with the format matching the source mime (a wrong
+    // format here would silently transcode, e.g. store a PNG's pixels as JPEG).
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      uri, [], { compress: 0.9, format },
+    );
+
+    // The bytes that land on disk come from the manipulator's output — NOT from
+    // the picked file. This is the assertion that fails if the re-encode is
+    // ever short-circuited.
+    const { from } = (FileSystem.copyAsync as jest.Mock).mock.calls.at(-1)![0];
+    expect(from).toBe(`${uri}.stripped`);
+    expect(from).not.toBe(uri);
+  });
 });
 
 describe("mediaStore", () => {
