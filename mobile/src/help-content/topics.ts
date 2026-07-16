@@ -315,6 +315,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "You can attach images — a photo, a diagram, a scan — to any topic that already has content. They appear in a Figures section when you read the topic and are included when you export the book. Your figures stay on your device; nothing is sent to the AI.",
       },
       {
+        kind: "text",
+        text: "Because figures stay on your device, they aren't included when you share a draft with a reviewer — the reviewer sees a note saying some figures aren't shown. To send someone your figures, export the book as EPUB or PDF and share that instead.",
+      },
+      {
         kind: "steps",
         steps: [
           "Open a topic that has generated content.",

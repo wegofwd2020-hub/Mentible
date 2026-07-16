@@ -33,3 +33,37 @@ it("surfaces an error when posting a comment fails", async () => {
   await waitFor(() => expect(api.postComment).toHaveBeenCalledWith("b1", "1.0", "great chapter", "tok"));
   expect(await screen.findByText("network blip")).toBeTruthy();
 });
+
+// #320: the author's false assumption is upstream of the reviewer's confusion —
+// warn BEFORE anyone is invited. Figures do travel in the compiled EPUB/PDF
+// (slice 1's compilePayload), which is the honest alternative to point at;
+// draft sharing carrying figures is fenced by ADR-035 D4.
+describe("figures notice (#320)", () => {
+  const img = (id: string) => ({ id, file: `media/b1/${id}.jpg`, mime: "image/jpeg", addedAt: "x" });
+  const bookWithFigures = (n: number) =>
+    ({
+      ...book,
+      content: {
+        t1: { topicId: "t1", title: "U", lesson: {}, generatedAt: "x", images: Array.from({ length: n }, (_, i) => img(`i${i}`)) },
+      },
+    }) as unknown as Book;
+
+  it("warns the author their figures won't be shared, and names the alternative", async () => {
+    render(<ShareDraftModal visible book={bookWithFigures(3)} token="tok" onClose={jest.fn()} />);
+    await waitFor(() => expect(api.shareDraft).toHaveBeenCalled());
+    expect(screen.getByText(/3 figures won't be shared/i)).toBeTruthy();
+    expect(screen.getByText(/export the book as EPUB or PDF/i)).toBeTruthy();
+  });
+
+  it("uses the singular for one figure", async () => {
+    render(<ShareDraftModal visible book={bookWithFigures(1)} token="tok" onClose={jest.fn()} />);
+    await waitFor(() => expect(api.shareDraft).toHaveBeenCalled());
+    expect(screen.getByText(/1 figure won't be shared/i)).toBeTruthy();
+  });
+
+  it("says nothing for a book with no figures", async () => {
+    render(<ShareDraftModal visible book={book} token="tok" onClose={jest.fn()} />);
+    await waitFor(() => expect(api.shareDraft).toHaveBeenCalled());
+    expect(screen.queryByText(/won't be shared/i)).toBeNull();
+  });
+});

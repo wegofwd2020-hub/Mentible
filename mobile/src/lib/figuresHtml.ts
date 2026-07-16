@@ -1,4 +1,17 @@
-import type { TopicImage } from "@/types/book";
+import type { Book, TopicImage } from "@/types/book";
+
+/**
+ * How many figures a book carries in total, counted from the schema refs alone.
+ *
+ * Needs no bytes on disk — `book.content[*].images[]` are refs (media slice 1),
+ * so this answers "does this book have figures?" for a book that arrived over
+ * the wire with no media. That is exactly the shared-draft case (#320): the
+ * author is warned their figures won't travel, and the reviewer is told some
+ * exist, both from `book_json` alone.
+ */
+export function countBookFigures(book: Book): number {
+  return Object.values(book?.content ?? {}).reduce((n, gen) => n + (gen?.images?.length ?? 0), 0);
+}
 
 // Self-contained HTML escaper (this module is imported by both the web reader and
 // the WebView builder; keep it dependency-free).
