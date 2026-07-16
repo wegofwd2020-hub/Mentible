@@ -88,6 +88,11 @@ export default function SharedDraftReader(): React.JSX.Element {
   }
 
   const topic = topicId && book.content ? book.content[topicId] : null;
+  // A shared draft carries figure REFS but never the bytes (they stay on the
+  // author's device — ADR-035 D4 fences figure distribution), and TopicRenderer
+  // renders nothing for a figure it can't resolve. Say so rather than leave a
+  // reviewer silently short of what they were asked to review (#320).
+  const hiddenFigures = topic?.images?.length ?? 0;
 
   // Topic view: a flex:1 chain fills the page and lets the WebView-backed
   // TopicRenderer scroll its own content (mirrors the Studio topic screen).
@@ -101,6 +106,15 @@ export default function SharedDraftReader(): React.JSX.Element {
             <Text style={styles.back}>← Contents</Text>
           </Pressable>
         </View>
+        {hiddenFigures > 0 && (
+          <View style={styles.figuresNotice}>
+            <Text style={styles.figuresNoticeText}>
+              {hiddenFigures === 1
+                ? "1 figure isn't included in shared drafts."
+                : `${hiddenFigures} figures aren't included in shared drafts.`}
+            </Text>
+          </View>
+        )}
         <View style={styles.topicBody}>
           <TopicRenderer topic={topic} />
         </View>
@@ -132,5 +146,13 @@ const styles = StyleSheet.create({
   topicBar: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
   topicBody: { flex: 1 },
   back: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.primary },
+  figuresNotice: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
+  },
+  figuresNoticeText: { fontSize: typography.sizeSm, color: colors.textSecondary },
   commentsHeader: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text, marginTop: spacing.md },
 });

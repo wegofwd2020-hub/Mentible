@@ -29,9 +29,22 @@ renderer.code = function code(source: string, lang: string | undefined): string 
   }
   if (lang === "svg") {
     // Animated educational visuals (the free animated-visual path). Inlined raw so
-    // SMIL/CSS animation works; the final DOMPurify pass strips scripts, handlers,
-    // and href-targeting animations. Do not pre-strip here — one boundary only.
-    return `<figure class="anim-svg">${source}</figure>`;
+    // SMIL/CSS animation works.
+    //
+    // The <script> strip is NOT redundant with DOMPurify, because DOMPurify only
+    // runs on web. This renderer is shared with the native reader, whose WebView
+    // has no DOM-side sanitizer, so on that path this strip is the only thing
+    // between an LLM-authored ```svg block and script execution. The WebView's
+    // now-deleted duplicate renderer stripped here for exactly this reason
+    // ("animation needs no JS, and SVG <script> would run in the WebView") and
+    // dropping it while unifying the two would have been a silent regression.
+    //
+    // This is a targeted strip, NOT a second sanitizer: it does not attempt
+    // handlers, javascript: hrefs, or href-targeting animations. On web DOMPurify
+    // still handles those. Native's missing sanitizer is a real gap, tracked in
+    // #325 and the F1 spec (D-I4) — this line does not close it.
+    const noScript = source.replace(/<script[\s\S]*?<\/script\s*>/gi, "");
+    return `<figure class="anim-svg">${noScript}</figure>`;
   }
   return `<pre><code>${escapeHtml(source)}</code></pre>`;
 };

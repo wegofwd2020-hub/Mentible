@@ -1,13 +1,11 @@
 # ADR-032 — Server-hosted library + hosted RAG + storage tiers (the hybrid hosted account)
 
-**Status:** Proposed — 2026-07-12 (the §5 open decisions of the pre-ADR brief are now
-resolved; see D1–D10). **Amended 2026-07-14 (Siva) — see D11–D15:** the server ingests
-**public-domain works only** (personal uploads never leave the device); the PD corpus is
-**shared, global, and deduplicated** (embedded once, serving every user, outside per-user
-storage caps); ingestion **fetches from the vetted source itself** and never accepts client
-bytes (corpus-poisoning); and grounding over that corpus is **free-tier**, not gated on
-managed billing. Design-only; the *paid hosted* tier remains gated on the managed-billing
-launch.
+**Status:** Rejected — 2026-07-15 (superseded by ADR-033). Originally Proposed 2026-07-12
+(§5 resolved; see D1–D10). Design-only; never implemented.
+
+> **This decision was rejected.** The document is retained as the record of the broad
+> hosted shape that was considered and narrowed to a per-user *private* hosted tier — see
+> **ADR-033**. Its reasoning has archival value; the body below is unchanged.
 **Decision-maker:** Sivakumar Mambakkam
 **Amends:** ADR-028 D2/D3/D6 (device-local / per-device / neutral-conduit /
 preferences-not-profiles — now the **free-tier** posture, with an opt-in hosted tier
@@ -140,113 +138,6 @@ The hosted tier is **paid**, which structurally blunts Sybil/abuse (no free host
 farm). Per-plan **storage caps** (D4) and the existing **per-account spend ceiling**
 (ADR-005 O7) bound infra and token cost. Managed embeddings comp only paid providers
 (no free-tier Gemini — trains on data).
-
----
-
-## Amendment — 2026-07-14 (Siva): the shared public-domain corpus
-
-Three decisions taken 2026-07-14 narrow the content scope, change the corpus *shape*, and
-un-gate part of the tier. They **amend D2, D4, D7, D9, and D10**; the rest of the ADR
-stands.
-
-### D11 — The server ingests **public-domain works only**. Personal uploads never leave the device (**amends D2, D7**)
-
-D2(b) — "the user's **own uploads**" — is **removed from the server's content scope**. The
-server-hosted corpus is **public-domain works from sources Mentible has vetted**, and
-nothing else. A book the user brings from anywhere else (their own PDF/EPUB, a
-non-curated feed) lives **only in their library, on their device**, and is grounded by the
-**device-local** path (ADR-029) or not at all.
-
-Consequences, deliberately accepted:
-- The **ToS rights-representation + indemnification** clause (D7) is no longer needed for
-  uploads — we host nothing a user hands us.
-- The **DMCA surface shrinks to near zero**: we host only works nobody owns. The
-  safe-harbor mechanics of D7 remain prudent, but they stop being the load-bearing shield.
-- The paid tier loses "my own files, everywhere" as a selling point. That is a real product
-  cost, taken knowingly.
-
-### D12 — The trust anchor is the **source**, not the book's claim
-
-Ingestion is gated on **the book coming from a source on Mentible's curated allowlist**
-(Project Gutenberg today), **never** on a book *claiming* to be public domain.
-
-"Free / non-copyrighted" is not a property we can verify. The only evidence available for
-an arbitrary book is metadata from a feed we do not control — and **feed XML is hostile
-input** (ADR-028). A pirated EPUB can simply assert `Rights: Public domain`. Trusting that
-string would put copyrighted content into a corpus that serves **every user**. The
-allowlisted *source* is verifiable and is **our** decision, not an attacker's. Widening the
-corpus therefore means **vetting another repo**, an owner action — the same stewardship
-pattern as the starter list (ADR-018/020).
-
-### D13 — The PD corpus is **shared and global**, deduplicated, outside per-user storage (**amends D4**)
-
-A public-domain work is **identical for every user**. It is therefore embedded **once,
-globally**, keyed by a **stable global book identity** (e.g. `gutenberg:2701`), and served
-to all users. A user's "library" is a **selection of book IDs**, not a copy of the corpus.
-
-- **Not** per-account content ⇒ **no per-user isolation problem**, so backend rule #4
-  ("single-tenant by user, no RLS") **survives intact** — there is no private per-user
-  content in the vector store to isolate.
-- **Does not count against any storage cap** (D4) — the user is not storing Moby Dick; we
-  are, once, for everyone.
-- **Warm on arrival:** a new user importing a book we have already ingested gets grounded
-  generation **instantly**, with no per-user ingestion wait. The corpus is a compounding
-  asset that ships warm.
-- Cost collapses from *once per user per book* to *once per book, ever*.
-
-### D14 — Ingestion **fetches from the source**; it never accepts bytes from a client
-
-**The client's import is a demand signal, not a content pipe.** On first import of a book
-we have not ingested, the device sends only its **global book ID**; the **server fetches
-that book from the vetted source itself** and embeds it.
-
-The server must **never** accept book bytes from a client. The corpus is **shared across
-all users**, so anything admitted to it serves everybody — a client-supplied upload keyed
-`gutenberg:2701` is a **corpus-poisoning** vector: a malicious user could inject
-copyrighted text (making us a host of it) or content crafted to steer other users'
-generations. Fetching from the allowlisted source ourselves is both the security control
-and the cleaner legal footing (the server fetches a source **we** curated, never one a
-**user** named — the distinction D7 already draws).
-
-Ingestion is therefore **demand-driven but server-executed**: cost tracks what users
-actually read, and the corpus grows toward real demand rather than pre-embedding 75k books
-nobody opens.
-
-### D15 — Grounding over the shared PD corpus is **free-tier** (**amends D9, D10**)
-
-Retrieval over the shared PD corpus is **not** gated on the managed-billing launch and does
-**not** require a subscription. It costs us almost nothing (embedded once, shared), and it
-is the **warm-start hook**: it shows a new user what Mentible *is* — generation grounded in
-real books — before they pay for anything. The paid hosted tier then sells **their own
-library, hosted and cross-device**, not access to public books.
-
-**This breaks D10's abuse argument** ("the hosted tier is paid, which structurally blunts
-Sybil/abuse"). Free-tier retrieval must therefore carry its own controls:
-- **Account-gated** (accounts exist at MVP — ADR-005), never anonymous.
-- **Per-account rate limits + a query ceiling** on retrieval and query-embedding spend.
-- Query embeddings are tiny, but they are **our** managed-key spend on a **free** user —
-  so they must be metered like any other managed spend (ADR-016), not left unbounded.
-
-### Open questions from this amendment
-
-- **OQ-A1 — Authored books (D2c).** D2's scope was PD downloads + user uploads +
-  **Mentible-authored books**. D11 removes uploads but is **silent on (c)** — the user's
-  *own writing*, in our format, which cloud library sync already contemplates holding
-  (ADR-014, opt-in, zero-knowledge). Does the server hold and index authored books? If yes,
-  server-side RAG over them **cannot be zero-knowledge** (D6's tension, now applied to the
-  user's own manuscript). **Owner decision; not resolved here.**
-- **OQ-A2 — Global book identity.** The dedup key (`gutenberg:2701`) must be stable,
-  collision-free across repos, and derivable from feed metadata we already parse. Needs a
-  concrete scheme before build.
-- **OQ-A3 — Retrieval reveals interest.** A retrieval query names the book IDs to search,
-  so the backend learns what a user is writing against. Mitigable (IDs per request,
-  persist nothing), but it is a **new server-visible signal** and must be disclosed
-  honestly (D6) rather than quietly acquired — it partially erodes ADR-028 D6
-  ("preferences, not profiles") for free-tier users, who previously gave us nothing.
-- **OQ-A4 — What the paid tier now sells.** With uploads device-local (D11) and the PD
-  corpus free (D15), the hosted tier's value is narrowed to hosting/syncing the user's
-  **own** material. Worth re-checking that it still justifies its price and its D7 legal
-  burden.
 
 ---
 

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/a7ad5f88-f2ee-4ec6-b3e9-278515581617 -->
+<title>Mentible × Mara — a writers'-room story</title>
+<style>
+  :root{
+    --page:#F4EDE0;            /* warm screenplay paper */
+    --page2:#EFE6D5;
+    --ink:#2A2230;             /* warm near-black, plum-tinted */
+    --muted:#6C6172;
+    --line:#DDD2BE;
+    --plum:#6B4880; --plum-soft:#EDE4F1; --plum-line:#D3C1DE;
+    --brass:#B5822E;           /* filmic warm */
+    --rust:#A85D4E;
+    --card:#FBF6EC;
+    --shadow:0 1px 2px rgba(42,34,48,.06),0 16px 34px -18px rgba(42,34,48,.30);
+    --rail:#1E1A22;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --page:#191521;--page2:#15111C;--ink:#EFE7E9;--muted:#A89BAA;--line:#332A3C;
+    --plum:#C6A6DC;--plum-soft:#241A30;--plum-line:#402F52;
+    --brass:#E2B564;--rust:#D08977;--card:#221A2C;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 18px 40px -20px rgba(0,0,0,.8);--rail:#0E0B12;
+  }}
+  :root[data-theme="light"]{--page:#F4EDE0;--page2:#EFE6D5;--ink:#2A2230;--muted:#6C6172;--line:#DDD2BE;
+    --plum:#6B4880;--plum-soft:#EDE4F1;--plum-line:#D3C1DE;--brass:#B5822E;--rust:#A85D4E;--card:#FBF6EC;
+    --shadow:0 1px 2px rgba(42,34,48,.06),0 16px 34px -18px rgba(42,34,48,.30);--rail:#1E1A22;}
+  :root[data-theme="dark"]{--page:#191521;--page2:#15111C;--ink:#EFE7E9;--muted:#A89BAA;--line:#332A3C;
+    --plum:#C6A6DC;--plum-soft:#241A30;--plum-line:#402F52;--brass:#E2B564;--rust:#D08977;--card:#221A2C;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 18px 40px -20px rgba(0,0,0,.8);--rail:#0E0B12;}
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--page);color:var(--ink);
+    font-family:"Iowan Old Style",Georgia,"Times New Roman",serif;line-height:1.6;}
+  .court{font-family:"Courier New",ui-monospace,Menlo,monospace;}
+  .sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+
+  /* film-strip rail */
+  .rail{position:fixed;top:0;left:0;bottom:0;width:2.6rem;background:var(--rail);z-index:5;
+    background-image:
+      repeating-linear-gradient(to bottom, transparent 0 .55rem, rgba(255,255,255,.85) .55rem .95rem, transparent .95rem 1.5rem);
+    background-size:.5rem 100%;background-position:.45rem 0, calc(100% - .45rem) 0;background-repeat:repeat-y;
+    box-shadow:2px 0 12px rgba(0,0,0,.25);}
+  .rail::after{content:"";position:absolute;inset:0;
+    background-image:repeating-linear-gradient(to bottom, transparent 0 .55rem, rgba(255,255,255,.85) .55rem .95rem, transparent .95rem 1.5rem);
+    background-size:.5rem 100%;background-position:calc(100% - .45rem) 0;background-repeat:repeat-y;}
+  @media (max-width:34rem){.rail{width:1.4rem;}}
+
+  .wrap{max-width:52rem;margin:0 auto;padding:clamp(1.25rem,4vw,3rem) 1.4rem 5rem;}
+
+  .fade{font-size:.8rem;letter-spacing:.22em;color:var(--muted);margin:0 0 1.6rem;}
+  .slug{display:inline-block;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;color:var(--plum);
+    border:1px solid var(--plum-line);background:var(--plum-soft);padding:.3rem .7rem;border-radius:3px;margin:0 0 1.3rem;font-weight:700;}
+  h1{font-size:clamp(2.1rem,6vw,3.4rem);line-height:1.04;margin:.2rem 0 .6rem;font-weight:600;letter-spacing:-.01em;max-width:15ch;text-wrap:balance;}
+
+  /* screenplay dialogue block */
+  .dlg{margin:1.6rem auto;max-width:30rem;}
+  .dlg .cue{text-align:center;letter-spacing:.18em;font-size:.92rem;color:var(--plum);margin:0 0 .3rem;font-weight:700;}
+  .dlg .paren{text-align:center;font-size:.85rem;color:var(--muted);margin:0 0 .25rem;}
+  .dlg .line{margin:0 auto;max-width:26rem;text-align:center;font-size:1.12rem;color:var(--ink);}
+  .dlg.court .line,.dlg.court .cue{font-family:"Courier New",monospace;}
+
+  .who{display:flex;align-items:center;gap:.8rem;margin-top:1.8rem;padding-top:1.2rem;border-top:1px dashed var(--line);}
+  .who .tag{font-family:"Courier New",monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .who b{font-size:1rem;} .who span{color:var(--muted);font-size:.86rem;}
+
+  section{margin-top:3.4rem;position:relative;}
+  .cut{font-family:"Courier New",monospace;font-size:.78rem;letter-spacing:.16em;color:var(--muted);text-align:right;margin:0 0 1.4rem;}
+  .scene{font-family:"Courier New",monospace;font-size:.82rem;letter-spacing:.05em;text-transform:uppercase;color:var(--plum);font-weight:700;margin:0 0 .5rem;}
+  h2{font-size:clamp(1.5rem,3.6vw,2.1rem);margin:.1rem 0 .7rem;font-weight:600;letter-spacing:-.01em;text-wrap:balance;}
+  p.narr{font-size:1.08rem;color:var(--ink);max-width:52ch;} p.narr b{color:var(--plum);}
+
+  .beats{margin:1.4rem 0 0;border-left:2px solid var(--plum-line);padding-left:1.2rem;}
+  .beat{margin:0 0 .8rem;padding:.2rem 0;} .beat b{color:var(--ink);} .beat span{color:var(--muted);}
+  .beat .n{font-family:"Courier New",monospace;color:var(--rust);font-weight:700;margin-right:.5rem;}
+
+  /* free start — clapper steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.3rem;}
+  @media (max-width:40rem){.steps{grid-template-columns:1fr;}}
+  .stp{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1.1rem 1.15rem;box-shadow:var(--shadow);}
+  .stp .k{font-family:"Courier New",monospace;font-size:.72rem;letter-spacing:.08em;color:var(--brass);font-weight:700;}
+  .stp h4{margin:.3rem 0 .3rem;font-size:1.02rem;} .stp p{margin:0;color:var(--muted);font-size:.9rem;}
+  .freeline{margin-top:1.1rem;font-family:"Courier New",monospace;font-size:.86rem;color:var(--brass);}
+
+  /* corkboard library */
+  .board{margin-top:1.4rem;border-radius:10px;padding:1.6rem 1.2rem 2rem;position:relative;overflow:hidden;
+    background:#C39A63;
+    background-image:radial-gradient(rgba(120,80,40,.35) 1px, transparent 1.4px);
+    background-size:9px 9px;border:6px solid #7A5230;box-shadow:var(--shadow),inset 0 0 40px rgba(80,50,20,.35);}
+  .cards{display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;}
+  .idx{background:#FCF7EC;color:#2A2230;width:9.5rem;min-height:6rem;border-radius:3px;padding:.7rem .75rem;
+    box-shadow:0 6px 14px rgba(40,25,10,.35);position:relative;border-top:1.6rem solid #F0E4CE;}
+  .idx:nth-child(1){transform:rotate(-3deg);} .idx:nth-child(2){transform:rotate(2deg);}
+  .idx:nth-child(3){transform:rotate(-1.5deg);} .idx:nth-child(4){transform:rotate(2.5deg);} .idx:nth-child(5){transform:rotate(-2deg);}
+  .idx .pin{position:absolute;top:-2.3rem;left:50%;transform:translateX(-50%);width:.85rem;height:.85rem;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #E88, #B33);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+  .idx b{display:block;font-size:.82rem;} .idx small{color:#6C6172;font-size:.72rem;}
+  .board-cap{margin:1rem 0 0;text-align:center;font-style:italic;color:var(--muted);font-size:.9rem;}
+
+  /* universal */
+  .plus-row{display:flex;align-items:center;gap:1rem;margin-top:1.3rem;flex-wrap:wrap;}
+  .srcbox{flex:1 1 14rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem 1.1rem;box-shadow:var(--shadow);}
+  .srcbox h4{margin:0 0 .5rem;font-size:.92rem;} .srcbox .t{display:inline-block;font-family:"Courier New",monospace;font-size:.74rem;
+    background:var(--page2);border:1px solid var(--line);border-radius:3px;padding:.15rem .5rem;margin:.15rem .12rem 0;}
+  .plus-row .op{font-size:1.5rem;color:var(--muted);}
+  .uni-out{margin-top:1rem;padding:.9rem 1.1rem;border-radius:8px;background:var(--plum-soft);border:1px solid var(--plum-line);text-align:center;}
+  .uni-out b{color:var(--plum);}
+
+  /* upgrade */
+  .upg{margin-top:1.3rem;border:1px solid var(--brass);border-radius:10px;padding:1.4rem 1.5rem;background:linear-gradient(var(--card),var(--card));
+    box-shadow:var(--shadow);position:relative;}
+  .upg .marq{font-family:"Courier New",monospace;font-size:.74rem;letter-spacing:.14em;color:var(--brass);font-weight:700;margin:0 0 .6rem;}
+  .upg .trig{font-style:italic;margin:0 0 .9rem;font-size:1.05rem;}
+  .upg ul{margin:0;padding-left:1.1rem;} .upg li{margin:.35rem 0;font-size:.95rem;} .upg li b{color:var(--brass);}
+  .priv{margin-top:.9rem;font-size:.85rem;color:var(--muted);}
+
+  .final{margin-top:3.4rem;text-align:center;padding:2rem 1rem;border-top:1px dashed var(--line);}
+  .final .dlg{margin-top:0;} .final .fade-out{font-family:"Courier New",monospace;letter-spacing:.22em;color:var(--muted);margin-top:1.6rem;font-size:.85rem;}
+
+  .foot{margin-top:2.6rem;font-size:.78rem;color:var(--muted);} .foot code{font-family:"Courier New",monospace;color:var(--plum);}
+</style>
+</head>
+<body>
+
+<div class="rail" aria-hidden="true"></div>
+<div class="wrap">
+  <div style="margin:0 0 1.2rem;padding:.6rem .9rem;border:1px dashed #B5822E;border-radius:8px;font-size:.8rem;line-height:1.4;color:var(--muted)"><b style="color:#B5822E;font-family:ui-monospace,monospace;letter-spacing:.05em">◆ PRODUCT VISION</b> — a preview of where Mentible is headed. The grounded AI and private hosted sync shown here are on the roadmap (ADR-029/033), not yet shipped.</div>
+
+  <p class="fade court">FADE IN:</p>
+  <p class="slug court">INT. YOUR DESK — LATE</p>
+  <h1>Hi, Mara.<br>I'm Mentible.</h1>
+  <div class="dlg court">
+    <p class="cue">MENTIBLE</p>
+    <p class="paren">(quietly, already reading)</p>
+    <p class="line">Your research, your bible, the notes you trust — I'll write from them, and never break your canon.</p>
+  </div>
+  <div class="who">
+    <div><span class="tag">Talking to</span><br><b>Mara</b> <span>· feature screenwriter</span></div>
+  </div>
+
+  <!-- 1 problem -->
+  <section>
+    <p class="scene">Sc. 1 — the problem</p>
+    <h2>Your world lives in a hundred files, and generic AI breaks your canon</h2>
+    <div class="beats">
+      <p class="beat"><span class="n">A</span><b>Your world is scattered.</b> <span>Research docs, a series bible, character notes, location refs — across folders and notebooks.</span></p>
+      <p class="beat"><span class="n">B</span><b>Continuity is brutal.</b> <span>One detail wrong and the world cracks. Holding it all in your head doesn't scale.</span></p>
+      <p class="beat"><span class="n">C</span><b>The generic chatbots?</b> <span>They invent facts, forget your canon — and you'd be feeding unreleased story into someone else's cloud.</span></p>
+    </div>
+  </section>
+
+  <!-- 2 free -->
+  <section>
+    <p class="cut court">CUT TO:</p>
+    <p class="scene">Sc. 2 — ext. your device — free</p>
+    <h2>No sign-up. Start on your own device.</h2>
+    <p class="narr">Install me, point me at your research and bible, and we start — your library stays on your own device.</p>
+    <div class="steps">
+      <div class="stp"><div class="k">TAKE 1</div><h4>Open me up</h4><p>Free to start. No account, works offline.</p></div>
+      <div class="stp"><div class="k">TAKE 2</div><h4>Hand me your world</h4><p>Research, bible, character &amp; location notes — they become your knowledge library.</p></div>
+      <div class="stp"><div class="k">TAKE 3</div><h4>Ask, or hand me a scene</h4><p>I draft and answer from your own canon.</p></div>
+    </div>
+    <p class="freeline">// Free tier: your world is stored on your device. When you ask me to draft, the relevant notes are sent to the AI model — so choose what you share.</p>
+  </section>
+
+  <!-- 3 knowledge library = corkboard -->
+  <section>
+    <p class="cut court">CUT TO:</p>
+    <p class="scene">Sc. 3 — the writers' room</p>
+    <h2>This becomes your knowledge library</h2>
+    <p class="narr">Not my memory — <b>yours</b>. Your world, your bible, your notes — one canon I've read cover to cover and keep straight for you. Think of it as your board:</p>
+    <div class="board">
+      <div class="cards">
+        <div class="idx"><span class="pin"></span><b>Series bible</b><small>the rules of your world</small></div>
+        <div class="idx"><span class="pin"></span><b>World research</b><small>period &amp; place</small></div>
+        <div class="idx"><span class="pin"></span><b>Character notes</b><small>who they are</small></div>
+        <div class="idx"><span class="pin"></span><b>Location refs</b><small>where it happens</small></div>
+        <div class="idx"><span class="pin"></span><b>Timeline</b><small>what happens when</small></div>
+      </div>
+    </div>
+    <p class="board-cap">Every card here, you pinned. That's the point — I keep your canon, not a made-up one.</p>
+  </section>
+
+  <!-- 4 RAG -->
+  <section>
+    <p class="cut court">CUT TO:</p>
+    <p class="scene">Sc. 4 — how I actually work</p>
+    <h2>I read your bible first — then I write, true to your canon</h2>
+    <p class="narr">Ask me a question or hand me a scene. I don't invent: I <b>find the relevant details in your bible first</b>, then write consistent with them — and show you which notes I drew on. (Engineers call it RAG. You don't have to.)</p>
+    <div class="beats">
+      <p class="beat"><span class="n">›</span><b>YOU:</b> <span>"Draft a scene brief for the 1922 airfield — keep it true to the bible."</span></p>
+      <p class="beat"><span class="n">›</span><b>ME (retrieving):</b> <span>I pull the exact details from your world research &amp; character notes.</span></p>
+      <p class="beat"><span class="n">›</span><b>ME (writing):</b> <span>A brief consistent with your world, citing your own notes — no continuity breaks.</span></p>
+    </div>
+    <div class="dlg court">
+      <p class="cue">MENTIBLE</p>
+      <p class="line">Think of me as the story editor who's memorized your bible — and never contradicts it.</p>
+    </div>
+  </section>
+
+  <!-- 5 universal -->
+  <section>
+    <p class="cut court">CUT TO:</p>
+    <p class="scene">Sc. 5 — bigger than your own research</p>
+    <h2>Your knowledge library can outgrow your own files</h2>
+    <p class="narr">You're not limited to what you've gathered. I can pull public-domain period texts and reference works into your knowledge library from <b>curated catalogs</b> — straight to your device — then ground every answer in your world, at the depth your story needs.</p>
+    <div class="plus-row">
+      <div class="srcbox"><h4>What you bring</h4><span class="t">series bible</span><span class="t">your research</span><span class="t">notes</span></div>
+      <div class="op court">＋</div>
+      <div class="srcbox"><h4>What I pull in</h4><span class="t">period texts</span><span class="t">curated catalogs</span></div>
+    </div>
+    <div class="uni-out"><b>= one knowledge library</b> — richer than your own files, still your canon, still private.</div>
+  </section>
+
+  <!-- 6 upgrade -->
+  <section>
+    <p class="cut court">CUT TO:</p>
+    <p class="scene">Sc. 6 — when you're ready for more</p>
+    <h2>Take the whole world with you — desk, café, writers' room</h2>
+    <div class="upg">
+      <p class="marq court">★ FEATURE UPGRADE</p>
+      <p class="trig">One day you'll want your world not just on your desk, but on your laptop at the café and your phone in the room. That's when you'll upgrade me.</p>
+      <ul>
+        <li><b>One private library, every device</b> — I carry your whole world and its search across your devices, in sync.</li>
+        <li><b>Write anywhere</b> — your canon and research, wherever the idea strikes.</li>
+        <li><b>Your IP stays yours</b> — private, encrypted, never shared, never used to train anyone's model.</li>
+      </ul>
+      <p class="priv"><b>The honest version:</b> drafting sends your notes to a third-party AI model; the hosted tier isn't zero-knowledge; and prose you don't substantially rewrite may not be copyrightable — check your WGA/studio terms. Upgrading makes me a private hosted library; the free device-only version stays as it is.</p>
+    </div>
+  </section>
+
+  <!-- final -->
+  <div class="final">
+    <div class="dlg court">
+      <p class="cue">MENTIBLE</p>
+      <p class="paren">(my promise to you)</p>
+      <p class="line">Give me the world you've already built, and I'll keep it consistent — scene after scene, draft after draft — while your unreleased IP stays yours alone.</p>
+    </div>
+    <p class="fade-out">FADE OUT.</p>
+  </div>
+
+  <p class="foot court">Maps to product: private cross-device library = <code>ADR-033</code> · grounding in your own material = <code>ADR-029</code> (RAG) · curated external texts = <code>ADR-028</code> (Open Shelves). Free = device-local &amp; zero-knowledge; paid = private hosted. Mara is illustrative.</p>
+</div>
+
+</body>
+</html>

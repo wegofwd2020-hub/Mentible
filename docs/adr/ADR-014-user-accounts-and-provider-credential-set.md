@@ -197,6 +197,15 @@ DK   ──encrypts──▶  book content
 
 ### D11 — Sharing model: artifact-first, public-key wrapping later (added 2026-06-17)
 
+> **Constrained by ADR-035 D4 (2026-07-16) — DK wrapping must NOT carry attached figures.** ADR-035
+> encrypts a book's media under that book's DK (D10's envelope), so wrapping `DK_B` for a recipient
+> would hand over its figures **for free, by default** — silently turning images we are structurally
+> unable to scan (E2E, by design) into distributed ones. Distribution is a materially different legal
+> posture from private storage and would re-open the DMCA/legal-review gate ADR-033 D5 shed. Until a
+> future ADR faces that question, the public-key tier below shares **text/`book.json` only**; figures
+> are excluded. (The artifact-first near-term path is unaffected — an exported EPUB/PDF already
+> leaves the envelope by the user's own choice, ADR-004.)
+
 **Near-term (v1.1, recommended): share the exported artifact.** Sharing a book = export
 the EPUB/PDF (ADR-004 already makes the artifact the unit of delivery; the free reader
 app lights up our books) and send it. Zero new crypto, zero server sharing infra, fully

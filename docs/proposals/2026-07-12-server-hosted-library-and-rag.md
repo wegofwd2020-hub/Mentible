@@ -1,5 +1,11 @@
 # Server-hosted library + hosted RAG + storage tiers — design brief (pre-ADR)
 
+> **ADR-032 was REJECTED (2026-07-15), superseded by ADR-033** (per-user *private* hosted
+> library). This brief's broad hosted shape (shared/global corpus, copyrighted-file hosting,
+> storage tiers) did **not** ship; its §4 copyright/DMCA analysis is retained as background,
+> but the go-forward decision is **ADR-033**, whose own-content+PD-only scope collapses that
+> DMCA surface to hygiene. Read `docs/adr/ADR-033-per-user-private-hosted-library.md`.
+
 **Status:** COMPANION to **ADR-032** (2026-07-12). The §5 open decisions are now resolved
 and the decision record lives in `docs/adr/ADR-032-server-hosted-library-and-rag.md`; this
 brief is retained for the detailed **copyright / DMCA legal analysis (§4)** and the design

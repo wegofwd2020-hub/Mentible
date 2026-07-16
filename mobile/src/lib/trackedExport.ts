@@ -4,6 +4,7 @@ import {
   getPublishedArtifacts,
   type ExportedArtifact,
 } from "@/api/client";
+import { buildCompilePayload } from "@/lib/compilePayload";
 import {
   getAllExportStatus,
   setFormatStatus,
@@ -15,6 +16,14 @@ import type { Book } from "@/types/book";
 // so the Books/Library indicators reflect generating → done/failed. Returns the
 // artifact bytes (+ trust) exactly like exportBook, so callers use it in place of
 // a raw exportBook call. `cover` is not tracked — keep using exportBook for it.
+//
+// The compiler is a remote HTTP service with no media channel: attached images
+// only reach it as data: URIs already inline in the markdown. So the stored
+// book is inflated (buildCompilePayload — a deep copy, never mutates `book`)
+// before it's POSTed. `fmt` is always "epub" | "pdf" here (ExportFormat has no
+// "cover" member — the cover thumbnail always goes through a raw exportBook
+// call instead, see SaveToLibraryButton), so both tracked formats get the
+// Figures section and cover never does.
 export async function trackedExport(
   book: Book,
   fmt: ExportFormat,
@@ -22,7 +31,8 @@ export async function trackedExport(
 ): Promise<ExportedArtifact> {
   const sourceUpdatedAt = book.updatedAt;
   try {
-    const result = await exportBook(book, {
+    const payload = await buildCompilePayload(book);
+    const result = await exportBook(payload, {
       format: fmt,
       diagrams: opts.diagrams,
       onSubmitted: (jobId) => {

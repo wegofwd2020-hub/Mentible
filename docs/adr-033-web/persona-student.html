@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/1499095d-7d96-4ba7-92a8-2a52bffae8c7 -->
+<title>Mentible × Sam — a study notebook</title>
+<style>
+  :root{--page:#FCFBF4;--ink:#21302B;--muted:#5E6E66;--rule:#D7E4DB;--margin:#D98C82;--card:#FFFFFF;
+    --grn:#2E7D5B;--grn-s:#E6F1EB;--grn-l:#BFDDCB;--hi:#F4E86A;--maxw:56rem;
+    --shadow:0 1px 2px rgba(33,48,43,.05),0 14px 30px -16px rgba(33,48,43,.22);}
+  @media (prefers-color-scheme:dark){:root{--page:#12160F;--ink:#E8EEE6;--muted:#98A79C;--rule:#25332B;--margin:#7A4A44;--card:#1A2019;
+    --grn:#5FB890;--grn-s:#12241C;--grn-l:#29473A;--hi:#5A5A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.7);}}
+  :root[data-theme="light"]{--page:#FCFBF4;--ink:#21302B;--muted:#5E6E66;--rule:#D7E4DB;--margin:#D98C82;--card:#FFFFFF;--grn:#2E7D5B;--grn-s:#E6F1EB;--grn-l:#BFDDCB;--hi:#F4E86A;}
+  :root[data-theme="dark"]{--page:#12160F;--ink:#E8EEE6;--muted:#98A79C;--rule:#25332B;--margin:#7A4A44;--card:#1A2019;--grn:#5FB890;--grn-s:#12241C;--grn-l:#29473A;--hi:#5A5A20;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--page);color:var(--ink);
+    background-image:repeating-linear-gradient(transparent 0 2.05rem, var(--rule) 2.05rem 2.1rem);background-attachment:fixed;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:2.1rem;}
+  .serif{font-family:Georgia,serif;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.25rem,4vw,2.5rem) 1.4rem 4rem 3.2rem;position:relative;}
+  .wrap::before{content:"";position:fixed;top:0;bottom:0;left:2.4rem;width:2px;background:var(--margin);}
+  .spiral{position:fixed;top:0;bottom:0;left:.6rem;width:1.2rem;display:flex;flex-direction:column;justify-content:space-around;padding:1rem 0;}
+  .spiral i{width:1.1rem;height:.5rem;border:2px solid #9AA7A0;border-radius:50%;display:block;}
+  .chip{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:.4rem;}
+  .chip .n{width:1.7rem;height:1.7rem;border-radius:50%;background:var(--grn);color:#fff;display:grid;place-items:center;font-family:Georgia,serif;font-weight:700;}
+  .chip .l{font-family:ui-monospace,Consolas,monospace;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--grn);font-weight:700;}
+  h1{font-family:Georgia,serif;font-size:clamp(2rem,5.4vw,3rem);line-height:2.5rem;margin:.6rem 0;max-width:16ch;}
+  .hi{background:linear-gradient(transparent 55%, var(--hi) 55% 92%, transparent 92%);padding:0 .1rem;}
+  .lede{font-size:1.12rem;color:var(--muted);max-width:52ch;} .lede b{color:var(--ink);}
+  .buddy{margin:1.3rem 0;background:var(--grn-s);border:1px solid var(--grn-l);border-radius:10px;padding:1rem 1.2rem;}
+  .buddy .k{font-family:ui-monospace,monospace;font-size:.7rem;color:var(--grn);font-weight:700;letter-spacing:.08em;} .buddy p{margin:.3rem 0 0;font-family:Georgia,serif;font-size:1.05rem;}
+  .who{margin-top:1.2rem;} .who .k{font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted);} .who b{font-size:1rem;} .who span{color:var(--muted);}
+  section{margin-top:2.6rem;}
+  h2{font-family:Georgia,serif;font-size:clamp(1.35rem,3.2vw,1.85rem);line-height:2.5rem;margin:.3rem 0 .5rem;}
+  p.narr{color:var(--muted);max-width:56ch;} p.narr b{color:var(--ink);}
+  .notes p{margin:.3rem 0;} .notes b{color:var(--ink);} .tick{color:var(--grn);font-weight:700;}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-top:1rem;} @media(max-width:40rem){.steps{grid-template-columns:1fr;}}
+  .stp{background:var(--card);border:1.5px solid var(--grn-l);border-radius:12px;padding:1rem;box-shadow:var(--shadow);}
+  .stp .k{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--grn);font-weight:700;} .stp h4{font-family:Georgia,serif;margin:.2rem 0 .3rem;font-size:1.02rem;line-height:1.4rem;} .stp p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.35rem;}
+  .free{margin-top:1rem;color:var(--grn);font-weight:600;}
+  .fan{display:flex;justify-content:center;gap:-.5rem;margin:1.4rem 0;flex-wrap:wrap;}
+  .fc{width:9rem;background:var(--card);border-radius:8px;box-shadow:var(--shadow);margin:0 -.4rem;overflow:hidden;border:1px solid var(--rule);}
+  .fc:nth-child(1){transform:rotate(-8deg);} .fc:nth-child(2){transform:rotate(-4deg);} .fc:nth-child(3){transform:rotate(0);} .fc:nth-child(4){transform:rotate(4deg);} .fc:nth-child(5){transform:rotate(8deg);}
+  .fc .h{color:#fff;font-weight:700;padding:.5rem .6rem;font-size:.9rem;} .fc .b{padding:.6rem;color:var(--muted);font-size:.8rem;line-height:1.3rem;min-height:3.4rem;}
+  .cap{text-align:center;font-style:italic;color:var(--muted);font-size:.9rem;}
+  .uni{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:1rem;} .sb{flex:1 1 14rem;background:var(--card);border:1px solid var(--grn-l);border-radius:10px;padding:1rem;box-shadow:var(--shadow);}
+  .sb h4{font-family:Georgia,serif;margin:0 0 .5rem;} .sb .t{display:inline-block;font-family:ui-monospace,monospace;font-size:.74rem;background:var(--page);border:1px solid var(--grn-l);border-radius:3px;padding:.15rem .5rem;margin:.14rem .1rem 0;}
+  .uni .op{font-size:1.4rem;color:var(--muted);} .out{margin-top:1rem;padding:.9rem;border-radius:10px;background:var(--grn-s);border:1px solid var(--grn-l);text-align:center;} .out b{color:var(--grn);}
+  .upg{margin-top:1rem;background:#FBF8E6;border:1.5px solid #E7DC8A;border-radius:12px;padding:1.2rem 1.4rem;} @media(prefers-color-scheme:dark){.upg{background:#242011;border-color:#4A431C;}}
+  .upg .k{font-family:ui-monospace,monospace;font-size:.72rem;color:#B5822E;font-weight:700;} .upg .trig{font-style:italic;margin:.3rem 0 .7rem;} .upg ul{margin:0;padding-left:1.1rem;} .upg li{margin:.3rem 0;font-size:.94rem;} .upg li b{color:#B5822E;} .priv{margin-top:.7rem;font-size:.84rem;color:var(--muted);}
+  .end{margin-top:2.6rem;background:var(--grn);color:#fff;border-radius:14px;padding:2rem 1.8rem;box-shadow:var(--shadow);}
+  .end .k{font-family:ui-monospace,monospace;font-size:.72rem;opacity:.9;} .end p{font-family:Georgia,serif;margin:.4rem 0 0;font-size:1.25rem;line-height:2rem;}
+  .foot{margin-top:2rem;font-size:.78rem;color:var(--muted);line-height:1.4rem;} .foot code{font-family:ui-monospace,monospace;color:var(--grn);}
+</style>
+</head>
+<body>
+<div class="spiral" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div class="wrap">
+  <div style="margin:0 0 1.2rem;padding:.6rem .9rem;border:1px dashed #B5822E;border-radius:8px;font-size:.8rem;line-height:1.4;color:var(--muted)"><b style="color:#B5822E;font-family:ui-monospace,monospace;letter-spacing:.05em">◆ PRODUCT VISION</b> — a preview of where Mentible is headed. The grounded AI and private hosted sync shown here are on the roadmap (ADR-029/033), not yet shipped.</div>
+
+  <div class="chip"><span class="n">0</span><span class="l">My notes — Day 1</span></div>
+  <h1>Hi, Sam. I'm Mentible.</h1>
+  <p class="lede">Your textbooks, the notes you actually understand, your slides — I'll explain and quiz from them, at <b>your</b> level, never a chatbot's guesses.</p>
+  <div class="buddy"><div class="k">STUDY BUDDY NOTE</div><p>Give me your course material and I'll turn it into things you actually get — and quizzes that match your exam.</p></div>
+  <div class="who"><div class="k">NAME</div><b>Sam</b> <span>· second-year medical student</span></div>
+
+  <section><div class="chip"><span class="n">1</span><span class="l">The problem</span></div>
+    <h2><span class="hi">Your material's everywhere</span>, and generic AI won't pass your exam</h2>
+    <div class="notes"><p><span class="tick">✔</span> <b>Your material lives everywhere.</b> Textbooks, slides, scattered notes, past papers — none of it talks to each other.</p>
+      <p><span class="tick">✔</span> <b>You revise against the clock.</b> Exams don't wait, and re-reading whole chapters isn't studying.</p>
+      <p><span class="tick">✔</span> <b>The generic chatbots?</b> They give web answers, not what YOUR course teaches. Wrong level, wrong syllabus.</p></div></section>
+
+  <section><div class="chip"><span class="n">2</span><span class="l">Getting started — free</span></div>
+    <h2>No sign-up. Start on your own device.</h2>
+    <p class="narr">Install me, point me at your course material, and we start — your library stays on your own device.</p>
+    <div class="steps"><div class="stp"><div class="k">STEP 1</div><h4>Open me up</h4><p>Free to start. No account, works offline.</p></div>
+      <div class="stp"><div class="k">STEP 2</div><h4>Hand me your material</h4><p>Textbooks, slides, notes, past papers — they become your knowledge library.</p></div>
+      <div class="stp"><div class="k">STEP 3</div><h4>Ask, or test yourself</h4><p>I explain and quiz you from your own course.</p></div></div>
+    <p class="free">✔ Free tier: your notes stay on your device. When you ask, the relevant passage is sent to the AI to draft — used once, not stored by us.</p></section>
+
+  <section><div class="chip"><span class="n">3</span><span class="l">Your knowledge library</span></div>
+    <h2>This becomes your knowledge library</h2>
+    <p class="narr">Not my memory — <b>yours</b>. The exact material your course is built on — I've read it all. Like your deck of cards:</p>
+    <div class="fan">
+      <div class="fc"><div class="h" style="background:#2E7D5B">Anatomy</div><div class="b">the body, mapped</div></div>
+      <div class="fc"><div class="h" style="background:#3A6EA5">Pharm</div><div class="b">drugs &amp; doses</div></div>
+      <div class="fc"><div class="h" style="background:#B5822E">Physiology</div><div class="b">how it works</div></div>
+      <div class="fc"><div class="h" style="background:#A85D4E">Past papers</div><div class="b">what they ask</div></div>
+      <div class="fc"><div class="h" style="background:#6B4E8E">Your notes</div><div class="b">in your words</div></div></div>
+    <p class="cap">Every card here, you made. That's the point — I study from your syllabus, not the web's.</p></section>
+
+  <section><div class="chip"><span class="n">4</span><span class="l">How I actually work</span></div>
+    <h2>I read your material first — then answer, at your level</h2>
+    <p class="narr">Ask me anything, or ask me to quiz you. I don't guess: I <b>find the passages in your material first</b>, then explain or test you from them.</p>
+    <div class="notes"><p><span class="tick">→</span> <b>You ask:</b> "Explain the RAAS cascade — then quiz me on it."</p>
+      <p><span class="tick">→</span> <b>I retrieve:</b> the exact section in your physiology text &amp; lecture slides.</p>
+      <p><span class="tick">→</span> <b>I answer:</b> a clear explanation + a quiz built from your own material — not generic web content.</p></div>
+    <div class="buddy"><div class="k">STUDY BUDDY NOTE</div><p>I'm the study partner who's read your whole syllabus and only tests you on what's actually on it.</p></div></section>
+
+  <section><div class="chip"><span class="n">5</span><span class="l">Bigger than your reading list</span></div>
+    <h2>Your knowledge library can outgrow your reading list</h2>
+    <p class="narr">You're not limited to what you own. I can pull reference and public-domain texts into your knowledge library from <b>curated catalogs</b> — then explain and quiz at your level.</p>
+    <div class="uni"><div class="sb"><h4>What you bring</h4><span class="t">textbooks</span><span class="t">your notes</span><span class="t">slides</span></div>
+      <div class="op">＋</div><div class="sb"><h4>What I pull in</h4><span class="t">reference texts</span><span class="t">curated catalogs</span></div></div>
+    <div class="out"><b>= one knowledge library</b> — broader than your reading list, still your syllabus.</div></section>
+
+  <section><div class="chip"><span class="n">6</span><span class="l">When you're ready</span></div>
+    <h2>Take me everywhere — ward, library, the commute</h2>
+    <div class="upg"><div class="k">▲ UPGRADE</div>
+      <p class="trig">One day you'll want your study not just on your laptop, but on your phone on the ward and your tablet in the library. That's when you'll upgrade me.</p>
+      <ul><li><b>One private library, every device</b> — your whole library and its quizzes, in sync.</li>
+        <li><b>Revise anywhere</b> — ten minutes on the commute? Pick up where you left off.</li>
+        <li><b>Still yours alone</b> — private, encrypted, never shared, never used to profile you.</li></ul>
+      <p class="priv">Upgrading makes me a private <i>hosted</i> library that follows you. The free device-only version stays as it is.</p></div></section>
+
+  <div class="end"><div class="k">★ MY PROMISE TO YOU</div>
+    <p>Give me the material your course is built on, and I'll turn it into explanations you get and quizzes that match your exam — in minutes, at your level.</p></div>
+  <p class="foot mono">Maps to product: private cross-device library = <code>ADR-033</code> · grounding in your own material = <code>ADR-029</code> (RAG) · curated external texts = <code>ADR-028</code>. Free = device-local &amp; zero-knowledge; paid = private hosted. Sam is illustrative.</p>
+</div>
+
+</body>
+</html>

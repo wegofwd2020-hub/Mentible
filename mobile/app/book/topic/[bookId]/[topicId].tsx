@@ -19,6 +19,8 @@ import { useGenerateTopic } from "@/hooks/useGenerateTopic";
 import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import { demoBlocked } from "@/constants/demo";
+import { FiguresPanel } from "@/components/FiguresPanel";
+import { useTopicFigures } from "@/reader/useTopicFigures";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { Book, GeneratedTopic, Subtopic } from "@/types/book";
 
@@ -89,6 +91,12 @@ export default function BookTopicScreen() {
     book?.generationParams?.provider ?? "anthropic",
     book?.generationParams?.model ?? null,
   );
+
+  // Resolve any attached figures to data: URLs for both the author panel
+  // (thumbnails) and the reader (inline figures). Must run before the
+  // loading/!book early returns below (rules of hooks) — `topic` starts
+  // null and the hook handles that.
+  const figures = useTopicFigures(topic);
 
   useEffect(() => {
     let mounted = true;
@@ -257,7 +265,12 @@ export default function BookTopicScreen() {
 
       <View style={styles.body}>
         {topic ? (
-          <TopicRenderer topic={topic} />
+          <>
+            {canEdit && book && (
+              <FiguresPanel book={book} topicId={topicId} onBookChange={setBook} />
+            )}
+            <TopicRenderer topic={topic} figures={figures} />
+          </>
         ) : (
           <View style={styles.centered}>
             <Text style={styles.missing}>This topic hasn’t been generated yet.</Text>

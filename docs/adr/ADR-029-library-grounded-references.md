@@ -1,8 +1,9 @@
 # ADR-029 — Library-grounded references: topic → citations from the personal shelf
 
-**Status:** Proposed — 2026-07-10 · **amended by ADR-032 (2026-07-12): dual-mode** — the
-device-local design below is the **free tier**; a **hosted** mode (server FTS now,
-managed-key embeddings Phase 2) is added for the paid tier.
+**Status:** Proposed — 2026-07-10 · **amended by ADR-033 (2026-07-15):** the device-local
+design below is the **free tier**; the hosted mode is the per-user **private** paid tier
+(server FTS now, managed-key embeddings Phase 2) — see **ADR-033** (ADR-032's broad hosted
+shape was rejected). This ADR stays *Proposed*; nothing here is promoted or built.
 **Decision-maker:** Sivakumar Mambakkam
 **Relates to:** ADR-028 (Open Shelves — downloads create the external half of the
 corpus; rights strings and source refs come from feed metadata), ADR-015
@@ -113,9 +114,11 @@ client — PRAMANA-shaped reuse is plausible and costs nothing extra to preserve
 
 ## Scope — what this ADR is *not*
 
-- **Not** cloud retrieval — no server-side index, corpus, or query log; queries and
-  interests never leave the device (Phase 2's provider calls are the sole,
-  disclosed, opt-in exception).
+- **Not** cloud retrieval **in the free (device-local) tier** — no server-side index,
+  corpus, or query log; queries and interests never leave the device (Phase 2's BYOK
+  provider calls are the sole, disclosed, opt-in exception). *The opt-in **paid** hosted
+  tier (ADR-033) necessarily holds a server-side index over the user's own private corpus;
+  its not-zero-knowledge posture and data rights are governed by ADR-033 D4.*
 - **Not** automatic quoting or content generation *from* references — it finds and
   cites; what the author writes remains the author's.
 - **Not** a rights adjudicator — rights are surfaced verbatim, never interpreted

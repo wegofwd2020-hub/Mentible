@@ -7,139 +7,15 @@
 // DOM, so rendering can't happen in the bundle). `buildTopicHtml` renders a full
 // multi-format topic (lesson + optional tutorial + quiz sets + experiment).
 
+import { renderTopicToHtml } from "@/reader/topicHtml";
 import type { GeneratedTopic } from "@/types/book";
 import { colors } from "@/constants/theme";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
 // WebView sandbox can't import bundle modules. Uses only single quotes so it
 // nests cleanly inside the template literal below.
-const RENDER_HELPERS_JS = `
-  var renderer = new marked.Renderer();
-  renderer.code = function (code, lang) {
-    if (lang === 'mermaid') return '<div class="mermaid">' + code + '</div>';
-    // Animated educational visuals (free path): the model emits a self-contained
-    // SVG with SMIL (<animate>) or CSS keyframes in an \`\`\`svg block; we drop it
-    // inline so it animates in-page. Strip <script> defensively — animation needs
-    // no JS, and SVG <script> would run in the WebView.
-    if (lang === 'svg') {
-      var safe = String(code).replace(/<script[\\s\\S]*?<\\/script\\s*>/gi, '');
-      return '<figure class="anim-svg">' + safe + '</figure>';
-    }
-    return '<pre><code>' + code + '</code></pre>';
-  };
-  function renderMd(text) { return marked.parse(text || '', { renderer: renderer }); }
-  function escHtml(str) {
-    return String(str == null ? '' : str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  function li(items) {
-    return (items || []).map(function (x) { return '<li>' + escHtml(x) + '</li>'; }).join('');
-  }
-  function normHeading(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\\s+/g, ' '); }
-  // The model often repeats the section heading as a leading "## Heading" line
-  // in body_markdown; since we already emit the heading, drop that duplicate.
-  function stripDupHeading(body, heading) {
-    var text = String(body == null ? '' : body);
-    var m = text.match(/^\\s*#{1,6}[ \\t]+(.+?)[ \\t]*#*[ \\t]*(?:\\r?\\n|$)/);
-    if (m && normHeading(m[1]) === normHeading(heading)) return text.slice(m[0].length);
-    return text;
-  }
 
-  function renderLesson(lesson) {
-    var h = '';
-    h += '<h1>' + escHtml(lesson.topic) + '</h1>';
-    h += '<p class="synopsis">' + escHtml(lesson.synopsis) + '</p>';
-    h += '<div class="objectives"><h3>Learning objectives</h3><ul>' + li(lesson.learning_objectives) + '</ul></div>';
-    (lesson.sections || []).forEach(function (s) {
-      h += '<hr class="section-divider">';
-      h += '<h2>' + escHtml(s.heading) + '</h2>';
-      h += renderMd(stripDupHeading(s.body_markdown, s.heading));
-    });
-    h += '<hr class="section-divider">';
-    h += '<div class="takeaways"><h3>Key takeaways</h3><ul>' + li(lesson.key_takeaways) + '</ul></div>';
-    if (lesson.further_reading && lesson.further_reading.length) {
-      h += '<div class="further"><h3>Further reading</h3><ul>' + li(lesson.further_reading) + '</ul></div>';
-    }
-    return h;
-  }
-
-  function renderTutorial(tut) {
-    var h = '<hr class="section-divider"><h2>' + escHtml(tut.title || 'Tutorial') + '</h2>';
-    (tut.sections || []).forEach(function (s) {
-      h += '<h3>' + escHtml(s.title) + '</h3>';
-      h += renderMd(s.content);
-      if (s.examples && s.examples.length) {
-        h += '<div class="examples"><h4>Examples</h4>';
-        s.examples.forEach(function (ex) { h += renderMd(ex); });
-        h += '</div>';
-      }
-      if (s.practice_question) {
-        h += '<div class="practice"><b>Practice:</b> ' + escHtml(s.practice_question) + '</div>';
-      }
-    });
-    if (tut.common_mistakes && tut.common_mistakes.length) {
-      h += '<div class="mistakes"><h3>Common mistakes</h3><ul>' + li(tut.common_mistakes) + '</ul></div>';
-    }
-    return h;
-  }
-
-  function renderQuizzes(sets) {
-    var h = '<hr class="section-divider"><h2>Quiz</h2>';
-    sets.forEach(function (set) {
-      if (sets.length > 1 && set.set_number != null) {
-        h += '<h3>Set ' + escHtml(set.set_number) + '</h3>';
-      }
-      (set.questions || []).forEach(function (q, i) {
-        h += '<div class="quiz-q">';
-        h += '<div class="quiz-qtext">' + renderMd((i + 1) + '. ' + (q.question_text || '')) + '</div>';
-        h += '<ul class="quiz-options">';
-        (q.options || []).forEach(function (o) {
-          var correct = o.option_id === q.correct_option;
-          h += '<li class="' + (correct ? 'correct' : '') + '"><b>' + escHtml(o.option_id) + '.</b> '
-            + escHtml(o.text) + (correct ? ' \\u2713' : '') + '</li>';
-        });
-        h += '</ul>';
-        h += '<div class="quiz-answer"><b>Answer:</b> ' + escHtml(q.correct_option) + '</div>';
-        if (q.explanation) h += '<div class="quiz-expl">' + renderMd(q.explanation) + '</div>';
-        if (q.difficulty) h += '<div class="difficulty">' + escHtml(q.difficulty) + '</div>';
-        h += '</div>';
-      });
-    });
-    return h;
-  }
-
-  function renderExperiment(exp) {
-    var h = '<hr class="section-divider"><h2>' + escHtml(exp.experiment_title || 'Experiment') + '</h2>';
-    if (exp.materials && exp.materials.length) {
-      h += '<div class="materials"><h3>Materials</h3><ul>' + li(exp.materials) + '</ul></div>';
-    }
-    if (exp.safety_notes && exp.safety_notes.length) {
-      h += '<div class="safety"><h3>Safety</h3><ul>' + li(exp.safety_notes) + '</ul></div>';
-    }
-    if (exp.steps && exp.steps.length) {
-      h += '<h3>Steps</h3><ol>';
-      exp.steps.forEach(function (st) {
-        h += '<li class="step">' + escHtml(st.instruction)
-          + '<div class="obs">Expected: ' + escHtml(st.expected_observation) + '</div></li>';
-      });
-      h += '</ol>';
-    }
-    if (exp.questions && exp.questions.length) {
-      h += '<div class="exp-questions"><h3>Questions</h3>';
-      exp.questions.forEach(function (qa) {
-        h += '<p><b>Q:</b> ' + escHtml(qa.question) + '<br><b>A:</b> ' + escHtml(qa.answer) + '</p>';
-      });
-      h += '</div>';
-    }
-    if (exp.conclusion_prompt) {
-      h += '<div class="practice"><b>Conclusion:</b> ' + escHtml(exp.conclusion_prompt) + '</div>';
-    }
-    return h;
-  }
-`;
-
-function htmlDocument(dataJson: string, bodyJs: string): string {
+function htmlDocument(dataJson: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -282,7 +158,11 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 <body>
 <div id="root">Loading…</div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" crossorigin="anonymous"></script>
+<!-- KaTeX and Mermaid are still fetched, because bundling them is ~4.8MB
+     (mermaid alone is 3.2MB, and katex.min.css pulls 60 font files) — out of
+     scope for #325. They are therefore OPTIONAL: the body is already rendered
+     HTML, so text and figures show with or without them. Every use below is
+     guarded; their absence must never blank the page again. -->
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js" crossorigin="anonymous"></script>
@@ -290,35 +170,71 @@ function htmlDocument(dataJson: string, bodyJs: string): string {
 <script>
 (function () {
   var DATA = ${dataJson};
-  ${RENDER_HELPERS_JS}
 
-  var html = '';
-  ${bodyJs}
-  document.getElementById('root').innerHTML = html;
+  // The body arrived as finished HTML, rendered in RN by @/reader/topicHtml.
+  // Nothing here parses markdown, so no CDN script is needed to show the text
+  // (#325). DATA.__html is a string built by our own renderer — the same string
+  // the web reader sanitizes — and is assigned exactly once.
+  document.getElementById('root').innerHTML = DATA.__html;
 
-  renderMathInElement(document.body, {
-    delimiters: [
-      { left: '$$', right: '$$', display: true },
-      { left: '$',  right: '$',  display: false },
-    ],
-    ignoredClasses: ['mermaid'],
-    throwOnError: false,
-  });
+  // Math: optional. Offline, renderMathInElement is simply absent — leave the
+  // source text as-is rather than throwing and losing the whole document.
+  if (typeof renderMathInElement === 'function') {
+    try {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$',  right: '$',  display: false },
+        ],
+        ignoredClasses: ['mermaid'],
+        throwOnError: false,
+      });
+    } catch (e) { /* math stays as source text; the lesson still reads */ }
+  }
 
-  mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+  // Diagrams: optional, same reasoning. A mermaid block degrades to its own
+  // source text inside .mermaid rather than taking the page down.
+  if (typeof mermaid !== 'undefined' && mermaid && typeof mermaid.initialize === 'function') {
+    try {
+      mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+    } catch (e) { /* diagram source remains visible */ }
+  }
 })();
 </script>
 </body>
 </html>`;
 }
 
-/** Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment. */
-export function buildTopicHtml(topic: GeneratedTopic): string {
-  return htmlDocument(
-    JSON.stringify(topic),
-    `html += renderLesson(DATA.lesson);
-     if (DATA.tutorial) html += renderTutorial(DATA.tutorial);
-     if (DATA.quizSets && DATA.quizSets.length) html += renderQuizzes(DATA.quizSets);
-     if (DATA.experiment) html += renderExperiment(DATA.experiment);`,
-  );
+/**
+ * JSON for embedding inside an HTML `<script>` block.
+ *
+ * `JSON.stringify` alone is NOT safe here: it does not escape `</script>`, so any
+ * content containing that literal closes the block and the remainder becomes live
+ * DOM (GHSA-48wh-p7cx-c87j). That is not a hypothetical for a product that
+ * teaches — a lesson *about web development* containing `</script>` in an example
+ * is expected content.
+ *
+ * Escaping `<` as its unicode escape keeps the output valid JSON *and* valid JS
+ * (`JSON.parse` and the JS parser both read `\u003c` as `<`), so the data
+ * round-trips byte-for-byte while never terminating a tag. `\u2028`/`\u2029` are
+ * escaped for the same reason: legal in JSON, line terminators in JS.
+ */
+function jsonForScriptBlock(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/**
+ * Full multi-format topic — lesson plus any of tutorial / quiz sets / experiment /
+ * attached figures.
+ *
+ * The body is rendered HERE, in RN, by the shared `renderTopicToHtml` — the same
+ * renderer the web reader uses. The WebView receives finished HTML and parses no
+ * markdown, which is what lets the reader work offline (#325) and what allowed the
+ * ~130-line duplicate renderer that used to live in this file to be deleted.
+ */
+export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, string>): string {
+  return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls) }));
 }

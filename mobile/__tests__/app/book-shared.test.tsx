@@ -54,6 +54,43 @@ it("shows an error when the draft can't be loaded", async () => {
   await waitFor(() => expect(screen.getByText(/Couldn't load this draft/i)).toBeTruthy());
 });
 
+// #320: a shared draft carries figure REFS (book_json) but never the bytes, and
+// the reader passes no `figures` prop — so figures used to vanish without a
+// trace on the one surface whose purpose is feedback. The notice is the fix;
+// shipping the bytes is NOT (ADR-035 D4 fences figure distribution).
+describe("figures notice (#320)", () => {
+  const withImages = (images: unknown[]) => ({
+    ...draft,
+    book_json: {
+      ...draft.book_json,
+      content: { t1: { label: "Chapter One", images } },
+    },
+  });
+  const img = (id: string) => ({ id, file: `media/b1/${id}.jpg`, mime: "image/jpeg", addedAt: "x" });
+
+  it("tells the reviewer figures aren't included, pluralised", async () => {
+    (api.getSharedDraft as jest.Mock).mockResolvedValue(withImages([img("a"), img("b"), img("c")]));
+    render(<SharedDraftReader />);
+    fireEvent.press(await screen.findByLabelText("open-topic"));
+    expect(await screen.findByText(/3 figures aren't included in shared drafts/i)).toBeTruthy();
+  });
+
+  it("uses the singular for one figure", async () => {
+    (api.getSharedDraft as jest.Mock).mockResolvedValue(withImages([img("a")]));
+    render(<SharedDraftReader />);
+    fireEvent.press(await screen.findByLabelText("open-topic"));
+    expect(await screen.findByText(/1 figure isn't included in shared drafts/i)).toBeTruthy();
+  });
+
+  it("says nothing when the topic has no figures", async () => {
+    render(<SharedDraftReader />); // base draft: topic t1 has no `images` key
+    fireEvent.press(await screen.findByLabelText("open-topic"));
+    await screen.findByText("TOPIC:Chapter One");
+    expect(screen.queryByText(/aren't included in shared drafts/i)).toBeNull();
+    expect(screen.queryByText(/isn't included in shared drafts/i)).toBeNull();
+  });
+});
+
 it("posts a comment from the contents view", async () => {
   render(<SharedDraftReader />);
   await screen.findByText("INDEX:Shared Book");

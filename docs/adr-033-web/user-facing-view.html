@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Source of Mentible web artifact https://claude.ai/code/artifact/a33e9e59-cc1d-4b70-b1f7-69986f6efad2 -->
+<title>Mentible — Your Library, Two Ways</title>
+<style>
+  :root {
+    --paper:#FBFAF7; --ink:#1B2027; --slate:#5B6470; --line:#E7E3DA;
+    --card:#FFFFFF; --accent:#2E4A6B;
+    --free:#2F8F83; --free-soft:#E7F1EF; --free-line:#BFDDD8;
+    --paid:#B5822E; --paid-soft:#F6EEDD; --paid-line:#E4CE9E;
+    --diagram:#F6F4EE; --diagram-line:#DED9CC;
+    --shadow:0 1px 2px rgba(27,32,39,.05), 0 8px 24px -12px rgba(27,32,39,.14);
+    --maxw:60rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#14171C; --ink:#ECEAE3; --slate:#9AA3AE; --line:#2A2F37;
+      --card:#1B1F26; --accent:#89AEDA;
+      --free:#5CC3B4; --free-soft:#12241F; --free-line:#26463F;
+      --paid:#E2B564; --paid-soft:#251C0E; --paid-line:#4A3A1E;
+      --diagram:#EEECE4; --diagram-line:#CFCABD;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#FBFAF7; --ink:#1B2027; --slate:#5B6470; --line:#E7E3DA;
+    --card:#FFFFFF; --accent:#2E4A6B;
+    --free:#2F8F83; --free-soft:#E7F1EF; --free-line:#BFDDD8;
+    --paid:#B5822E; --paid-soft:#F6EEDD; --paid-line:#E4CE9E;
+    --diagram:#F6F4EE; --diagram-line:#DED9CC;
+    --shadow:0 1px 2px rgba(27,32,39,.05), 0 8px 24px -12px rgba(27,32,39,.14);
+  }
+  :root[data-theme="dark"] {
+    --paper:#14171C; --ink:#ECEAE3; --slate:#9AA3AE; --line:#2A2F37;
+    --card:#1B1F26; --accent:#89AEDA;
+    --free:#5CC3B4; --free-soft:#12241F; --free-line:#26463F;
+    --paid:#E2B564; --paid-soft:#251C0E; --paid-line:#4A3A1E;
+    --diagram:#EEECE4; --diagram-line:#CFCABD;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); }
+  .wrap {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    max-width:var(--maxw); margin:0 auto; padding:clamp(1.25rem,4vw,3.5rem) 1.25rem 4rem;
+    line-height:1.6;
+  }
+  .serif { font-family:Charter,"Iowan Old Style",Georgia,"Times New Roman",serif; }
+
+  /* Header */
+  header { border-bottom:1px solid var(--line); padding-bottom:1.75rem; margin-bottom:2.25rem; }
+  .eyebrow {
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--slate); margin:0 0 .9rem;
+  }
+  h1.serif {
+    font-size:clamp(1.9rem,5vw,3rem); line-height:1.08; margin:0 0 .7rem;
+    font-weight:600; letter-spacing:-.01em; text-wrap:balance;
+  }
+  .lede { font-size:clamp(1.02rem,2.2vw,1.2rem); color:var(--slate); max-width:44ch; margin:0; text-wrap:pretty; }
+
+  .legend { display:flex; flex-wrap:wrap; gap:1.1rem; margin-top:1.5rem; }
+  .legend span { display:inline-flex; align-items:center; gap:.5rem; font-size:.85rem; color:var(--slate); }
+  .dot { width:.7rem; height:.7rem; border-radius:2px; flex:none; }
+  .dot.free { background:var(--free); }
+  .dot.paid { background:var(--paid); }
+
+  h2.serif {
+    font-size:clamp(1.3rem,3vw,1.7rem); font-weight:600; letter-spacing:-.01em;
+    margin:3rem 0 .4rem; text-wrap:balance;
+  }
+  .section-note { color:var(--slate); font-size:.95rem; margin:0 0 1.4rem; max-width:56ch; }
+
+  /* Tier cards */
+  .tiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:1.1rem; }
+  .tier {
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:1.4rem 1.4rem 1.5rem; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .tier::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; }
+  .tier.free::before { background:var(--free); }
+  .tier.paid::before { background:var(--paid); }
+  .tier .tag {
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600;
+    padding:.24rem .55rem; border-radius:5px; display:inline-block; margin-bottom:.85rem;
+  }
+  .tier.free .tag { color:var(--free); background:var(--free-soft); border:1px solid var(--free-line); }
+  .tier.paid .tag { color:var(--paid); background:var(--paid-soft); border:1px solid var(--paid-line); }
+  .tier h3 { font-size:1.15rem; margin:0 0 .15rem; font-weight:650; }
+  .tier .price { color:var(--slate); font-size:.85rem; margin:0 0 1rem; }
+  .tier ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:.6rem; }
+  .tier li { font-size:.92rem; padding-left:1.5rem; position:relative; color:var(--ink); }
+  .tier li::before {
+    content:""; position:absolute; left:0; top:.5em; width:.6rem; height:.6rem; border-radius:50%;
+    border:2px solid currentColor;
+  }
+  .tier.free li::before { color:var(--free); }
+  .tier.paid li::before { color:var(--paid); }
+  .tier li b { font-weight:650; }
+
+  /* Diagram frame */
+  .diagram {
+    background:var(--diagram); border:1px solid var(--diagram-line); border-radius:12px;
+    padding:1.25rem; margin-top:.4rem; overflow-x:auto; box-shadow:var(--shadow);
+  }
+  .diagram pre.mermaid { margin:0; text-align:center; min-width:min-content; }
+  .caption {
+    font-size:.82rem; color:var(--slate); margin:.8rem .2rem 0; font-style:italic;
+  }
+
+  /* Privacy panel */
+  .privacy { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:1.1rem; margin-top:.4rem; }
+  .pcard { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1.3rem 1.35rem; box-shadow:var(--shadow); }
+  .pcard h4 { margin:0 0 .7rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+  .pcard.yes h4 { color:var(--free); }
+  .pcard.no h4 { color:var(--paid); }
+  .pcard ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:.55rem; }
+  .pcard li { font-size:.9rem; padding-left:1.4rem; position:relative; }
+  .pcard li::before { position:absolute; left:0; top:0; font-weight:700; }
+  .pcard.yes li::before { content:"✓"; color:var(--free); }
+  .pcard.no li::before { content:"–"; color:var(--paid); }
+
+  .footnote {
+    margin-top:3rem; padding-top:1.4rem; border-top:1px solid var(--line);
+    font-size:.82rem; color:var(--slate);
+  }
+  .footnote code { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:.9em; color:var(--accent); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Mentible · ADR-033 · a self-learner's authoring library</p>
+    <h1 class="serif">Your library, two ways</h1>
+    <p class="lede">Write and learn on your own device for free — or unlock a private, hosted library that follows your account to every device you own.</p>
+    <div class="legend">
+      <span><i class="dot free"></i> Free — lives on your device</span>
+      <span><i class="dot paid"></i> Paid — private, hosted, synced</span>
+    </div>
+  </header>
+
+  <h2 class="serif">Pick where your library lives</h2>
+  <p class="section-note">Both tiers are private. They differ in where your books sit — on the phone in your hand, or in a private space that any of your devices can open.</p>
+
+  <div class="tiers">
+    <div class="tier free">
+      <span class="tag">Free · on device</span>
+      <h3>On your device</h3>
+      <p class="price">No account needed · nothing leaves the device</p>
+      <ul>
+        <li>Your <b>books, drafts, and lessons</b> stay on this device</li>
+        <li><b>Grounded writing:</b> search your own shelf as you author</li>
+        <li>Public-domain downloads live here too</li>
+        <li>Works fully <b>offline</b></li>
+        <li><b>Zero-knowledge</b> — we never see any of it</li>
+      </ul>
+    </div>
+    <div class="tier paid">
+      <span class="tag">Paid · private hosted</span>
+      <h3>A private hosted library</h3>
+      <p class="price">Opt-in subscription · includes a starting storage &amp; usage allowance</p>
+      <ul>
+        <li>Your books, <b>queries, and generated lessons</b> live in your private space</li>
+        <li>Open the <b>same library on phone, tablet, and web</b></li>
+        <li><b>Search across everything</b> you've written, from any device</li>
+        <li>Public-domain downloads come along</li>
+        <li>Private to you — <b>never shared, never used to profile you</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="serif">Where your library lives</h2>
+  <p class="section-note">On the free tier your shelf is bound to one device. Turn on the hosted tier and the same shelf answers from all of them — because it lives in your private space, not on any single phone.</p>
+  <div class="diagram">
+    <pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"fontFamily":"Charter, Georgia, serif","fontSize":"15px","lineColor":"#8A8577","primaryColor":"#F6F4EE","primaryTextColor":"#1B2027","primaryBorderColor":"#C9C3B4"}}}%%
+flowchart TB
+  you(["You — self-learner &amp; author"])
+
+  subgraph FREE["FREE · on your device"]
+    direction TB
+    dev["This phone or tablet"]
+    shelfD["Your books, drafts,<br/>lessons &amp; PD downloads"]
+    groundD["Grounded writing:<br/>search your own shelf"]
+    dev --> shelfD --> groundD
+  end
+
+  subgraph PAID["PAID · your private hosted library"]
+    direction TB
+    space["Your private space<br/>(only you can open it)"]
+    shelfH["Books · queries ·<br/>generated lessons · PD"]
+    searchH["Search across<br/>ALL your devices"]
+    space --> shelfH --> searchH
+  end
+
+  you -->|use free| dev
+  you -->|opt in, paid| space
+
+  ph["📱 Phone"] --> space
+  tb["📔 Tablet"] --> space
+  wb["💻 Web"]   --> space
+
+  classDef free fill:#E7F1EF,stroke:#2F8F83,stroke-width:1.5px,color:#173F39;
+  classDef paid fill:#F6EEDD,stroke:#B5822E,stroke-width:1.5px,color:#5A4113;
+  classDef you  fill:#2E4A6B,stroke:#2E4A6B,color:#ffffff;
+  classDef dev  fill:#FFFFFF,stroke:#BDB7A8,color:#1B2027;
+  class dev,shelfD,groundD free;
+  class space,shelfH,searchH paid;
+  class ph,tb,wb dev;
+  class you you;
+    </pre>
+  </div>
+  <p class="caption">Free: one device holds everything. Paid: your devices are windows onto one private library.</p>
+
+  <h2 class="serif">One day, three devices</h2>
+  <p class="section-note">What the hosted tier actually feels like: you start on one device and finish on another, and your library — and its search — is simply there.</p>
+  <div class="diagram">
+    <pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"fontFamily":"Charter, Georgia, serif","fontSize":"14px","primaryColor":"#F6EEDD","primaryTextColor":"#1B2027","primaryBorderColor":"#B5822E","lineColor":"#8A8577","actorBkg":"#2E4A6B","actorTextColor":"#ffffff","actorBorder":"#2E4A6B","signalColor":"#5B6470","signalTextColor":"#1B2027","noteBkgColor":"#E7F1EF","noteTextColor":"#173F39","noteBorderColor":"#2F8F83"}}}%%
+sequenceDiagram
+  autonumber
+  participant P as 📱 Phone
+  participant L as 🔒 Your private library
+  participant T as 📔 Tablet
+  participant W as 💻 Web
+
+  P->>L: Draft a chapter on the train
+  Note over L: Saved to your space,<br/>encrypted at rest
+  T->>L: Open the tablet at home
+  L-->>T: Same draft, already there
+  T->>L: "Where did I cover photosynthesis?"
+  L-->>T: Passages from across your whole library
+  W->>L: Publish the lesson from your laptop
+  L-->>W: Done — visible on every device
+    </pre>
+  </div>
+  <p class="caption">No copying files around, no "which device has the latest?" — the library is the source of truth.</p>
+
+  <h2 class="serif">What "private" means — honestly</h2>
+  <p class="section-note">To search your writing on the server, the hosted tier has to read it while indexing. So it isn't the zero-knowledge guarantee the free tier gives — and we say so plainly rather than imply otherwise.</p>
+  <div class="privacy">
+    <div class="pcard yes">
+      <h4>What we promise</h4>
+      <ul>
+        <li>Your library is <b>yours alone</b> — no other user ever sees it</li>
+        <li>Stored <b>encrypted at rest</b></li>
+        <li>Used <b>only</b> to power your own search — never to profile or advertise</li>
+        <li>Delete a book or your account and the copy <b>and</b> its search index are purged</li>
+        <li>Export your library whenever you want</li>
+      </ul>
+    </div>
+    <div class="pcard no">
+      <h4>What we're honest about</h4>
+      <ul>
+        <li>The server <b>reads your content</b> to build the search index — so the hosted tier is <b>not zero-knowledge</b></li>
+        <li>Prefer no server ever touching your work? <b>Stay on the free device tier</b> — it stays zero-knowledge</li>
+        <li>The hosted tier is <b>opt-in and paid</b> — never switched on for you</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footnote">
+    This view illustrates the decision recorded in <code>ADR-033 — per-user private hosted library</code>: an opt-in, paid tier holding your own authored content, queries, generated lessons, and public-domain downloads, synced across your devices. The free, device-local, zero-knowledge tier (ADR-028/029) is unchanged. Hosted features arrive with the managed-billing launch.
+  </p>
+</div>
+
+</body>
+</html>

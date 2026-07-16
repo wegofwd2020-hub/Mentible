@@ -73,11 +73,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — permits the Expo web preview (and any localhost port) to call the API.
-# The real Android app is not subject to CORS; this only affects browser clients.
+# CORS — an explicit origin allowlist (settings.cors_allow_origins), plus loopback
+# by regex for the Expo web dev server, which picks an arbitrary port. Native apps
+# are not subject to CORS; this only constrains browser clients.
+#
+# allow_credentials stays False (the default, pinned here so it is not turned on by
+# accident): the API authenticates with a bearer token the client attaches itself,
+# never a cookie. With credentials off, the browser will not attach a victim's
+# Authorization header to a cross-origin request from a third-party page.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=settings.cors_origin_regex,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )

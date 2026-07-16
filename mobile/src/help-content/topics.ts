@@ -111,7 +111,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible has six places along the top of the app: Library (your finished books), Shelves (browse free book catalogs and download books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+        text: "Mentible has five places along the top of the app: Library (your finished books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
       },
       {
         kind: "steps",
@@ -302,6 +302,42 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Changed device or reinstalled? Use Restore on the Plans screen to bring back a subscription you already bought.",
       },
       { kind: "link", label: "See plans →", href: "/paywall" },
+    ],
+  },
+  {
+    id: "attach-figures",
+    title: "Add figures to a topic",
+    featureKey: "figures",
+    keywords: ["image", "figure", "photo", "picture", "attach", "diagram", "camera", "media"],
+    blocks: [
+      {
+        kind: "text",
+        text: "You can attach images — a photo, a diagram, a scan — to any topic that already has content. They appear in a Figures section when you read the topic and are included when you export the book. Your figures stay on your device; nothing is sent to the AI.",
+      },
+      {
+        kind: "text",
+        text: "Because figures stay on your device, they aren't included when you share a draft with a reviewer — the reviewer sees a note saying some figures aren't shown. To send someone your figures, export the book as EPUB or PDF and share that instead.",
+      },
+      {
+        kind: "text",
+        text: "Each figure takes a caption and alt text. The caption is shown under the figure for everyone. The alt text is what someone using a screen reader hears instead of the image, so describe what it shows — \"a circular diagram of the eight steps\" rather than \"Figure 1\". If you leave alt text empty we fall back to the caption, and then to a plain label like \"Figure 1\".",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a topic that has generated content.",
+          "Tap Add figure, then Choose from library or Take photo.",
+          "Add an optional caption. The image is saved on your device.",
+          "Export the book to include your figures in the EPUB or PDF.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Supported formats", def: "JPEG, PNG and WebP, up to 10 MB each." },
+          { term: "Where are my images stored?", def: "On your device only. Location data (EXIF/GPS) is stripped automatically." },
+        ],
+      },
     ],
   },
   {

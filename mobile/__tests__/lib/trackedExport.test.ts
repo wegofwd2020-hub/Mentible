@@ -5,6 +5,11 @@ jest.mock("@/api/client", () => ({
   getExportJob: jest.fn(),
   getPublishedArtifacts: jest.fn(),
 }));
+jest.mock("@/storage/mediaStore", () => ({
+  resolveFigureDataUrls: jest.fn(async (t: any) =>
+    new Map((t.images ?? []).map((i: any) => [i.id, `data:${i.mime};base64,ZZ`])),
+  ),
+}));
 
 import { exportBook, getExportJob, getPublishedArtifacts } from "@/api/client";
 import { trackedExport, reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
@@ -53,6 +58,36 @@ describe("trackedExport", () => {
     const s = await getExportStatus("b1");
     expect(s.epub?.state).toBe("failed");
     expect(s.epub?.error).toMatch(/could not be completed/);
+  });
+
+  it("POSTs an inflated payload (Figures section) for a book with images, leaving the stored book untouched", async () => {
+    mockExport.mockResolvedValueOnce({ artifact: new ArrayBuffer(1), trust: undefined });
+
+    const withImages = book({
+      content: {
+        t1: {
+          topicId: "t1",
+          title: "U",
+          generatedAt: "x",
+          lesson: {
+            topic: "U", synopsis: "s", learning_objectives: [],
+            sections: [{ heading: "H", body_markdown: "b" }],
+            key_takeaways: [],
+          } as any,
+          images: [{ id: "a", file: "media/b1/a.jpg", mime: "image/jpeg", caption: "Cap", addedAt: "x" }],
+        },
+      },
+    });
+
+    await trackedExport(withImages, "epub");
+
+    expect(mockExport).toHaveBeenCalledTimes(1);
+    const postedBook = mockExport.mock.calls[0][0] as Book;
+    const secs = postedBook.content!.t1.lesson.sections;
+    expect(secs.at(-1)!.heading).toBe("Figures");
+    expect(secs.at(-1)!.body_markdown).toContain("data:image/jpeg;base64,ZZ");
+    // stored book (the caller's reference) is never mutated:
+    expect(withImages.content!.t1.lesson.sections).toHaveLength(1);
   });
 });
 

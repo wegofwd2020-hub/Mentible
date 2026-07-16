@@ -10,6 +10,7 @@ export const FEATURES = [
   { key: "sharing", label: "Draft sharing" },
   { key: "accounts", label: "Accounts & sign-in" },
   { key: "plans", label: "Plans & billing" },
+  { key: "figures", label: "Figures (attached images)" },
   { key: "open-shelves", label: "Open Shelves (free book repos)" },
 ] as const;
 
