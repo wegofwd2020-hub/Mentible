@@ -70,7 +70,9 @@ DK   ──encrypts──▶  book content  +  that book's media blobs   ← thi
 **Why media can keep zero-knowledge when hosted text cannot.** ADR-033 D4 conceded that the hosted
 tier is not zero-knowledge for a specific, load-bearing reason: *server-side RAG must hold plaintext
 to index and embed it*. That reason **does not apply to images** — nothing indexes them. Vision/OCR
-is a later slice (media slice 3, gated by ADR-034), and D6 below keeps it out of scope. Absent an
+is a later slice (media slice 3 — now **ADR-036**, which keeps server-side vision foreclosed and
+reaches a model only for a figure the author explicitly submits), and D6 below keeps it out of
+scope. Absent an
 indexing need, there is no reason to hold a key we would only be trusted not to use.
 
 So this ADR **narrows** D4 rather than extending it: hosted *text* is access-controlled and encrypted
@@ -145,6 +147,14 @@ version:
 The "nothing is sent to the AI" half remains **true** through this slice — media sync spends no
 tokens and calls no model. It becomes false only at media slice 3 (vision), which is that ADR's
 obligation to face, not this one's to pre-empt.
+
+> **Superseded by ADR-036 D5 (2026-07-16).** Slice 3 (vision-assisted captions) is exactly the event
+> anticipated above: a figure reaches a model when the author asks for a caption. The replacement
+> copy in this D5 was written pre-vision and still implies no model ever sees a figure, so ADR-036 D5
+> restates it conditionally and **names the destination** (ADR-034 D3.2). Note ADR-036 does **not**
+> weaken this ADR's D2: E2E here is an *at-rest custody* property, and a figure the author
+> deliberately submits for captioning is transient passthrough (ADR-001), not custody. Server-side
+> vision stays foreclosed.
 
 Updating this copy is part of shipping D1, not a follow-up (see the repo's Definition of Done —
 Help is authored as data and gated by the coverage test).
