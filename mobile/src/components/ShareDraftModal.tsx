@@ -7,6 +7,7 @@ import {
   type DraftComment, type DraftInvitation,
 } from "@/api/client";
 import { DraftCommentThread } from "@/components/DraftCommentThread";
+import { countBookFigures } from "@/lib/figuresHtml";
 import type { Book } from "@/types/book";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
@@ -17,6 +18,12 @@ export function ShareDraftModal({
   visible, book, token, onClose,
 }: { visible: boolean; book: Book; token: string; onClose: () => void }): React.JSX.Element {
   const version = book.metadata?.version ?? "1.0";
+  // Figure bytes stay on the author's device — only refs travel in book_json
+  // (ADR-035 D4). Tell the author BEFORE they invite anyone: their false
+  // assumption is upstream of the reviewer's confusion (#320). Exported
+  // EPUB/PDF does embed figures, so that is a real alternative, not a
+  // consolation.
+  const figureCount = countBookFigures(book);
   const [invites, setInvites] = useState<DraftInvitation[]>([]);
   const [comments, setComments] = useState<DraftComment[]>([]);
   const [email, setEmail] = useState("");
@@ -84,6 +91,14 @@ export function ShareDraftModal({
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <ScrollView contentContainerStyle={styles.content}>
+            {figureCount > 0 ? (
+              <Text style={styles.figuresNotice}>
+                {figureCount === 1
+                  ? "Your 1 figure won't be shared — reviewers see a note instead. "
+                  : `Your ${figureCount} figures won't be shared — reviewers see a note instead. `}
+                To share figures, export the book as EPUB or PDF.
+              </Text>
+            ) : null}
             <Text style={styles.section}>Reviewers</Text>
             <View style={styles.inviteRow}>
               <TextInput
@@ -124,6 +139,13 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text, flexShrink: 1 },
   error: { color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   content: { gap: spacing.xs, paddingBottom: spacing.lg },
+  figuresNotice: {
+    fontSize: typography.sizeSm,
+    color: colors.textSecondary,
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
   section: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.textSecondary },
   inviteRow: { flexDirection: "row", gap: spacing.sm },
   input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, color: colors.text, fontSize: typography.sizeSm },
