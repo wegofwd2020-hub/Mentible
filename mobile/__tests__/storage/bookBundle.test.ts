@@ -43,6 +43,7 @@ jest.mock("expo-image-manipulator", () => ({
 }));
 
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import { unzipSync, strFromU8 } from "fflate";
 import { exportBookBundle, parseBookBundle } from "@/storage/bookBundle";
 
@@ -104,6 +105,30 @@ describe("bookBundle", () => {
     // the exact base64 seeded above, not merely "is defined".
     const writtenPath = `file:///doc/${back.content!.t1.images![0].file}`;
     expect((FileSystem as any).__files[writtenPath]).toBe("aW1hZ2UtYnl0ZXM=");
+  });
+
+  // A bundle is UNTRUSTED input: its media may carry EXIF the exporting device
+  // never stripped. Import must therefore re-strip rather than trust the bytes.
+  // Device-verified 2026-07-16 (a GPS canary bundled raw came back clean); the
+  // manipulator is mocked here, so this locks the pipeline shape instead — see
+  // the matching note in mediaStore.test.ts.
+  it("re-strips imported media through the manipulator, never trusting bundled bytes", async () => {
+    const zip = await exportBookBundle(bookWithImage());
+    (ImageManipulator.manipulateAsync as jest.Mock).mockClear();
+
+    const back = await parseBookBundle(zip);
+
+    // The scratch file the bundle bytes were written to is what gets re-encoded,
+    // with the format matching the ref's mime.
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      expect.stringContaining("file:///cache/bundle-import-"), [], { compress: 0.9, format: "png" },
+    );
+
+    // What lands in media/<newId>/ is the manipulator's output, not the scratch
+    // file the raw bundle bytes were staged in.
+    const { from, to } = (FileSystem.copyAsync as jest.Mock).mock.calls.at(-1)![0];
+    expect(from).toMatch(/\.stripped$/);
+    expect(to).toContain(`media/${back.id}/`);
   });
 
   it("keeps a book with no images out of the media/ folder (book.json only content)", async () => {
