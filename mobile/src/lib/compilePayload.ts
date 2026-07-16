@@ -1,6 +1,7 @@
 import type { Book, GeneratedTopic } from "@/types/book";
 import type { LessonSection } from "@/types/lesson";
 import { resolveFigureDataUrls } from "@/storage/mediaStore";
+import { figureAltText } from "@/lib/figuresHtml";
 
 function mdEsc(s: string): string {
   return s.replace(/([[\]()\\])/g, "\\$1");
@@ -27,8 +28,13 @@ export async function buildCompilePayload(book: Book): Promise<Book> {
       .map((img, i) => {
         const src = urls.get(img.id);
         if (!src) return null; // missing/unreadable file → omit that figure
-        const cap = img.caption ? mdEsc(img.caption) : "";
-        return `![Fig ${i + 1}. ${cap}](${src})`;
+        // The markdown alt becomes the EPUB/PDF's <img alt>. It previously read
+        // `Fig N. ${caption}`, which for an uncaptioned figure left a screen
+        // reader with a bare "Fig 1." — present but meaningless, and different
+        // again from the readers' alt="". All three surfaces now share the one
+        // resolver. The VISIBLE caption is unaffected: it is rendered by the
+        // compiler's own figure styling, not by this alt.
+        return `![${mdEsc(figureAltText(img, i))}](${src})`;
       })
       .filter((line): line is string => line !== null)
       .join("\n\n");
