@@ -73,6 +73,12 @@ rightsholder). Never on the server (stays device-local): copyrighted-but-free th
 downloads, and user-named repo content (the server never fetches a user-named repo). No
 shared/global corpus; no cross-user dedup; strict per-user isolation.
 
+> **Amended by ADR-035 (2026-07-16) — adds class (d): author-attached media bytes.** As written,
+> (a)–(c) omit attached figures: media slice 1 stores images as *refs* in `book.json` with the
+> *bytes* outside it (`media/<bookId>/`), so this scope would sync a book's figure refs without
+> their bytes — figures silently missing on the second device. ADR-035 adds **(d) author-attached
+> media bytes** (book-scoped), end-to-end encrypted and private-per-user; see ADR-035 D1/D2/D4.
+
 ### D3 — Tier & storage: paid subscription with an included minimum; reuse existing machinery
 
 Opt-in paid subscription includes a **minimum** storage allowance (GB) + **minimum** managed-token
@@ -93,6 +99,13 @@ library lives with us to power cross-device AI. The free tier stays on your devi
 zero-knowledge."* The access-control requirement ("only the user accesses their knowledge") is met
 in full against other users; the operator-at-index-time caveat is disclosed. The free device-local
 tier remains zero-knowledge (ADR-014 default).
+
+> **Bounded by ADR-035 (2026-07-16) — this concession does not reach media.** The reason hosted
+> content cannot be zero-knowledge is specific and load-bearing: *the RAG worker must hold plaintext
+> to index/embed it*. Nothing indexes **images**. So ADR-035 keeps author-attached media inside
+> ADR-014 D10's envelope (encrypted on-device under the per-book DK; the server holds no key that
+> opens it). Hosted **text** is encrypted-but-readable-by-us; hosted **media** is not readable by us
+> at all. Scope this D4 to text and generated content accordingly; see ADR-035 D2.
 
 ### D5 — Copyright: minimal surface; DMCA is hygiene, not a launch gate
 

@@ -49,6 +49,15 @@ status** (anonymous vs registered) — for both tiers.
 
 ### D2 — Draft sharing is HOSTED and INVITE-BASED
 
+> **Constrained by ADR-035 D4 (2026-07-16) — shared drafts carry text only; figures are excluded.**
+> A shared draft serves `shared_draft.book_json`, and media slice 1 keeps image *bytes* outside
+> `book.json` (refs only), so figures are **already** excluded today — at two layers: the invitee
+> lacks the bytes, and `mobile/app/book/shared/[id].tsx:105` passes no `figures` prop at all. ADR-035
+> D4 makes that permanent pending a future decision: hosted media is E2E-encrypted and therefore
+> unscannable, so distributing it is a materially different posture from storing it privately.
+> **Present-day defect (ADR-035 F1):** the exclusion is *silent* — a reviewer never sees the diagram
+> they were invited to review. Fixing the silence needs no hosting and no encryption.
+
 - The author shares a draft to specific recipients **by email / account** — **not** an
   open "anyone-with-the-link." The **invitation is the access grant**.
 - The shared draft **and its comments live server-side** (a hosted draft store), so the
