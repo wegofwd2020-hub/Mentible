@@ -79,6 +79,13 @@ may be described in the present tense. *(Already applied across the four decks +
    chapter and verse." RAG grounds the prompt, not the output; claim "shows its citations so you
    verify," and back accuracy assertions with a real evaluation number.
 
+> **Applied by ADR-036 D5 (2026-07-16) — the first feature to make a shipped claim false.**
+> Media slice 1 ships "Figures stay on your device. Nothing is sent to the AI." That is the same
+> class of claim D3.1 bans, and it is **true today** (attach has no egress). Vision-assisted captions
+> (ADR-036) are the event that falsifies it, so ADR-036 D5 replaces it with a conditional statement
+> that names the destination per D3.2. Recorded here because D3 is a principle with no enforcement
+> mechanism: nothing tests prose, so each feature that falsifies a claim must own the rewrite.
+
 ### D4 — Per-persona conviction gates (recorded as requirements; sequencing is open)
 
 Each vertical is **gated on** the following before it is marketed *as present* or taken to market to
