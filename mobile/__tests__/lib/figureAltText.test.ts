@@ -1,12 +1,5 @@
 import { figureAltText, renderFiguresHtml } from "@/lib/figuresHtml";
-import { RENDER_HELPERS_JS } from "@/components/contentHtml";
 import type { TopicImage } from "@/types/book";
-
-// NOTE on `new Function(RENDER_HELPERS_JS)` below: the operand is a first-party
-// compile-time constant from our own source — never user input, never
-// interpolated with untrusted data. Executing it here is exactly what the
-// WebView does in production, which is the whole point: it is the only way to
-// test the hand-duplicated twin's BEHAVIOUR rather than its source text.
 
 const img = (over: Partial<TopicImage> = {}): TopicImage => ({
   id: "a", file: "media/b/a.png", mime: "image/png", addedAt: "x", ...over,
@@ -62,44 +55,13 @@ describe("every surface uses the resolver (no alt drift)", () => {
     expect(html).toContain('alt="A &lt;b&gt;diagram&lt;/b&gt;"');
   });
 
-  // The WebView twin is hand-duplicated JS that jest historically "couldn't
-  // execute", so it was only ever asserted as source TEXT. That is vacuous: the
-  // string 'Figure ' appears in the function definition whether or not the call
-  // site uses it, so reverting the call site kept such a test green. Execute the
-  // real thing instead.
-  // The twin's JS builds a `new marked.Renderer()` at load time (the WebView
-  // loads marked from a CDN-free bundle). renderFigures itself needs neither
-  // marked nor mermaid, so stub just enough for the module body to evaluate.
-  const markedStub = { Renderer: function () { /* fields assigned by the twin */ } };
-  const twin = new Function(
-    "marked",
-    "mermaid",
-    `${RENDER_HELPERS_JS}\nreturn { renderFigures: renderFigures };`,
-  )(markedStub, {}) as {
-    renderFigures: (images: TopicImage[], urls: Record<string, string>) => string;
-  };
-  const twinUrls = { a: "data:image/png;base64,AAAA" };
-
-  it("WebView twin: uncaptioned figure gets a real alt, never alt=''", () => {
-    const html = twin.renderFigures([img()], twinUrls);
-    expect(html).toContain('alt="Figure 1"');
-    expect(html).not.toContain('alt=""');
-  });
-
-  it("WebView twin agrees with figuresHtml for every precedence case (no drift)", () => {
-    const cases: TopicImage[] = [
-      img({ alt: "Explicit alt", caption: "Cap" }),
-      img({ caption: "Only a caption" }),
-      img(),
-      img({ alt: "   ", caption: "  Trimmed  " }),
-      img({ alt: 'Quote "x" & <tag>' }),
-    ];
-    for (const c of cases) {
-      const web = renderFiguresHtml([c], urls);
-      const wv = twin.renderFigures([c], twinUrls);
-      const altOf = (h: string) => h.match(/alt="([^"]*)"/)?.[1];
-      expect(altOf(wv)).toBe(altOf(web)); // the two readers must stay in step
-      expect(altOf(wv)).not.toBe("");
-    }
-  });
+  // The WebView-twin parity tests that lived here are GONE — and so is the twin.
+  // #325 deleted the WebView's ~130-line duplicate renderer: markdown is now
+  // rendered in RN by the one shared renderer and the finished HTML is shipped
+  // into the document. There is no second implementation left to drift from, so
+  // parity is structural rather than something tests must police. The reader's
+  // own output is covered by __tests__/reader/offline-and-breakout.test.ts.
+  //
+  // This is the good outcome the #324 parity tests were pointing at: the fix for
+  // "two implementations disagree" is one implementation.
 });
