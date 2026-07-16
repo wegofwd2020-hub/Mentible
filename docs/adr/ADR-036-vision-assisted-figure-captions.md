@@ -167,10 +167,22 @@ says so). Server-side vision (still foreclosed).
 
 ## Prerequisite — the accessibility bug is NOT this ADR's to claim
 
-Both readers render `alt="${esc(img.caption ?? "")}"` (`mobile/src/lib/figuresHtml.ts`, and the
-mirrored WebView twin in `contentHtml.ts`). An **uncaptioned figure therefore gets `alt=""`**, which
-is HTML for *decorative* — a screen reader skips it entirely. A meaningful diagram is announced as
-nothing, in both readers **and in the compiled EPUB**, a format with real accessibility obligations.
+> **Corrected 2026-07-16 (same day) — this section originally overstated the bug.** It claimed the
+> `alt=""` defect reached "the compiled EPUB". It did not: `compilePayload.ts` emitted
+> `![Fig N. ${caption}](…)`, so the EPUB's alt was `"Fig 1. "` — *non-empty*, therefore never marked
+> decorative, merely meaningless. The claim was asserted without checking. Verified and fixed below.
+
+Three surfaces render a figure, and they **disagreed**:
+
+| Surface | alt for an uncaptioned figure | Effect |
+|---|---|---|
+| Web reader (`src/lib/figuresHtml.ts`) | `""` | **Skipped as decorative** — the real bug |
+| WebView reader (`contentHtml.ts` twin) | `""` | **Skipped as decorative** — same |
+| Compiled EPUB/PDF (`compilePayload.ts`) | `"Fig 1. "` | Announced as *"Fig 1."* — useless, not skipped |
+
+So the `alt=""` defect is real in **both readers** — where a meaningful diagram is announced as
+nothing — while the EPUB had a *different, lesser* defect: a present-but-meaningless alt. Both are
+now resolved by a single shared `figureAltText()` (alt → caption → "Figure N", never empty).
 
 That is a genuine bug, and **it is fixable with a plain alt-text field and no AI whatsoever** — free,
 zero egress, no provider, no cost. It should ship **first and separately**.

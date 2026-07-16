@@ -75,10 +75,11 @@ export function FiguresPanel({
     finally { setBusy(false); }
   }
 
-  async function editCaption(imageId: string, caption: string) {
+  // Caption and alt are edited identically; one writer rather than two copies.
+  async function editField(imageId: string, field: "caption" | "alt", value: string) {
     const gen = book.content?.[topicId];
     if (!gen?.images) return;
-    const images = gen.images.map((i) => (i.id === imageId ? { ...i, caption } : i));
+    const images = gen.images.map((i) => (i.id === imageId ? { ...i, [field]: value } : i));
     const next: Book = {
       ...book,
       content: { ...book.content, [topicId]: { ...gen, images } },
@@ -124,14 +125,29 @@ export function FiguresPanel({
           ) : (
             <View style={[styles.thumb, styles.thumbEmpty]} />
           )}
-          <TextInput
-            style={styles.caption}
-            defaultValue={img.caption}
-            placeholder="Caption (optional)"
-            placeholderTextColor={colors.textMuted}
-            onEndEditing={(e) => editCaption(img.id, e.nativeEvent.text)}
-            accessibilityLabel="Figure caption"
-          />
+          <View style={styles.fields}>
+            <TextInput
+              style={styles.caption}
+              defaultValue={img.caption}
+              placeholder="Caption (optional)"
+              placeholderTextColor={colors.textMuted}
+              onEndEditing={(e) => editField(img.id, "caption", e.nativeEvent.text)}
+              accessibilityLabel="Figure caption"
+            />
+            {/* Alt text is a different job for a different reader: the caption is
+                seen by everyone, the alt is what someone who cannot see the
+                image gets instead. Without it we fall back to the caption, then
+                to "Figure N" — never to an empty alt, which would hide the
+                figure from screen readers entirely. */}
+            <TextInput
+              style={styles.caption}
+              defaultValue={img.alt}
+              placeholder="Alt text — describe it for someone who can't see it"
+              placeholderTextColor={colors.textMuted}
+              onEndEditing={(e) => editField(img.id, "alt", e.nativeEvent.text)}
+              accessibilityLabel="Figure alt text"
+            />
+          </View>
           <Pressable onPress={() => remove(img.id)} accessibilityLabel="Delete figure">
             <Text style={styles.remove}>✕</Text>
           </Pressable>
@@ -155,6 +171,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
   thumbEmpty: { borderWidth: 1, borderColor: colors.border },
+  fields: { flex: 1, gap: spacing.xs },
   caption: { flex: 1, color: colors.text, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 4 },
   remove: { color: colors.textMuted, fontSize: typography.sizeLg, paddingHorizontal: spacing.xs },
   note: { color: colors.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" },

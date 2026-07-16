@@ -319,6 +319,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Because figures stay on your device, they aren't included when you share a draft with a reviewer — the reviewer sees a note saying some figures aren't shown. To send someone your figures, export the book as EPUB or PDF and share that instead.",
       },
       {
+        kind: "text",
+        text: "Each figure takes a caption and alt text. The caption is shown under the figure for everyone. The alt text is what someone using a screen reader hears instead of the image, so describe what it shows — \"a circular diagram of the eight steps\" rather than \"Figure 1\". If you leave alt text empty we fall back to the caption, and then to a plain label like \"Figure 1\".",
+      },
+      {
         kind: "steps",
         steps: [
           "Open a topic that has generated content.",

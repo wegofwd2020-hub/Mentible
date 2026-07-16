@@ -13,7 +13,12 @@ import { colors } from "@/constants/theme";
 // In-page render helpers + per-type builders. Inlined as a string because the
 // WebView sandbox can't import bundle modules. Uses only single quotes so it
 // nests cleanly inside the template literal below.
-const RENDER_HELPERS_JS = `
+// Exported for tests ONLY. This JS is executed inside the WebView and cannot
+// import bundle modules, so its figure logic is a hand-duplicated twin of
+// @/lib/figuresHtml. A twin that nothing executes drifts silently — exporting
+// the source lets a jsdom test run `renderFigures` for real and assert parity
+// with the module it mirrors (see __tests__/lib/figureAltText.test.ts).
+export const RENDER_HELPERS_JS = `
   var renderer = new marked.Renderer();
   renderer.code = function (code, lang) {
     if (lang === 'mermaid') return '<div class="mermaid">' + code + '</div>';
@@ -142,13 +147,23 @@ const RENDER_HELPERS_JS = `
   // behaviour-equal (same markup) on purpose; the WebView can't import bundle
   // modules, so this is intentional duplication. Keep both in step.
   function renderFigures(images, urls) {
+    // MIRROR of figureAltText() in @/lib/figuresHtml — this JS is executed
+    // inside the WebView and cannot import bundle modules, so the resolver is
+    // hand-duplicated. Keep the precedence and the never-empty rule identical:
+    // alt -> caption -> "Figure N", blank counts as absent. An empty alt would
+    // mark a meaningful figure decorative and hide it from screen readers.
+    function altTextFor(img, i) {
+      var a = (img.alt || '').trim();
+      var c = (img.caption || '').trim();
+      return a || c || 'Figure ' + (i + 1);
+    }
     var figs = '';
-    (images || []).forEach(function (img) {
+    (images || []).forEach(function (img, i) {
       var src = urls[img.id];
       if (!src) return;
       var cap = img.caption ? '<figcaption>' + escHtml(img.caption) + '</figcaption>' : '';
       figs += '<figure class="attached-figure"><img src="' + escHtml(src) + '" alt="'
-        + escHtml(img.caption || '') + '">' + cap + '</figure>';
+        + escHtml(altTextFor(img, i)) + '">' + cap + '</figure>';
     });
     if (!figs) return '';
     return '<hr class="section-divider"><section class="figures"><h3>Figures</h3>' + figs + '</section>';

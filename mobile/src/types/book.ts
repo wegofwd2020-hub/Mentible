@@ -139,7 +139,12 @@ export interface TopicImage {
   id: string; // randomUUID (@/lib/uuid)
   file: string; // device-relative, e.g. "media/<bookId>/<id>.jpg"
   mime: string; // one of MIME_ALLOWLIST
-  caption?: string; // plain-text caption / alt
+  caption?: string; // plain-text caption — VISIBLE text, shown under the figure
+  // Alt text: what a reader who cannot see the image gets instead. A different
+  // job from the caption, for a different reader — "Fig 1. The Krebs cycle" is a
+  // good caption and a useless alt. Optional; `figureAltText()` resolves the
+  // fallback (@/lib/figuresHtml) and is the ONLY place alt is decided.
+  alt?: string;
   width?: number;
   height?: number;
   addedAt: string; // ISO
