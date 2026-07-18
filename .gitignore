@@ -46,6 +46,11 @@ mobile/*.p8
 mobile/*.p12
 mobile/*.mobileprovision
 mobile/*.orig.*
+
+# Android release signing — never commit the key or its passwords (#328)
+mobile/credentials/*
+!mobile/credentials/keystore.properties.example
+*.keystore
 mobile/.metro-health-check*
 
 # ── IDE ───────────────────────────────────────────────────────────────────────

@@ -32,7 +32,8 @@
         {
           "configureAndroidBackup": false
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning.js"
     ],
     "scheme": "mentible",
     "experiments": {
