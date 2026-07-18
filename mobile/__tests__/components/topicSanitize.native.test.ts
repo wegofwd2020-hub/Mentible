@@ -24,7 +24,10 @@ function topicWith(bodyHtml: string): GeneratedTopic {
 // Render the doc, strip the CDN <script src> tags (offline in jest — KaTeX/Mermaid
 // are absent and optional), run the rest, return #root.innerHTML.
 function renderRoot(html: string): string {
-  const doc = html.replace(/<script src="https:[^"]*"><\/script>/g, "");
+  // Strip the CDN <script src> tags (they carry crossorigin=, so match any attrs
+  // after the src). jsdom does not fetch them anyway; this just keeps the executed
+  // doc free of KaTeX/Mermaid globals so the assertions read only our sanitizer.
+  const doc = html.replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
   const dom = new JSDOM(doc, { runScripts: "dangerously" });
   return dom.window.document.getElementById("root")?.innerHTML ?? "";
 }

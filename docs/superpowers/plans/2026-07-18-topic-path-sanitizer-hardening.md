@@ -332,7 +332,7 @@ import type { GeneratedTopic } from "@/types/book";
 const topicWith = (h: string) =>
   ({ id: "t", label: "x", detail: "d", lesson: { title: "x", sections: [{ heading: "S", body_markdown: `i\n\n${h}` }] } } as unknown as GeneratedTopic);
 const nativeRoot = (h: string) => {
-  const doc = buildTopicHtml(topicWith(h)).replace(/<script src="https:[^"]*"><\/script>/g, "");
+  const doc = buildTopicHtml(topicWith(h)).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
   return new JSDOM(doc, { runScripts: "dangerously" }).window.document.getElementById("root")?.innerHTML ?? "";
 };
 
@@ -380,7 +380,7 @@ it("web entry (renderTopicToSafeHtml) drops all egress + XSS, keeps prose", () =
 });
 
 it("native entry (buildTopicHtml, executed) drops all egress + XSS, keeps prose", () => {
-  const doc = buildTopicHtml(hostile).replace(/<script src="https:[^"]*"><\/script>/g, "");
+  const doc = buildTopicHtml(hostile).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
   const root = new JSDOM(doc, { runScripts: "dangerously" }).window.document.getElementById("root")?.innerHTML ?? "";
   expect(root).not.toContain("evil.example");
   expect(root).not.toContain("onerror");
