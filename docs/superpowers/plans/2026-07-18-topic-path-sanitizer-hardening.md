@@ -425,3 +425,62 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - **Spec coverage:** §3.1 native → Task 2; §3.2 web → Task 1; §3.3 primitives → Task 1 (web) + Task 2 (native JS); §3.4 preservation → KEEP_VECTORS in every task; §4 testing → Tasks 1–3 (web vectors, native jsdom-execute, parity, e2e); §5 review + §6 disclosure + R4 → "After all tasks". Base-branch constraint → Global Constraints + Reference blueprints.
 - **Placeholder scan:** none — every step carries concrete code, exact commands, expected output; porting steps cite exact blueprint symbols + line numbers.
 - **Type consistency:** `sanitizeFragment`, `renderTopicToSafeHtml`, `buildTopicHtml`, `GeneratedTopic`, `ATTACK_VECTORS`/`KEEP_VECTORS` used identically across tasks; `makeTopicSanitizeHook`/`URI_ATTRS`/`isSafePaintValue` introduced in Task 1 and referenced by name in Task 2's porting notes.
+
+---
+
+## Task 4: Convert the one `<style>`-dependent figure to inline attrs + SMIL, re-sign the book
+
+**Why:** Task 1 forbids `<style>` (required — CSS-in-`<style>` is an unscreenable fetch channel). One bundled figure — the "Escalation decision flow animation" in `claude-certified-architect-foundations` — used a `<style>` block for BOTH its text styling (`.label`/`.sublabel` → `fill`/font) AND its opacity pulse (`@keyframes pulse1-4`). Without `<style>` its labels lose their near-white fill (invisible on the dark reader) and the pulse stops. Convert both to the SVG-native forms the sanitizer keeps (inline presentation attrs + SMIL `<animate>` — the same book already uses 62 SMIL animations). The book is in the SIGNED default-library manifest, so it must be re-signed (CLAUDE.md pitfall #7).
+
+**Files:**
+- Modify: `library/books/claude-certified-architect-foundations.book.json` (canonical — the SVG figure)
+- Modify (regenerated): `library/manifest.json` (sha256/bytes/signature, via `owner_cli`)
+- Mirror: `mobile/assets/library/books/claude-certified-architect-foundations.book.json` + `mobile/assets/library/manifest.json`
+- Test: reuse `mobile/__tests__/reader/topicSanitize.web.test.ts` KEEP coverage + the backend signature gate.
+
+**Interfaces:** Consumes Task 1's hardened `sanitizeFragment`. Produces no code — a content + signature change.
+
+- [ ] **Step 1: Read the figure and the signing tool**
+Run: `git show HEAD:library/books/claude-certified-architect-foundations.book.json | python3 -c "import sys,re; t=sys.stdin.read(); m=re.search(r'<svg[^>]*Escalation[\s\S]{0,4000}?</svg>', t); print((m.group(0) if m else 'NOT FOUND').encode().decode('unicode_escape'))"`
+Also read `backend/src/core/owner_cli.py` (the `publish` command runs `_refresh_integrity` → recomputes sha256/bytes, then `sign_entry`).
+
+- [ ] **Step 2: Edit the figure in `library/books/...book.json`** (the canonical copy)
+
+Inside the "Escalation decision flow animation" `<svg>`:
+- **Delete the entire `<style>…</style>` block.**
+- **Inline the text styling** — on every `<text class="label">` add `font-family="sans-serif" font-size="11" fill="#f8fafc"` and remove `class="label"`; on every `<text class="sublabel">` add `font-family="sans-serif" font-size="9" fill="#94a3b8"` and remove `class="sublabel"`.
+- **Convert each pulse to SMIL** — inside each `<g class="n1">…<g class="n4">`, add an `<animate>` and remove the `class="nX"`:
+  - n1: `<animate attributeName="opacity" values="0.3;1;1;0.3" keyTimes="0;0.2;0.4;1" dur="3s" repeatCount="indefinite"/>`
+  - n2: `<animate attributeName="opacity" values="0.3;0.3;1;1;0.3" keyTimes="0;0.2;0.4;0.6;1" dur="3s" repeatCount="indefinite"/>`
+  - n3: `<animate attributeName="opacity" values="0.3;0.3;1;1;0.3" keyTimes="0;0.4;0.6;0.8;1" dur="3s" repeatCount="indefinite"/>`
+  - n4: `<animate attributeName="opacity" values="0.3;0.3;1;1" keyTimes="0;0.6;0.8;1" dur="3s" repeatCount="indefinite"/>`
+- Confirm the figure now contains no `<style>` and no `@keyframes`/`animation:`; `<animate>` is already allowlisted (`ADD_TAGS`), so the sanitizer keeps it.
+
+- [ ] **Step 3: Re-sign the book + mirror**
+```bash
+cd /home/sivam/Documents/code/projects/AIStuff/STEM_studybuddy/Mentible
+SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64}) python -m backend.src.core.owner_cli publish claude-certified-architect-foundations
+# mirror the edited book + regenerated manifest into the mobile bundle:
+cp library/books/claude-certified-architect-foundations.book.json mobile/assets/library/books/claude-certified-architect-foundations.book.json
+cp library/manifest.json mobile/assets/library/manifest.json
+```
+
+- [ ] **Step 4: Verify signature + no regression**
+```bash
+SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64}) python -m backend.src.core.owner_cli verify   # exits 0
+cd backend && python -m pytest tests/test_library_publish.py -q                              # the committed-manifest gate passes
+cd ../mobile && npx jest __tests__/reader && npx tsc --noEmit                                # figure still sanitizes clean, suite green
+```
+Expected: `verify` exits 0; the backend gate passes with the new signature; the mobile suite green. If `verify` fails, you signed with the wrong secret — it MUST be the dev constant `printf '1%.0s' {1..64}` (pitfall #7), never a real `.env` secret.
+
+- [ ] **Step 5: Commit**
+```bash
+git add library/books/claude-certified-architect-foundations.book.json library/manifest.json mobile/assets/library/books/claude-certified-architect-foundations.book.json mobile/assets/library/manifest.json
+git commit -m "content(library): convert the escalation-flow figure off <style> to inline attrs + SMIL
+
+The topic sanitizer now drops <style> (unscreenable CSS fetch channel). This one
+figure used <style> for text fill + an opacity pulse; both are re-expressed as
+SVG-native inline presentation attributes and SMIL <animate> (matching the book's
+62 other SMIL animations), so it renders identically without <style>. Book
+re-signed with the dev owner secret; mobile mirror updated."
+```
