@@ -14,3 +14,16 @@ jest.mock("@expo/vector-icons", () => {
   const Icon = (props) => React.createElement(Text, null, (props && props.name) || "");
   return new Proxy({}, { get: (_t, prop) => (prop === "__esModule" ? false : Icon) });
 });
+
+// jest's jsdom test environment (jest-environment-jsdom@29, jsdom@20) does not
+// expose TextEncoder/TextDecoder on its global — a long-standing upstream gap
+// (jestjs/jest#9983). Node's `jsdom` package (imported directly by tests that
+// execute a WebView document in-process, e.g. topicSanitize.parity/e2e) needs
+// them via whatwg-url. Polyfill from Node's `util` so those tests can import
+// `jsdom` under a `@jest-environment jsdom` file without every test needing to
+// know this.
+if (typeof globalThis.TextEncoder === "undefined") {
+  const { TextEncoder, TextDecoder } = require("util");
+  globalThis.TextEncoder = TextEncoder;
+  globalThis.TextDecoder = TextDecoder;
+}

@@ -10,10 +10,175 @@
 import { renderTopicToHtml } from "@/reader/topicHtml";
 import type { GeneratedTopic } from "@/types/book";
 import { colors } from "@/constants/theme";
+import { DOMPURIFY_SRC } from "@/components/dompurifySource";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
 // WebView sandbox can't import bundle modules. Uses only single quotes so it
 // nests cleanly inside the template literal below.
+
+// ---------------------------------------------------------------------------
+// Native topic sanitizer — the WebView IS the sanitizer.
+//
+// A generated topic's body comes from OUR OWN renderer (`renderTopicToHtml`)
+// over schema-validated LLM output, but that is not the whole trust story any
+// more: the same document also renders a SHARED DRAFT (ADR-027), i.e.
+// another user's authored HTML. Native has no DOM outside this WebView to
+// sanitize third-party content with, so DOMPurify runs HERE, inlined rather
+// than fetched (same #325 offline reasoning as the chapter WebView), and the
+// body is sanitized before it is EVER assigned to innerHTML. Without this, an
+// `<img onerror>` in a shared draft runs JS in the app's own document, where
+// localStorage holds the BYOK key and the Supabase session.
+//
+// `TOPIC_SANITIZE_HOOK_JS` is a re-authored copy of `@/reader/sanitize`'s
+// `makeTopicSanitizeHook` — the WebView sandbox cannot import that module (no
+// DOM on Hermes to run it on in the RN bundle, and the WebView itself can't
+// `require()` app code). It is ported from the Open Shelves F1 chapter
+// sanitizer's `CHAPTER_SANITIZE_HOOK_JS`, with the per-book image-map lookup
+// dropped: a topic has no image map, so `src` reduces to the same
+// data:-or-drop rule as every other URI attribute below (exactly like the web
+// `makeTopicSanitizeHook`, not the chapter hook's map-then-fallback). The two
+// copies (this one and the web one) are tested against the SAME vector table
+// (`@/reader/topicSanitizeVectors.fixtures`) so they cannot silently drift
+// apart.
+const TOPIC_SANITIZE_HOOK_JS = `
+function makeTopicSanitizeHook() {
+  // BARE-URI attributes — data:-only. Matches @/reader/sanitize's URI_ATTRS.
+  // 'srcset' is deliberately ABSENT — dropped wholesale via FORBID_ATTR
+  // instead (a candidate LIST; a data:-or-drop test that only reads the START
+  // of the value is the wrong shape for it).
+  var URI_ATTRS = ['src', 'href', 'poster', 'data', 'xlink:href', 'background',
+    'cite', 'color-profile'];
+  // SVG paint attributes taking a CSS url(...) value. DOMPurify permits all of
+  // them and screens none — IS_ALLOWED_URI only reads a value as a URI when it
+  // starts with a bare scheme:, and these start with 'url('. They ARE a real
+  // fetch channel (Chromium 150 verified: external fill/filter/mask/clip-path
+  // paint servers all fetch). ALLOWLISTED by isSafePaintValue, not blocklisted.
+  // Matches @/reader/sanitize's PAINT_ATTRS.
+  var PAINT_ATTRS = ['fill', 'stroke', 'filter', 'mask', 'clip-path',
+    'marker-start', 'marker-mid', 'marker-end'];
+  var MAX_SVG_DEPTH = 4;
+  var svgDepth = 0;
+
+  function isDataUri(v) {
+    return typeof v === 'string' && /^\\s*data:/i.test(v);
+  }
+  function isFragmentOnlyHref(v) {
+    return typeof v === 'string' && v.charAt(0) === '#';
+  }
+  // ONE safe paint token: keyword, hex colour, number/percentage, or a numeric
+  // colour function whose args are digits + separators only.
+  // Matches @/reader/sanitize's isSafePaintToken.
+  function isSafePaintToken(t) {
+    return /^[A-Za-z][A-Za-z-]*$/.test(t)
+      || /^#[0-9A-Fa-f]{3,8}$/.test(t)
+      || /^[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)%?$/.test(t)
+      || /^(?:rgba?|hsla?)\\([\\d.,%\\s/+-]+\\)$/i.test(t);
+  }
+  // ALLOWLIST — anything not positively recognised is refused. Accepts a
+  // same-document url(#ident) (optionally quoted, optionally followed by ONE
+  // fallback token, e.g. fill="url(#g) red"), or a bare safe token. Refuses any
+  // value containing a backslash (a CSS escape can spell any token at all),
+  // any url() that is not same-document, and any unrecognised function
+  // (image-set(), var(), …). Matches @/reader/sanitize's isSafePaintValue —
+  // see that file for why this is an allowlist and not another blocklist.
+  function isSafePaintValue(v) {
+    if (typeof v !== 'string') return false;
+    if (v.indexOf('\\\\') !== -1) return false;
+    var s = v.trim();
+    if (s === '') return true;
+    var m = /^url\\(\\s*(?:"([^"'()\\\\<>\\s]+)"|'([^"'()\\\\<>\\s]+)'|([^"'()\\\\<>\\s]+))\\s*\\)/i.exec(s);
+    if (!m) return isSafePaintToken(s);
+    var ident = m[1] || m[2] || m[3];
+    if (ident.charAt(0) !== '#') return false;
+    var rest = s.slice(m[0].length).trim();
+    return rest === '' || isSafePaintToken(rest);
+  }
+  function utf8ToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function base64ToUtf8(b64) {
+    return decodeURIComponent(escape(atob(b64)));
+  }
+
+  function sanitizeSvgDataUri(uri) {
+    var m = /^\\s*data:image\\/svg\\+xml(?:;charset=[^;,]+)?(;base64)?,([\\s\\S]*)$/i.exec(uri);
+    if (!m) return null;
+    if (svgDepth >= MAX_SVG_DEPTH) return null;
+    var svgText;
+    try {
+      svgText = m[1] ? base64ToUtf8(m[2]) : decodeURIComponent(m[2]);
+    } catch (e) {
+      return null;
+    }
+    svgDepth++;
+    var clean;
+    try {
+      clean = DOMPurify.sanitize(svgText, {
+        USE_PROFILES: { svg: true },
+        FORBID_TAGS: ['script', 'foreignObject', 'style'],
+        // This nested call passes its OWN config — without this, the style
+        // surface reopens one level down inside a data: URI. Matches
+        // @/reader/sanitize's HOOKLESS_FORBID_ATTR.
+        FORBID_ATTR: ['style', 'srcset'],
+      });
+    } finally {
+      svgDepth--;
+    }
+    if (!clean) return null;
+    try {
+      return 'data:image/svg+xml;base64,' + utf8ToBase64(clean);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  return function (node) {
+    if (!node || !node.getAttribute) return;
+
+    for (var i = 0; i < URI_ATTRS.length; i++) {
+      var attr = URI_ATTRS[i];
+      if (!node.hasAttribute || !node.hasAttribute(attr)) continue;
+      var val = node.getAttribute(attr);
+      if (attr === 'href' && isFragmentOnlyHref(val)) continue;
+      if (!isDataUri(val)) {
+        node.removeAttribute(attr);
+        continue;
+      }
+      if (/^\\s*data:image\\/svg\\+xml/i.test(val)) {
+        var safe = sanitizeSvgDataUri(val);
+        if (safe) node.setAttribute(attr, safe);
+        else node.removeAttribute(attr);
+      }
+    }
+
+    for (var j = 0; j < PAINT_ATTRS.length; j++) {
+      var paintAttr = PAINT_ATTRS[j];
+      if (!node.hasAttribute || !node.hasAttribute(paintAttr)) continue;
+      if (!isSafePaintValue(node.getAttribute(paintAttr))) node.removeAttribute(paintAttr);
+    }
+
+    // NOTE: no 'style' screen here either, by design — the attribute is
+    // dropped wholesale via FORBID_ATTR before this hook runs. CSS is not
+    // screenable by a token blocklist (image-set() needs no url( token, CSS
+    // escapes spell url( without the letters, and var() puts the URL in a
+    // different attribute entirely). Do not reintroduce one.
+  };
+}
+`;
+
+// Matches `@/reader/sanitize`'s SANITIZE_CONFIG exactly (animation allowances
+// + the same FORBID_TAGS/FORBID_ATTR — 'style' and 'srcset' are the two
+// surfaces this boundary DELETES rather than screens; see
+// HOOKLESS_FORBID_ATTR in `@/reader/sanitize` for why).
+const TOPIC_SANITIZE_CONFIG_JS = `{
+    USE_PROFILES: { html: true, svg: true },
+    ADD_TAGS: ['animate', 'animateTransform', 'set'],
+    ADD_ATTR: ['attributeName', 'attributeType', 'values', 'from', 'to', 'by',
+      'dur', 'begin', 'end', 'repeatCount', 'repeatDur', 'restart',
+      'keyTimes', 'keySplines', 'calcMode', 'additive', 'accumulate', 'fill'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'foreignObject', 'style'],
+    FORBID_ATTR: ['srcdoc', 'formaction', 'xlink:href', 'style', 'srcset'],
+  }`;
 
 function htmlDocument(dataJson: string): string {
   return `<!DOCTYPE html>
@@ -21,6 +186,13 @@ function htmlDocument(dataJson: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Defense-in-depth BEHIND DOMPurify: the topic document legitimately loads
+     the Google-Fonts/KaTeX stylesheet + KaTeX/Mermaid/Google-Fonts CDN
+     scripts and fonts, so this CSP is scoped to exactly those origins rather
+     than the chapter WebView's stricter default-src none. connect-src stays
+     'none' as an egress backstop — nothing in this document should ever open
+     its own network connection beyond the declared style/script/font loads. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; connect-src 'none'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Source Serif 4 = a clean book serif loaded from the web; "Noto Serif" is
@@ -167,15 +339,21 @@ function htmlDocument(dataJson: string): string {
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js" crossorigin="anonymous"></script>
 
+<!-- DOMPurify, inlined (not fetched — see the file-level comment above). -->
+<script>${DOMPURIFY_SRC}</script>
+<script>${TOPIC_SANITIZE_HOOK_JS}</script>
 <script>
 (function () {
   var DATA = ${dataJson};
 
-  // The body arrived as finished HTML, rendered in RN by @/reader/topicHtml.
-  // Nothing here parses markdown, so no CDN script is needed to show the text
-  // (#325). DATA.__html is a string built by our own renderer — the same string
-  // the web reader sanitizes — and is assigned exactly once.
-  document.getElementById('root').innerHTML = DATA.__html;
+  // The body arrived as finished HTML, rendered in RN by @/reader/topicHtml —
+  // but that renderer's OWN output can carry another user's shared-draft HTML
+  // (ADR-027), which is untrusted the same way an imported chapter is. Sanitize
+  // BEFORE the string is ever parsed as HTML/assigned to innerHTML — this is
+  // the boundary.
+  DOMPurify.addHook('afterSanitizeAttributes', makeTopicSanitizeHook());
+  var clean = DOMPurify.sanitize(DATA.__html, ${TOPIC_SANITIZE_CONFIG_JS});
+  document.getElementById('root').innerHTML = clean;
 
   // Math: optional. Offline, renderMathInElement is simply absent — leave the
   // source text as-is rather than throwing and losing the whole document.

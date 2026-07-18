@@ -69,7 +69,11 @@ describe("#325 — the reader renders offline", () => {
     expect(doc).toMatch(/typeof renderMathInElement === 'function'/);
     expect(doc).toMatch(/typeof mermaid !== 'undefined'/);
     // …and the body is assigned BEFORE either runs, so text survives regardless.
-    const assignAt = doc.indexOf("root').innerHTML = DATA.__html");
+    // (The assignment now goes through DOMPurify.sanitize() first — see the
+    // native topic sanitizer hardening — but the ORDERING guarantee this test
+    // pins is unchanged: sanitize-then-assign still precedes the KaTeX/Mermaid
+    // enhancement blocks.)
+    const assignAt = doc.indexOf("root').innerHTML = clean");
     expect(assignAt).toBeGreaterThan(-1);
     expect(assignAt).toBeLessThan(doc.indexOf("renderMathInElement(document.body"));
   });

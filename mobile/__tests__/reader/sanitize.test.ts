@@ -53,12 +53,17 @@ describe("sanitizeFragment — keeps content the reader needs", () => {
     },
   );
 
-  it("keeps <animateMotion> and <style> inside svg", () => {
+  it("keeps <animateMotion>; strips <style> inside svg (closed as a CSS fetch channel)", () => {
+    // <style> content is raw CSS DOMPurify does not inspect — @import and
+    // url()-fetching declarations inside it are live network channels, so the
+    // element is now dropped wholesale (FORBID_TAGS). animateMotion, which
+    // carries no CSS/URI capability, still survives.
     const out = sanitizeFragment(
       '<svg><style>@keyframes k{from{opacity:0}}</style><path><animateMotion dur="3s"/></path></svg>',
     );
     expect(hasTag(out, "animateMotion")).toBe(true);
-    expect(out).toContain("@keyframes");
+    expect(out).not.toMatch(/<style/i);
+    expect(out).not.toContain("@keyframes");
   });
 });
 
