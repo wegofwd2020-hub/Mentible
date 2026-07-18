@@ -456,10 +456,34 @@ Inside the "Escalation decision flow animation" `<svg>`:
   - n4: `<animate attributeName="opacity" values="0.3;0.3;1;1" keyTimes="0;0.6;0.8;1" dur="3s" repeatCount="indefinite"/>`
 - Confirm the figure now contains no `<style>` and no `@keyframes`/`animation:`; `<animate>` is already allowlisted (`ADD_TAGS`), so the sanitizer keeps it.
 
-- [ ] **Step 3: Re-sign the book + mirror**
+- [ ] **Step 3: Re-sign the book (standalone, no backend venv) + mirror**
+
+There is **no backend venv** (`owner_cli` can't import `pydantic_settings`), but the signing is pure stdlib. This script **exactly replicates** `owner_cli publish` / `library_publish.sign_entry` (verified against `backend/src/core/library_publish.py:30,43-59` and `owner_cli.py:_refresh_integrity`): recompute `sha256`/`bytes`/`generatedCount` from the edited canonical book, then HMAC-SHA256 over `_SIGNED_FIELDS=("id","file","version","status","sha256","bytes")` keyed by `bytes.fromhex(secret)`, and write with `json.dumps(indent=2, ensure_ascii=False)+"\n"`. The book **id is `claude-cert-architect-foundations`** (NOT the filename).
+
 ```bash
 cd /home/sivam/Documents/code/projects/AIStuff/STEM_studybuddy/Mentible
-SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64}) python -m backend.src.core.owner_cli publish claude-certified-architect-foundations
+python3 - <<'PY'
+import json, hmac, hashlib, pathlib
+SECRET = "1" * 64                                   # dev constant (pitfall #7) — NEVER a real .env secret
+FIELDS = ("id", "file", "version", "status", "sha256", "bytes")
+BOOK_ID = "claude-cert-architect-foundations"
+mp = pathlib.Path("library/manifest.json")
+m = json.loads(mp.read_text())
+hit = False
+for e in m["books"]:
+    if e["id"] == BOOK_ID:
+        raw = (mp.parent / e["file"]).read_bytes()  # library/books/...book.json
+        e["sha256"] = hashlib.sha256(raw).hexdigest()
+        e["bytes"] = len(raw)
+        book = json.loads(raw)
+        e["generatedCount"] = len(book.get("content") or {})
+        payload = "\n".join(f"{f}={e[f]}" for f in FIELDS).encode("utf-8")
+        e["signature"] = hmac.new(bytes.fromhex(SECRET), payload, hashlib.sha256).hexdigest()
+        hit = True
+        print(f"re-signed {BOOK_ID}: sha256={e['sha256'][:12]}… bytes={e['bytes']} sig={e['signature'][:12]}…")
+assert hit, "book id not found in manifest"
+mp.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+PY
 # mirror the edited book + regenerated manifest into the mobile bundle:
 cp library/books/claude-certified-architect-foundations.book.json mobile/assets/library/books/claude-certified-architect-foundations.book.json
 cp library/manifest.json mobile/assets/library/manifest.json
@@ -467,11 +491,23 @@ cp library/manifest.json mobile/assets/library/manifest.json
 
 - [ ] **Step 4: Verify signature + no regression**
 ```bash
-SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64}) python -m backend.src.core.owner_cli verify   # exits 0
-cd backend && python -m pytest tests/test_library_publish.py -q                              # the committed-manifest gate passes
-cd ../mobile && npx jest __tests__/reader && npx tsc --noEmit                                # figure still sanitizes clean, suite green
+# Re-verify the signature with an INDEPENDENT stdlib recompute (proves it validates):
+python3 - <<'PY'
+import json, hmac, hashlib
+SECRET="1"*64; FIELDS=("id","file","version","status","sha256","bytes"); BOOK_ID="claude-cert-architect-foundations"
+m=json.load(open("library/manifest.json"))
+e=next(b for b in m["books"] if b["id"]==BOOK_ID)
+payload="\n".join(f"{f}={e[f]}" for f in FIELDS).encode()
+exp=hmac.new(bytes.fromhex(SECRET),payload,hashlib.sha256).hexdigest()
+assert hmac.compare_digest(exp,e["signature"]), "SIGNATURE INVALID"
+raw=open("library/books/claude-certified-architect-foundations.book.json","rb").read()
+assert e["sha256"]==hashlib.sha256(raw).hexdigest() and e["bytes"]==len(raw), "sha256/bytes stale"
+assert open("mobile/assets/library/manifest.json").read()==open("library/manifest.json").read(), "mobile mirror != canonical"
+print("signature valid, integrity fresh, mirror matches")
+PY
+cd mobile && npx jest __tests__/reader && npx tsc --noEmit   # figure still sanitizes clean, suite green
 ```
-Expected: `verify` exits 0; the backend gate passes with the new signature; the mobile suite green. If `verify` fails, you signed with the wrong secret — it MUST be the dev constant `printf '1%.0s' {1..64}` (pitfall #7), never a real `.env` secret.
+Expected: "signature valid, integrity fresh, mirror matches"; the mobile suite green. If the backend Python env is ever available, `SYSTEM_OWNER_SECRET=$(printf '1%.0s' {1..64}) python -m backend.src.core.owner_cli verify` is the canonical check — but the stdlib recompute above is byte-for-byte equivalent (same `_SIGNED_FIELDS` + HMAC), and the `Backend — Tests` CI gate re-verifies on push.
 
 - [ ] **Step 5: Commit**
 ```bash
