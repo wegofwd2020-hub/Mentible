@@ -12,9 +12,9 @@ it("starts hidden, becomes visible after load when not dismissed", async () => {
 });
 
 it("stays hidden when already dismissed", async () => {
-  await store.dismissNudge("chapter-quiz");
+  const spy = jest.spyOn(store, "loadDismissed").mockResolvedValue(["chapter-quiz"]);
   const { result } = renderHook(() => useNudge("chapter-quiz"));
-  await waitFor(() => {});
+  await waitFor(() => expect(spy).toHaveBeenCalled());
   expect(result.current.visible).toBe(false);
 });
 
@@ -27,8 +27,8 @@ it("dismiss hides it and persists", async () => {
 });
 
 it("fails closed when the load rejects", async () => {
-  jest.spyOn(store, "loadDismissed").mockRejectedValue(new Error("boom"));
+  const spy = jest.spyOn(store, "loadDismissed").mockRejectedValue(new Error("boom"));
   const { result } = renderHook(() => useNudge("chapter-quiz"));
-  await waitFor(() => {});
+  await waitFor(() => expect(spy).toHaveBeenCalled());
   expect(result.current.visible).toBe(false);
 });
