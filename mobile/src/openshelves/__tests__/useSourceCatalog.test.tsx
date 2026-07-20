@@ -78,13 +78,27 @@ describe("lazy hydration", () => {
   });
 
   it("does NOT loop when hydration fails", async () => {
-    await putSource({ id: "s2", url: "https://x/f", title: "X", addedAt: "t", lastRefreshedAt: null, isStarter: true, entryCount: 0 });
+    const seeded = { id: "s2", url: "https://x/f", title: "X", addedAt: "t", lastRefreshedAt: null, isStarter: true, entryCount: 0 };
+    await putSource(seeded);
     const spy = jest.spyOn(feedStore, "refreshSource").mockRejectedValue(new Error("down"));
-    const { rerender } = renderHook(() => useSourceCatalog("s2"));
+    const { result, rerender } = renderHook(() => useSourceCatalog("s2"));
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
     rerender({});
     rerender({});
     expect(spy).toHaveBeenCalledTimes(1); // terminal until user taps Refresh
+
+    // Re-arm bait: a plain "same values" re-render (above) never changes the
+    // `source`/`entries` object identity, so it can't tell a ref-guard apart
+    // from React's own dependency-diffing doing the work for free. Force a
+    // genuine reference change — via reload() — while lastRefreshedAt stays
+    // null and entries stays empty: exactly the condition a naive (non-ref)
+    // hydration check would treat as "never hydrated, go again". Only the
+    // `hydratedFor` ref — not object equality — should keep this terminal.
+    (getSource as jest.Mock).mockResolvedValueOnce({ ...seeded, lastRefreshedAt: null });
+    (getEntries as jest.Mock).mockResolvedValueOnce([]);
+    await act(async () => { await result.current.reload(); });
+
+    expect(spy).toHaveBeenCalledTimes(1); // still terminal — guard survives a fresh source/entries reference
   });
 
   it("does NOT auto-fetch an already-refreshed source", async () => {
