@@ -6,6 +6,12 @@ import { feedRequestUrl, proxyErrorFor, usesFeedProxy } from "./feedTransport";
 
 export const MAX_FEED_BYTES = 8 * 1024 * 1024;
 
+// Descriptive UA so Gutenberg/OPDS hosts don't rate-limit us as an anonymous bot.
+// (On web the request targets our own backend and browsers drop the forbidden
+// User-Agent header — harmless; the meaningful UA reaches the upstream host from
+// the backend proxy, see backend/src/shelves/feed_fetch.py.)
+export const FEED_USER_AGENT = "Mentible (+https://mambakkam.net/mentible)";
+
 // SSRF guard: block literal loopback/private/link-local hosts (incl. the
 // 169.254.169.254 cloud metadata address). Known residual: this blocks literal
 // private-IP hosts but not DNS rebinding (a public hostname that resolves to a
@@ -50,7 +56,10 @@ export async function fetchFeed(url: string, fetchImpl: typeof fetch = fetch): P
   const clean = validateFeedUrl(url);
   let resp: Response;
   try {
-    resp = await fetchImpl(feedRequestUrl(clean), { method: "GET" });
+    resp = await fetchImpl(feedRequestUrl(clean), {
+      method: "GET",
+      headers: { "User-Agent": FEED_USER_AGENT },
+    });
   } catch (err) {
     throw new FeedSourceError(`Could not reach the feed: ${(err as Error).message}`);
   }

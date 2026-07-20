@@ -18,6 +18,9 @@ import httpx
 from backend.src.shelves.url_guard import Resolver, assert_fetchable, default_resolver
 
 MAX_FEED_BYTES = 8 * 1024 * 1024  # keep in step with mobile MAX_FEED_BYTES
+# Descriptive UA so Gutenberg/OPDS hosts don't rate-limit us as an anonymous bot.
+# Keep in step with mobile FEED_USER_AGENT (not cross-imported — one per side).
+FEED_USER_AGENT = "Mentible (+https://mambakkam.net/mentible)"
 TIMEOUT_S = 10.0
 MAX_REDIRECTS = 3
 ALLOWED_CONTENT_TYPES = frozenset(
@@ -73,7 +76,10 @@ async def fetch_feed(
             current,
             timeout=TIMEOUT_S,
             # No auth of any kind reaches a third-party host (ADR-028 no-auth guardrail).
-            headers={"accept": "application/atom+xml, application/xml;q=0.9, text/xml;q=0.8"},
+            headers={
+                "accept": "application/atom+xml, application/xml;q=0.9, text/xml;q=0.8",
+                "user-agent": FEED_USER_AGENT,
+            },
         )
         # Strip any credential the injected client carries by default (e.g. an
         # Authorization/Cookie set on the client itself). build_request() merges

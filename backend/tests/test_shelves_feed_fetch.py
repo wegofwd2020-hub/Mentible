@@ -181,3 +181,16 @@ async def test_redirect_loop_is_bounded():
         with pytest.raises(FeedFetchError) as exc:
             await fetch_feed("https://ex.org/f.opds", c, public)
     assert exc.value.reason == "upstream_error"
+
+
+@pytest.mark.asyncio
+async def test_fetch_feed_sends_user_agent():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["ua"] = request.headers.get("user-agent", "")
+        return httpx.Response(200, headers={"content-type": "application/atom+xml"}, content=b"<feed/>")
+
+    async with client_for(handler) as c:
+        await fetch_feed("https://example.org/f.opds", c, public)
+    assert "Mentible" in seen["ua"]
