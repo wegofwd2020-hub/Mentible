@@ -57,6 +57,14 @@ jest.mock("@/hooks/useGenerateChapterQuiz", () => ({
 // can flip it without jest.resetModules().
 jest.mock("@/constants/demo", () => ({ IS_DEMO: false }));
 
+// Discovery nudge (F3 Task 4): mock useNudge to control visibility without
+// touching AsyncStorage (mutable module-level flag, same footgun/escape-hatch
+// pattern as the other jest.mock()s above).
+jest.mock("@/discovery/useNudge", () => ({
+  useNudge: () => ({ visible: mockNudgeVisible, dismiss: jest.fn() }),
+}));
+let mockNudgeVisible = true;
+
 import { loadBook } from "@/storage/bookStore";
 import ReadChapterScreen from "@/../app/book/chapter/[bookId]/[chapterId]";
 import type { Book, QuizSet } from "@/types/book";
@@ -123,6 +131,7 @@ beforeEach(() => {
   hookState.truncated = false;
   hookState.generate = generateMock;
   useGenerateChapterQuiz.mockReturnValue(hookState);
+  mockNudgeVisible = true;
 });
 
 afterEach(() => {
@@ -200,6 +209,21 @@ it("shows an error surface when the hook reports one", async () => {
   render(<ReadChapterScreen />);
 
   await waitFor(() => expect(screen.getByText("Generation failed")).toBeTruthy());
+});
+
+it("shows the chapter-quiz nudge when the quiz trigger is available", async () => {
+  mockNudgeVisible = true;
+  (loadBook as jest.Mock).mockResolvedValue(book());
+  render(<ReadChapterScreen />);
+  expect(await screen.findByTestId("nudge-chapter-quiz")).toBeTruthy();
+});
+
+it("hides the nudge once dismissed", async () => {
+  mockNudgeVisible = false;
+  (loadBook as jest.Mock).mockResolvedValue(book());
+  render(<ReadChapterScreen />);
+  await waitFor(() => expect(screen.getByLabelText("Make a quiz from this chapter")).toBeTruthy());
+  expect(screen.queryByTestId("nudge-chapter-quiz")).toBeNull();
 });
 
 it("hides the control in a demo build", async () => {
