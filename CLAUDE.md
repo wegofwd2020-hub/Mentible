@@ -335,8 +335,8 @@ Pipeline: pytest with mocked Anthropic SDK
 
 **Shipping a user-facing feature is not done until its in-app Help is updated.**
 Shipping a user-facing feature means: add its key to `FEATURES` in
-`mobile/src/constants/helpContent.ts` and a Help topic with that `featureKey`, in
-the *same* PR. The coverage gate (`mobile/__tests__/help/coverage.test.ts`, run in
+`mobile/src/help-content/features.ts` and a Help topic (in
+`mobile/src/help-content/topics.ts`) with that `featureKey`, in the *same* PR. The coverage gate (`mobile/__tests__/help/coverage.test.ts`, run in
 the Mobile CI job) **fails** when a declared feature has no topic — so this is
 enforced, not just a checklist. Help is authored as data (one topic → renders on
 the Help tab + hints). See `docs/proposals/2026-07-05-help-system.md`.

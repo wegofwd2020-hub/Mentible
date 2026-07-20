@@ -64,6 +64,12 @@ class GenerateRequest(BaseModel):
     # for the T-shape". Persisted per topic on the client and re-sent each time.
     instructions: str | None = Field(default=None, max_length=2000)
 
+    # Source-grounded quiz mode (Open Shelves F2): the chapter passage the quiz
+    # must be answerable from. REQUIRED when format=="quiz" (see the validator
+    # below); unused/ignored for other formats. Capped so a runaway chapter
+    # extract doesn't blow the prompt/token budget.
+    source_text: str | None = Field(default=None, max_length=16000)
+
     # BYOK key — its prefix is validated per provider (see _api_key_matches_provider).
     # OPTIONAL (ADR-005 D6): omit it for the managed path, where the server resolves
     # OUR key by eligibility instead of the user supplying one. A keyless request from
@@ -98,6 +104,15 @@ class GenerateRequest(BaseModel):
         prefix = PROVIDER_REGISTRY[self.provider_id].key_prefix
         if prefix and not self.api_key.startswith(prefix):
             raise ValueError(f"{self.provider_id} api_key must start with {prefix}")
+        return self
+
+    @model_validator(mode="after")
+    def _source_text_required_for_quiz(self) -> GenerateRequest:
+        # Quiz generation must be grounded in an actual passage — an empty
+        # source_text would let the model fall back on outside knowledge,
+        # defeating the whole point of the mode (Open Shelves F2).
+        if self.format == "quiz" and not (self.source_text and self.source_text.strip()):
+            raise ValueError("source_text is required when format='quiz'")
         return self
 
 

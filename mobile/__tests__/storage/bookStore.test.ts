@@ -1,3 +1,5 @@
+import "fake-indexeddb/auto";
+
 // deleteBook cascades to mediaStore.deleteBookMedia, which calls
 // expo-file-system directly — mock it (repo storage-test pattern, see
 // mediaStore.test.ts / bookBundle.test.ts) so this file stays isolated.
@@ -29,7 +31,9 @@ jest.mock("@react-native-async-storage/async-storage", () => {
 });
 
 import * as FileSystem from "expo-file-system";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getBookValue } from "@/storage/bookBlobStore";
 import {
   deleteBook,
   ensureTopicIds,
@@ -102,6 +106,35 @@ describe("bookStore", () => {
 
   it("returns null for a missing book", async () => {
     expect(await loadBook("nope")).toBeNull();
+  });
+
+  it("round-trips chapterQuizzes (Open Shelves F2 — a saved+loaded book keeps its chapter quizzes)", async () => {
+    const quiz = {
+      set_number: 1,
+      questions: [
+        {
+          question_id: "q1",
+          question_text: "What?",
+          question_type: "multiple_choice",
+          options: [{ option_id: "A", text: "This" }],
+          correct_option: "A",
+          explanation: "Because.",
+          difficulty: "easy",
+        },
+      ],
+      total_questions: 1,
+      passing_score: 1,
+      estimated_duration_minutes: 1,
+    };
+    const book: Book = {
+      ...makeBook("b1", "Physics Primer"),
+      chapterQuizzes: { c1: quiz },
+    };
+
+    await saveBook(book);
+    const loaded = await loadBook("b1");
+
+    expect(loaded?.chapterQuizzes).toEqual({ c1: quiz });
   });
 
   it("puts the most recently saved book first and dedups by id", async () => {
@@ -181,5 +214,49 @@ describe("content persistence + pruning", () => {
     const loaded = await loadBook("b1");
 
     expect(Object.keys(loaded?.content ?? {}).sort()).toEqual(["t1", "t2"]);
+  });
+});
+
+describe("bookStore on web (IndexedDB via bookBlobStore, F1)", () => {
+  it("web: saves + loads a >5 MB imported book without a quota error", async () => {
+    Platform.OS = "web";
+    const big = "d".repeat(6 * 1024 * 1024);
+    const book = {
+      id: "bk-web",
+      title: "Big",
+      source: "imported",
+      toc: { subjects: [] },
+      updatedAt: new Date(0).toISOString(),
+      chapters: {
+        c1: {
+          chapterId: "c1",
+          title: "C1",
+          html: "<p>x</p>",
+          images: { "a.png": `data:image/png;base64,${big}` },
+          importedAt: "",
+        },
+      },
+    } as unknown as Book;
+
+    await expect(saveBook(book)).resolves.toBeUndefined();
+
+    // DISCRIMINATES the web branch: the value must NOT be in AsyncStorage — if
+    // it were, saveBook silently ran the native path and this test would pass
+    // without ever exercising IndexedDB (the whole point of the fix).
+    expect(await AsyncStorage.getItem("sbq_book_bk-web")).toBeNull();
+
+    const loaded = await loadBook("bk-web");
+    expect(loaded!.chapters!.c1.images["a.png"]).toContain(big);
+  });
+
+  it("web: migrates a book saved in the old localStorage location on first load", async () => {
+    Platform.OS = "web";
+    const legacy = { id: "bk-old", title: "Legacy", toc: { subjects: [] }, updatedAt: "" };
+    await AsyncStorage.setItem("sbq_book_bk-old", JSON.stringify(legacy)); // old location
+
+    const loaded = await loadBook("bk-old"); // reads + migrates
+    expect(loaded!.title).toBe("Legacy");
+    expect(await AsyncStorage.getItem("sbq_book_bk-old")).toBeNull(); // moved out of localStorage
+    expect(await getBookValue("bk-old")).not.toBeNull(); // now in IndexedDB
   });
 });

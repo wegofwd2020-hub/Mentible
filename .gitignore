@@ -97,3 +97,7 @@ firebase-debug.log
 # Local-only scratch + ops (never commit — VPS IP / prod deploy block)
 /Plans/
 /mentible_vps_deploy.sh
+
+# Android release signing credentials — never commit (see #328)
+mobile/credentials/
+*.keystore

@@ -68,6 +68,17 @@ function SavedBookScreenInner() {
     );
   }
 
+  // Imported third-party content (Open Shelves F1) is read-only: it isn't
+  // ours to rewrite (BookEditor, Generate) or to attest as ours (Publish), and
+  // SaveToLibraryButton/PublishButton both compile via buildCompilePayload,
+  // which carries book.chapters (raw third-party HTML) into a POST to our
+  // compiler / the Open Library — the egress ADR-028 D2 forbids ("our infra
+  // never hosts/mirrors/proxies a third-party file"). Share draft is the same
+  // egress: shareDraft() POSTs `book_json: book` (incl. book.chapters) to our
+  // backend's `/${book.id}/share`, so it's gated here too. Read/navigation
+  // (TopicReadList) and local export (ExportBookJsonButton) stay available.
+  const isImported = book.source === "imported";
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -77,47 +88,55 @@ function SavedBookScreenInner() {
       <PageContainer>
         <TopicReadList
           book={book}
-          onOpen={(topicId) => router.push(`/book/topic/${book.id}/${topicId}`)}
+          onOpen={(id, kind) =>
+            router.push(
+              kind === "chapter" ? `/book/chapter/${book.id}/${id}` : `/book/topic/${book.id}/${id}`,
+            )
+          }
         />
 
-        <BookEditor
-          bookId={book.id}
-          initialTitle={book.title}
-          initialToc={book.toc}
-          createdAt={book.createdAt}
-          initialDescription={book.metadata?.description}
-          initialTags={book.metadata?.tags}
-          onSaved={() => router.replace("/books")}
-        />
+        {!isImported && (
+          <>
+            <BookEditor
+              bookId={book.id}
+              initialTitle={book.title}
+              initialToc={book.toc}
+              createdAt={book.createdAt}
+              initialDescription={book.metadata?.description}
+              initialTags={book.metadata?.tags}
+              onSaved={() => router.replace("/books")}
+            />
 
-        <Pressable
-          style={styles.generateBtn}
-          onPress={() => router.push(`/book/generate/${book.id}`)}
-          accessibilityRole="button"
-          accessibilityLabel="Generate all topics"
-        >
-          <Text style={styles.generateBtnText}>Generate all topics →</Text>
-        </Pressable>
-        <Text style={styles.generateHint}>
-          Save your edits first. Generation runs one topic at a time against your
-          Anthropic key.
-        </Text>
+            <Pressable
+              style={styles.generateBtn}
+              onPress={() => router.push(`/book/generate/${book.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel="Generate all topics"
+            >
+              <Text style={styles.generateBtnText}>Generate all topics →</Text>
+            </Pressable>
+            <Text style={styles.generateHint}>
+              Save your edits first. Generation runs one topic at a time against
+              your Anthropic key.
+            </Text>
 
-        <View style={styles.publishDivider} />
-        <Text style={styles.publishLabel}>Publish</Text>
-        <SaveToLibraryButton bookId={book.id} />
-        <Text style={styles.generateHint}>
-          Compiles the generated topics into an EPUB3 and saves it to your
-          Library. Generate the topics first.
-        </Text>
+            <View style={styles.publishDivider} />
+            <Text style={styles.publishLabel}>Publish</Text>
+            <SaveToLibraryButton bookId={book.id} />
+            <Text style={styles.generateHint}>
+              Compiles the generated topics into an EPUB3 and saves it to your
+              Library. Generate the topics first.
+            </Text>
 
-        <PublishButton bookId={book.id} />
-        <Text style={styles.generateHint}>
-          Publishes the EPUB + PDF to the Open Library so readers can see and
-          download them (their availability shows as green on the shelf).
-        </Text>
+            <PublishButton bookId={book.id} />
+            <Text style={styles.generateHint}>
+              Publishes the EPUB + PDF to the Open Library so readers can see and
+              download them (their availability shows as green on the shelf).
+            </Text>
+          </>
+        )}
 
-        {accessToken ? (
+        {accessToken && !isImported ? (
           <>
             <Pressable
               style={styles.generateBtn}

@@ -65,7 +65,10 @@ export interface GenerateRequest {
   topic: string;
   level: string;
   language: string;
-  format: "lesson";
+  // "quiz" (Open Shelves F2) generates a source-grounded QuizSet instead of a
+  // lesson — requires `source_text` below (backend 422s a quiz request without
+  // it). D13 still holds for the book-authoring lesson path.
+  format: "lesson" | "quiz";
   api_key: string;
   // LLM selection (BYOK). Omitted = backend default (anthropic + its default
   // model). The key in api_key must match the chosen provider's format.
@@ -83,6 +86,9 @@ export interface GenerateRequest {
   // for the T-shape". Persisted per topic (TopicNode.enhancementInstructions)
   // so it re-applies on every regeneration.
   instructions?: string;
+  // The passage a `format:"quiz"` request must be answerable from — an imported
+  // chapter's plaintext (@/openshelves/chapterText). Ignored for `format:"lesson"`.
+  source_text?: string;
 }
 
 export interface GenerateResponse {

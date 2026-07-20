@@ -72,6 +72,23 @@ normal player buffering. Downloads flow **source → device directly**, are
 integrity-checked before being marked offline-available, and a partial download is
 quarantined, never listed as usable.
 
+> **Amended 2026-07-13 (web CORS escape hatch).** The server may **fetch feed
+> metadata** on behalf of a client that cannot: a browser is blocked by CORS from
+> fetching an OPDS feed directly (feeds send no `Access-Control-Allow-Origin`;
+> Project Gutenberg does not, and verification on 2026-07-13 showed Open Shelves is
+> unusable on web without this). `GET /api/v1/shelves/feed` fetches the feed
+> **document** and returns its bytes unparsed and uncached.
+>
+> **Metadata-fetch ≠ content-proxy.** The server still never fetches, hosts, mirrors,
+> caches, or relays a **book file** — book bytes go source → device on every platform
+> (on web, via the browser's own download). D2's substance is unchanged; this names
+> the one document the server is permitted to fetch.
+>
+> Scope: **web only** (native still fetches feeds direct). **Anonymous** (Open Shelves
+> needs no account), so the abuse controls are a resolve-then-check SSRF guard and a
+> **fail-closed** per-IP rate limiter — not an auth wall. **No caching**, which is what
+> keeps this inside D2 rather than a reversal of it.
+
 ### D3 — Downloads are **device-local and per-device**; storage is **user-informed, user-managed**
 
 A download **exists only on the device where it was performed** — signing into the
@@ -159,9 +176,10 @@ audited for discriminator assumptions before the value lands.
    D5 feeds: OPDS parse, HTTPS, IA public-domain scoping. Fallback candidates if
    IA's BookServer proves dead or auth-heavy: Standard Ebooks, ManyBooks —
    owner's call at that point.
-3. **Web CORS asymmetry** — many OPDS feeds lack CORS headers, so some sources may
-   work on the APK but not web. Accepted at MVP (no content proxy, per D2); a
-   **metadata-only** proxy is the escape hatch if the asymmetry proves unacceptable.
+3. ~~**Web CORS asymmetry** — metadata-only proxy is the escape hatch if the asymmetry
+   proves unacceptable.~~ **RESOLVED 2026-07-13:** it proved unacceptable (Gutenberg
+   sends no CORS headers; Open Shelves was entirely unusable on web). The metadata-only
+   fetch endpoint is built — see the D2 amendment above.
 4. **D4 warning copy** — final wording of the add-source warning; whether the ToS
    gains a matching clause.
 5. **Audio/video entry timing** — MVP filters to book media types; audio download

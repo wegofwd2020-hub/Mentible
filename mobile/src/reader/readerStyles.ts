@@ -62,6 +62,7 @@ export const READER_CSS = `
   background: var(--surface); padding: 2px 5px; border-radius: 4px; color: #e2e8f0;
 }
 .${READER_ROOT_CLASS} pre {
+  font-family: "Menlo", "Courier New", monospace; font-size: 0.88em;
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
   padding: 12px; overflow-x: auto; margin: 12px 0;
 }
@@ -76,6 +77,21 @@ export const READER_CSS = `
 .${READER_ROOT_CLASS} tr:nth-child(even) td { background: var(--surface); }
 .${READER_ROOT_CLASS} a { color: var(--primary); }
 .${READER_ROOT_CLASS} img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
+/* Inline equation/symbol images. LaTeX→EPUB books (e.g. Think Bayes) ship
+   inline math as small PNGs *inside* the prose. The rule above forces every
+   <img> to block + auto-margin, which rips a 72×21 "x/100" onto its own
+   centered line so it reads as a giant display equation. An image flowing
+   inside a paragraph stays inline and scales to the running text; standalone
+   figures live in <figure>/<div>, not <p>, so they keep the block treatment. */
+.${READER_ROOT_CLASS} p img {
+  display: inline; vertical-align: middle;
+  margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0;
+  /* Equation PNGs are black-on-white; the reader is dark-only (color-scheme:
+     dark above). invert(1) turns them white-on-black, then mix-blend-mode:
+     screen makes the (now black) background show the page through it — so the
+     white equation box disappears and only the white glyphs remain. */
+  filter: invert(1); mix-blend-mode: screen;
+}
 .${READER_ROOT_CLASS} hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .${READER_ROOT_CLASS} .synopsis {
   color: var(--text2); font-size: 0.95em; margin: 12px 0 20px; padding: 12px;
