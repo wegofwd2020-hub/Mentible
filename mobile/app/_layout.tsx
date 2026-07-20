@@ -7,6 +7,7 @@ import { AuthProvider } from "@/auth/AuthProvider";
 import { DeviceReporter } from "@/device/DeviceReporter";
 import { FirstRunWizard } from "@/onboarding/FirstRunWizard";
 import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
+import { useSeedStarterSources } from "@/hooks/useSeedStarterSources";
 import { FONT_ASSETS } from "@/constants/fonts";
 import { applyGlobalFont } from "@/lib/applyGlobalFont";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
@@ -18,6 +19,8 @@ applyGlobalFont();
 export default function RootLayout() {
   // Seed the default shareable library on first run (ADR-017, #111).
   useSeedDefaultLibrary();
+  // Seed the owner-curated starter shelves on first run (spec P0-5, ADR-028).
+  useSeedStarterSources();
   const [fontsLoaded] = useFonts(FONT_ASSETS);
   const [modeReady, setModeReady] = useState(false);
   const { dyslexic } = useFontMode();
