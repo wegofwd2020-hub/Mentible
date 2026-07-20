@@ -2,8 +2,9 @@
 // Open Shelves — Sources management (spec P0-1). Add a free book repo by URL,
 // list/refresh/remove sources. User-added sources are warned (P0-8, neutral
 // conduit) and never blocked. No auth required.
+import { useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, spacing, typography } from "@/constants/theme";
@@ -20,6 +21,8 @@ const WARNING =
 export default function ShelvesScreen() {
   const shelves = useOpenShelves();
   const router = useRouter();
+
+  useFocusEffect(useCallback(() => { void shelves.reload(); }, [shelves.reload]));
 
   const confirmAdd = (url: string) => {
     Alert.alert("Add this source?", WARNING, [
@@ -46,8 +49,12 @@ export default function ShelvesScreen() {
   }
 
   async function restoreStarters() {
-    await restoreStarterSources();
-    await shelves.reload();
+    try {
+      await restoreStarterSources();
+      await shelves.reload();
+    } catch {
+      Alert.alert("Couldn't restore starter sources", "Please try again.");
+    }
   }
 
   return (
