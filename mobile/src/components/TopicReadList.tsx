@@ -9,6 +9,7 @@ interface TopicEntry {
   title: string;
   subject: string;
   hasContent: boolean;
+  kind: "topic" | "chapter";
 }
 
 // Flatten the TOC to readable topic rows, marking which ones have generated /
@@ -16,15 +17,18 @@ interface TopicEntry {
 // they're skipped (they predate generate-all and never carry content).
 function flatten(book: Book): TopicEntry[] {
   const content = book.content ?? {};
+  const chapters = book.chapters ?? {};
   const out: TopicEntry[] = [];
   for (const s of book.toc.subjects) {
     for (const u of s.units) {
       if (!u.id) continue;
+      const chapter = chapters[u.id];
       out.push({
         id: u.id,
         title: u.title,
         subject: s.subject_label,
-        hasContent: hasRenderableLesson(content[u.id]),
+        hasContent: chapter ? true : hasRenderableLesson(content[u.id]),
+        kind: chapter ? "chapter" : "topic",
       });
     }
   }
@@ -40,7 +44,7 @@ export function TopicReadList({
   onOpen,
 }: {
   book: Book;
-  onOpen: (topicId: string) => void;
+  onOpen: (id: string, kind: "topic" | "chapter") => void;
 }) {
   const topics = flatten(book);
   if (!topics.some((t) => t.hasContent)) return null;
@@ -53,10 +57,12 @@ export function TopicReadList({
           key={t.id}
           style={[styles.row, !t.hasContent && styles.rowDisabled]}
           disabled={!t.hasContent}
-          onPress={() => onOpen(t.id)}
+          onPress={() => onOpen(t.id, t.kind)}
           accessibilityRole="button"
           accessibilityLabel={
-            t.hasContent ? `Read topic: ${t.title}` : `${t.title} — not generated yet`
+            t.hasContent
+              ? `Read ${t.kind === "chapter" ? "chapter" : "topic"}: ${t.title}`
+              : `${t.title} — not generated yet`
           }
         >
           <View style={styles.rowMain}>

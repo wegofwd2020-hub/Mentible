@@ -1,5 +1,5 @@
-import { buildTopicHtml } from "@/components/contentHtml";
-import type { GeneratedTopic } from "@/types/book";
+import { buildTopicHtml, buildChapterQuizHtml } from "@/components/contentHtml";
+import type { GeneratedTopic, QuizSet } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 
 /** The finished HTML the WebView injects — the body is now rendered in RN (#325). */
@@ -127,5 +127,29 @@ describe("animated SVG (free animated-visual path)", () => {
 
   it("keeps the anim-svg styling in the document", () => {
     expect(buildTopicHtml(topic())).toContain(".anim-svg");
+  });
+});
+
+describe("native quiz-reveal wiring", () => {
+  const quizSet: QuizSet = {
+    set_number: 1,
+    questions: [{
+      question_id: "q1", question_text: "Pick B", question_type: "multiple_choice",
+      options: [{ option_id: "A", text: "Wrong" }, { option_id: "B", text: "Right" }],
+      correct_option: "B", explanation: "Because B.", difficulty: "easy",
+    }],
+    total_questions: 1, passing_score: null, estimated_duration_minutes: null,
+  };
+
+  it("defines wireQuizzes and calls it in the topic document", () => {
+    const doc = buildTopicHtml(topic());
+    expect(doc).toContain("function wireQuizzes(root)");
+    expect(doc).toContain("wireQuizzes(document.getElementById('root'))");
+  });
+
+  it("wires the chapter-quiz document too (F2 routes through htmlDocument)", () => {
+    const doc = buildChapterQuizHtml(quizSet);
+    expect(doc).toContain("function wireQuizzes(root)");
+    expect(doc).toContain("wireQuizzes(document.getElementById('root'))");
   });
 });

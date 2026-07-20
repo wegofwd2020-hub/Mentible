@@ -20,7 +20,7 @@
 // and offline by design (ADR-028/029). Rendering here means the document carries
 // finished HTML and needs no network for text.
 
-import type { GeneratedTopic, ExperimentOutput, QuizSet, TutorialOutput } from "@/types/book";
+import type { GeneratedTopic, ExperimentOutput, ImportedChapter, QuizSet, TutorialOutput } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 import { renderFiguresHtml } from "@/lib/figuresHtml";
 import { escapeHtml, li, md, stripDupHeading } from "@/reader/markdown";
@@ -139,4 +139,40 @@ export function renderTopicToHtml(
   if (topic.experiment) html += renderExperiment(topic.experiment);
   if (topic.images?.length && dataUrls?.size) html += renderFiguresHtml(topic.images, dataUrls);
   return html;
+}
+
+/**
+ * A standalone chapter quiz (Open Shelves F2) → HTML. The `QuizSet` here is
+ * OUR schema-validated generation output (backend `/generate format:"quiz"`),
+ * not third-party prose — so unlike `renderChapterToHtml` it gets the SAME
+ * treatment a topic's `quizSets` get: `md()` runs over `question_text` /
+ * `explanation` (they may carry GFM/KaTeX), via the shared `renderQuizzes`.
+ * Callers put this through the TOPIC sanitize + enhance boundary
+ * (`renderChapterQuizToSafeHtml` web / `buildChapterQuizHtml` native), never
+ * the chapter one — see those files for why.
+ */
+export function renderChapterQuizToHtml(quiz: QuizSet): string {
+  return renderQuizzes([quiz]);
+}
+
+/**
+ * An imported book's chapter → HTML (Open Shelves F1). The chapter is
+ * ALREADY HTML (unzipped from the EPUB), so unlike `renderTopicToHtml` this
+ * does NOT run the markdown pipeline over it — `md()` treats its input as
+ * author-written prose and would silently rewrite `*asterisks*` the source
+ * author meant literally.
+ *
+ * UNSANITIZED and may still carry remote/third-party references — like
+ * `renderTopicToHtml`, the caller owns the boundary. For a chapter that
+ * boundary is `sanitizeImportedChapterHtml` (web) / the inlined DOMPurify
+ * hook (native, `@/components/contentHtml`), not plain `sanitizeFragment` —
+ * see `ImportedChapter` in `@/types/book` for why.
+ */
+export function renderChapterToHtml(chapter: ImportedChapter): string {
+  // Return the chapter's own HTML as-is — do NOT prepend `<h1>{title}</h1>`.
+  // Real EPUBs carry the chapter heading in their own content, so prepending
+  // the OPF/TOC title double-prints it on nearly every book. The chapter title
+  // is shown in the screen's nav header instead (a React `Text`, so the
+  // untrusted title also never enters the rendered HTML).
+  return chapter.html;
 }

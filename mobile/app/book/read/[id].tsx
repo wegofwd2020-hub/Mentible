@@ -61,6 +61,13 @@ export default function ReadBookScreen() {
     );
   }
 
+  // Imported third-party content (Open Shelves F1) is read-only: checkout
+  // compiles via CheckoutButton → trackedExport → buildCompilePayload, which
+  // carries book.chapters (raw third-party HTML) to the remote compiler —
+  // exactly the egress ADR-028 D2 forbids ("our infra never hosts/mirrors/
+  // proxies a third-party file"). Reading and navigation stay open.
+  const isImported = book.source === "imported";
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <PageContainer>
@@ -68,9 +75,13 @@ export default function ReadBookScreen() {
         <HelpButton topic="reading-a-book" label="Reading & navigating" />
         <TopicReadList
           book={book}
-          onOpen={(topicId) => router.push(`/book/topic/${book.id}/${topicId}`)}
+          onOpen={(id, kind) =>
+            router.push(
+              kind === "chapter" ? `/book/chapter/${book.id}/${id}` : `/book/topic/${book.id}/${id}`,
+            )
+          }
         />
-        <CheckoutButton book={book} />
+        {!isImported && <CheckoutButton book={book} />}
       </PageContainer>
     </ScrollView>
   );

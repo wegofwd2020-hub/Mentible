@@ -7,14 +7,149 @@
 // DOM, so rendering can't happen in the bundle). `buildTopicHtml` renders a full
 // multi-format topic (lesson + optional tutorial + quiz sets + experiment).
 
-import { renderTopicToHtml } from "@/reader/topicHtml";
-import type { GeneratedTopic } from "@/types/book";
+import { renderChapterQuizToHtml, renderChapterToHtml, renderTopicToHtml } from "@/reader/topicHtml";
+import type { GeneratedTopic, ImportedChapter, QuizSet } from "@/types/book";
 import { colors } from "@/constants/theme";
 import { DOMPURIFY_SRC } from "@/components/dompurifySource";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
 // WebView sandbox can't import bundle modules. Uses only single quotes so it
 // nests cleanly inside the template literal below.
+
+// Shared by both WebView documents (topic + chapter) so they render with one
+// stylesheet rather than two copies drifting apart.
+const READER_STYLES = `<style>
+  :root {
+    --bg: ${colors.background};
+    --surface: ${colors.surface};
+    --border: ${colors.border};
+    --text: ${colors.text};
+    --text2: ${colors.textSecondary};
+    --muted: ${colors.textMuted};
+    --primary: ${colors.primary};
+    --success: ${colors.success};
+    --warning: ${colors.warning};
+    /* Match the EPUB/PDF artifact: serif body for prose, sans for headings/UI. */
+    --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+    --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    padding: 20px 18px 40px;
+    /* Cap the line length for a comfortable reading measure (esp. on tablets). */
+    max-width: 42rem;
+    margin: 0 auto;
+  }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 8px; color: var(--text); }
+  h2 { font-size: 1.3rem; font-weight: 700; margin: 24px 0 8px; color: var(--text); }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 18px 0 6px; color: var(--text2); }
+  h4, h5, h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
+  p  { margin: 12px 0; }
+  ul, ol { padding-left: 22px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  code {
+    font-family: "Menlo", "Courier New", monospace;
+    font-size: 0.88em;
+    background: var(--surface);
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: #e2e8f0;
+  }
+  pre {
+    font-family: "Menlo", "Courier New", monospace;
+    font-size: 0.88em;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  pre code { background: none; padding: 0; }
+  blockquote {
+    border-left: 3px solid var(--primary);
+    padding: 8px 12px;
+    margin: 12px 0;
+    color: var(--text2);
+    font-style: italic;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9em; display: block; overflow-x: auto; }
+  th { background: var(--surface); color: var(--text); font-weight: 600; padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  td { padding: 7px 12px; border: 1px solid var(--border); color: var(--text2); }
+  tr:nth-child(even) td { background: var(--surface); }
+  a { color: var(--primary); }
+  img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
+  /* Inline equation/symbol images (LaTeX→EPUB books ship inline math as small
+     PNGs inside the prose). Without this, the block rule above rips a "x/100"
+     equation image onto its own centered line. Images flowing inside a
+     paragraph stay inline and scale to the text; figures live in <figure>. */
+  /* invert(1)+screen: equation PNGs are black-on-white; the reader is dark-only,
+     so invert to white-on-black then screen-blend the black box away, leaving
+     only the white glyphs. */
+  p img { display: inline; vertical-align: middle; margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0; filter: invert(1); mix-blend-mode: screen; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .synopsis {
+    color: var(--text2); font-size: 0.95em;
+    margin: 12px 0 20px; padding: 12px;
+    background: var(--surface); border-radius: 8px;
+    border-left: 3px solid var(--primary);
+  }
+  .objectives, .takeaways, .further, .mistakes, .examples {
+    background: var(--surface); border-radius: 8px;
+    padding: 12px 16px; margin: 16px 0;
+  }
+  .objectives { border-left: 3px solid var(--primary); }
+  .takeaways  { border-left: 3px solid var(--success); }
+  .further    { border-left: 3px solid var(--muted); }
+  .mistakes   { border-left: 3px solid var(--warning); }
+  .objectives h3 { color: var(--primary); margin-bottom: 8px; }
+  .takeaways h3  { color: var(--success);  margin-bottom: 8px; }
+  .further h3    { color: var(--muted);   margin-bottom: 8px; }
+  .mistakes h3   { color: var(--warning); margin-bottom: 8px; }
+  .practice {
+    background: var(--surface); border-left: 3px solid var(--warning);
+    padding: 8px 12px; border-radius: 6px; margin: 10px 0;
+  }
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .quiz-q {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; margin: 12px 0;
+  }
+  .quiz-options { list-style: none; padding-left: 0; margin: 8px 0; }
+  .quiz-options li { padding: 4px 0; color: var(--text2); }
+  .quiz-options li.correct { color: var(--success); font-weight: 600; }
+  .quiz-answer { margin-top: 8px; color: var(--success); font-size: 0.9em; }
+  .quiz-expl { color: var(--text2); font-size: 0.9em; }
+  .difficulty { margin-top: 6px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .materials, .safety, .exp-questions { margin: 12px 0; }
+  .safety { border-left: 3px solid var(--warning); padding-left: 12px; }
+  .step { margin: 8px 0; }
+  .step .obs { color: var(--text2); font-style: italic; font-size: 0.92em; }
+  .mermaid { margin: 12px 0; }
+  .mermaid svg { max-width: 100%; }
+  /* Animated SVG figures (free animated-visual path). */
+  .anim-svg {
+    margin: 16px 0;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .anim-svg svg { max-width: 100%; height: auto; }
+  .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+  .error-banner { background: #7f1d1d; border-radius: 8px; padding: 12px; color: #fca5a5; }
+</style>`;
 
 // ---------------------------------------------------------------------------
 // Native topic sanitizer — the WebView IS the sanitizer.
@@ -180,6 +315,43 @@ const TOPIC_SANITIZE_CONFIG_JS = `{
     FORBID_ATTR: ['srcdoc', 'formaction', 'xlink:href', 'style', 'srcset'],
   }`;
 
+// Interactive quiz reveal, inlined for the native WebView (the sandbox can't
+// import bundle modules). A faithful ES5 mirror of `@/reader/quizReveal`'s
+// `wireQuizzes`: it runs AFTER DOMPurify, over the already-sanitized quiz DOM the
+// renderer emitted, attaching app-owned click handlers and injecting no markup.
+// Kept in lockstep with the TS original by parity behavioral tests
+// (quizReveal.native.test.ts here + quizReveal.test.ts on web) over the shared
+// .quiz-q/.quiz-opt/data-* contract from `renderQuizzes`. Single quotes only, so
+// it nests inside the htmlDocument template literal.
+export const QUIZ_REVEAL_JS = `
+function wireQuizzes(root) {
+  if (!root) return;
+  var questions = root.querySelectorAll('.quiz-q');
+  for (var i = 0; i < questions.length; i++) {
+    (function (question) {
+      var options = question.querySelector('.quiz-options');
+      if (!options) return;
+      options.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest('.quiz-opt') : null;
+        if (!btn || !options.contains(btn)) return;
+        if (question.getAttribute('data-answered')) return;
+        question.setAttribute('data-answered', btn.getAttribute('data-oid') || '');
+        btn.classList.add('picked', btn.getAttribute('data-correct') === 'true' ? 'correct' : 'incorrect');
+        var truth = question.querySelector('.quiz-opt[data-correct="true"]');
+        if (truth) truth.classList.add('correct');
+        var all = question.querySelectorAll('.quiz-opt');
+        for (var j = 0; j < all.length; j++) {
+          all[j].setAttribute('disabled', '');
+          all[j].removeAttribute('tabindex');
+        }
+        var rev = question.querySelector('.quiz-reveal');
+        if (rev) rev.removeAttribute('hidden');
+      });
+    })(questions[i]);
+  }
+}
+`;
+
 function htmlDocument(dataJson: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -204,128 +376,7 @@ function htmlDocument(dataJson: string): string {
 <link rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
   crossorigin="anonymous">
-<style>
-  :root {
-    --bg: ${colors.background};
-    --surface: ${colors.surface};
-    --border: ${colors.border};
-    --text: ${colors.text};
-    --text2: ${colors.textSecondary};
-    --muted: ${colors.textMuted};
-    --primary: ${colors.primary};
-    --success: ${colors.success};
-    --warning: ${colors.warning};
-    /* Match the EPUB/PDF artifact: serif body for prose, sans for headings/UI. */
-    --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
-    --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
-    color-scheme: dark;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { background: var(--bg); }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: 16px;
-    line-height: 1.7;
-    -webkit-font-smoothing: antialiased;
-    padding: 20px 18px 40px;
-    /* Cap the line length for a comfortable reading measure (esp. on tablets). */
-    max-width: 42rem;
-    margin: 0 auto;
-  }
-  h1, h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; }
-  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 8px; color: var(--text); }
-  h2 { font-size: 1.3rem; font-weight: 700; margin: 24px 0 8px; color: var(--text); }
-  h3 { font-size: 1.1rem; font-weight: 600; margin: 18px 0 6px; color: var(--text2); }
-  h4, h5, h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
-  p  { margin: 12px 0; }
-  ul, ol { padding-left: 22px; margin: 8px 0; }
-  li { margin: 4px 0; }
-  code {
-    font-family: "Menlo", "Courier New", monospace;
-    font-size: 0.88em;
-    background: var(--surface);
-    padding: 2px 5px;
-    border-radius: 4px;
-    color: #e2e8f0;
-  }
-  pre {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    overflow-x: auto;
-    margin: 12px 0;
-  }
-  pre code { background: none; padding: 0; }
-  blockquote {
-    border-left: 3px solid var(--primary);
-    padding: 8px 12px;
-    margin: 12px 0;
-    color: var(--text2);
-    font-style: italic;
-  }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9em; display: block; overflow-x: auto; }
-  th { background: var(--surface); color: var(--text); font-weight: 600; padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
-  td { padding: 7px 12px; border: 1px solid var(--border); color: var(--text2); }
-  tr:nth-child(even) td { background: var(--surface); }
-  a { color: var(--primary); }
-  img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
-  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-  .synopsis {
-    color: var(--text2); font-size: 0.95em;
-    margin: 12px 0 20px; padding: 12px;
-    background: var(--surface); border-radius: 8px;
-    border-left: 3px solid var(--primary);
-  }
-  .objectives, .takeaways, .further, .mistakes, .examples {
-    background: var(--surface); border-radius: 8px;
-    padding: 12px 16px; margin: 16px 0;
-  }
-  .objectives { border-left: 3px solid var(--primary); }
-  .takeaways  { border-left: 3px solid var(--success); }
-  .further    { border-left: 3px solid var(--muted); }
-  .mistakes   { border-left: 3px solid var(--warning); }
-  .objectives h3 { color: var(--primary); margin-bottom: 8px; }
-  .takeaways h3  { color: var(--success);  margin-bottom: 8px; }
-  .further h3    { color: var(--muted);   margin-bottom: 8px; }
-  .mistakes h3   { color: var(--warning); margin-bottom: 8px; }
-  .practice {
-    background: var(--surface); border-left: 3px solid var(--warning);
-    padding: 8px 12px; border-radius: 6px; margin: 10px 0;
-  }
-  .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-  .quiz-q {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 12px 14px; margin: 12px 0;
-  }
-  .quiz-options { list-style: none; padding-left: 0; margin: 8px 0; }
-  .quiz-options li { padding: 4px 0; color: var(--text2); }
-  .quiz-options li.correct { color: var(--success); font-weight: 600; }
-  .quiz-answer { margin-top: 8px; color: var(--success); font-size: 0.9em; }
-  .quiz-expl { color: var(--text2); font-size: 0.9em; }
-  .difficulty { margin-top: 6px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-  .materials, .safety, .exp-questions { margin: 12px 0; }
-  .safety { border-left: 3px solid var(--warning); padding-left: 12px; }
-  .step { margin: 8px 0; }
-  .step .obs { color: var(--text2); font-style: italic; font-size: 0.92em; }
-  .mermaid { margin: 12px 0; }
-  .mermaid svg { max-width: 100%; }
-  /* Animated SVG figures (free animated-visual path). */
-  .anim-svg {
-    margin: 16px 0;
-    text-align: center;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-  }
-  .anim-svg svg { max-width: 100%; height: auto; }
-  .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
-  .error-banner { background: #7f1d1d; border-radius: 8px; padding: 12px; color: #fca5a5; }
-</style>
+${READER_STYLES}
 </head>
 <body>
 <div id="root">Loading…</div>
@@ -342,6 +393,7 @@ function htmlDocument(dataJson: string): string {
 <!-- DOMPurify, inlined (not fetched — see the file-level comment above). -->
 <script>${DOMPURIFY_SRC}</script>
 <script>${TOPIC_SANITIZE_HOOK_JS}</script>
+<script>${QUIZ_REVEAL_JS}</script>
 <script>
 (function () {
   var DATA = ${dataJson};
@@ -377,6 +429,13 @@ function htmlDocument(dataJson: string): string {
       mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
     } catch (e) { /* diagram source remains visible */ }
   }
+
+  // Interactive quiz reveal — parity with the web reader's enhanceReaderNode →
+  // wireQuizzes. Inlined above, so always defined; the guard is only against a
+  // runtime DOM edge case, never absence: a malformed quiz must not blank the page.
+  try {
+    wireQuizzes(document.getElementById('root'));
+  } catch (e) { /* quiz stays static; the rest of the page still reads */ }
 })();
 </script>
 </body>
@@ -415,4 +474,241 @@ function jsonForScriptBlock(value: unknown): string {
  */
 export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, string>): string {
   return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls) }));
+}
+
+/**
+ * A standalone chapter quiz (Open Shelves F2) — the WebView document for the
+ * "Make a quiz from this chapter" feature. Deliberately reuses `htmlDocument`
+ * (the TOPIC document shell, KaTeX + Mermaid CDN included) rather than
+ * `htmlChapterDocument`: a chapter quiz is OUR schema-validated generation
+ * output, not a stranger's EPUB markup, so it gets the same trust posture as
+ * `buildTopicHtml` — not the in-WebView DOMPurify pass that third-party
+ * chapter HTML needs.
+ */
+export function buildChapterQuizHtml(quiz: QuizSet): string {
+  return htmlDocument(jsonForScriptBlock({ __html: renderChapterQuizToHtml(quiz) }));
+}
+
+// ---------------------------------------------------------------------------
+// Imported chapters (Open Shelves F1) — the WebView IS the sanitizer.
+//
+// A generated topic's body is trusted enough to assign to innerHTML directly
+// (see above): it comes from our own renderer over schema-validated LLM
+// output. An imported chapter is arbitrary third-party HTML from a catalog
+// EPUB, and native has no DOM outside this WebView to sanitize it with — so
+// DOMPurify runs HERE, inlined rather than fetched (#325: a reader that needs
+// a network to open a book it already downloaded defeats the point), and the
+// chapter is sanitized before it is EVER assigned to innerHTML.
+//
+// `CHAPTER_SANITIZE_HOOK_JS` is a re-authored copy of
+// `@/reader/sanitize`'s `makeChapterSanitizeHook` — the WebView sandbox
+// cannot import that module (no DOM on Hermes to run it on in the RN bundle,
+// and the WebView itself can't `require()` app code). The two copies are
+// tested against the SAME vector table
+// (`__tests__/reader/chapterSanitizeVectors.ts`) so they cannot silently
+// drift apart the way the old per-format WebView renderers did (see the file
+// header above).
+const CHAPTER_SANITIZE_HOOK_JS = `
+function makeChapterSanitizeHook(images) {
+  // BARE-URI attributes — data:-only. Matches @/reader/sanitize's
+  // CHAPTER_URI_ATTRS; see that file for why 'background' is here (legacy
+  // presentational attribute mapped to CSS background-image and FETCHED), why
+  // 'background'/'poster' never actually reach the data: branch (DOMPurify's
+  // core drops a data: value on any non-DATA_URI_TAG attribute first — fails
+  // safe), and why 'cite'/'color-profile' are listed for uniformity rather
+  // than because they leak. 'srcset' is deliberately ABSENT — dropped
+  // wholesale via FORBID_ATTR instead (a candidate LIST; a data:-or-drop test
+  // that only reads the START of the value is the wrong shape for it).
+  var URI_ATTRS = ['src', 'href', 'poster', 'data', 'xlink:href', 'background',
+    'cite', 'color-profile'];
+  // SVG paint attributes taking a CSS url(...) value. DOMPurify permits all of
+  // them and screens none — IS_ALLOWED_URI only reads a value as a URI when it
+  // starts with a bare scheme:, and these start with 'url('. They ARE a real
+  // fetch channel (Chromium 150 verified: external fill/filter/mask/clip-path
+  // paint servers all fetch). ALLOWLISTED by isSafePaintValue, not blocklisted.
+  // Matches @/reader/sanitize's CHAPTER_PAINT_ATTRS.
+  var PAINT_ATTRS = ['fill', 'stroke', 'filter', 'mask', 'clip-path',
+    'marker-start', 'marker-mid', 'marker-end'];
+  var MAX_SVG_DEPTH = 4;
+  var svgDepth = 0;
+
+  function isDataUri(v) {
+    return typeof v === 'string' && /^\\s*data:/i.test(v);
+  }
+  function isFragmentOnlyHref(v) {
+    return typeof v === 'string' && v.charAt(0) === '#';
+  }
+  // ONE safe paint token: keyword, hex colour, number/percentage, or a numeric
+  // colour function whose args are digits + separators only.
+  // Matches @/reader/sanitize's isSafePaintToken.
+  function isSafePaintToken(t) {
+    return /^[A-Za-z][A-Za-z-]*$/.test(t)
+      || /^#[0-9A-Fa-f]{3,8}$/.test(t)
+      || /^[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)%?$/.test(t)
+      || /^(?:rgba?|hsla?)\\([\\d.,%\\s/+-]+\\)$/i.test(t);
+  }
+  // ALLOWLIST — anything not positively recognised is refused. Accepts a
+  // same-document url(#ident) (optionally quoted, optionally followed by ONE
+  // fallback token, e.g. fill="url(#g) red"), or a bare safe token. Refuses any
+  // value containing a backslash (a CSS escape can spell any token at all),
+  // any url() that is not same-document, and any unrecognised function
+  // (image-set(), var(), …). Matches @/reader/sanitize's isSafePaintValue —
+  // see that file for why this is an allowlist and not another blocklist.
+  function isSafePaintValue(v) {
+    if (typeof v !== 'string') return false;
+    if (v.indexOf('\\\\') !== -1) return false;
+    var s = v.trim();
+    if (s === '') return true;
+    var m = /^url\\(\\s*(?:"([^"'()\\\\<>\\s]+)"|'([^"'()\\\\<>\\s]+)'|([^"'()\\\\<>\\s]+))\\s*\\)/i.exec(s);
+    if (!m) return isSafePaintToken(s);
+    var ident = m[1] || m[2] || m[3];
+    if (ident.charAt(0) !== '#') return false;
+    var rest = s.slice(m[0].length).trim();
+    return rest === '' || isSafePaintToken(rest);
+  }
+  function utf8ToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function base64ToUtf8(b64) {
+    return decodeURIComponent(escape(atob(b64)));
+  }
+
+  function sanitizeSvgDataUri(uri) {
+    var m = /^\\s*data:image\\/svg\\+xml(?:;charset=[^;,]+)?(;base64)?,([\\s\\S]*)$/i.exec(uri);
+    if (!m) return null;
+    if (svgDepth >= MAX_SVG_DEPTH) return null;
+    var svgText;
+    try {
+      svgText = m[1] ? base64ToUtf8(m[2]) : decodeURIComponent(m[2]);
+    } catch (e) {
+      return null;
+    }
+    svgDepth++;
+    var clean;
+    try {
+      clean = DOMPurify.sanitize(svgText, {
+        USE_PROFILES: { svg: true },
+        FORBID_TAGS: ['script', 'foreignObject', 'style'],
+        // This nested call passes its OWN config — without this, the style
+        // surface reopens one level down inside a data: URI. Matches
+        // @/reader/sanitize's CHAPTER_HOOKLESS_FORBID_ATTR.
+        FORBID_ATTR: ['style', 'srcset'],
+      });
+    } finally {
+      svgDepth--;
+    }
+    if (!clean) return null;
+    try {
+      return 'data:image/svg+xml;base64,' + utf8ToBase64(clean);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  return function (node) {
+    if (!node || !node.getAttribute) return;
+
+    if (node.hasAttribute && node.hasAttribute('src')) {
+      var src = node.getAttribute('src');
+      var mapped = images && Object.prototype.hasOwnProperty.call(images, src) ? images[src] : undefined;
+      if (mapped !== undefined) {
+        node.setAttribute('src', mapped);
+      } else if (!isDataUri(src)) {
+        if (node.parentNode) node.parentNode.removeChild(node);
+        return;
+      }
+    }
+
+    for (var i = 0; i < URI_ATTRS.length; i++) {
+      var attr = URI_ATTRS[i];
+      if (!node.hasAttribute || !node.hasAttribute(attr)) continue;
+      var val = node.getAttribute(attr);
+      if (attr === 'href' && isFragmentOnlyHref(val)) continue;
+      if (!isDataUri(val)) {
+        node.removeAttribute(attr);
+        continue;
+      }
+      if (/^\\s*data:image\\/svg\\+xml/i.test(val)) {
+        var safe = sanitizeSvgDataUri(val);
+        if (safe) node.setAttribute(attr, safe);
+        else node.removeAttribute(attr);
+      }
+    }
+
+    for (var j = 0; j < PAINT_ATTRS.length; j++) {
+      var paintAttr = PAINT_ATTRS[j];
+      if (!node.hasAttribute || !node.hasAttribute(paintAttr)) continue;
+      if (!isSafePaintValue(node.getAttribute(paintAttr))) node.removeAttribute(paintAttr);
+    }
+
+    // NOTE: no 'style' screen here any more, by design — the attribute is
+    // dropped wholesale via FORBID_ATTR before this hook runs. CSS is not
+    // screenable by a token blocklist (image-set() needs no url( token, CSS
+    // escapes spell url( without the letters, and var() puts the URL in a
+    // different attribute entirely). Do not reintroduce one.
+  };
+}
+`;
+
+// Matches `@/reader/sanitize`'s CHAPTER_SANITIZE_CONFIG exactly.
+// 'style' and 'srcset' in FORBID_ATTR are the two surfaces this boundary
+// DELETES rather than screens — see CHAPTER_HOOKLESS_FORBID_ATTR in
+// `@/reader/sanitize` for why (CSS is not screenable by a token blocklist;
+// srcset is a candidate list a single-URI test cannot check).
+const CHAPTER_SANITIZE_CONFIG_JS = `{
+    USE_PROFILES: { html: true, svg: true },
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'foreignObject', 'style'],
+    FORBID_ATTR: ['srcdoc', 'formaction', 'xlink:href', 'style', 'srcset'],
+  }`;
+
+function htmlChapterDocument(dataJson: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Defense-in-depth BEHIND DOMPurify: a chapter document needs ZERO network.
+     img-src data: alone kills every phone-home/tracking-pixel this whole
+     feature defends against, even if a hook bug ever let one through. Inline
+     DOMPurify + inline styles are why script-src/style-src need
+     'unsafe-inline' — this document loads no external script or stylesheet. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+${READER_STYLES}
+</head>
+<body>
+<div id="root">Loading…</div>
+<!-- DOMPurify, inlined (not fetched — see the file-level comment above). -->
+<script>${DOMPURIFY_SRC}</script>
+<script>${CHAPTER_SANITIZE_HOOK_JS}</script>
+<script>
+(function () {
+  var DATA = ${dataJson};
+
+  // Sanitize BEFORE the string is ever parsed as HTML/assigned to innerHTML —
+  // an imported chapter is untrusted third-party content; this is the
+  // boundary (spec D-I4/D-I6).
+  DOMPurify.addHook('afterSanitizeAttributes', makeChapterSanitizeHook(DATA.images));
+  var clean = DOMPurify.sanitize(DATA.__html, ${CHAPTER_SANITIZE_CONFIG_JS});
+  document.getElementById('root').innerHTML = clean;
+})();
+</script>
+</body>
+</html>`;
+}
+
+/**
+ * The WebView document for one imported chapter (Open Shelves F1).
+ *
+ * Unlike `buildTopicHtml`, the body here is THIRD-PARTY HTML from an
+ * arbitrary catalog, so it is sanitized INSIDE the WebView (the only place on
+ * native with a DOM) before it is ever assigned to innerHTML. The chapter
+ * travels as a JSON string escaped by `jsonForScriptBlock`, so it cannot break
+ * out of the script block on the way in (GHSA-48wh-p7cx-c87j) — it is
+ * unsanitized markup at that point, and only becomes safe once
+ * `DOMPurify.sanitize` runs on it inside the WebView.
+ */
+export function buildChapterHtml(chapter: ImportedChapter): string {
+  return htmlChapterDocument(
+    jsonForScriptBlock({ __html: renderChapterToHtml(chapter), images: chapter.images }),
+  );
 }

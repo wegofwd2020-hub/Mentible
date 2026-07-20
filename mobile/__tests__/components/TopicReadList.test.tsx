@@ -43,7 +43,7 @@ it("opens a topic that has content", () => {
   const onOpen = jest.fn();
   render(<TopicReadList book={makeBook({ u1: GEN })} onOpen={onOpen} />);
   fireEvent.press(screen.getByLabelText("Read topic: Kinematics"));
-  expect(onOpen).toHaveBeenCalledWith("u1");
+  expect(onOpen).toHaveBeenCalledWith("u1", "topic");
 });
 
 it("shows topics without content as not-yet-generated and non-tappable", () => {
