@@ -194,6 +194,7 @@ async def submit_generate(
         prior_knowledge=body.prior_knowledge,
         framing=body.framing,
         instructions=body.instructions,
+        source_text=body.source_text,
         provider_id=body.provider_id,
         model=body.model,
         managed=managed,

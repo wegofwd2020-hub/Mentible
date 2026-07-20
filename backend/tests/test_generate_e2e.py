@@ -307,10 +307,11 @@ async def test_schema_violation_marks_failed(client, fake_redis, known_test_api_
 
 @pytest.mark.asyncio
 async def test_unsupported_format_marks_failed(client, fake_redis, known_test_api_key):
-    """Quiz/Explanation aren't implemented in this PR — they fail cleanly."""
+    """Explanation isn't implemented yet — it fails cleanly. (Quiz gained
+    support in Open Shelves F2 — see test_generate_quiz.py.)"""
     submit = await client.post(
         "/api/v1/generate",
-        json=_request_body(known_test_api_key, format="quiz"),
+        json=_request_body(known_test_api_key, format="explanation"),
     )
     job_id = submit.json()["job_id"]
     body = await _wait_for_status(client, job_id, "failed")

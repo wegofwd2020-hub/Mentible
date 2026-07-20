@@ -45,6 +45,8 @@ from backend.src.core.log_redaction import get_logger
 from backend.src.generate.anthropic_caller import parse_json_response
 from backend.src.generate.lesson_schema import LessonOutput
 from backend.src.generate.prompt_builder import build_lesson_prompt
+from backend.src.generate.quiz_prompt import build_quiz_prompt
+from backend.src.generate.quiz_schema import QuizOutput
 
 log = get_logger("generate.tasks")
 
@@ -199,6 +201,7 @@ async def run_generation(
     prior_knowledge: str | None = None,
     framing: str | None = None,
     instructions: str | None = None,
+    source_text: str | None = None,
     provider_id: str = "anthropic",
     model: str | None = None,
     managed: bool = False,
@@ -265,8 +268,8 @@ async def run_generation(
             return
 
     # ── 2. Build prompt ──────────────────────────────────────────────────────
-    if format != "lesson":
-        # PR-2 is lesson-only. Quiz/Explanation are PR-3+ deliverables.
+    if format not in ("lesson", "quiz"):
+        # Explanation is a PR-3+ deliverable; quiz landed in Open Shelves F2.
         await _write_status(
             redis_client,
             job_id,
@@ -276,18 +279,34 @@ async def run_generation(
         await _shred_envelope(redis_client, job_id)
         return
 
-    prompt = build_lesson_prompt(
-        topic=topic,
-        level=level,
-        language=language,
-        depth=depth,
-        target_pages=target_pages,
-        diagram_register=diagram_register,
-        prior_knowledge=prior_knowledge,
-        framing=framing,
-        instructions=instructions,
-    )
-    max_tokens = _max_tokens_for_pages(target_pages)
+    if format == "quiz":
+        # The router-level schema validator already requires a non-empty
+        # source_text for format="quiz" (GenerateRequest._source_text_required_
+        # for_quiz); this is defence in depth for any caller that bypasses it.
+        if not (source_text and source_text.strip()):
+            await _write_status(
+                redis_client,
+                job_id,
+                "failed",
+                error="source_text is required for quiz generation",
+            )
+            await _shred_envelope(redis_client, job_id)
+            return
+        prompt = build_quiz_prompt(source_text)
+        max_tokens = _DEFAULT_MAX_TOKENS
+    else:
+        prompt = build_lesson_prompt(
+            topic=topic,
+            level=level,
+            language=language,
+            depth=depth,
+            target_pages=target_pages,
+            diagram_register=diagram_register,
+            prior_knowledge=prior_knowledge,
+            framing=framing,
+            instructions=instructions,
+        )
+        max_tokens = _max_tokens_for_pages(target_pages)
 
     # ── 3. Generate via the provider seam: validate → repair (memo Phase 2a) ──
     # generate_validated runs the model, validates the response, and on a schema
@@ -296,16 +315,21 @@ async def run_generation(
     # raise an LLMError and fail fast — no outer retry. The api_key is used across
     # the loop then shredded in `finally` on every path, so the credential window
     # is the job's lifetime, not a single attempt.
-    lesson: LessonOutput | None = None
+    output: LessonOutput | QuizOutput | None = None
     trust: dict | None = None  # ContentTrustManifest (ADR-015) for this unit
     usage: dict[str, Any] | None = None  # observed token counts (SBQ-USAGE-001)
     last_error = "generation failed"
+    schema_id = "quiz@1" if format == "quiz" else "lesson@1"
 
-    def _validate(text: str) -> LessonOutput:
+    def _validate(text: str) -> LessonOutput | QuizOutput:
         # Raises on bad JSON (parse_json_response) or bad schema (model_validate);
         # generate_validated treats either as invalid and repairs. Returns the
-        # validated model on success.
-        return LessonOutput.model_validate(parse_json_response(text))
+        # validated model on success. Same discipline for both formats — only
+        # the target schema differs.
+        parsed = parse_json_response(text)
+        if format == "quiz":
+            return QuizOutput.model_validate(parsed)
+        return LessonOutput.model_validate(parsed)
 
     try:
         # All providers come from the registry factory: anthropic resolves to the
@@ -323,20 +347,21 @@ async def run_generation(
         result = await asyncio.to_thread(
             generate_validated, provider, req, _validate, max_repairs=_MAX_REPAIRS
         )
-        lesson = result.parsed
+        output = result.parsed
         # Stamp the Content Trust Manifest (ADR-015). The seam fills provenance +
         # validation from the resolved model (which may differ from what was
         # requested) and the conformance outcome; we attach the standing BYOK data
         # policy. compliance/integrity attach later, at export (SBQ-TRUST-002).
         # generated_at is stamped here at the worker: for a single-unit lesson the
         # worker is canonical (ADR-015 §8); a book compiled from many units prefers
-        # the export timestamp.
+        # the export timestamp. Same for a chapter quiz — it's a single generated
+        # unit, not a compiled book.
         manifest = engine_trust(
             provider_id,
             provider.model,
             schema_validated=True,  # generate_validated returned ⇒ it validated
             repair_attempts=max(result.attempts - 1, 0),
-            schema_id="lesson@1",
+            schema_id=schema_id,
             generated_at=datetime.now(UTC).isoformat(),
         )
         manifest = dataclasses.replace(
@@ -392,15 +417,17 @@ async def run_generation(
             await _shred_envelope(redis_client, job_id)
 
     # ── 4. Write outcome ──────────────────────────────────────────────────────
-    if lesson is None:
+    if output is None:
         await _write_status(redis_client, job_id, "failed", error=last_error)
         return
 
     # Gate 3: non-fatal format-drift heuristics. Warnings attach to the status row
     # (review-queue signal) and never change the done/failed outcome. The per-
     # provider warning rate is the multi-provider consistency metric (QUALITY_GATES
-    # §2a), so the structured log carries the provider for aggregation.
-    format_warnings = _format_warnings(lesson)
+    # §2a), so the structured log carries the provider for aggregation. The format
+    # scanner is lesson-shaped (sections/body_markdown) — it doesn't apply to a
+    # QuizOutput, so quiz jobs simply carry no format warnings.
+    format_warnings = _format_warnings(output) if isinstance(output, LessonOutput) else []
     if format_warnings:
         log.warning(
             "format_warnings",
@@ -419,7 +446,7 @@ async def run_generation(
         redis_client,
         job_id,
         "done",
-        result=lesson.model_dump(),
+        result=output.model_dump(),
         trust=trust,
         warnings=format_warnings,
         usage=usage,
