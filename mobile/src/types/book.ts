@@ -131,6 +131,29 @@ export interface ExperimentOutput {
   conclusion_prompt: string;
 }
 
+// One chapter of an imported book (Open Shelves F1).
+//
+// DELIBERATELY separate from `GeneratedTopic`/`content`: that type means
+// LLM-generated, schema-validated material with provenance and a trust manifest.
+// An imported chapter is third-party prose we unzipped. Reusing `content` would
+// be the tempting shortcut and it would lie to the type system.
+export interface ImportedChapter {
+  chapterId: string; // == the TOC unit id
+  title: string;
+  /** The chapter's body HTML, RAW and untouched. UNSANITIZED and it may still
+   *  contain remote references — the render boundary owns both sanitization
+   *  and reference-dropping (spec D-I4/D-I6). Import has no DOM to do it with
+   *  (Hermes) — five rounds of regex rewriting at import proved unsafe. */
+  html: string;
+  /** This chapter's in-zip images: zip path → data: URI (see `chapterImageMap`,
+   *  `@/openshelves/epubImages`). The render boundary walks the real parsed
+   *  DOM and swaps each `<img src>` for its entry here, dropping every
+   *  remaining non-`data:` reference. Refs-in-schema, exactly like topic
+   *  figures (media slice 1). */
+  images: Record<string, string>;
+  importedAt: string; // ISO
+}
+
 // An image file attached by the author to a topic (media feature slice 1).
 // Ref only: bytes live on device at `media/<bookId>/<id>.<ext>` (see mediaStore);
 // they are never stored in this JSON. Rendered in a Figures block and inflated
@@ -232,10 +255,12 @@ export interface BookAccessibility {
 }
 
 // Provenance of a stored book. "bundled" = seeded read-only from the default
-// shareable library (ADR-017); absent/"user" = authored or imported by the user.
-// Editing a bundled book forks a user-owned copy (copy-on-write, ADR-017 D3), and
-// bundled books are excluded from the D18 fair-use cap once that cap exists.
-export type BookSource = "bundled" | "user";
+// shareable library (ADR-017); absent/"user" = authored or imported by the user;
+// "imported" = unzipped from a third-party EPUB (Open Shelves F1) — carries
+// `chapters`, never `content`. Editing a bundled book forks a user-owned copy
+// (copy-on-write, ADR-017 D3), and bundled books are excluded from the D18
+// fair-use cap once that cap exists.
+export type BookSource = "bundled" | "user" | "imported";
 
 // A book persisted on the device (local-first, per ADR-003 D1).
 export interface Book {
@@ -250,6 +275,15 @@ export interface Book {
   // Per-topic generated content, keyed by TopicNode.id. Absent until the user
   // runs "generate all". Orphaned entries (topic removed) are pruned on save.
   content?: Record<string, GeneratedTopic>;
+  // Imported book chapters, keyed by TOC unit id (Open Shelves F1). Only on
+  // `source: "imported"` books; never mixed with `content`.
+  chapters?: Record<string, ImportedChapter>;
+  // Source-grounded quizzes generated from an imported chapter (Open Shelves
+  // F2), keyed by the same chapter/TOC unit id as `chapters`. A DELIBERATE
+  // companion, not a merge into `chapters[id]`: generating a quiz must never
+  // touch `chapters[id].html` (the F1 read-only invariant — the chapter is
+  // third-party prose we unzipped, not something we rewrite).
+  chapterQuizzes?: Record<string, QuizSet>;
   // The book's generation template (level / depth / pages …) — the single
   // source of truth for generating any topic in this book. Seeded from the
   // global default (settingsStore) at creation; defaulted on load if missing.

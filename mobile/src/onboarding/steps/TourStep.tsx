@@ -9,10 +9,11 @@ import type { WizardStepProps } from "./types";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-// The five top-nav tabs, mirroring TopNavBar (same icons + shared NAV labels) so
+// The top-nav tabs, mirroring TopNavBar (same icons + shared NAV labels) so
 // the tour reads exactly like the real menu.
 const TABS: { icon: IconName; label: string; blurb: string }[] = [
   { icon: "library-outline", label: NAV.library, blurb: "Your finished books — tap a cover to read." },
+  { icon: "albums-outline", label: NAV.shelves, blurb: "Browse free book catalogs and download books to read offline." },
   { icon: "create-outline", label: NAV.studio, blurb: "Create and edit your own books." },
   { icon: "settings-outline", label: NAV.settings, blurb: "Your LLM keys and preferences." },
   { icon: "help-circle-outline", label: NAV.help, blurb: "Guides — and you can replay these walkthroughs." },
@@ -45,7 +46,7 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
         stepIndex={stepIndex}
         stepCount={stepCount}
         title="Meet your tabs"
-        subtitle="Mentible has five places, along the top of the app."
+        subtitle="Mentible has six places, along the top of the app."
         helpTopic="reading-a-book"
         primaryLabel="Next"
         onPrimary={() => setPage(1)}

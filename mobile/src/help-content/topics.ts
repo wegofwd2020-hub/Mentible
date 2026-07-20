@@ -340,4 +340,113 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "open-shelves",
+    title: "Add & manage free book repos (Open Shelves)",
+    featureKey: "open-shelves",
+    keywords: [
+      "open shelves", "shelves", "opds", "catalog", "repo", "repository",
+      "source", "free books", "add source", "refresh", "remove",
+      "download", "downloads", "offline", "storage", "delete download",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Open Shelves lets you add free book catalogs (OPDS feeds) as sources, then browse and manage them from the Shelves tab. You add the sources yourself — paste an OPDS catalog URL to get started.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the Shelves tab and enter an OPDS catalog URL, then tap Add.",
+          "Confirm the warning — user-added sources are outside Mentible's curation, and you're responsible for what you add and read.",
+          "Tap a source to refresh it and pick up new entries, or use Refresh all to refresh every source at once.",
+          "Remove a source you no longer want; its catalog entries are removed from this device.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          {
+            term: "Is a source curated?",
+            def: "No. Every catalog in Open Shelves is one you added yourself, and it's your responsibility — we don't vet or moderate third-party feeds.",
+          },
+          {
+            term: "Authenticated repos",
+            def: "Catalogs that require sign-in aren't supported yet — add public, no-auth OPDS catalogs.",
+          },
+          {
+            term: "Downloading for offline reading",
+            def: "Open an entry and tap Download. The file is fetched straight from the source library to your device — it never passes through Mentible. Books and audio can be downloaded; video is streaming-only. See everything you've saved, its size, and delete individual items (or all of them) under Downloads on the Shelves tab.",
+          },
+          {
+            term: "Where downloads live",
+            def: "Downloads are stored on this device only — they're never uploaded, synced, or tied to your account, so a download exists only where you made it. On the web app, Download hands the file to your browser instead, and it is not stored in the app for offline reading.",
+          },
+          {
+            term: "Catalogs on the web app",
+            def: "In a browser, Mentible asks its own server to fetch the catalog listing, because browsers block sites from reading most catalogs directly. Only the listing goes through us — the book itself always downloads straight from the library to you.",
+          },
+        ],
+      },
+      { kind: "link", label: "Open Shelves →", href: "/shelves" },
+    ],
+  },
+  {
+    id: "imported-books",
+    title: "Reading a book you imported",
+    featureKey: "imported-books",
+    keywords: ["epub", "import", "open", "downloaded", "shelves", "read"],
+    blocks: [
+      {
+        kind: "text",
+        text: "A book you download from Open Shelves can be opened and read inside Mentible. Tap Open on the Downloads screen and it joins your Library. On the web app, use \"Import an EPUB\" and pick the file you downloaded — browsers don't let us read it for you.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Download a book from a catalog on the Shelves tab.",
+          "Open Downloads and tap Open next to the book.",
+          "The book appears in your Library and opens in the reader.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Does the book leave my device?", def: "No. It's unzipped and stored on this device. Opening a book makes no network request — pictures inside the book are read from the book itself, and anything it tries to load from the internet is dropped." },
+          { term: "Why doesn't it look like the original?", def: "We render the book's text in Mentible's own typography and drop the book's styling. Its pictures are kept." },
+          { term: "Copy-protected books", def: "Books with DRM can't be opened here, and Mentible will say so rather than showing you a broken book." },
+        ],
+      },
+    ],
+  },
+  {
+    id: "chapter-quiz",
+    title: "Make a quiz from an imported chapter",
+    featureKey: "chapter-quiz",
+    keywords: ["quiz", "chapter quiz", "imported", "open shelves", "test", "questions"],
+    blocks: [
+      {
+        kind: "text",
+        text: "While reading a chapter of an imported book, tap \"Make a quiz from this chapter\" to generate an interactive multiple-choice quiz grounded in that chapter's own text — questions are answerable only from what the chapter says, not from outside knowledge. It's the reason to import a book into Mentible instead of just reading it in any EPUB app.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a chapter of an imported book.",
+          "Tap \"Make a quiz from this chapter\" below the text.",
+          "Wait for generation to finish (it uses your LLM key, like any other generation).",
+          "Read the questions right in the reader. Tap an option to answer, and the correct answer is highlighted with an explanation.",
+        ],
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Does this cost tokens?", def: "Yes — it's a real generation against your configured provider, same as generating a topic." },
+          { term: "Long chapters", def: "Very long chapters are capped before being sent to the model; when that happens the screen shows a hint that the quiz only covers the first part." },
+          { term: "Does it change the chapter?", def: "No. The chapter's text is never edited — the quiz is stored separately and only ever added to." },
+          { term: "Where is it available?", def: "On both the web app and the Android app (not in the demo build, which has no backend). Tapping an option to reveal the answer works in both readers." },
+        ],
+      },
+    ],
+  },
 ];

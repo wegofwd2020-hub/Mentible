@@ -10,6 +10,7 @@ export const NAV = {
   // The authoring home (route is still `books`); "Studio" pairs with Library
   // and removes the old Books/Library ambiguity (both read as "shelves").
   studio: "Studio",
+  shelves: "Shelves",
   settings: "Settings",
   help: "Help",
   about: "About",

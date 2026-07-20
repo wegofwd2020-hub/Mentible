@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from "fflate";
 import { extractEpubCover } from "../../src/storage/epubCover";
+import { openEpub } from "../../src/storage/epubZip";
 
 const CONTAINER =
   '<?xml version="1.0"?><container version="1.0" ' +
@@ -62,5 +63,34 @@ describe("extractEpubCover", () => {
 
   it("returns null for non-zip bytes", () => {
     expect(extractEpubCover(new Uint8Array([1, 2, 3, 4]).buffer as ArrayBuffer)).toBeNull();
+  });
+
+  // Defect 1: extractEpubCover is deliberately LENIENT (unlike openEpub's
+  // strict reader path) — an unresolvable container.xml/OPF, or a DRM'd
+  // book, must still fall through to the filename fallback rather than
+  // yielding null, because it renders covers for books already in a user's
+  // library.
+
+  it("falls back to cover.* when there is no META-INF/container.xml at all, while openEpub still throws", () => {
+    const bytes = epub({ "OEBPS/cover.png": new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]) });
+    const cover = extractEpubCover(bytes);
+    expect(cover?.ext).toBe("png");
+    expect(() => openEpub(new Uint8Array(bytes))).toThrow(/container\.xml/i);
+  });
+
+  it("still returns a resolvable cover from a DRM'd (encrypted) book, while openEpub throws", () => {
+    const opf =
+      '<?xml version="1.0"?><package><manifest>' +
+      '<item id="ci" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>' +
+      "</manifest></package>";
+    const bytes = epub({
+      "META-INF/container.xml": CONTAINER,
+      "META-INF/encryption.xml": "<encryption/>",
+      "OEBPS/content.opf": opf,
+      "OEBPS/cover.svg": '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+    });
+    const cover = extractEpubCover(bytes);
+    expect(cover?.svg).toContain("<svg");
+    expect(() => openEpub(new Uint8Array(bytes))).toThrow(/protected|DRM/i);
   });
 });

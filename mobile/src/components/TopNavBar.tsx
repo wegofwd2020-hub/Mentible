@@ -13,6 +13,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 // shared NAV vocabulary; the `books` route now reads as "Studio" (authoring).
 const TABS: Record<string, { label: string; active: IconName; inactive: IconName }> = {
   library: { label: NAV.library, active: "library", inactive: "library-outline" },
+  shelves: { label: NAV.shelves, active: "albums", inactive: "albums-outline" },
   books: { label: NAV.studio, active: "create", inactive: "create-outline" },
   settings: { label: NAV.settings, active: "settings", inactive: "settings-outline" },
   help: { label: NAV.help, active: "help-circle", inactive: "help-circle-outline" },
@@ -21,7 +22,7 @@ const TABS: Record<string, { label: string; active: IconName; inactive: IconName
 
 // Visual left→right order of the menu. Library is first (and the landing); the
 // brand logo is rendered before this row and links to Library (home).
-const ORDER = ["library", "books", "settings", "help", "about"];
+const ORDER = ["library", "shelves", "books", "settings", "help", "about"];
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
 // Mentible mark that jumps to Library (home). Replaces the default bottom tab bar

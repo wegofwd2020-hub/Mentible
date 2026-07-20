@@ -11,6 +11,9 @@ export const FEATURES = [
   { key: "accounts", label: "Accounts & sign-in" },
   { key: "plans", label: "Plans & billing" },
   { key: "figures", label: "Figures (attached images)" },
+  { key: "open-shelves", label: "Open Shelves (free book repos)" },
+  { key: "imported-books", label: "Reading imported books" },
+  { key: "chapter-quiz", label: "Chapter quiz (imported books)" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];

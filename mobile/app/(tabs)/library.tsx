@@ -3,13 +3,13 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { deleteEpub, listEpubs, openEpub, saveEpub, type EpubMeta } from "@/storage/epubLibrary";
+import { deleteEpub, listEpubs, openEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
 import { reconcileGeneratingExports, loadPublishedMap, type PublishedFormats } from "@/lib/trackedExport";
 import { reviewCounts } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
 import { pickEpubFile } from "@/storage/pickBookFile";
-import { extractEpubCover } from "@/storage/epubCover";
+import { importEpub } from "@/openshelves/importEpub";
 import { BookCover } from "@/components/BookCover";
 import { BookMetadataModal } from "@/components/BookMetadataModal";
 import { UserChip } from "@/components/UserChip";
@@ -37,22 +37,6 @@ import {
   renameShelf,
   type Shelf,
 } from "@/storage/shelfStore";
-
-// Image MIME for a raster cover's file extension (so the web data: URL is
-// labelled correctly — third-party EPUB covers are frequently JPEG/WebP).
-function mimeForExt(ext: string): string {
-  switch (ext.toLowerCase()) {
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "webp":
-      return "image/webp";
-    case "gif":
-      return "image/gif";
-    default:
-      return "image/png";
-  }
-}
 
 // Demo Library: the bundled books seeded on first run (ADR-017) live in the book
 // store, not the EPUB shelf, so the normal EPUB Library would read empty in a
@@ -199,19 +183,12 @@ function EpubLibrary() {
       if (head[0] !== 0x50 || head[1] !== 0x4b) {
         throw new Error("That doesn't look like an EPUB (zip) file.");
       }
-      const title = picked.name.replace(/\.epub$/i, "").trim() || "Imported book";
-      const slug =
-        title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "epub";
-      const cover = extractEpubCover(picked.bytes); // pull the real cover out of the EPUB
-      await saveEpub({
-        bookId: `imported-${slug}`,
-        title,
-        bytes: picked.bytes,
-        coverSvg: cover?.svg,
-        coverBytes: cover?.raster,
-        coverMime: cover?.ext ? mimeForExt(cover.ext) : undefined,
-      });
+      // Parse into a first-class, readable Book (Open Shelves F1) — same path as
+      // the Shelves "Import an EPUB" — instead of the old download-only EPUB blob.
+      // The book is stored via `importEpub` and opens in the in-app chapter reader.
+      const book = await importEpub(new Uint8Array(picked.bytes));
       reload();
+      router.push(`/book/read/${book.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't import that file.");
     } finally {

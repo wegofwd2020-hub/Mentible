@@ -3,6 +3,7 @@ import type { Book, BookMeta, GeneratedTopic, StructuredTOC } from "@/types/book
 import { randomUUID } from "@/lib/uuid";
 import { deleteBookMedia } from "@/storage/mediaStore";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
+import { putBookValue, getBookValue, delBookValue } from "@/storage/bookBlobStore";
 
 // Local-first book storage (ADR-003 D1) — same AsyncStorage shape as the lesson
 // library: a single index + one entry per book. Migrate to expo-sqlite if books
@@ -87,9 +88,12 @@ export async function saveBook(book: Book): Promise<void> {
   for (const [id, gen] of Object.entries(book.content ?? {})) {
     if (validIds.has(id)) pruned[id] = gen;
   }
+  // TODO(F2): when imported-chapter deletion lands, prune orphaned
+  // `chapterQuizzes[chapterId]` the same way (no chapter-removal UI exists yet,
+  // so orphans are currently unreachable).
   const toStore: Book = { ...book, content: pruned };
 
-  await AsyncStorage.setItem(bookKey(book.id), JSON.stringify(toStore));
+  await putBookValue(book.id, JSON.stringify(toStore));
 
   const index = await loadBookIndex();
   const deduped = index.filter((m) => m.id !== book.id);
@@ -110,8 +114,18 @@ export async function loadBookIndex(): Promise<BookMeta[]> {
 }
 
 export async function loadBook(id: string): Promise<Book | null> {
-  const raw = await AsyncStorage.getItem(bookKey(id));
-  if (!raw) return null;
+  let raw = await getBookValue(id);
+  if (raw === null) {
+    // Migrate a book saved before IndexedDB (old localStorage/AsyncStorage
+    // location) — F1: bookStore→bookBlobStore migration, one-time on first load.
+    const legacy = await AsyncStorage.getItem(bookKey(id));
+    if (legacy !== null) {
+      await putBookValue(id, legacy);
+      await AsyncStorage.removeItem(bookKey(id));
+      raw = legacy;
+    }
+  }
+  if (raw === null) return null;
   try {
     const book = JSON.parse(raw) as Book;
     // Backfill topic ids for books saved before generate-all existed, and a
@@ -130,7 +144,8 @@ export async function loadBook(id: string): Promise<Book | null> {
 export async function deleteBook(id: string): Promise<void> {
   const index = await loadBookIndex();
   await Promise.all([
-    AsyncStorage.removeItem(bookKey(id)),
+    delBookValue(id),
+    AsyncStorage.removeItem(bookKey(id)), // any un-migrated old location
     AsyncStorage.setItem(
       INDEX_KEY,
       JSON.stringify(index.filter((m) => m.id !== id)),

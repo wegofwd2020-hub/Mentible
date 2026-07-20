@@ -1,4 +1,5 @@
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
+import { resolveOpf, unzipEpub } from "@/storage/epubZip";
 
 // The cover extracted from an EPUB: a vector SVG (our compiler emits cover.svg)
 // or a raster image (most third-party EPUBs). Pure JS (fflate) — no native deps.
@@ -15,27 +16,29 @@ function escapeReg(s: string): string {
 // Parse an EPUB's bytes and return its cover image, or null if none is found.
 // Resolves the cover via META-INF/container.xml → OPF → the cover-image item
 // (properties="cover-image" or <meta name="cover">), with a filename fallback.
+//
+// Deliberately lenient (unlike the reader's `openEpub`): cover extraction is
+// best-effort against books already in a user's library, so an unresolvable
+// container.xml/OPF or a DRM'd book (whose cover is commonly left unencrypted
+// for storefront thumbnails) still falls through to the filename fallback
+// below, rather than yielding nothing. Only a caps violation or an unreadable
+// zip yields null outright.
 export function extractEpubCover(bytes: ArrayBuffer): EpubCover | null {
   let files: Record<string, Uint8Array>;
+  let find: (path: string) => string | undefined;
   try {
-    files = unzipSync(new Uint8Array(bytes));
+    ({ files, find } = unzipEpub(new Uint8Array(bytes)));
   } catch {
-    return null;
+    return null; // cover extraction is best-effort; callers expect null, not a throw
   }
   const keys = Object.keys(files);
-  const find = (path: string) => keys.find((k) => k.toLowerCase() === path.toLowerCase());
+  const resolved = resolveOpf({ files, find });
 
   let coverHref: string | undefined;
   let coverMime: string | undefined;
 
-  const containerKey = find("META-INF/container.xml");
-  const opfPath = containerKey
-    ? /full-path="([^"]+)"/.exec(strFromU8(files[containerKey]))?.[1]
-    : undefined;
-  const opfKey = opfPath ? find(opfPath) : undefined;
-  if (opfKey && opfPath) {
-    const opf = strFromU8(files[opfKey]);
-    const opfDir = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+  if (resolved) {
+    const { opf, opfDir } = resolved;
     let item = /<item\b[^>]*\bproperties="[^"]*\bcover-image\b[^"]*"[^>]*>/.exec(opf)?.[0];
     if (!item) {
       const coverId = /<meta\b[^>]*\bname="cover"[^>]*\bcontent="([^"]+)"/.exec(opf)?.[1];
