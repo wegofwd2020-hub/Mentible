@@ -229,10 +229,11 @@ it("hides the nudge once dismissed", async () => {
 it("hides the control in a demo build", async () => {
   demoModule.IS_DEMO = true;
   (loadBook as jest.Mock).mockResolvedValue(book());
-  render(<ReadChapterScreen />);
+  const { queryByTestId } = render(<ReadChapterScreen />);
 
   await waitFor(() => expect(screen.getByLabelText("Chapter content")).toBeTruthy());
   expect(screen.queryByLabelText("Make a quiz from this chapter")).toBeNull();
+  expect(queryByTestId("nudge-chapter-quiz")).toBeNull();
 });
 
 
