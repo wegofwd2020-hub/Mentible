@@ -8,9 +8,20 @@ let mockHookState: any;
 jest.mock("@/openshelves/useOpenShelves", () => ({ useOpenShelves: () => mockHookState }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+  // Fire the focus callback once on mount (via an effect), like the real
+  // useFocusEffect — NOT on every render, which would loop when the callback
+  // sets state.
+  useFocusEffect: (cb: () => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("react").useEffect(cb, []);
+  },
+}));
 jest.mock("@/storage/pickBookFile", () => ({ pickBookFileOrBundle: jest.fn() }));
 jest.mock("@/openshelves/importEpub", () => ({ importEpub: jest.fn() }));
+const mockRestoreStarterSources = jest.fn().mockResolvedValue({ seeded: [], skipped: [] });
+jest.mock("@/openshelves/seedStarterSources", () => ({ restoreStarterSources: (...args: unknown[]) => mockRestoreStarterSources(...args) }));
 import { Alert } from "@/lib/alert";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
@@ -84,4 +95,27 @@ test("Import an EPUB does nothing when the picker is cancelled or a non-zip is c
   await waitFor(() => expect(pickBookFileOrBundle).toHaveBeenCalled());
   expect(importEpub).not.toHaveBeenCalled();
   expect(mockPush).not.toHaveBeenCalled();
+});
+
+test("restore starter sources calls restoreStarterSources then reloads the list", async () => {
+  const { getByTestId } = render(<ShelvesScreen />);
+  fireEvent.press(getByTestId("restore-starter"));
+  await waitFor(() => expect(mockRestoreStarterSources).toHaveBeenCalled());
+  await waitFor(() => expect(mockHookState.reload).toHaveBeenCalled());
+});
+
+test("restore starter sources surfaces an alert when the restore fails", async () => {
+  mockRestoreStarterSources.mockRejectedValueOnce(new Error("write failed"));
+  const { getByTestId } = render(<ShelvesScreen />);
+  (Alert.alert as jest.Mock).mockClear();
+  fireEvent.press(getByTestId("restore-starter"));
+  await waitFor(() =>
+    expect(Alert.alert).toHaveBeenCalledWith("Couldn't restore starter sources", "Please try again.")
+  );
+});
+
+test("restore starter sources control is disabled while busy", () => {
+  mockHookState = { ...mockHookState, busy: true };
+  const { getByTestId } = render(<ShelvesScreen />);
+  expect(getByTestId("restore-starter").props.accessibilityState?.disabled).toBe(true);
 });

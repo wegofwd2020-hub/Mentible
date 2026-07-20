@@ -36,3 +36,15 @@ test("pressing the title/meta area calls onOpen with the id", () => {
   fireEvent.press(getByTestId("open-s1"));
   expect(onOpen).toHaveBeenCalledWith("s1");
 });
+
+it("shows a Curated by Mentible badge for a starter source", () => {
+  const src = { id: "s1", url: "https://x", title: "Gutenberg", addedAt: "t", lastRefreshedAt: null, isStarter: true, entryCount: 0 };
+  const { getByText } = render(<SourceRow source={src} onRefresh={() => {}} onRemove={() => {}} />);
+  expect(getByText(/curated by mentible/i)).toBeTruthy();
+});
+
+it("shows no badge for a user-added source", () => {
+  const src = { id: "s2", url: "https://x", title: "Mine", addedAt: "t", lastRefreshedAt: null, isStarter: false, entryCount: 0 };
+  const { queryByText } = render(<SourceRow source={src} onRefresh={() => {}} onRemove={() => {}} />);
+  expect(queryByText(/curated by mentible/i)).toBeNull();
+});

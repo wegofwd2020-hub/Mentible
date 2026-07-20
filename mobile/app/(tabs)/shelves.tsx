@@ -2,8 +2,9 @@
 // Open Shelves — Sources management (spec P0-1). Add a free book repo by URL,
 // list/refresh/remove sources. User-added sources are warned (P0-8, neutral
 // conduit) and never blocked. No auth required.
+import { useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { colors, spacing, typography } from "@/constants/theme";
@@ -12,6 +13,7 @@ import { AddSourceForm } from "@/openshelves/AddSourceForm";
 import { SourceRow } from "@/openshelves/SourceRow";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
+import { restoreStarterSources } from "@/openshelves/seedStarterSources";
 
 const WARNING =
   "This library is outside Mentible's curation. You're responsible for the content you add and read. Add it?";
@@ -19,6 +21,8 @@ const WARNING =
 export default function ShelvesScreen() {
   const shelves = useOpenShelves();
   const router = useRouter();
+
+  useFocusEffect(useCallback(() => { void shelves.reload(); }, [shelves.reload]));
 
   const confirmAdd = (url: string) => {
     Alert.alert("Add this source?", WARNING, [
@@ -44,6 +48,15 @@ export default function ShelvesScreen() {
     router.push(`/book/read/${book.id}`);
   }
 
+  async function restoreStarters() {
+    try {
+      await restoreStarterSources();
+      await shelves.reload();
+    } catch {
+      Alert.alert("Couldn't restore starter sources", "Please try again.");
+    }
+  }
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <PageContainer>
@@ -63,11 +76,16 @@ export default function ShelvesScreen() {
 
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>Sources</Text>
-          {shelves.sources.length > 0 ? (
-            <Pressable testID="refresh-all" onPress={() => void shelves.refreshAllSources()} disabled={shelves.busy}>
-              <Text style={styles.refreshAll}>Refresh all</Text>
+          <View style={styles.headerActions}>
+            <Pressable testID="restore-starter" onPress={() => void restoreStarters()} disabled={shelves.busy}>
+              <Text style={styles.refreshAll}>Restore starter sources</Text>
             </Pressable>
-          ) : null}
+            {shelves.sources.length > 0 ? (
+              <Pressable testID="refresh-all" onPress={() => void shelves.refreshAllSources()} disabled={shelves.busy}>
+                <Text style={styles.refreshAll}>Refresh all</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {shelves.loading && shelves.sources.length === 0 ? null : shelves.sources.length === 0 ? (
@@ -98,6 +116,7 @@ const styles = StyleSheet.create({
   downloadsLink: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   secondaryBtn: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   sectionTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "600" },
   refreshAll: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },

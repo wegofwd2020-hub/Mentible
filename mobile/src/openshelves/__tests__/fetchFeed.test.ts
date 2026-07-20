@@ -104,3 +104,12 @@ test("fetchFeed requests the feed URL itself on native", async () => {
   await fetchFeed("https://ex.org/f.opds", fake);
   expect(seen[0]).toBe("https://ex.org/f.opds"); // no proxy on native
 });
+
+it("sends a descriptive User-Agent on the feed request", async () => {
+  const fetchImpl = jest.fn().mockResolvedValue({
+    ok: true, status: 200, headers: { get: () => null }, text: async () => "<feed/>",
+  } as unknown as Response);
+  await fetchFeed("https://www.gutenberg.org/ebooks.opds/", fetchImpl);
+  const [, init] = fetchImpl.mock.calls[0];
+  expect((init.headers as Record<string, string>)["User-Agent"]).toMatch(/Mentible/);
+});
