@@ -209,6 +209,11 @@ class Settings(BaseSettings):
     # ~100-unit fair-use posture while allowing regeneration/iteration.
     rate_limit_per_day: int = Field(default=500, ge=0)
 
+    # Open Shelves web feed-fetch limiter (ADR-028 escape hatch). This endpoint is
+    # ANONYMOUS and fetches arbitrary third-party URLs, so its limiter is the abuse
+    # control — and unlike the /generate limiter it fails CLOSED (see rate_limit.py).
+    feed_fetch_per_minute: int = Field(default=20, ge=0)
+    feed_fetch_per_day: int = Field(default=300, ge=0)
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Browser-origin allowlist (comma-separated). Was `*`, which let any site call
     # the API from a browser. It never leaked the BYOK key — the key rides in the
