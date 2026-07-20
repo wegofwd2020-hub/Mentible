@@ -12,6 +12,7 @@ import { AddSourceForm } from "@/openshelves/AddSourceForm";
 import { SourceRow } from "@/openshelves/SourceRow";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
+import { restoreStarterSources } from "@/openshelves/seedStarterSources";
 
 const WARNING =
   "This library is outside Mentible's curation. You're responsible for the content you add and read. Add it?";
@@ -44,6 +45,11 @@ export default function ShelvesScreen() {
     router.push(`/book/read/${book.id}`);
   }
 
+  async function restoreStarters() {
+    await restoreStarterSources();
+    await shelves.reload();
+  }
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <PageContainer>
@@ -63,11 +69,16 @@ export default function ShelvesScreen() {
 
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>Sources</Text>
-          {shelves.sources.length > 0 ? (
-            <Pressable testID="refresh-all" onPress={() => void shelves.refreshAllSources()} disabled={shelves.busy}>
-              <Text style={styles.refreshAll}>Refresh all</Text>
+          <View style={styles.headerActions}>
+            <Pressable testID="restore-starter" onPress={() => void restoreStarters()} disabled={shelves.busy}>
+              <Text style={styles.refreshAll}>Restore starter sources</Text>
             </Pressable>
-          ) : null}
+            {shelves.sources.length > 0 ? (
+              <Pressable testID="refresh-all" onPress={() => void shelves.refreshAllSources()} disabled={shelves.busy}>
+                <Text style={styles.refreshAll}>Refresh all</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {shelves.loading && shelves.sources.length === 0 ? null : shelves.sources.length === 0 ? (
@@ -98,6 +109,7 @@ const styles = StyleSheet.create({
   downloadsLink: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   secondaryBtn: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   sectionTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "600" },
   refreshAll: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
   empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },

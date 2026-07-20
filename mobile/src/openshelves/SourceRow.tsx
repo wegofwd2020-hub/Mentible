@@ -13,11 +13,12 @@ interface Props {
 }
 
 export function SourceRow({ source, onRefresh, onRemove, onOpen, busy }: Props) {
-  const { id, title, url, entryCount, lastRefreshedAt } = source;
+  const { id, title, url, entryCount, lastRefreshedAt, isStarter } = source;
   return (
     <View style={styles.row}>
       <Pressable testID={`open-${id}`} style={styles.meta} onPress={() => onOpen?.(id)}>
         <Text style={styles.title} numberOfLines={1}>{title ?? url}</Text>
+        {isStarter ? <Text style={styles.badge}>Curated by Mentible</Text> : null}
         <Text style={styles.sub}>
           {entryCount} items · Last refreshed: {lastRefreshedAt ?? "Never"}
         </Text>
@@ -36,6 +37,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
   meta: { flex: 1, minWidth: 0 },
   title: { color: colors.text, fontSize: typography.sizeMd },
+  badge: { color: colors.primary, fontSize: typography.sizeXs, fontWeight: "600" },
   sub: { color: colors.textMuted, fontSize: typography.sizeXs },
   action: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm },
   actionText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
