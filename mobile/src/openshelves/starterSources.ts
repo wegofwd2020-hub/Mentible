@@ -20,4 +20,9 @@ export interface StarterSource {
   title: string;
 }
 
-export const STARTER_SOURCES: StarterSource[] = [];
+export const STARTER_SOURCES: StarterSource[] = [
+  { url: "https://www.gutenberg.org/ebooks/search.opds/?sort_order=downloads", title: "Project Gutenberg — Popular" },
+  { url: "https://www.gutenberg.org/ebooks/search.opds/?query=science",       title: "Project Gutenberg — Science" },
+  { url: "https://www.gutenberg.org/ebooks/search.opds/?query=children",      title: "Project Gutenberg — Children's" },
+  { url: "https://www.gutenberg.org/ebooks/search.opds/?query=history",       title: "Project Gutenberg — History" },
+];

@@ -352,7 +352,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Open Shelves lets you add free book catalogs (OPDS feeds) as sources, then browse and manage them from the Shelves tab. You add the sources yourself — paste an OPDS catalog URL to get started.",
+        text: "Open Shelves lets you add free book catalogs (OPDS feeds), then browse and manage them from the Shelves tab. A few starter libraries — Project Gutenberg shelves, curated by us — come included, so you always have somewhere to start. You can also add your own: paste an OPDS catalog URL.",
       },
       {
         kind: "steps",
@@ -368,7 +368,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         defs: [
           {
             term: "Is a source curated?",
-            def: "No. Every catalog in Open Shelves is one you added yourself, and it's your responsibility — we don't vet or moderate third-party feeds.",
+            def: "The starter shelves (Project Gutenberg) are curated by us. Any source you add yourself is outside Mentible's curation and is your responsibility — we don't vet or moderate third-party feeds.",
           },
           {
             term: "Authenticated repos",
