@@ -22,6 +22,13 @@ jest.mock("@/storage/pickBookFile", () => ({ pickBookFileOrBundle: jest.fn() }))
 jest.mock("@/openshelves/importEpub", () => ({ importEpub: jest.fn() }));
 const mockRestoreStarterSources = jest.fn().mockResolvedValue({ seeded: [], skipped: [] });
 jest.mock("@/openshelves/seedStarterSources", () => ({ restoreStarterSources: (...args: unknown[]) => mockRestoreStarterSources(...args) }));
+// Discovery nudge (F3 Task 5): mock useNudge to control visibility without
+// touching AsyncStorage (mutable module-level flag, same footgun/escape-hatch
+// pattern as chapter-quiz.test.tsx).
+jest.mock("@/discovery/useNudge", () => ({
+  useNudge: () => ({ visible: mockNudgeVisible, dismiss: jest.fn() }),
+}));
+let mockNudgeVisible = true;
 import { Alert } from "@/lib/alert";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
@@ -32,7 +39,10 @@ const src = (id: string) => ({ id, url: `https://ex.org/${id}`, title: id, added
 beforeEach(() => {
   jest.clearAllMocks();
   mockHookState = { sources: [], loading: false, busy: false, error: null, add, remove, refresh, refreshAllSources, reload: jest.fn() };
+  mockNudgeVisible = true;
 });
+
+const starterSrc = (id: string) => ({ ...src(id), isStarter: true });
 
 test("empty state when no sources", () => {
   const { getByText } = render(<ShelvesScreen />);
@@ -118,4 +128,18 @@ test("restore starter sources control is disabled while busy", () => {
   mockHookState = { ...mockHookState, busy: true };
   const { getByTestId } = render(<ShelvesScreen />);
   expect(getByTestId("restore-starter").props.accessibilityState?.disabled).toBe(true);
+});
+
+test("shows the shelves-download nudge when a starter shelf is present", async () => {
+  mockNudgeVisible = true;
+  mockHookState = { ...mockHookState, sources: [starterSrc("a")] };
+  const { findByTestId } = render(<ShelvesScreen />);
+  expect(await findByTestId("nudge-shelves-download")).toBeTruthy();
+});
+
+test("hides the nudge when no starter shelf is present", () => {
+  mockNudgeVisible = true;
+  mockHookState = { ...mockHookState, sources: [src("a")] };
+  const { queryByTestId } = render(<ShelvesScreen />);
+  expect(queryByTestId("nudge-shelves-download")).toBeNull();
 });

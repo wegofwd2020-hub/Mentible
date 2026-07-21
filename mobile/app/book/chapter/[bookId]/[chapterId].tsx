@@ -5,6 +5,8 @@ import { loadBook } from "@/storage/bookStore";
 import { ChapterRenderer, QuizRenderer } from "@/components/LessonRenderer";
 import { PageContainer } from "@/components/PageContainer";
 import { useGenerateChapterQuiz } from "@/hooks/useGenerateChapterQuiz";
+import { useNudge } from "@/discovery/useNudge";
+import { DiscoveryNudge } from "@/discovery/DiscoveryNudge";
 import { IS_DEMO } from "@/constants/demo";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { ImportedChapter, QuizSet } from "@/types/book";
@@ -30,6 +32,7 @@ export default function ReadChapterScreen() {
 
   const { status, error, truncated, generate } = useGenerateChapterQuiz();
   const generating = status === "generating";
+  const quizNudge = useNudge("chapter-quiz");
 
   useEffect(() => {
     let mounted = true;
@@ -85,6 +88,14 @@ export default function ReadChapterScreen() {
       <Stack.Screen options={{ title: bookTitle || "Read" }} />
       <PageContainer>
         <ChapterRenderer chapter={chapter} />
+
+        {showTrigger && quizNudge.visible && (
+          <DiscoveryNudge
+            text="New — make a quiz from this chapter to test yourself."
+            onDismiss={quizNudge.dismiss}
+            testID="nudge-chapter-quiz"
+          />
+        )}
 
         {showTrigger && (
           <View style={styles.quizBar}>

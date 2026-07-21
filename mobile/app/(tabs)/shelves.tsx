@@ -14,6 +14,8 @@ import { SourceRow } from "@/openshelves/SourceRow";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
 import { restoreStarterSources } from "@/openshelves/seedStarterSources";
+import { useNudge } from "@/discovery/useNudge";
+import { DiscoveryNudge } from "@/discovery/DiscoveryNudge";
 
 const WARNING =
   "This library is outside Mentible's curation. You're responsible for the content you add and read. Add it?";
@@ -21,6 +23,8 @@ const WARNING =
 export default function ShelvesScreen() {
   const shelves = useOpenShelves();
   const router = useRouter();
+  const dlNudge = useNudge("shelves-download");
+  const hasStarter = shelves.sources.some((s) => s.isStarter);
 
   useFocusEffect(useCallback(() => { void shelves.reload(); }, [shelves.reload]));
 
@@ -73,6 +77,14 @@ export default function ShelvesScreen() {
         </View>
 
         <AddSourceForm onSubmit={confirmAdd} busy={shelves.busy} error={shelves.error} />
+
+        {hasStarter && dlNudge.visible && (
+          <DiscoveryNudge
+            text="Tap a curated shelf to download a free book to read."
+            onDismiss={dlNudge.dismiss}
+            testID="nudge-shelves-download"
+          />
+        )}
 
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>Sources</Text>
