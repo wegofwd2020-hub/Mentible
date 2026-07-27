@@ -16,6 +16,25 @@
 
 ---
 
+## 0. The three layers (framing)
+
+What can change, and *who* changes it, separates into three layers. Keeping them distinct is the core discipline of this proposal:
+
+| Layer | What it is | Who changes it | When |
+|---|---|---|---|
+| **1 · App framework** | RN + Expo, expo-router, the runtime/binary | **Not the user** | Product release (app update) |
+| **2 · UI layout** | IA + structure: nav set, sidebar, hero placement, grid, component arrangement | **Not the user** (auto-reflows by viewport) | Product release (ships in code) |
+| **3 · Theme** | Colors + fonts, from **pre-packaged, curated** configs | **The user picks** | Anytime, in Settings |
+
+**The insight this framing exposes:** the Lovable "Gilded Noir" direction **mixed layers 2 and 3** — it re-specified layout (256px sidebar, hero card, 2:3 grid) *and* colors/fonts together. That's *why* it read as a brand pivot rather than a theme. A **pure theme is layer 3 only**: recolor + refont the **same** layout. Separating the layers is exactly what makes Gilded Noir safely adoptable — as a palette, not a redesign.
+
+**Notes:**
+- Layer 3 can be **two independent axes** — a *color scheme* and a *font set* — rather than one bundled theme. Bundled configs are the simpler MVP (what "pre-packaged configurations" means here); the two-axis split is a later option.
+- **Fonts straddle 2↔3:** font metrics affect line-wrapping (a layout concern), but as a bounded user choice they live fine in the theme layer.
+- This whole proposal is about **layer 3 only** — a palette/font-swap mechanism + curated configs. Layers 1 and 2 are out of scope (they move with releases, not user choice).
+
+---
+
 ## 1. Current state (grounded)
 
 `theme.ts` today:
