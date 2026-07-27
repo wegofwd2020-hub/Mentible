@@ -13,6 +13,17 @@ Today, producing a LinkedIn post from a diagram is fully manual: hand-write copy
 
 ---
 
+## 1b. Scope decision — surface now, extractable, product later (Option C · DECIDED)
+
+**The tension:** the moat pulls *in*, focus pulls *out*. Source-native generation needs the owned library — which is Mentible's — so it wants to live *inside* Mentible. But Mentible is a tightly-scoped learning product ("not a chatbot, not a course platform," adult self-learners); a general content-marketing studio would *dilute* that identity.
+
+**Decision — Option C:**
+1. **Ship as a Mentible surface now** — a "Publish Studio" tab in the **paid authoring app** (never the free reader — this is a creation feature). Scoped **narrowly** to *"promote content you authored here"* (your own book / lesson / diagram). That framing keeps it **on-mission** — distributing your learning artifact — not "become a marketing tool." **This narrow framing is the guardrail that makes an in-Mentible surface safe;** crossing into general content marketing means it has become a different product.
+2. **Put the engine in a `wegofwd-*` shared package** from day one (plan → render → export; ADR-019 family) so it is **extractable**, not welded into Mentible screens.
+3. **Graduate to a standalone product only if** a non-author (pure creator/marketer) market appears — via the PRAMANA-style **artifact handoff** (handoff is an artifact, not a service call), reaching the library across the seam.
+
+**Why not standalone-first:** you'd rebuild library access just to prove a moat that's free to prove inside Mentible. **Why not surface-forever:** that locks a creator-market feature inside a learner product. C gets the cheap proof now and keeps the door open.
+
 ## 2. Output types (the matrix)
 
 The product is defined by the **cross-product of {format} × {platform target}**. This matrix is the spec — everything downstream (renderer, size, limits) derives from it.
@@ -173,7 +184,7 @@ MVP = **P1**. It already delivers today's manual LinkedIn workflow, automated �
 ---
 
 ## 8. Open questions
-1. **Separate product, or a surface inside Mentible?** It shares the engine but serves marketers/creators, not learners. (Likely a sibling app under the same wegofwd shared-package family — ADR-019.)
+1. ~~**Separate product, or a surface inside Mentible?**~~ **RESOLVED → Option C (surface-now, extractable, product-later).** See §1b.
 2. **TTS vendor + voice licensing** — which provider, whose voices, cost per minute, managed vs. BYOK for audio?
 3. **Video ceiling** — cap animated output length/resolution to bound encode cost?
 4. **Brand kit scope** — single kit per user, or many (per client/campaign)?
