@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <style>
   *{box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-  html,body{width:1500px; background:#e9eaf0; color:#1b2333;}
+  html,body{width:1880px; background:#e9eaf0; color:#1b2333;}
   .page{padding:34px 34px 40px;}
   h1{font-size:23px; font-weight:800; margin-bottom:4px;}
   .sub{font-size:14px; color:#5b6480; margin-bottom:24px;}
@@ -44,8 +44,8 @@
 </head>
 <body>
 <div class="page">
-  <h1>One screen, four themes — user-selectable</h1>
-  <div class="sub">The same Library home rendered through swappable palettes. Study &amp; Manuscript &amp; Reading already exist in <code>theme.ts</code> (unused); Gilded Noir is the new Lovable direction, mapped to the same token keys.</div>
+  <h1>One screen, five themes — user-selectable (layer 3)</h1>
+  <div class="sub">The same Library <b>layout</b> (layer 2), only the <b>palette</b> swapped (layer 3). Study/Manuscript/Reading already exist in <code>theme.ts</code>; Gilded Noir and Forest &amp; Moss are two Lovable directions — <b>identical layout docs, different palettes</b> — mapped to the same token keys. That's the proof a theme is layer-3-only.</div>
   <div class="row">
 
     <!-- STUDY (current default dark) -->
@@ -123,6 +123,28 @@
         --brand:#c9a84c; --primary:#c9a84c; --growth:#c9a84c; --growthText:#0d0d0d;
         --onWash:rgba(201,168,76,.15); --onText:#f0d78c; --track:#262626;
         --btnBg:#f5f5f4; --btnText:#0d0d0d; --cov1:#3a3320; --cov2:#0d0d0d; --cov3:#c9a84c; --cov4:#5a4a1e;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOREST & MOSS (new, from Lovable) -->
+    <div class="col">
+      <div class="cap">Forest &amp; Moss · dark <span style="font-weight:400;color:#4e8a52">★ new (Lovable)</span></div>
+      <div class="capm">Greenhouse-at-dusk, single moss. Green-accent aligns w/ growth semantics.</div>
+      <div class="screen" style="
+        --bg:#1a3c2a; --surface:#2d5a3d; --border:#366348; --text:#f5f5f4; --textSecondary:#d6d3d1; --textMuted:#a8a29e;
+        --brand:#5a8a5c; --primary:#5a8a5c; --growth:#5a8a5c; --growthText:#0d2016;
+        --onWash:rgba(90,138,92,.20); --onText:#a0c49d; --track:#366348;
+        --btnBg:#f5f5f4; --btnText:#1a3c2a; --cov1:#2d5a3d; --cov2:#1a3c2a; --cov3:#5a8a5c; --cov4:#366348;">
         <div class="scr-in">
           <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
           <div class="body">

@@ -12,7 +12,7 @@
 - The Lovable "Gilded Noir" direction is **beautiful but a brand pivot** and best adopted as **one selectable theme (reader-leaning)**, not a global reset — which is exactly what a theme switcher makes safe.
 - Book/EPUB **output** styling is a **separate system** (`compiler/`, ADR-007) and must not move with the app theme.
 
-![Four themes, one screen](./assets/multi-theme/theme-comparison.png)
+![Five themes, one screen](./assets/multi-theme/theme-comparison.png)
 
 ---
 
@@ -55,9 +55,9 @@ So: **the palettes are defined but dead.** Every component imports the static `c
 
 ---
 
-## 2. The Lovable "Gilded Noir" direction — analysis (recorded)
+## 2. The Lovable direction(s) — analysis (recorded)
 
-*Full analysis of `mentible-design-direction.md`, preserved here as requested.*
+*Full analysis of the Lovable directions, preserved as requested. §2 covers "Gilded Noir"; §2b the "Forest & Moss" variant.*
 
 **What it is:** "Gilded Noir Minimalist" — charcoal `#0d0d0d` + single gold accent `#c9a84c`, quiet-luxury members-club reading library. Space Grotesk / DM Sans. Persistent 256px sidebar, sticky header, Continue-Reading hero, 2:3 cover grid. Web/Tailwind idiom (hover, `duration-1000`, `white/5`). It specs **one screen** — the Library reader home.
 
@@ -75,6 +75,19 @@ So: **the palettes are defined but dead.** Every component imports the static `c
 6. **Platform idiom.** Lovable emits React/Tailwind **web**; the app is **RN + Expo** (StyleSheet, not Tailwind; no hover on touch; `duration-1000` progress → Reanimated on native). Tokens must become `theme.ts` constants; Space Grotesk/DM Sans via `@expo-google-fonts`.
 
 **Recommendation:** don't hard-pivot the whole app. **Adopt Gilded Noir as one selectable theme** (its noir mood suits the **reader** surface), while **authoring + Studio keep the bright growing-mind brand** (creation = energetic). A theme switcher makes this a user choice instead of a bet — and preserves the light themes for a11y/KDP.
+
+### 2b. Second direction — "Forest & Moss" (empirical proof of the layering)
+
+A second Lovable direction (`mentible-design-direction_forest_and_moss.md`) landed: **greenhouse-at-dusk** — forest-green surfaces (`#1a3c2a` / `#2d5a3d`) + a single **moss** accent (`#5a8a5c`), same Space Grotesk / DM Sans.
+
+**The important thing about it:** its **layout doc is byte-for-byte the same as Gilded Noir's** — identical sidebar, hero, grid, motion, responsive notes. **Only the palette differs.** That is the §0 three-layer model demonstrated in the wild: two "design directions" that are actually **one layer-2 layout + two layer-3 palettes**. Confirms a theme is a palette swap, not a redesign — and that the switcher is the right home for both.
+
+**Read vs. Gilded Noir:**
+- **Softer semantic collapse.** Noir's gold flattens all three accents (§2.3); Forest's single accent is **green — which is already Mentible's `growth` semantic** (generation/progress). So "✓ Generated" and the progress bar reading green feels *natural*; only `primary` (indigo) and `brand` (orange action) collapse into moss. A less lossy single-accent than gold.
+- **Same caveats otherwise:** dark-only (a11y — `stone-500 #78716c` on `#1a3c2a` is low-contrast for small text; verify before ship), same nav drift (drops "Books"), same layer-2/3 mixing in the source doc, same web/Tailwind→RN translation.
+- **Mood fit:** calm/grounded/natural — pairs with the "growing-mind" botanical brand motif (sprout→leaf) better than gold-luxury does. Arguably the more **on-brand** of the two dark directions.
+
+**Recommendation (both):** ship **Gilded Noir and Forest & Moss as two selectable reader-leaning dark themes** in the catalog. Forest is the closer fit to the existing brand; Noir is the more distinctive/premium option. The switcher lets the user (or later, us via defaults) decide — no bet required.
 
 ---
 
@@ -110,7 +123,8 @@ Provider from day one; migrate consumers **incrementally** behind a compatibilit
 | **Study** | dark | Default. Growing-mind brand, 3 semantic accents. | exists (`colors`) |
 | **Manuscript** | light | Warm-paper print-bridge; the a11y/light option. | exists, wire up |
 | **Reading** | sepia | Low-glare e-reader page mode; **reader surface**. | exists, wire up |
-| **Gilded Noir** | dark | Editorial charcoal+gold; reader-leaning luxury. | **new** — map Lovable → `Palette` keys |
+| **Gilded Noir** | dark | Editorial charcoal+gold; reader-leaning, premium/distinctive. | **new** — map Lovable → `Palette` keys |
+| **Forest & Moss** | dark | Greenhouse-at-dusk green+moss; reader-leaning, closest to the botanical "growing-mind" brand. | **new** — map Lovable → `Palette` keys |
 
 Gilded Noir mapped to the existing `Palette` shape (proposed addition to `theme.ts`; **not committed here** — proposal-only):
 
@@ -130,6 +144,24 @@ export const gildedNoirColors: Palette = {
 };
 ```
 > Open design call: keep Noir's single-accent purity (accept the semantic collapse), **or** grant it a second accent (e.g. a muted sage for `growth`/`success`) so "generated/progress" stays distinguishable. The mockup shows the pure version to make the trade visible.
+
+Forest & Moss mapped to the same `Palette` shape (proposed; **not committed here**):
+
+```ts
+export const forestMossColors: Palette = {
+  background: "#1a3c2a", surface: "#2d5a3d", surfaceHigh: "#356848",
+  border: "#366348", borderLight: "#3f7452",
+  text: "#f5f5f4", textSecondary: "#d6d3d1", textMuted: "#a8a29e",
+  primary: "#5a8a5c", primaryText: "#0d2016",
+  brand: "#5a8a5c", brandText: "#0d2016",
+  growth: "#5a8a5c", growthText: "#0d2016",   // green accent already IS the growth semantic — softer collapse than gold
+  tileOffFace: "#2d5a3d", tileOffGlyph: "#a0c49d", tileOffShadow: "#0d2016",
+  tileOnFace: "#5a8a5c", tileOnGlyph: "#0d2016", tileOnHi: "#a0c49d", tileOnLo: "#3f7452",
+  tileSubGlyph: "#a8a29e",
+  success: "#7fae86", error: "#c96a5c", warning: "#d1a24c",
+  white: "#ffffff",
+};
+```
 
 ---
 
@@ -165,5 +197,5 @@ export const gildedNoirColors: Palette = {
 - A full design-system overhaul — this is a *palette-swap* mechanism + one new palette, not new components.
 
 ## Assets
-- `assets/multi-theme/theme-comparison.{html,png}` — the same Library screen across Study · Manuscript · Reading · Gilded Noir.
-- Source direction: `mentible-design-direction.md` (Lovable, user-provided; not committed).
+- `assets/multi-theme/theme-comparison.{html,png}` — the same Library screen across Study · Manuscript · Reading · Gilded Noir · Forest & Moss.
+- Source directions: `mentible-design-direction.md` + `mentible-design-direction_forest_and_moss.md` (Lovable, user-provided; identical layouts, different palettes; not committed).
