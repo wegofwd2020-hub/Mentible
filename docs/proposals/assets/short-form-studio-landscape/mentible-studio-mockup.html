@@ -1,0 +1,232 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --indigo:#6d5ae6; --indigo-d:#5646c9; --orange:#f2731f; --green:#6cc79a;
+    --ink:#1b2333; --muted:#6b7280; --line:#e7e9f2; --bg:#f4f5fb; --panel:#ffffff;
+    --chip:#f0eefe;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  html,body{width:1600px; height:1030px; background:var(--bg); color:var(--ink);}
+  .app{display:flex; height:1030px;}
+
+  /* ---- left nav ---- */
+  .nav{width:214px; background:#141a2b; color:#c7cbe0; padding:22px 16px; display:flex; flex-direction:column; gap:6px;}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:800; color:#fff; font-size:20px; margin-bottom:26px; letter-spacing:.2px;}
+  .brand .dot{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,var(--indigo),var(--orange));}
+  .nav a{display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:9px; font-size:14.5px; color:#aeb3cc;}
+  .nav a .ic{width:18px; text-align:center; opacity:.9;}
+  .nav a.active{background:rgba(109,90,230,.22); color:#fff; font-weight:600;}
+  .nav a.new{color:#fff;}
+  .nav a.new .tag{margin-left:auto; font-size:10px; font-weight:700; background:var(--orange); color:#fff; padding:2px 7px; border-radius:20px;}
+  .nav .spacer{flex:1;}
+  .nav .plan{font-size:11.5px; color:#7c melodrama;}
+  .nav .plan{font-size:11.5px; color:#828aa8; border-top:1px solid rgba(255,255,255,.08); padding-top:14px;}
+
+  /* ---- main ---- */
+  .main{flex:1; display:flex; flex-direction:column;}
+  .top{height:62px; background:var(--panel); border-bottom:1px solid var(--line); display:flex; align-items:center; padding:0 26px; gap:14px;}
+  .top h1{font-size:18px; font-weight:750;}
+  .top h1 .sub{font-weight:500; color:var(--muted); font-size:13.5px; margin-left:8px;}
+  .top .ai-badge{margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12px; color:#4b5563; background:#eef7f1; border:1px solid #cfeadd; padding:6px 11px; border-radius:20px;}
+  .top .ai-badge b{color:#2f8f5f;}
+
+  .cols{flex:1; display:grid; grid-template-columns:340px 1fr 348px; gap:0;}
+
+  .col{padding:20px 20px; overflow:hidden;}
+  .col.src{border-right:1px solid var(--line); background:#fbfbfe;}
+  .col.mid{padding:20px 24px;}
+  .col.out{border-left:1px solid var(--line); background:#fbfbfe;}
+  .label{font-size:11px; font-weight:800; letter-spacing:.9px; color:#8a90a6; text-transform:uppercase; margin-bottom:12px;}
+
+  /* source cards */
+  .src-card{display:flex; gap:12px; align-items:center; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:11px;}
+  .src-card.sel{border-color:var(--indigo); box-shadow:0 0 0 3px rgba(109,90,230,.14);}
+  .thumb{width:52px; height:66px; border-radius:7px; flex-shrink:0; background:linear-gradient(160deg,#dfe3f6,#c9cff0); display:flex; align-items:center; justify-content:center; font-size:22px;}
+  .thumb.d{background:linear-gradient(160deg,#e7efe9,#cfe6d8);}
+  .thumb.l{background:linear-gradient(160deg,#fde6d6,#f8cfb0);}
+  .src-card .t{font-size:14px; font-weight:650; line-height:1.25;}
+  .src-card .m{font-size:12px; color:var(--muted); margin-top:3px;}
+  .src-card .pick{margin-left:auto; font-size:11px; font-weight:700; color:var(--indigo);}
+  .moat{margin-top:8px; background:var(--chip); border:1px dashed #c9c0f7; border-radius:11px; padding:12px 13px; font-size:12.5px; color:#4a3fb0; line-height:1.45;}
+  .moat b{color:#3a2fa0;}
+  .refdrop{border:1.5px dashed #cfd3e6; border-radius:12px; padding:13px; background:#fff;}
+  .rd-top{font-size:12.5px; color:#5a627a; font-weight:600; margin-bottom:11px;}
+  .rd-chips{display:flex; gap:7px; margin-bottom:11px;}
+  .rc{font-size:12px; padding:6px 11px; border-radius:18px; border:1px solid var(--line); color:#5a627a; background:#fbfbfe;}
+  .rc.on{border-color:var(--indigo); color:#fff; background:var(--indigo);}
+  .rd-file{font-size:12px; color:#41485c; background:#f4f5fb; border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px;}
+  .rd-file .ok{margin-left:auto; color:#2f8f5f; font-weight:700; font-size:11px;}
+  .rd-note{font-size:11px; color:#8a90a6; line-height:1.45; margin-top:9px;}
+  .rd-note b{color:#5a627a;}
+
+  /* middle composer */
+  .fmt{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .fmt .f{font-size:13px; padding:8px 14px; border-radius:20px; border:1px solid var(--line); background:#fff; color:#41485c; font-weight:600;}
+  .fmt .f.on{background:var(--indigo); color:#fff; border-color:var(--indigo);}
+  .plats{display:flex; gap:9px; margin-bottom:18px; align-items:center;}
+  .plats .p{width:38px; height:38px; border-radius:10px; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:#7a8199;}
+  .plats .p.on{border-color:var(--indigo); color:#fff; background:#0a66c2;}
+  .plats .gap{flex:1;}
+  .plats .ar{font-size:12px; color:var(--muted);}
+
+  .preview{background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 30px rgba(31,41,80,.06);}
+  .pv-head{display:flex; align-items:center; gap:11px; margin-bottom:14px;}
+  .pv-head .av{width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,var(--indigo),var(--orange));}
+  .pv-head .n{font-size:14px; font-weight:700;}
+  .pv-head .h{font-size:12px; color:var(--muted);}
+  .pv-body{font-size:15px; line-height:1.6; color:#232a3d;}
+  .pv-body b{color:#111827;}
+  .pv-hash{color:#0a66c2; margin-top:12px; font-size:14px;}
+  .pv-figure{margin-top:16px; border-radius:12px; overflow:hidden; border:1px solid var(--line); background:#0f1626;}
+  .pv-figure .cap{background:#141a2b; color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px;}
+  .pv-figure .cap .play{width:30px;height:30px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;}
+  .pv-figure .cap .wave{flex:1; height:22px; background:repeating-linear-gradient(90deg,#5966a0 0 2px,transparent 2px 6px); opacity:.6; border-radius:3px;}
+  .pv-figure img{display:block; width:100%;}
+  .pv-note{margin-top:13px; font-size:11.5px; color:#9aa0b4; display:flex; gap:7px; align-items:center;}
+
+  /* right column: variants + export */
+  .variant{background:#fff; border:1px solid var(--line); border-radius:11px; padding:12px 13px; margin-bottom:10px; font-size:12.5px; color:#3d out;}
+  .variant{background:#fff; border:1px solid var(--line); border-radius:11px; padding:12px 13px; margin-bottom:10px; font-size:12.5px; color:#3d445c; line-height:1.4;}
+  .variant.sel{border-color:var(--indigo); box-shadow:0 0 0 3px rgba(109,90,230,.13);}
+  .variant .vt{font-weight:700; color:#1b2333; margin-bottom:4px; display:flex; align-items:center; gap:7px;}
+  .variant .vt .pill{font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:var(--chip); color:var(--indigo);}
+  .brandkit{background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:6px;}
+  .brandkit .r{display:flex; align-items:center; gap:9px; font-size:12.5px; color:#41485c; margin-bottom:9px;}
+  .brandkit .r:last-child{margin-bottom:0;}
+  .sw{display:flex; gap:5px;}
+  .sw i{width:16px; height:16px; border-radius:4px; display:inline-block;}
+  .exports{margin-top:16px; display:flex; flex-direction:column; gap:10px;}
+  .btn{display:flex; align-items:center; justify-content:center; gap:9px; padding:13px; border-radius:11px; font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn.primary{background:var(--indigo); color:#fff;}
+  .btn.ghost{background:#fff; border:1px solid var(--line); color:#3d445c; font-weight:650;}
+  .fine{font-size:11px; color:#9aa0b4; text-align:center; margin-top:4px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- nav -->
+  <aside class="nav">
+    <div class="brand"><span class="dot"></span>Mentible</div>
+    <a><span class="ic">📚</span>Library</a>
+    <a><span class="ic">📖</span>Books</a>
+    <a><span class="ic">🛒</span>Shelves</a>
+    <a class="active new"><span class="ic">📣</span>Publish Studio<span class="tag">NEW</span></a>
+    <a><span class="ic">⚙️</span>Settings</a>
+    <a><span class="ic">❔</span>Help</a>
+    <div class="spacer"></div>
+    <div class="plan">Managed plan · 62 / 100 credits<br>Audio &amp; video metered</div>
+  </aside>
+
+  <!-- main -->
+  <div class="main">
+    <div class="top">
+      <h1>Publish Studio<span class="sub">Turn your library into a post, banner, or clip</span></h1>
+      <div class="ai-badge">🔖 Provenance: <b>AI-generated</b> · stamped on every export</div>
+    </div>
+
+    <div class="cols">
+      <!-- SOURCE -->
+      <div class="col src">
+        <div class="label">1 · Source — from your library</div>
+        <div class="src-card sel">
+          <div class="thumb d">🧠</div>
+          <div><div class="t">AI Agent Architecture</div><div class="m">Authored diagram · SVG</div></div>
+          <div class="pick">Selected</div>
+        </div>
+        <div class="src-card">
+          <div class="thumb">📘</div>
+          <div><div class="t">Product Sense &amp; AI</div><div class="m">Book · 9 chapters</div></div>
+          <div class="pick">Use</div>
+        </div>
+        <div class="src-card">
+          <div class="thumb l">✍️</div>
+          <div><div class="t">Retrieval-Augmented…</div><div class="m">Lesson · topic</div></div>
+          <div class="pick">Use</div>
+        </div>
+        <div class="moat">
+          <b>Source-native.</b> Copy, visuals &amp; voice are generated <b>from content you already own</b> — grounded, on-brand, cited. Not a blank prompt box.
+        </div>
+
+        <div class="label" style="margin-top:20px;">Reference — optional · steer the style</div>
+        <div class="refdrop">
+          <div class="rd-top">⬆ Drop a reference to guide the look, pacing &amp; voice</div>
+          <div class="rd-chips">
+            <span class="rc">🖼 Image</span><span class="rc">🎧 Audio</span><span class="rc on">🎬 Video</span>
+          </div>
+          <div class="rd-file">🎬 competitor_reel.mp4 · 1:47 <span class="ok">✓ ≤ 2 min</span></div>
+          <div class="rd-note">Takes <b>guidance</b> from it — never copies. You own the rights to what you upload; output stays AI-generated.</div>
+        </div>
+      </div>
+
+      <!-- COMPOSER -->
+      <div class="col mid">
+        <div class="label">2 · Format &amp; platform</div>
+        <div class="fmt">
+          <span class="f">Post</span>
+          <span class="f">Banner</span>
+          <span class="f">Carousel</span>
+          <span class="f on">Animated + Audio</span>
+          <span class="f">Video</span>
+        </div>
+        <div class="plats">
+          <span class="p on">in</span>
+          <span class="p">X</span>
+          <span class="p">IG</span>
+          <span class="p">▶</span>
+          <span class="gap"></span>
+          <span class="ar">1200 × 1200 · ≤ 3000 chars</span>
+        </div>
+
+        <div class="preview">
+          <div class="pv-head">
+            <div class="av"></div>
+            <div><div class="n">Siva Mambakkam</div><div class="h">Founder · posting to LinkedIn</div></div>
+          </div>
+          <div class="pv-body">
+            Most "AI agent" diagrams get one thing wrong: they draw RAG, MCP, and Skills as <b>competing options</b>. They're layers, not alternatives.<br><br>
+            <b>Autonomy is the risk variable</b> — generative AI answers, agentic AI acts. Every rung up, the blast radius grows.
+            <div class="pv-hash">#AIAgents #RAG #MCP #LLM</div>
+          </div>
+          <div class="pv-figure">
+            <div class="cap"><span class="play">▶</span><span class="wave"></span><span style="font-size:11px;color:#b9c0dd">0:18 · animated build-up + voiceover</span></div>
+            <img src="AI_Agent_Architecture.png" alt="diagram">
+          </div>
+          <div class="pv-note">✨ Animated as SVG · voiced by ElevenLabs-class TTS · muxed to MP4 — rendered on our engine, not stock</div>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="col out">
+        <div class="label">3 · Variants &amp; export</div>
+        <div class="variant sel">
+          <div class="vt">Contrarian hook<span class="pill">A</span></div>
+          "Most AI-agent diagrams get one thing wrong…" — punchy, myth-busting open.
+        </div>
+        <div class="variant">
+          <div class="vt">Teach-the-model<span class="pill">B</span></div>
+          "RAG, MCP, Skills — what each layer actually does." Explainer tone.
+        </div>
+        <div class="variant">
+          <div class="vt">Story<span class="pill">C</span></div>
+          "I redrew this architecture after seeing the same mistake 3× this week…"
+        </div>
+
+        <div class="brandkit">
+          <div class="r"><span class="sw"><i style="background:#6d5ae6"></i><i style="background:#f2731f"></i><i style="background:#6cc79a"></i></span> Brand kit · WeGoFwd</div>
+          <div class="r">🅰 Calibri · logo · @handle applied</div>
+        </div>
+
+        <div class="exports">
+          <div class="btn primary">⬇ Export MP4 + copy</div>
+          <div class="btn ghost">Also make → Post · Banner · Carousel</div>
+        </div>
+        <div class="fine">Download only — you post it. AI-generated tag embedded (LinkedIn / KDP-style disclosure).</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
