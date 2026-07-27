@@ -32,10 +32,24 @@ Platform targets (each pins dimensions + char/hashtag limits): **LinkedIn, X/Twi
 
 ## 3. Functional requirements
 
-### FR-1 — Input / source
+### FR-1 — Input / source (the source-of-truth)
 - Generate from a **prompt** (scoped, à la Mentible's 6-dimension IP: topic, audience, tone, length, format, platform).
 - Generate from an **existing asset**: a Mentible book/lesson/topic, an uploaded image or SVG (like today's diagram), or pasted text.
 - "Repurpose" flow: one source → several formats at once (post + banner + audio from the same idea).
+
+### FR-1b — Reference / guidance inputs (steer, don't source)
+Distinct from FR-1: the user uploads **example media to guide the output's style, structure, or tone** — "make it look/sound like this," not "publish this."
+- Accept **image, audio, and short-form video (≤ 2 min)** as reference material.
+- The model **takes guidance** from a reference (layout, visual style, pacing, voice, structure) and produces an *original* artifact — it does not reproduce the input.
+- Reference is optional and layers on top of the FR-1 source (owned content stays the source-of-truth; reference only shapes *how* it's expressed).
+- Multiple references allowed (e.g. a layout ref + a voice ref).
+- **The 2-minute cap is a hard cost/scope bound** — audio/video reference must be transcribed and (for video) keyframe-sampled for the model; unbounded media would blow up ingest cost and latency.
+
+Technical shape:
+- **Image ref** → a vision-capable model reads it (ties to ADR-036 vision-captions; note `Capabilities.vision` is not yet true — this needs the vision seam turned on for the profile).
+- **Audio ref** → transcribe (STT) + optionally a voice-style descriptor; the transcript + style notes feed the prompt.
+- **Video ref (≤2 min)** → transcribe the audio track **and** sample keyframes for the vision model; derive pacing/beat guidance for the animated/video output.
+- **Custody:** a reference upload is a **deliberate, transient passthrough** to the provider (the ADR-036 stance) — used for the generation, not retained as at-rest training/library content unless the user explicitly saves it. Never silently promoted to stored content.
 
 ### FR-2 — Brand kit
 - A reusable **brand asset set**: palette, fonts, logo, handle, default hashtags, tone-of-voice preset.
@@ -60,9 +74,14 @@ Platform targets (each pins dimensions + char/hashtag limits): **LinkedIn, X/Twi
 ### FR-6 — Library / versioning
 - Save generated pieces, re-open, re-export, track which source they came from.
 
-### FR-7 — Provenance / disclosure
+### FR-7 — Provenance / disclosure (+ derivative-input guardrail)
 - Every artifact carries an **AI-generated** provenance marker (ties directly to the KDP AI-disclosure workstream, #336-A — same discipline: this content is AI-*generated*, label it).
 - Optional visible watermark / handle.
+- **Reference-input IP guardrail (FR-1b).** A user-supplied reference may be **someone else's work** — the motivating diagram was itself Claude-generated *in reference to a third party's output*. The product must:
+  - frame references as *"take guidance from,"* never *"reproduce,"* in both UX copy and the prompt;
+  - not output a near-copy of a reference (style/structure guidance only);
+  - surface a lightweight reminder that the user is responsible for rights to any reference they upload, and that the derived artifact is AI-generated.
+  - This is the same posture as the PD-republish / rights guardrail in #336-C — extended from "content sources" to "reference inputs."
 
 ### FR-8 — Distribution
 - **MVP: download only** — the user posts it themselves (same stance as Mentible/KDP: we produce the artifact, no auto-submit).
@@ -73,11 +92,17 @@ Platform targets (each pins dimensions + char/hashtag limits): **LinkedIn, X/Twi
 ## 4. Pipeline / architecture
 
 ```
- idea | asset
-      │
-      ▼
- ┌─────────────┐   scoped prompt (platform + format + brand)
- │  SCOPING    │───────────────────────────────────────────┐
+ idea | asset (FR-1 source)      reference media (FR-1b: image/audio/video ≤2min)
+      │                                    │
+      │                                    ▼
+      │                          ┌───────────────────────┐
+      │                          │ REFERENCE INGEST       │ image→vision · audio→STT
+      │                          │ transcribe+keyframe →  │ · video→STT+keyframes
+      │                          │ style/pacing guidance  │ (transient passthrough)
+      │                          └───────────┬────────────┘
+      ▼                                      │ (guides, not sources)
+ ┌─────────────┐   scoped prompt (platform + format + brand + ref-guidance)
+ │  SCOPING    │◄──────────────────────────────────────────┐
  └─────────────┘                                            │
       │                                                     ▼
       ▼                                             ┌───────────────┐
@@ -117,7 +142,8 @@ Platform targets (each pins dimensions + char/hashtag limits): **LinkedIn, X/Twi
 5. **Platform spec table** — dimensions, char limits, hashtag norms, safe-zones per platform; keep current as platforms change.
 6. **Brand-kit management UI + storage.**
 7. **Multi-format "repurpose" orchestration** — fan one source into N artifacts, each its own render path.
-8. **Direct-publish (deferred)** — per-platform OAuth, API quirks, review/queue. Large; not MVP.
+8. **Reference-input ingest (FR-1b)** — multimodal *input*, not output: vision read of images, STT for audio, STT+keyframe-sampling for ≤2-min video, distilled into style/pacing guidance. Needs the **vision seam turned on** (ADR-036) + an **STT provider** (metered like TTS). The 2-min cap bounds cost. Plus the derivative-work guardrail (FR-7).
+9. **Direct-publish (deferred)** — per-platform OAuth, API quirks, review/queue. Large; not MVP.
 
 ---
 
@@ -141,6 +167,8 @@ Platform targets (each pins dimensions + char/hashtag limits): **LinkedIn, X/Twi
 | **P5 — Publish** | Optional direct-to-platform posting | per-platform OAuth/API |
 
 MVP = **P1**. It already delivers today's manual LinkedIn workflow, automated — and reuses ~80% existing engine.
+
+**Reference inputs (FR-1b) phase in by modality:** *image* reference alongside **P1/P2** (vision read only); *audio/video* reference at **P4**, where it shares the STT/vision + metered-media machinery with the audio-output work. The derivative-work guardrail (FR-7) ships with the first reference modality.
 
 ---
 

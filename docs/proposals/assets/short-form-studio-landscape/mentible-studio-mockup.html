@@ -52,6 +52,15 @@
   .src-card .pick{margin-left:auto; font-size:11px; font-weight:700; color:var(--indigo);}
   .moat{margin-top:8px; background:var(--chip); border:1px dashed #c9c0f7; border-radius:11px; padding:12px 13px; font-size:12.5px; color:#4a3fb0; line-height:1.45;}
   .moat b{color:#3a2fa0;}
+  .refdrop{border:1.5px dashed #cfd3e6; border-radius:12px; padding:13px; background:#fff;}
+  .rd-top{font-size:12.5px; color:#5a627a; font-weight:600; margin-bottom:11px;}
+  .rd-chips{display:flex; gap:7px; margin-bottom:11px;}
+  .rc{font-size:12px; padding:6px 11px; border-radius:18px; border:1px solid var(--line); color:#5a627a; background:#fbfbfe;}
+  .rc.on{border-color:var(--indigo); color:#fff; background:var(--indigo);}
+  .rd-file{font-size:12px; color:#41485c; background:#f4f5fb; border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px;}
+  .rd-file .ok{margin-left:auto; color:#2f8f5f; font-weight:700; font-size:11px;}
+  .rd-note{font-size:11px; color:#8a90a6; line-height:1.45; margin-top:9px;}
+  .rd-note b{color:#5a627a;}
 
   /* middle composer */
   .fmt{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
@@ -139,6 +148,16 @@
         </div>
         <div class="moat">
           <b>Source-native.</b> Copy, visuals &amp; voice are generated <b>from content you already own</b> — grounded, on-brand, cited. Not a blank prompt box.
+        </div>
+
+        <div class="label" style="margin-top:20px;">Reference — optional · steer the style</div>
+        <div class="refdrop">
+          <div class="rd-top">⬆ Drop a reference to guide the look, pacing &amp; voice</div>
+          <div class="rd-chips">
+            <span class="rc">🖼 Image</span><span class="rc">🎧 Audio</span><span class="rc on">🎬 Video</span>
+          </div>
+          <div class="rd-file">🎬 competitor_reel.mp4 · 1:47 <span class="ok">✓ ≤ 2 min</span></div>
+          <div class="rd-note">Takes <b>guidance</b> from it — never copies. You own the rights to what you upload; output stays AI-generated.</div>
         </div>
       </div>
 
