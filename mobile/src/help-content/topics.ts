@@ -450,6 +450,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "projects",
+    title: "Create & set up a project",
+    featureKey: "projects",
+    keywords: ["project", "expert", "knowledge", "version", "invite"],
+    blocks: [
+      {
+        kind: "text",
+        text: "A project captures a piece of expert knowledge you want to write down, refine, and have validated by someone qualified. Create one from the Projects tab, add versions as your understanding improves, and invite an expert to review it once it's ready.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "On the Projects tab, tap \"+ New project\".",
+          "Give it a title and, optionally, a topic, audience, and goal.",
+          "Add a version once the project exists — this is the content the expert reviews.",
+          "Invite an expert to review it from the project screen.",
+        ],
+      },
+    ],
+  },
+  {
     id: "reviews",
     title: "Review & approve a project",
     featureKey: "reviews",
