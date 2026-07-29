@@ -449,4 +449,24 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "reviews",
+    title: "Review & approve a project",
+    featureKey: "reviews",
+    keywords: ["review", "approve", "expert", "validate"],
+    blocks: [
+      {
+        kind: "text",
+        text: "If an author invites you as a reviewer, their project appears on the Reviews tab. Open it to see its versions and mark the ones you've checked as validated, so the author knows an expert stands behind them.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the Reviews tab.",
+          "Tap the project you were invited to.",
+          "Approve a version once you've checked it.",
+        ],
+      },
+    ],
+  },
 ];

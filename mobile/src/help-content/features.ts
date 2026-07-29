@@ -14,6 +14,7 @@ export const FEATURES = [
   { key: "open-shelves", label: "Open Shelves (free book repos)" },
   { key: "imported-books", label: "Reading imported books" },
   { key: "chapter-quiz", label: "Chapter quiz (imported books)" },
+  { key: "reviews", label: "Reviewing & approving projects" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
