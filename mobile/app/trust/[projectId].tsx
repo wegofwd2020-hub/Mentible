@@ -41,8 +41,8 @@ export default function TrustProjectDetail() {
   };
 
   return (
-    <PageContainer>
-      <ScrollView contentContainerStyle={styles.body}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+      <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
         {project.artifacts.map(({ artifact, versions }) => (
@@ -68,12 +68,13 @@ export default function TrustProjectDetail() {
             ))}
           </View>
         ))}
-      </ScrollView>
-    </PageContainer>
+      </PageContainer>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
   title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
