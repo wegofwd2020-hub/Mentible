@@ -200,13 +200,14 @@ async def get_project(
     for a in await artifact_repo.list_artifacts(conn, project_id=project_id):
         versions = []
         for v in await artifact_repo.list_versions(conn, artifact_id=a.id):
-            validated = await approval_repo.is_validated(conn, version_id=v.id)
+            ap = await approval_repo.get_approval(conn, version_id=v.id)
             versions.append(
                 schemas.VersionSummaryOut(
                     id=str(v.id),
                     version_no=v.version_no,
                     created_at=v.created_at,
-                    is_validated=validated,
+                    is_validated=ap is not None,
+                    recorded_via=ap.recorded_via if ap else None,
                 )
             )
         artifacts.append(

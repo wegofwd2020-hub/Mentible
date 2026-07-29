@@ -204,3 +204,27 @@ def test_owned_projects_list_scoped():
         _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
         other = c.get("/api/v1/trust/projects").json()
         assert {p1, p2}.isdisjoint({p["id"] for p in other})
+
+
+def test_version_summary_recorded_via():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
+            "id"
+        ]
+        # before approval: not validated, no provenance
+        v0 = c.get(f"/api/v1/trust/projects/{pid}").json()["artifacts"][0]["versions"][0]
+        assert v0["is_validated"] is False and v0["recorded_via"] is None
+        # owner records an operator approval
+        c.post(
+            f"/api/v1/trust/versions/{vid}/approvals",
+            json={"approved_at": "2026-07-27T00:00:00Z", "expert_name": "Dr X"},
+        )
+        v1 = c.get(f"/api/v1/trust/projects/{pid}").json()["artifacts"][0]["versions"][0]
+        assert v1["is_validated"] is True and v1["recorded_via"] == "operator"

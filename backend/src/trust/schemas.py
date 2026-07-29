@@ -72,6 +72,7 @@ class VersionSummaryOut(BaseModel):
     version_no: int
     created_at: datetime | None
     is_validated: bool
+    recorded_via: str | None = None
 
 
 class ArtifactDetailOut(BaseModel):
