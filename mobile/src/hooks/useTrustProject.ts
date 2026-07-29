@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { approveVersion, getProject, type ApprovalView, type ProjectDetailView } from "@/api/trustClient";
+import { approveVersion, createArtifact, createVersion, getProject, invite as inviteApi, type ApprovalView, type ProjectDetailView } from "@/api/trustClient";
 
 export function useTrustProject(projectId: string) {
   const { accessToken, status } = useAuth();
@@ -31,10 +31,28 @@ export function useTrustProject(projectId: string) {
     [accessToken, refresh],
   );
 
+  const addArtifact = useCallback(async (role: string, format: string, title?: string) => {
+    if (!accessToken) throw new Error("Not signed in");
+    const a = await createArtifact(projectId, { role, format, title }, accessToken);
+    await refresh(); return a;
+  }, [accessToken, projectId, refresh]);
+
+  const addVersion = useCallback(async (artifactId: string, content: object) => {
+    if (!accessToken) throw new Error("Not signed in");
+    const v = await createVersion(artifactId, { content }, accessToken);
+    await refresh(); return v;
+  }, [accessToken, refresh]);
+
+  const invite = useCallback(async (email: string) => {
+    if (!accessToken) throw new Error("Not signed in");
+    const inv = await inviteApi(projectId, email, accessToken);
+    await refresh(); return inv;
+  }, [accessToken, projectId, refresh]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
   }, [status, refresh]);
 
-  return { project, loading, error, refresh, approve };
+  return { project, loading, error, refresh, approve, addArtifact, addVersion, invite };
 }
