@@ -170,3 +170,21 @@ def test_approval_unknown_version_404():
             json={"approved_at": "2026-07-27T00:00:00Z"},
         )
         assert r.status_code == 404
+
+
+def test_reviewer_cannot_create_artifact_403():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        # expert logs in, redeems membership (becomes reviewer)
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        # reviewer attempts an OWNER-only action -> 403 (the need_owner gate, not the no-access branch)
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        )
+        assert r.status_code == 403
