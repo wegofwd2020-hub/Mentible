@@ -38,7 +38,7 @@ export async function syncSession(token: string): Promise<SessionSyncView> {
 }
 
 export async function getProject(projectId: string, token: string): Promise<ProjectDetailView> {
-  return (await trustFetch<ProjectDetailView>(`/projects/${projectId}`, token)) as ProjectDetailView;
+  return (await trustFetch<ProjectDetailView>(`/projects/${projectId}`, token, { method: "GET" })) as ProjectDetailView;
 }
 
 export async function approveVersion(

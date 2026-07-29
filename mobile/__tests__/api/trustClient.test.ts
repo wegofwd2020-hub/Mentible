@@ -17,10 +17,14 @@ it("syncSession POSTs with the bearer token and returns memberships", async () =
 });
 
 it("approveVersion POSTs the body and returns the approval", async () => {
-  jest.spyOn(global, "fetch").mockImplementation(() =>
+  const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
     okJson({ id: "ap", version_id: "v1", expert_name: "e@x.z", approved_at: "t", recorded_via: "expert_self" }));
   const out = await approveVersion("v1", { approved_at: "t" }, "tok");
   expect(out.recorded_via).toBe("expert_self");
+  const [url, init] = spy.mock.calls[0];
+  expect(String(url)).toContain("/api/v1/trust/versions/v1/approvals");
+  expect((init as RequestInit).method).toBe("POST");
+  expect((init as RequestInit).body).toBe(JSON.stringify({ approved_at: "t" }));
 });
 
 it("throws ApiError on a non-ok response", async () => {
