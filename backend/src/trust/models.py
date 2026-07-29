@@ -92,6 +92,7 @@ class Approval:
     recorded_by_sub: str
     recorded_at: datetime | None
     note: str | None
+    recorded_via: str
 
 
 @dataclass(frozen=True)

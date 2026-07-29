@@ -6,11 +6,11 @@ deliberately NO update or delete path — approval is immutable trust evidence.
 
 from __future__ import annotations
 
-from .models import Approval
+from .models import APPROVAL_VIA, Approval
 
 _AP = (
     "id, version_id, expert_name, expert_email, expert_role, "
-    "approved_at, recorded_by_sub, recorded_at, note"
+    "approved_at, recorded_by_sub, recorded_at, note, recorded_via"
 )
 
 
@@ -28,6 +28,7 @@ def _approval(r) -> Approval:
                 "recorded_by_sub",
                 "recorded_at",
                 "note",
+                "recorded_via",
             )
         }
     )
@@ -43,11 +44,14 @@ async def record_approval(
     expert_email=None,
     expert_role=None,
     note=None,
+    recorded_via="operator",
 ) -> Approval:
+    if recorded_via not in APPROVAL_VIA:
+        raise ValueError(f"invalid recorded_via {recorded_via!r}")
     r = await conn.fetchrow(
         f"INSERT INTO approval (version_id, expert_name, expert_email, expert_role, "
-        f"approved_at, recorded_by_sub, note) "
-        f"VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING {_AP}",
+        f"approved_at, recorded_by_sub, note, recorded_via) "
+        f"VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING {_AP}",
         version_id,
         expert_name,
         expert_email,
@@ -55,6 +59,7 @@ async def record_approval(
         approved_at,
         recorded_by_sub,
         note,
+        recorded_via,
     )
     return _approval(r)
 
