@@ -77,3 +77,36 @@ def test_bad_enum_422_and_unknown_artifact_404():
         assert r.status_code == 422
         r2 = c.post(f"/api/v1/trust/artifacts/{uuid.uuid4()}/versions", json={"content": {}})
         assert r2.status_code == 404
+
+
+def test_invite_then_reviewer_reads():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}})
+        inv = c.post(
+            f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email}
+        ).json()
+        assert inv["invited_email"] == expert_email and inv["role"] == "reviewer"
+        # expert redeems then reads
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        assert detail["my_role"] == "reviewer"
+        assert detail["artifacts"][0]["versions"][0]["is_validated"] is False
+
+
+def test_stranger_cannot_read_403():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
+        c.post("/api/v1/trust/session/sync")
+        assert c.get(f"/api/v1/trust/projects/{pid}").status_code == 403

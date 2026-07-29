@@ -10,7 +10,7 @@ from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..db.deps import get_conn
-from . import artifact_repo, membership_repo, project_repo, schemas
+from . import approval_repo, artifact_repo, membership_repo, project_repo, schemas
 from .access import ProjectAccessError, project_id_for_artifact, require_project_access
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -136,4 +136,79 @@ async def create_version(
         artifact_id=str(v.artifact_id),
         version_no=v.version_no,
         created_at=v.created_at,
+    )
+
+
+@router.post("/projects/{project_id}/invitations", response_model=schemas.InvitationOut)
+async def invite_expert(
+    project_id: uuid.UUID,
+    body: schemas.InviteIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.InvitationOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    inv = await membership_repo.invite(
+        conn,
+        project_id=project_id,
+        email=body.email,
+        invited_by_sub=principal.sub,
+    )
+    return schemas.InvitationOut(
+        project_id=str(inv.project_id),
+        invited_email=inv.invited_email,
+        role=inv.role,
+        revoked_at=inv.revoked_at,
+    )
+
+
+@router.get("/projects/{project_id}", response_model=schemas.ProjectDetailOut)
+async def get_project(
+    project_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectDetailOut:
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    artifacts = []
+    for a in await artifact_repo.list_artifacts(conn, project_id=project_id):
+        versions = []
+        for v in await artifact_repo.list_versions(conn, artifact_id=a.id):
+            validated = await approval_repo.is_validated(conn, version_id=v.id)
+            versions.append(
+                schemas.VersionSummaryOut(
+                    id=str(v.id),
+                    version_no=v.version_no,
+                    created_at=v.created_at,
+                    is_validated=validated,
+                )
+            )
+        artifacts.append(
+            schemas.ArtifactDetailOut(
+                artifact=schemas.ArtifactOut(
+                    id=str(a.id),
+                    project_id=str(a.project_id),
+                    role=a.role,
+                    format=a.format,
+                    title=a.title,
+                    created_at=a.created_at,
+                ),
+                versions=versions,
+            )
+        )
+    return schemas.ProjectDetailOut(
+        project=schemas.ProjectOut(
+            id=str(p.id),
+            title=p.title,
+            topic=p.topic,
+            audience=p.audience,
+            goal=p.goal,
+            status=p.status,
+            created_at=p.created_at,
+        ),
+        artifacts=artifacts,
+        my_role=role,
     )
