@@ -110,3 +110,63 @@ def test_stranger_cannot_read_403():
         _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
         c.post("/api/v1/trust/session/sync")
         assert c.get(f"/api/v1/trust/projects/{pid}").status_code == 403
+
+
+def test_reviewer_approval_is_expert_self():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
+            "id"
+        ]
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        ap = c.post(
+            f"/api/v1/trust/versions/{vid}/approvals", json={"approved_at": "2026-07-27T00:00:00Z"}
+        ).json()
+        assert ap["recorded_via"] == "expert_self"
+        assert ap["expert_name"] == expert_email  # from the reviewer's account
+        # now validated
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        assert detail["artifacts"][0]["versions"][0]["is_validated"] is True
+
+
+def test_owner_approval_requires_expert_name():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
+            "id"
+        ]
+        # owner records on an expert's behalf: missing expert_name → 422
+        r = c.post(
+            f"/api/v1/trust/versions/{vid}/approvals", json={"approved_at": "2026-07-27T00:00:00Z"}
+        )
+        assert r.status_code == 422
+        ap = c.post(
+            f"/api/v1/trust/versions/{vid}/approvals",
+            json={"approved_at": "2026-07-27T00:00:00Z", "expert_name": "Dr X"},
+        ).json()
+        assert ap["recorded_via"] == "operator" and ap["expert_name"] == "Dr X"
+
+
+def test_approval_unknown_version_404():
+    with TestClient(app) as c:
+        _as(f"u-{uuid.uuid4()}", f"u-{uuid.uuid4()}@x.z")
+        r = c.post(
+            f"/api/v1/trust/versions/{uuid.uuid4()}/approvals",
+            json={"approved_at": "2026-07-27T00:00:00Z"},
+        )
+        assert r.status_code == 404
