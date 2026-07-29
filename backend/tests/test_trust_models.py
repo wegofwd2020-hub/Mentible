@@ -27,3 +27,24 @@ def test_dataclasses_frozen():
     assert p.title == "T"
     with_ = dataclasses.replace  # frozen: mutation must go through replace
     assert with_(p, title="U").title == "U"
+
+
+def test_membership_invite_tuples():
+    assert models.MEMBERSHIP_ROLES == ("owner", "reviewer")
+    assert models.INVITE_ROLES == ("reviewer",)
+    assert models.APPROVAL_VIA == ("operator", "expert_self")
+
+
+def test_membership_invitation_dataclasses():
+    m = models.Membership(project_id="p", account_id="a", role="reviewer", created_at=None)
+    assert m.role == "reviewer"
+    inv = models.Invitation(
+        id="i",
+        project_id="p",
+        invited_email="x@y.z",
+        role="reviewer",
+        invited_by_sub="op",
+        created_at=None,
+        revoked_at=None,
+    )
+    assert inv.invited_email == "x@y.z" and inv.revoked_at is None
