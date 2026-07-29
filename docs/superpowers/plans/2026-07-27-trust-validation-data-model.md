@@ -20,6 +20,8 @@
 - SQL uses `$1` positional params only (never f-strings — ruff S608). `jsonb` bound as `json.dumps(x)` with `$n::jsonb`, read with `json.loads`.
 - Dataclasses are `@dataclass(frozen=True)`, mapped from rows via a private `_row(...)` helper per repo.
 - **DB tests require a migrated Postgres.** They `skipif(not os.environ.get("DATABASE_URL"))` (house pattern). To run: point `DATABASE_URL` at a scratch PG, `cd backend && alembic upgrade head`, then `pytest`. Without `DATABASE_URL` they skip (same as existing `test_accounts_repo.py` — this is the established idiom; note it does mean CI without a PG will skip them).
+- **Tooling paths (verified):** the venv is `backend/.venv` and has `pytest`/`alembic`/`asyncpg` — but **`ruff` is NOT in the venv**; it's on `PATH` at `~/.local/bin/ruff`. Run lint/format as `ruff check ...` / `ruff format ...` (NOT `.venv/bin/ruff`, which does not exist and silently errors).
+- **S608 on the repo column-list constants:** the `_P`/`_I`/`_A`/`_V`/`_F`/`_AP` column-list constants interpolated into f-string SQL trip ruff `S608` (they are static literals, never user input; all values bind via `$1`). Resolve **once** with a per-file-ignore in `backend/pyproject.toml` under `[tool.ruff.lint.per-file-ignores]`: add `"src/trust/*_repo.py" = ["S608"]` (house already ignores per-file for `tests/**` and `owner_cli.py`). With that line, every `*_repo.py` in this plan lints clean as written — no per-statement `# noqa` needed. This config line is part of Task 4's deliverable.
 
 ---
 
