@@ -167,6 +167,24 @@ async def invite_expert(
     )
 
 
+@router.get("/projects", response_model=list[schemas.ProjectSummaryOut])
+async def list_owned_projects(
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> list[schemas.ProjectSummaryOut]:
+    account = await _account(conn, principal)
+    projects = await project_repo.list_projects(conn, owner_account_id=account.id)
+    return [
+        schemas.ProjectSummaryOut(
+            id=str(p.id),
+            title=p.title,
+            status=p.status,
+            created_at=p.created_at,
+        )
+        for p in projects
+    ]
+
+
 @router.get("/projects/{project_id}", response_model=schemas.ProjectDetailOut)
 async def get_project(
     project_id: uuid.UUID,

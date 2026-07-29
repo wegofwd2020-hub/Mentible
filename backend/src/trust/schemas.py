@@ -33,6 +33,13 @@ class ProjectOut(BaseModel):
     created_at: datetime | None
 
 
+class ProjectSummaryOut(BaseModel):
+    id: str
+    title: str
+    status: str
+    created_at: datetime | None
+
+
 class ArtifactCreateIn(BaseModel):
     role: str
     format: str

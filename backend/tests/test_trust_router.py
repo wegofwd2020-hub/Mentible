@@ -188,3 +188,19 @@ def test_reviewer_cannot_create_artifact_403():
             json={"role": "cornerstone", "format": "book"},
         )
         assert r.status_code == 403
+
+
+def test_owned_projects_list_scoped():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        p1 = c.post("/api/v1/trust/projects", json={"title": "P1"}).json()["id"]
+        p2 = c.post("/api/v1/trust/projects", json={"title": "P2"}).json()["id"]
+        mine = c.get("/api/v1/trust/projects").json()
+        ids = {p["id"] for p in mine}
+        assert {p1, p2} <= ids
+        assert all(p["status"] == "active" for p in mine if p["id"] in {p1, p2})
+        # a different account does not see them
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        other = c.get("/api/v1/trust/projects").json()
+        assert {p1, p2}.isdisjoint({p["id"] for p in other})
