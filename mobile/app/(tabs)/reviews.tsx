@@ -1,4 +1,5 @@
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { RequireSignIn } from "@/auth/RequireSignIn";
@@ -7,7 +8,9 @@ import { colors, radius, spacing, typography } from "@/constants/theme";
 
 function ReviewsInner() {
   const router = useRouter();
-  const { reviews, loading, error } = useReviews();
+  const { reviews, loading, error, refresh } = useReviews();
+
+  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
