@@ -14,14 +14,21 @@ let capturedScreenOptions: Record<string, unknown> | undefined;
 
 jest.mock("expo-router", () => {
   const React2 = require("react");
-  const Tabs = ({ screenOptions, children }: { screenOptions?: Record<string, unknown>; children?: React.ReactNode }) => {
+  function Tabs({ screenOptions, children }: { screenOptions?: Record<string, unknown>; children?: React.ReactNode }) {
     capturedScreenOptions = screenOptions;
     return React2.createElement(React2.Fragment, null, children);
-  };
-  Tabs.Screen = () => null;
+  }
+  function TabsScreen() {
+    return null;
+  }
+  Tabs.Screen = TabsScreen;
   return { Tabs };
 });
-jest.mock("@/components/TopNavBar", () => ({ TopNavBar: () => null }));
+jest.mock("@/components/TopNavBar", () => ({
+  TopNavBar: function TopNavBar() {
+    return null;
+  },
+}));
 
 import TabLayout from "@/../app/(tabs)/_layout";
 
