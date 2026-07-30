@@ -491,6 +491,18 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "appearance",
+    title: "Appearance & themes",
+    featureKey: "appearance",
+    keywords: ["theme", "themes", "appearance", "colour", "color", "dark", "light", "sepia", "gilded noir", "forest", "moss"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Settings → Appearance lets you pick a colour theme. Themes are curated colour presets — Study (the default), Manuscript (light), Reading (sepia), Gilded Noir, and Forest & Moss. A theme applies instantly across the app and is remembered on this device. It changes only the app's colours; your books and their exports are unaffected.",
+      },
+    ],
+  },
+  {
     id: "make-a-post",
     title: "Make a post from your writing",
     featureKey: "make-a-post",

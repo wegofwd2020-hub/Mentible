@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, THEME_META, themes, type ThemeName, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles, useThemeControls } from "@/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
@@ -18,6 +19,10 @@ export default function SettingsScreen() {
   const { status: authStatus, session } = useAuth();
   const { dyslexic, setDyslexic } = useFontMode();
   const [params, setParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
+  const c = useTheme();
+  const { themeName, setTheme } = useThemeControls();
+  const styles = useThemedStyles(makeStyles);
+  const THEME_NAMES = Object.keys(THEME_META) as ThemeName[];
 
   useEffect(() => {
     loadDefaultParams().then(setParams);
@@ -60,6 +65,34 @@ export default function SettingsScreen() {
           <Text style={styles.accountChevron}>›</Text>
         </Pressable>
       )}
+
+      <Text style={styles.sectionLabel}>Appearance</Text>
+      <Text style={styles.helpText}>
+        Pick a colour theme. It applies instantly across the app and is saved on
+        this device. Your book exports are not affected.
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatchRow}>
+        {THEME_NAMES.map((name) => {
+          const p = themes[name];
+          const active = name === themeName;
+          return (
+            <Pressable
+              key={name}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Theme: ${THEME_META[name].label}${active ? " (selected)" : ""}`}
+              onPress={() => setTheme(name)}
+              style={[styles.swatch, { backgroundColor: p.background, borderColor: active ? p.primary : p.border }]}
+            >
+              <Text style={[styles.swatchSample, { color: p.text }]}>Aa</Text>
+              <View style={[styles.swatchDot, { backgroundColor: p.primary }]} />
+              <Text style={[styles.swatchLabel, { color: p.textSecondary }]}>{THEME_META[name].label}</Text>
+              {active ? <Text style={styles.swatchCheck}>✓</Text> : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <View style={styles.divider} />
 
       {!IS_DEMO && (
       <>
@@ -118,8 +151,8 @@ export default function SettingsScreen() {
         <Switch
           value={dyslexic}
           onValueChange={setDyslexic}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={colors.white}
+          trackColor={{ false: c.border, true: c.primary }}
+          thumbColor={c.white}
           accessibilityLabel="Toggle dyslexia-friendly font"
         />
       </View>
@@ -145,82 +178,92 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  accountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  accountTitle: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  accountSub: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
-  accountChevron: { color: colors.textMuted, fontSize: typography.sizeXl },
-  sectionLabel: {
-    fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  helpText: {
-    fontSize: typography.sizeSm,
-    color: colors.textMuted,
-    lineHeight: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.sm,
-  },
-  demoNote: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  demoNoteText: { color: colors.textSecondary, fontSize: typography.sizeSm, lineHeight: 20 },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  toggleText: { flex: 1 },
-  toggleTitle: {
-    fontSize: typography.sizeMd,
-    color: colors.text,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  protoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  protoText: {
-    fontSize: typography.sizeMd,
-    color: colors.text,
-    fontWeight: "600",
-  },
-  protoChevron: {
-    fontSize: typography.sizeMd,
-    color: colors.primary,
-  },
-});
+function makeStyles(c: Palette) {
+  return {
+    scroll: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+    },
+    labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+    accountRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      backgroundColor: c.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    accountTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+    accountSub: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
+    accountChevron: { color: c.textMuted, fontSize: typography.sizeXl },
+    sectionLabel: {
+      fontSize: typography.sizeXs,
+      fontWeight: "600" as const,
+      color: c.textSecondary,
+      textTransform: "uppercase" as const,
+      letterSpacing: 0.8,
+    },
+    helpText: {
+      fontSize: typography.sizeSm,
+      color: c.textMuted,
+      lineHeight: 20,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginVertical: spacing.sm,
+    },
+    demoNote: {
+      backgroundColor: c.surface,
+      borderColor: c.border,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    demoNoteText: { color: c.textSecondary, fontSize: typography.sizeSm, lineHeight: 20 },
+    toggleRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    toggleText: { flex: 1 },
+    toggleTitle: {
+      fontSize: typography.sizeMd,
+      color: c.text,
+      fontWeight: "600" as const,
+      marginBottom: 2,
+    },
+    protoRow: {
+      flexDirection: "row" as const,
+      justifyContent: "space-between" as const,
+      alignItems: "center" as const,
+      backgroundColor: c.surface,
+      borderColor: c.border,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      padding: spacing.md,
+    },
+    protoText: {
+      fontSize: typography.sizeMd,
+      color: c.text,
+      fontWeight: "600" as const,
+    },
+    protoChevron: {
+      fontSize: typography.sizeMd,
+      color: c.primary,
+    },
+    swatchRow: { gap: spacing.sm, paddingVertical: spacing.sm },
+    swatch: { width: 92, borderRadius: radius.md, borderWidth: 2, padding: spacing.sm, alignItems: "center" as const, gap: 4 },
+    swatchSample: { fontSize: typography.sizeLg, fontWeight: "700" as const },
+    swatchDot: { width: 14, height: 14, borderRadius: 7 },
+    // Colour is set inline per tile (p.textSecondary) so each caption stays
+    // legible on its OWN palette background, not the active theme's.
+    swatchLabel: { fontSize: typography.sizeXs, textAlign: "center" as const },
+    swatchCheck: { color: c.primary, fontWeight: "700" as const },
+  };
+}
