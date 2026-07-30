@@ -1,15 +1,27 @@
 import { Tabs } from "expo-router";
 import { TopNavBar } from "@/components/TopNavBar";
+import { colors } from "@/constants/theme";
 
 // Navigation is a custom TOP, center-aligned bar (TopNavBar) with square
 // icon+label tiles and a leading Mentible mark. Headers are hidden — the active
 // nav tile indicates the current screen. Declaration order here doesn't drive
 // the visual order; TopNavBar renders an explicit sequence.
+//
+// `sceneStyle` paints the app's dark background on the tab scene container.
+// Without it, the bottom-tab scene falls back to React Navigation's default
+// scene background — which follows the DEVICE colour scheme (white on a
+// light-mode device). The app palette is always dark (near-white `colors.text`),
+// so any tab screen that doesn't paint its own background would render invisible
+// text on a light-mode device. Setting it here fixes every tab at the source.
 export default function TabLayout() {
   return (
     <Tabs
       tabBar={(props) => <TopNavBar {...props} />}
-      screenOptions={{ headerShown: false, tabBarPosition: "top" }}
+      screenOptions={{
+        headerShown: false,
+        tabBarPosition: "top",
+        sceneStyle: { backgroundColor: colors.background },
+      }}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="library" />
