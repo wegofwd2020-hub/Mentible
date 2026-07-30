@@ -34,6 +34,7 @@ from backend.src.core.log_redaction import (
     scrub_validation_errors,
 )
 from backend.src.db.pool import create_pool
+from backend.src.derivatives import router as derivatives_router
 from backend.src.export import router as export_router
 from backend.src.generate import router as generate_router
 from backend.src.library import router as library_router
@@ -110,6 +111,7 @@ async def _validation_exception_handler(
 
 
 app.include_router(generate_router.router)
+app.include_router(derivatives_router.router)
 app.include_router(structure_router.router)
 app.include_router(export_router.router)
 app.include_router(account_router.router)
