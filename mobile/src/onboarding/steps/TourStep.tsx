@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { IS_DEMO } from "@/constants/demo";
 import { NAV } from "@/constants/labels";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { WizardScaffold } from "../WizardScaffold";
@@ -40,6 +41,13 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
     router.push("/library");
   };
 
+  // Same pattern as openLibrary, but into the trust-authoring flow — the
+  // real-build fork's primary path (ADR-037: SME-primary, "start a project").
+  const startProject = () => {
+    onDone();
+    router.push("/trust/new");
+  };
+
   if (page === 0) {
     return (
       <WizardScaffold
@@ -65,6 +73,41 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
               </View>
             </View>
           ))}
+        </View>
+      </WizardScaffold>
+    );
+  }
+
+  // Real builds fork here (ADR-037): the tour's payoff is authoring, not just
+  // reading, so the final CTA offers to start a project — with "just read"
+  // as the (still fully supported) skip path into the Library. The demo
+  // build has no backend/accounts, so it keeps the original read-only page.
+  if (!IS_DEMO) {
+    return (
+      <WizardScaffold
+        stepIndex={stepIndex}
+        stepCount={stepCount}
+        title="What would you like to do?"
+        subtitle="Mentible is built for capturing and validating expert knowledge — but reading is always here too."
+        helpTopic="reading-a-book"
+        primaryLabel="Start a project"
+        onPrimary={startProject}
+        skipLabel="Just read for now"
+        onSkip={openLibrary}
+      >
+        <View style={styles.steps}>
+          <View style={styles.step}>
+            <View style={styles.stepNum}>
+              <Text style={styles.stepNumText}>1</Text>
+            </View>
+            <Text style={styles.stepText}>Create — capture your expertise into a project and invite a reviewer to validate it.</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNum}>
+              <Text style={styles.stepNumText}>2</Text>
+            </View>
+            <Text style={styles.stepText}>Read — your Library already has a book ready to open.</Text>
+          </View>
         </View>
       </WizardScaffold>
     );

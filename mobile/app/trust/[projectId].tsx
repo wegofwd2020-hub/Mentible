@@ -2,6 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
+import { TrustJourney } from "@/components/TrustJourney";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
@@ -130,6 +131,7 @@ export default function TrustProjectDetail() {
       <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
+        <TrustJourney detail={project} isOwner={isOwner} />
         <View style={styles.sourcesBlock}>
           <Text style={styles.artifactTitle}>Sources</Text>
           <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
