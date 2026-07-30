@@ -195,10 +195,54 @@ export const readingColors: Palette = {
   white: "#ffffff",
 };
 
+// "Gilded Noir" — editorial charcoal + single gold accent (reader-leaning,
+// premium). Single-accent by design: growth/brand collapse into gold (§2.3 of
+// the theming proposal) — the a11y test gates text legibility, not the accent.
+export const gildedNoirColors: Palette = {
+  background: "#0d0d0d", surface: "#1a1a1a", surfaceHigh: "#242424",
+  border: "#262626", borderLight: "#2f2f2f",
+  text: "#f5f5f4", textSecondary: "#d6d3d1", textMuted: "#a8a29e",
+  primary: "#c9a84c", primaryText: "#0d0d0d",
+  brand: "#c9a84c", brandText: "#0d0d0d",
+  growth: "#c9a84c", growthText: "#0d0d0d",
+  tileOffFace: "#1a1a1a", tileOffGlyph: "#f0d78c", tileOffShadow: "#000000",
+  tileOnFace: "#c9a84c", tileOnGlyph: "#0d0d0d", tileOnHi: "#f0d78c", tileOnLo: "#9a7f2f",
+  tileSubGlyph: "#a8a29e",
+  success: "#7fae86", error: "#c96a5c", warning: "#d1a24c",
+  white: "#ffffff",
+};
+
+// "Forest & Moss" — greenhouse-at-dusk green + moss accent (reader-leaning,
+// closest to the botanical growing-mind brand). The green accent already IS the
+// growth semantic, so its single-accent collapse is softer than Noir's gold.
+export const forestMossColors: Palette = {
+  background: "#1a3c2a", surface: "#2d5a3d", surfaceHigh: "#356848",
+  border: "#366348", borderLight: "#3f7452",
+  text: "#f5f5f4", textSecondary: "#d6d3d1", textMuted: "#a8a29e",
+  primary: "#5a8a5c", primaryText: "#0d2016",
+  brand: "#5a8a5c", brandText: "#0d2016",
+  growth: "#5a8a5c", growthText: "#0d2016",
+  tileOffFace: "#2d5a3d", tileOffGlyph: "#a0c49d", tileOffShadow: "#0d2016",
+  tileOnFace: "#5a8a5c", tileOnGlyph: "#0d2016", tileOnHi: "#a0c49d", tileOnLo: "#3f7452",
+  tileSubGlyph: "#a8a29e",
+  success: "#7fae86", error: "#c96a5c", warning: "#d1a24c",
+  white: "#ffffff",
+};
+
 export const themes = {
   study: colors as unknown as Palette,
   manuscript: manuscriptColors,
   reading: readingColors,
+  "gilded-noir": gildedNoirColors,
+  "forest-moss": forestMossColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
+
+export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "light" | "sepia" }> = {
+  study: { label: "Study", mode: "dark" },
+  manuscript: { label: "Manuscript", mode: "light" },
+  reading: { label: "Reading", mode: "sepia" },
+  "gilded-noir": { label: "Gilded Noir", mode: "dark" },
+  "forest-moss": { label: "Forest & Moss", mode: "dark" },
+};
