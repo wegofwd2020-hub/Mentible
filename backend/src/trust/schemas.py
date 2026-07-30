@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MembershipOut(BaseModel):
@@ -80,10 +81,30 @@ class ArtifactDetailOut(BaseModel):
     versions: list[VersionSummaryOut]
 
 
+InputKind = Literal["transcript", "note", "link"]
+
+
+class ProjectInputIn(BaseModel):
+    kind: InputKind
+    title: str | None = Field(default=None, max_length=200)
+    content: str = Field(min_length=1, max_length=200_000)
+    source_ref: str | None = Field(default=None, max_length=500)
+
+
+class ProjectInputOut(BaseModel):
+    id: str
+    kind: str
+    title: str | None
+    content: str
+    source_ref: str | None
+    created_at: datetime | None
+
+
 class ProjectDetailOut(BaseModel):
     project: ProjectOut
     artifacts: list[ArtifactDetailOut]
     my_role: str
+    inputs: list[ProjectInputOut]
 
 
 class InviteIn(BaseModel):

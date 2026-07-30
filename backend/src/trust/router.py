@@ -117,6 +117,36 @@ async def create_artifact(
     )
 
 
+@router.post("/projects/{project_id}/inputs", response_model=schemas.ProjectInputOut)
+async def add_project_input(
+    project_id: uuid.UUID,
+    body: schemas.ProjectInputIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectInputOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    try:
+        i = await project_repo.add_input(
+            conn,
+            project_id=project_id,
+            kind=body.kind,
+            title=body.title,
+            content=body.content,
+            source_ref=body.source_ref,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from e
+    return schemas.ProjectInputOut(
+        id=str(i.id),
+        kind=i.kind,
+        title=i.title,
+        content=i.content,
+        source_ref=i.source_ref,
+        created_at=i.created_at,
+    )
+
+
 @router.post("/artifacts/{artifact_id}/versions", response_model=schemas.VersionOut)
 async def create_version(
     artifact_id: uuid.UUID,
@@ -223,6 +253,17 @@ async def get_project(
                 versions=versions,
             )
         )
+    inputs = [
+        schemas.ProjectInputOut(
+            id=str(i.id),
+            kind=i.kind,
+            title=i.title,
+            content=i.content,
+            source_ref=i.source_ref,
+            created_at=i.created_at,
+        )
+        for i in await project_repo.list_inputs(conn, project_id=project_id)
+    ]
     return schemas.ProjectDetailOut(
         project=schemas.ProjectOut(
             id=str(p.id),
@@ -235,6 +276,7 @@ async def get_project(
         ),
         artifacts=artifacts,
         my_role=role,
+        inputs=inputs,
     )
 
 
