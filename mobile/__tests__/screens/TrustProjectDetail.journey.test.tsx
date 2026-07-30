@@ -55,3 +55,25 @@ it("on a capture-phase project, pressing the next-step does not throw or navigat
   expect(() => fireEvent.press(nextBtn)).not.toThrow();
   expect(mockPush).not.toHaveBeenCalled();
 });
+
+it("on a captured-but-no-artifact owner project, the next-step is 'add an artifact' and pressing it scrolls (no navigate)", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue({
+    project: {
+      project: { id: "p1", title: "P", topic: null },
+      my_role: "owner",
+      inputs: [{ id: "in1", kind: "note", title: "Notes", content: "hi", created_at: null }],
+      artifacts: [],
+    },
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+    approve: jest.fn(),
+    addArtifact: jest.fn().mockResolvedValue({ id: "a2" }),
+    addVersion: jest.fn(),
+    invite: jest.fn(),
+  });
+  render(<TrustProjectDetail />);
+  const nextBtn = await screen.findByLabelText(/Go to next step: Next: add an artifact/i);
+  expect(() => fireEvent.press(nextBtn)).not.toThrow();
+  expect(mockPush).not.toHaveBeenCalled();
+});
