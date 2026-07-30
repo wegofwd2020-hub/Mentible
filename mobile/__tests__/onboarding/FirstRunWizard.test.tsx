@@ -94,11 +94,11 @@ describe("FirstRunWizard", () => {
 
     expect(await screen.findByText("Meet your tabs")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Next"));
-    expect(await screen.findByText("Open a book to read")).toBeTruthy();
+    expect(await screen.findByText("What would you like to do?")).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText("Open my Library"));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/library"));
-    await waitFor(() => expect(screen.queryByText("Open a book to read")).toBeNull());
+    fireEvent.press(screen.getByLabelText("Start a project"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/trust/new"));
+    await waitFor(() => expect(screen.queryByText("What would you like to do?")).toBeNull());
   });
 
   it("skips the key step to the tour, then skips the tour to close", async () => {
