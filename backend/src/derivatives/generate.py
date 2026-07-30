@@ -96,19 +96,23 @@ def _generate_post_with_image(
             max_tokens=_MAX_TOKENS,
             messages=[{"role": "user", "content": content}],
         )
-    except anthropic.AuthenticationError as e:
-        raise LLMAuthError("anthropic rejected the credentials") from e
-    except anthropic.PermissionDeniedError as e:
-        raise LLMAuthError("anthropic denied the credentials") from e
-    except anthropic.RateLimitError as e:
-        raise LLMRateLimitError("anthropic rate-limited") from e
-    except Exception as e:  # transport / unexpected — key-free
-        raise LLMError("anthropic vision call failed") from e
+    except anthropic.AuthenticationError:
+        # `from None` deliberately drops the SDK exception as __cause__: it
+        # carries the httpx.Request (incl. the Authorization/x-api-key header)
+        # and chaining it would let the key leak into a traceback (CLAUDE.md
+        # backend rule #1). Mirrors wegofwd_llm.anthropic_native._map_sdk_error.
+        raise LLMAuthError("anthropic rejected the credentials") from None
+    except anthropic.PermissionDeniedError:
+        raise LLMAuthError("anthropic denied the credentials") from None
+    except anthropic.RateLimitError:
+        raise LLMRateLimitError("anthropic rate-limited") from None
+    except Exception:  # transport / unexpected — key-free
+        raise LLMError("anthropic vision call failed") from None
 
     text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
     try:
         out = _DerivativeOutput.model_validate(parse_json_response(text))
-    except Exception as e:
-        raise LLMSchemaError("generated content failed validation") from e
+    except Exception:
+        raise LLMSchemaError("generated content failed validation") from None
     variants: list[PostVariant] = out.variants
     return DerivativeResponse(platform=platform, variants=variants, provenance="ai-generated")

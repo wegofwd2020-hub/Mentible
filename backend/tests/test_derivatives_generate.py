@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import anthropic
+import httpx
 import pytest
 from wegofwd_llm import LLMSchemaError
+from wegofwd_llm.errors import LLMAuthError, LLMRateLimitError
 
 from backend.src.derivatives.generate import generate_post
 from backend.src.derivatives.schemas import ReferenceImage
@@ -103,7 +106,20 @@ def _fake_anthropic(text):
     return factory, client
 
 
-def test_vision_path_returns_variants_and_sends_image():
+def _sdk_status_error(cls, message="anthropic error"):
+    """Build a real instance of an anthropic SDK APIStatusError subclass.
+
+    Mirrors what the live SDK raises: the response (and therefore the
+    originating httpx.Request, which can carry the Authorization/x-api-key
+    header) is attached to the exception — this is exactly why the vision
+    helper re-raises with `from None` rather than `from e`.
+    """
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status_code=cls.status_code, request=request)
+    return cls(message, response=response, body=None)
+
+
+def test_vision_path_returns_variants_and_sends_image(caplog):
     factory, client = _fake_anthropic(_GOOD_JSON)
     img = ReferenceImage(media_type="image/png", data="aGk=")
     with patch("backend.src.derivatives.generate.anthropic.Anthropic", factory):
@@ -112,7 +128,7 @@ def test_vision_path_returns_variants_and_sends_image():
             platform="linkedin",
             tone=None,
             provider_id="anthropic",
-            api_key="sk-ant-secret",
+            api_key=_API_KEY,
             model="claude-x",
             image=img,
         )
@@ -122,12 +138,11 @@ def test_vision_path_returns_variants_and_sends_image():
     sent = client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert any(b.get("type") == "image" for b in sent)
     # BYOK key went only to the client factory, not into the response.
-    factory.assert_called_once_with(api_key="sk-ant-secret")
+    factory.assert_called_once_with(api_key=_API_KEY)
+    assert _API_KEY not in caplog.text
 
 
-def test_vision_bad_json_raises_schema_error():
-    from wegofwd_llm.errors import LLMSchemaError
-
+def test_vision_bad_json_raises_schema_error(caplog):
     factory, _ = _fake_anthropic("not json at all")
     img = ReferenceImage(media_type="image/png", data="aGk=")
     with patch("backend.src.derivatives.generate.anthropic.Anthropic", factory):
@@ -137,7 +152,62 @@ def test_vision_bad_json_raises_schema_error():
                 platform="x",
                 tone=None,
                 provider_id="anthropic",
-                api_key="sk-ant-secret",
+                api_key=_API_KEY,
                 model="claude-x",
                 image=img,
             )
+    assert _API_KEY not in caplog.text
+
+
+def test_vision_authentication_error_maps_to_llm_auth_error(caplog):
+    factory, client = _fake_anthropic(_GOOD_JSON)
+    client.messages.create.side_effect = _sdk_status_error(anthropic.AuthenticationError)
+    img = ReferenceImage(media_type="image/png", data="aGk=")
+    with patch("backend.src.derivatives.generate.anthropic.Anthropic", factory):
+        with pytest.raises(LLMAuthError):
+            generate_post(
+                source_text="s",
+                platform="x",
+                tone=None,
+                provider_id="anthropic",
+                api_key=_API_KEY,
+                model="claude-x",
+                image=img,
+            )
+    assert _API_KEY not in caplog.text
+
+
+def test_vision_permission_denied_error_maps_to_llm_auth_error(caplog):
+    factory, client = _fake_anthropic(_GOOD_JSON)
+    client.messages.create.side_effect = _sdk_status_error(anthropic.PermissionDeniedError)
+    img = ReferenceImage(media_type="image/png", data="aGk=")
+    with patch("backend.src.derivatives.generate.anthropic.Anthropic", factory):
+        with pytest.raises(LLMAuthError):
+            generate_post(
+                source_text="s",
+                platform="x",
+                tone=None,
+                provider_id="anthropic",
+                api_key=_API_KEY,
+                model="claude-x",
+                image=img,
+            )
+    assert _API_KEY not in caplog.text
+
+
+def test_vision_rate_limit_error_maps_to_llm_rate_limit_error(caplog):
+    factory, client = _fake_anthropic(_GOOD_JSON)
+    client.messages.create.side_effect = _sdk_status_error(anthropic.RateLimitError)
+    img = ReferenceImage(media_type="image/png", data="aGk=")
+    with patch("backend.src.derivatives.generate.anthropic.Anthropic", factory):
+        with pytest.raises(LLMRateLimitError):
+            generate_post(
+                source_text="s",
+                platform="x",
+                tone=None,
+                provider_id="anthropic",
+                api_key=_API_KEY,
+                model="claude-x",
+                image=img,
+            )
+    assert _API_KEY not in caplog.text
