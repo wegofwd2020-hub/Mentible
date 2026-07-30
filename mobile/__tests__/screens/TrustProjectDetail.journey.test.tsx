@@ -81,7 +81,7 @@ it("on a captured-but-no-artifact owner project, the next-step is 'add an artifa
 
 describe("post-scroll highlight", () => {
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => { jest.runOnlyPendingTimers(); jest.useRealTimers(); });
+  afterEach(() => { act(() => jest.runOnlyPendingTimers()); jest.useRealTimers(); });
 
   const borderOf = (el: any) => {
     const s = Array.isArray(el.props.style) ? Object.assign({}, ...el.props.style.filter(Boolean)) : el.props.style;
