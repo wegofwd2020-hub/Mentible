@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
+from wegofwd_llm.errors import (
+    LLMAuthError,
+    LLMError,
+    LLMRateLimitError,
+    LLMSchemaError,
+)
+
+from backend.config import settings
 
 from ..accounts import repo as accounts_repo
 from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
+from ..billing.eligibility import is_managed_eligible
+from ..billing.vault import get_managed_key
 from ..db.deps import get_conn
 from . import approval_repo, artifact_repo, membership_repo, project_repo, schemas
 from .access import (
@@ -17,6 +28,7 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
+from .generate import generate_draft
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
 
@@ -165,6 +177,100 @@ async def create_version(
         content=body.content,
         created_by_sub=principal.sub,
         generation_meta=body.generation_meta,
+    )
+    return schemas.VersionOut(
+        id=str(v.id),
+        artifact_id=str(v.artifact_id),
+        version_no=v.version_no,
+        created_at=v.created_at,
+    )
+
+
+@router.post("/artifacts/{artifact_id}/versions/generate", response_model=schemas.VersionOut)
+async def generate_version(
+    artifact_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.VersionOut:
+    project_id = await project_id_for_artifact(conn, artifact_id=artifact_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    fmt = await conn.fetchval("SELECT format FROM artifact WHERE id=$1", artifact_id)
+    p = await project_repo.get_project(conn, project_id=project_id)
+    sources = await project_repo.list_inputs(conn, project_id=project_id)
+    if not sources:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "add at least one source before generating a draft",
+        )
+
+    # key handling mirrors /derivatives
+    managed = body.api_key is None
+    if managed:
+        if not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        api_key = get_managed_key(body.provider_id)
+    else:
+        api_key = body.api_key
+    model = body.model or settings.anthropic_default_model
+
+    try:
+        out = await asyncio.to_thread(
+            generate_draft,
+            sources=sources,
+            artifact_format=fmt,
+            topic=p.topic,
+            audience=p.audience,
+            goal=p.goal,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "generated draft failed validation"
+        ) from None
+    except LLMAuthError:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "The API key was rejected by the provider. Check it in Settings.",
+        ) from None
+    except LLMRateLimitError:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "The provider is rate-limiting requests. Try again shortly.",
+        ) from None
+    except (LLMError, Exception):
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "draft generation failed") from None
+
+    # map model labels S1..Sn -> real input ids (drop unknowns; never 500 on a bad label)
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    sections = [
+        {
+            "heading": sec.heading,
+            "body": sec.body,
+            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
+        }
+        for sec in out.sections
+    ]
+    cited = sorted({sid for s in sections for sid in s["source_ids"]})
+    v = await artifact_repo.create_version(
+        conn,
+        artifact_id=artifact_id,
+        content={"sections": sections},
+        created_by_sub=principal.sub,
+        generation_meta={
+            "kind": "draft",
+            "model": model,
+            "provider_id": body.provider_id,
+            "source_input_ids": cited,
+        },
     )
     return schemas.VersionOut(
         id=str(v.id),
