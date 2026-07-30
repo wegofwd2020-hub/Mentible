@@ -13,10 +13,14 @@ function nextStep(currentKey: string, isOwner: boolean): string {
       return isOwner
         ? "Next: add a source — paste a transcript, note, or link below."
         : "The owner is still capturing sources.";
+    case "create_artifact":
+      return isOwner
+        ? "Next: add an artifact to hold your draft."
+        : "Waiting for the owner to create a draft.";
     case "create":
       return isOwner
         ? "Next: generate a draft from your sources below."
-        : "Waiting for the owner to generate a draft.";
+        : "Waiting for the owner to create a draft.";
     case "validate":
       return isOwner
         ? "Next: invite an expert to review — they approve a version below."
@@ -36,17 +40,23 @@ export function TrustJourney({
   onNext?: (phaseKey: string) => void;
 }): React.JSX.Element {
   const captured = (detail.inputs?.length ?? 0) > 0;
-  const created = detail.artifacts.some((a) => a.versions.length > 0);
-  const validated = detail.artifacts.some((a) => a.versions.some((v) => v.is_validated));
+  const hasArtifact = detail.artifacts.length > 0;
+  const anyVersion = detail.artifacts.some((a) => a.versions.length > 0);
+  // Every artifact must have a validated version (≥1 artifact) — an artifact with
+  // only unvalidated drafts, or a fresh empty artifact, keeps the project in
+  // Validate rather than reading "ready to share".
+  const allValidated = hasArtifact && detail.artifacts.every((a) => a.versions.some((v) => v.is_validated));
   const phases: Phase[] = [
     { key: "capture", label: "Capture", done: captured },
-    { key: "create", label: "Create", done: created },
-    { key: "validate", label: "Validate", done: validated },
-    { key: "share", label: "Share", done: false }, // Share is the goal, actioned on the Posts tab
+    { key: "create", label: "Create", done: anyVersion },
+    { key: "validate", label: "Validate", done: allValidated },
+    { key: "share", label: "Share", done: false },
   ];
-  // First not-done phase is "current". Share is never done, so this is always ≥0.
   const currentIdx = phases.findIndex((p) => !p.done);
-  const currentKey = phases[currentIdx].key;
+  // In the Create phase, distinguish "no artifact yet" (add one) from "artifact,
+  // no draft" (generate) so the tap targets the control that actually exists.
+  const currentKey =
+    phases[currentIdx].key === "create" && !hasArtifact ? "create_artifact" : phases[currentIdx].key;
   const nextText = nextStep(currentKey, isOwner);
 
   return (

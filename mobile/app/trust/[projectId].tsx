@@ -140,6 +140,9 @@ export default function TrustProjectDetail() {
       case "create":
         scrollTo(artifactsY.current);
         break;
+      case "create_artifact":
+        scrollTo(ownerActionsY.current);
+        break;
       case "validate":
         scrollTo(isOwner ? ownerActionsY.current : artifactsY.current);
         break;
