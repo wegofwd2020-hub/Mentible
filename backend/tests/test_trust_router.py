@@ -1,5 +1,7 @@
+import json as _json
 import os
 import uuid
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +9,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
+from backend.tests.helpers import fake_provider
 
 DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set")
@@ -304,3 +307,97 @@ def test_stranger_cannot_add_input():
             ).status_code
             == 403
         )
+
+
+_DRAFT_JSON = _json.dumps(
+    {
+        "sections": [
+            {"heading": "A", "body": "b", "sources": ["S1"]},
+            {"heading": "C", "body": "d", "sources": []},
+            {"heading": "E", "body": "f", "sources": ["S1"]},
+        ]
+    }
+)
+
+
+def _artifact_with_source(c):
+    pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+    art = c.post(
+        f"/api/v1/trust/projects/{pid}/artifacts", json={"role": "cornerstone", "format": "guide"}
+    ).json()
+    c.post(f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"})
+    return pid, art["id"]
+
+
+def test_owner_generates_draft_version():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, aid = _artifact_with_source(c)
+        with patch(
+            "backend.src.trust.generate.build_provider",
+            return_value=fake_provider(text=_DRAFT_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/artifacts/{aid}/versions/generate",
+                json={"api_key": "sk-ant-" + "x" * 20},
+            )
+        assert r.status_code == 200
+        assert r.json()["version_no"] == 1
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        assert (
+            detail["artifacts"][0]["versions"][0]["is_validated"] is False
+        )  # a real version exists
+
+
+def test_generate_requires_a_source_422():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        aid = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "guide"},
+        ).json()["id"]
+        r = c.post(
+            f"/api/v1/trust/artifacts/{aid}/versions/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 422  # no sources
+
+
+def test_generate_key_never_leaks_and_reviewer_forbidden():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, aid = _artifact_with_source(c)
+        key = "sk-ant-" + "y" * 20
+        with patch(
+            "backend.src.trust.generate.build_provider",
+            return_value=fake_provider(text=_DRAFT_JSON),
+        ):
+            r = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json={"api_key": key})
+        assert key not in _json.dumps(r.json())
+        # reviewer cannot generate
+        expert = f"e-{uuid.uuid4()}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
+        _as(f"e-{uuid.uuid4()}", expert)
+        c.post("/api/v1/trust/session/sync")
+        rr = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json={"api_key": key})
+        assert rr.status_code == 403
+
+
+def test_generate_bad_model_output_502():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        _pid, aid = _artifact_with_source(c)
+        with patch(
+            "backend.src.trust.generate.build_provider",
+            return_value=fake_provider(text="not json"),
+        ):
+            r = c.post(
+                f"/api/v1/trust/artifacts/{aid}/versions/generate",
+                json={"api_key": "sk-ant-" + "z" * 20},
+            )
+        assert r.status_code == 502

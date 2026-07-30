@@ -78,6 +78,14 @@ export async function createVersion(
   return (await trustFetch<VersionCreatedView>(`/artifacts/${artifactId}/versions`, token, { method: "POST", body: JSON.stringify(body) })) as VersionCreatedView;
 }
 
+export async function generateVersion(
+  artifactId: string, body: { api_key: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionCreatedView> {
+  return (await trustFetch<VersionCreatedView>(
+    `/artifacts/${artifactId}/versions/generate`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionCreatedView;
+}
+
 export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {
   return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email }) })) as InvitationView;
 }
