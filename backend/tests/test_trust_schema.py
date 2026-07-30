@@ -58,3 +58,29 @@ async def test_artifact_version_unique(conn):
         """
     )
     assert n >= 1, "UNIQUE(artifact_id, version_no) missing"
+
+
+async def test_membership_tables_exist(conn):
+    for t in ("project_membership", "project_invitation"):
+        assert await conn.fetchval("SELECT to_regclass($1)", f"public.{t}") is not None, t
+
+
+async def test_membership_pk_and_invite_unique(conn):
+    pk = await conn.fetchval(
+        "SELECT count(*) FROM pg_constraint "
+        "WHERE conrelid='project_membership'::regclass AND contype='p'"
+    )
+    assert pk == 1, "project_membership PK missing"
+    uq = await conn.fetchval(
+        "SELECT count(*) FROM pg_constraint "
+        "WHERE conrelid='project_invitation'::regclass AND contype='u'"
+    )
+    assert uq >= 1, "project_invitation UNIQUE(project_id, invited_email) missing"
+
+
+async def test_approval_recorded_via_column(conn):
+    col = await conn.fetchval(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='approval' AND column_name='recorded_via'"
+    )
+    assert col == "recorded_via"

@@ -17,6 +17,9 @@ ARTIFACT_FORMATS = (
     "x_thread",
 )
 FEEDBACK_AUTHOR_KINDS = ("expert", "operator")
+MEMBERSHIP_ROLES = ("owner", "reviewer")
+INVITE_ROLES = ("reviewer",)
+APPROVAL_VIA = ("operator", "expert_self")
 
 
 @dataclass(frozen=True)
@@ -89,3 +92,23 @@ class Approval:
     recorded_by_sub: str
     recorded_at: datetime | None
     note: str | None
+    recorded_via: str
+
+
+@dataclass(frozen=True)
+class Membership:
+    project_id: str
+    account_id: str
+    role: str
+    created_at: datetime | None
+
+
+@dataclass(frozen=True)
+class Invitation:
+    id: str
+    project_id: str
+    invited_email: str
+    role: str
+    invited_by_sub: str
+    created_at: datetime | None
+    revoked_at: datetime | None
