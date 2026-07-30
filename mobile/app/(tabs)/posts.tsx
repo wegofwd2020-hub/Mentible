@@ -21,6 +21,12 @@ export function assemblePost(v: PostVariant): string {
   return v.cta ? `${base}\n\n${v.cta}` : base;
 }
 
+// Readable label for the backend's provenance enum (always "ai-generated" today).
+// An unknown value shows through rather than being masked.
+export function humanizeProvenance(p: string | null): string {
+  return p == null || p === "ai-generated" ? "AI-generated" : p;
+}
+
 export default function PostsScreen() {
   const { status, error, variants, provenance, run } = useMakePost({
     getApiKey: () => loadApiKey("anthropic"),
@@ -101,7 +107,7 @@ export default function PostsScreen() {
 
         {status === "done" && variants.length > 0 ? (
           <View style={styles.results}>
-            <Text style={styles.provenance}>{provenance ?? "ai-generated"}</Text>
+            <Text style={styles.provenance}>{humanizeProvenance(provenance)}</Text>
             {variants.map((v, i) => (
               <View key={i} style={styles.card}>
                 <Text style={styles.hook}>{v.hook}</Text>
