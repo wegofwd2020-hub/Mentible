@@ -50,8 +50,9 @@ export default function PostsScreen() {
   }, []);
 
   return (
-    <PageContainer>
-      <ScrollView contentContainerStyle={styles.body}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <PageContainer>
+        <View style={styles.body}>
         <Text style={styles.label}>Source</Text>
         <TextInput
           accessibilityLabel="Source text"
@@ -126,13 +127,18 @@ export default function PostsScreen() {
             ))}
           </View>
         ) : null}
-      </ScrollView>
-    </PageContainer>
+        </View>
+      </PageContainer>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { padding: spacing.md, gap: spacing.sm },
+  // ScrollView must be flex:1 (a bounded height) so it actually scrolls on web —
+  // PageContainer supplies the padding; `body` only spaces the children.
+  scroll: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  body: { gap: spacing.sm },
   label: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.text, marginTop: spacing.sm },
   source: {
     minHeight: 120, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
