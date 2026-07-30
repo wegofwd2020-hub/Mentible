@@ -234,10 +234,16 @@ def test_owner_adds_input_and_it_appears_in_detail():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
-        pid = c.post("/api/v1/trust/projects", json={"title": "Stormwater", "topic": "runoff"}).json()["id"]
+        pid = c.post(
+            "/api/v1/trust/projects", json={"title": "Stormwater", "topic": "runoff"}
+        ).json()["id"]
         r = c.post(
             f"/api/v1/trust/projects/{pid}/inputs",
-            json={"kind": "transcript", "title": "Interview 1", "content": "We size pipes for the 10-year storm."},
+            json={
+                "kind": "transcript",
+                "title": "Interview 1",
+                "content": "We size pipes for the 10-year storm.",
+            },
         )
         assert r.status_code == 200
         assert r.json()["kind"] == "transcript"
@@ -251,10 +257,18 @@ def test_input_bad_kind_and_empty_content_422():
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
         pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
-        assert c.post(f"/api/v1/trust/projects/{pid}/inputs",
-                      json={"kind": "upload", "content": "x"}).status_code == 422  # blocked kind
-        assert c.post(f"/api/v1/trust/projects/{pid}/inputs",
-                      json={"kind": "note", "content": ""}).status_code == 422    # empty content
+        assert (
+            c.post(
+                f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "upload", "content": "x"}
+            ).status_code
+            == 422
+        )  # blocked kind
+        assert (
+            c.post(
+                f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": ""}
+            ).status_code
+            == 422
+        )  # empty content
 
 
 def test_reviewer_cannot_add_input_but_can_view():
@@ -262,7 +276,9 @@ def test_reviewer_cannot_add_input_but_can_view():
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
         pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
-        c.post(f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "owner note"})
+        c.post(
+            f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "owner note"}
+        )
         expert_email = f"e-{uuid.uuid4()}@x.z"
         c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
         # expert redeems membership via session/sync, then reads
@@ -270,7 +286,7 @@ def test_reviewer_cannot_add_input_but_can_view():
         c.post("/api/v1/trust/session/sync")
         detail = c.get(f"/api/v1/trust/projects/{pid}").json()
         assert detail["my_role"] == "reviewer"
-        assert len(detail["inputs"]) == 1                # reviewer CAN see sources
+        assert len(detail["inputs"]) == 1  # reviewer CAN see sources
         # reviewer CANNOT add
         r = c.post(f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "nope"})
         assert r.status_code == 403
@@ -282,5 +298,9 @@ def test_stranger_cannot_add_input():
         _as(owner, f"{owner}@x.z")
         pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
         _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
-        assert c.post(f"/api/v1/trust/projects/{pid}/inputs",
-                      json={"kind": "note", "content": "x"}).status_code == 403
+        assert (
+            c.post(
+                f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "x"}
+            ).status_code
+            == 403
+        )
