@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { approveVersion, createArtifact, createVersion, getProject, invite as inviteApi, type ApprovalView, type ProjectDetailView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, getProject, invite as inviteApi, type ApprovalView, type ProjectDetailView, type ProjectInputView } from "@/api/trustClient";
 
 export function useTrustProject(projectId: string) {
   const { accessToken, status } = useAuth();
@@ -49,10 +49,18 @@ export function useTrustProject(projectId: string) {
     await refresh(); return inv;
   }, [accessToken, projectId, refresh]);
 
+  const addInput = useCallback(async (body: { kind: "transcript" | "note" | "link"; title?: string; content: string; source_ref?: string }): Promise<ProjectInputView> => {
+    if (!accessToken) throw new Error("Not signed in");
+    const i = await addProjectInput(projectId, body, accessToken);
+    await refresh(); return i;
+  }, [accessToken, projectId, refresh]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
   }, [status, refresh]);
 
-  return { project, loading, error, refresh, approve, addArtifact, addVersion, invite };
+  const inputs = project?.inputs ?? [];
+
+  return { project, loading, error, refresh, approve, addArtifact, addVersion, invite, addInput, inputs };
 }
