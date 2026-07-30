@@ -15,6 +15,23 @@
 > record is [`docs/STATUS.md`](docs/STATUS.md)** — read it first; the ADRs and STATUS.md
 > take precedence over the older framing in this file.
 
+> **★ MAJOR REPOSITION (ADR-037, merged 2026-07-29 — read `docs/adr/ADR-037-*` first).**
+> Mentible is repositioning from a self-learner client to an **AI-accelerated studio
+> for subject-matter experts (SMEs)** whose product is **expert-validated, traceable
+> knowledge** — a four-phase loop **Capture → Create → Validate → Share**. *"Trust is
+> the product."* The reposition is **onto the existing stack** (RN+Expo · FastAPI · the
+> Node compiler · Anthropic/multi-provider) — NOT a rebuild. **Audience: SME-primary,
+> self-learner-secondary** — so the "self-learner", "Claude Code for learners", and
+> "6 scope dimensions" framing throughout this file is now the *secondary* mode, not the
+> headline. Revenue is **services-led** (Discovery / Sprint / Pilot; the self-serve app
+> subscription of ADR-005 is deferred). The **trust/validation workflow** (projects,
+> inputs, artifacts + immutable versions, feedback, append-only **approval records** with
+> `recorded_via` provenance) is the new product spine, built end-to-end and on `main`:
+> backend `backend/src/trust/*` (migrations `0009`/`0010`, HTTP router `/api/v1/trust/*`)
+> + the mobile Reviews (reviewer) and Projects (owner) surfaces. **Where this file's
+> self-learner framing, D1/D6/D17 audience+money decisions, and backend rule #4 differ,
+> ADR-037 takes precedence** (see the nuance on rule #4 below).
+
 A purpose-built Anthropic client for **self-learners**. Adults paste their own
 Anthropic API key (BYOK), describe what they want to learn, and get a beautifully
 rendered lesson, explanation, or quiz back. Not a chatbot. Not a course platform.
@@ -106,6 +123,7 @@ Read these in order:
 | `docs/adr/ADR-014-user-accounts-and-provider-credential-set.md` | Before touching accounts/auth or the Settings key UI — identity is an external IdP verified by JWKS (no password machinery); the account owns a per-provider credential set, keys device-local by default (proposed; amends D10 and the Authentication rules) |
 | `docs/adr/ADR-018-system-owner-principal.md` | Before touching default-library publishing or the owner signing secret — the system owner is a signing *capability* (`SYSTEM_OWNER_SECRET`), distinct from the super-admin *role*; see also pitfall #7 |
 | `docs/adr/ADR-020-super-admin-operator-role.md` | Before touching the admin API, the `SUPER_ADMIN_EMAILS`/`SUPER_ADMIN_SUBS` allowlist, the admin console, or the `admin_audit` trail — a single privileged operator tier, derived from config (never a token claim), nuances "single-tenant / no RLS" (built & live; amends backend rule #4) |
+| `docs/adr/ADR-037-reposition-to-expert-validation-studio.md` | **Read first for the current product direction.** The SME expert-validation reposition (merged 2026-07-29): SME-primary, services-led, trust/validation workflow the product spine; reposition onto the existing stack (not a rebuild). Before touching audience/positioning, the trust workspace (`backend/src/trust/*`, `/api/v1/trust/*`, the Reviews/Projects mobile surfaces), or expert-login/per-project access. Amends D1/D6/D17, ADR-005 money, and nuances backend rule #4 (multi-actor per-project, app-level guard, still no RLS) |
 | `docs/adr/ADR-028-open-shelves-free-book-repo-feeds.md` | Before touching feed sources, OPDS parsing, catalog downloads, or catalog filtering — Mentible is a **catalog client**: it stores feed *metadata*, the device downloads content **direct from the source**, and our infra never hosts/mirrors/proxies a third-party file. Feed XML is **hostile input** (XXE off, caps, sanitize every rendered string — reuse `mobile/src/reader/sanitize.ts`, don't write a second sanitizer). Filters are a pure function of *device-local declared preferences × feed metadata* — no behavioral collection, no extended Google scopes. Proposed; companions: `docs/specs/open-shelves-spec.md` · `docs/research/personal-data-filter-research.md` |
 
 The parent product's docs (`StudyBuddy_OnDemand/CLAUDE.md` and the
@@ -123,7 +141,7 @@ This is a separate product with separate compliance, infra, and audience.
 | D3 | Android first (iOS later) |
 | D4 | *(clarified — ADR-005)* Cloud **library sync** stays v1.1+; library is local-first at MVP. But **accounts/auth move to MVP** (ADR-005 decouples accounts from sync — managed billing needs identity) |
 | D5 | New repo `Mentible` (originally created as `StudyBuddy_SelfLearner`, renamed 2026-07-03); brand "StudyBuddy Q" |
-| D6 | Standalone — no funnel back to school SKU |
+| D6 | *(amended — ADR-037)* Standalone (no funnel back to school SKU) still holds, but the **audience is now SME-primary, self-learner-secondary** — the product is the expert-validation studio, with the learner mode retained beneath |
 | D7 | Demo / quality-first, not scale-first |
 | D8 | React Native + Expo |
 | D9 | *(amended — ADR-005)* Pattern B (per-request passthrough) is now **one of two** key paths — it is the **BYOK** path; the **managed** path adds a separate at-rest vault regime. Generalised to a **per-provider credential set** (ADR-014) |
@@ -158,6 +176,9 @@ Mentible/
   mobile/              ← React Native + Expo (Android-first)
     app/
       screens/         ← Library · Books · Settings (Query/Lesson removed — ADR-009)
+      (tabs)/reviews.tsx · projects.tsx · trust/[projectId].tsx · trust/new.tsx  ← SME trust surfaces
+                          (ADR-037; BUILT): Reviews (invited expert reviews+approves), Projects (owner
+                          creates+invites), role-aware detail w/ recorded_via badge. RequireSignIn + IS_DEMO-hidden
       admin.tsx · admin/[sub].tsx  ← super-admin console, gated on is_super_admin (ADR-020; BUILT)
       components/      ← Markdown renderer (KaTeX + Mermaid + tables)
       hooks/           ← useGenerateJob · useLibrary · useAuth
@@ -170,6 +191,10 @@ Mentible/
       auth/            ← IdP JWT verify via JWKS (MVP — ADR-005/014; BUILT) ·
                           admin.py = SUPER_ADMIN allowlist · deps.require_super_admin (ADR-020)
       admin/           ← /api/v1/admin/* user-management API + admin_audit trail (ADR-020; BUILT)
+      trust/           ← SME expert-validation workspace (ADR-037; BUILT, on main). models · access.py
+                          (require_project_access single guard) · project/artifact/feedback/approval/
+                          membership repos · router.py (/api/v1/trust/*) · schemas. Migrations 0009/0010.
+                          App-level multi-actor-per-project (owner + invited reviewer), NO RLS
       generate/        ← POST /generate · GET /jobs/{id} · push
       library/         ← v1.1+ — saved lessons
       sync/            ← v1.1+ — cloud sync
@@ -250,7 +275,7 @@ pipeline/              → Anthropic SDK (no backend imports — keep portable)
 1. **The API key never touches a log line, a database row, or an exception traceback.** See ADR-001 for the full discipline. `structlog` filter, exception-scrubber middleware, and a `key_redacted_logger` wrapper are mandatory.
 2. **The key lives in Redis only** between request submission and worker pickup, encrypted with a per-job ephemeral key, TTL = job timeout (default 120 s). Worker reads, uses, deletes. No persistence to disk.
 3. **No proxy layer for Anthropic responses.** The backend returns the lesson JSON directly to the client; no caching, no CDN, no shared content store at MVP.
-4. **Single-tenant by user, no RLS.** This product has no multi-tenancy. One user account = one isolated library. Avoid the OnDemand `app.current_school_id` dance entirely. **One nuance (ADR-020):** a single config-derived **super-admin operator tier** may read/act on account *metadata* across users (list/suspend/reactivate/delete) through the explicit, audited `/api/v1/admin/*` API. That is *not* multi-tenancy and *not* RLS — it is one privileged human role gated by `require_super_admin`, never per-tenant row isolation, and it never touches user *content*. Don't reintroduce RLS or a tenant column to serve it.
+4. **Single-tenant by user, no RLS.** This product has no multi-tenancy. One user account = one isolated library. Avoid the OnDemand `app.current_school_id` dance entirely. **One nuance (ADR-020):** a single config-derived **super-admin operator tier** may read/act on account *metadata* across users (list/suspend/reactivate/delete) through the explicit, audited `/api/v1/admin/*` API. That is *not* multi-tenancy and *not* RLS — it is one privileged human role gated by `require_super_admin`, never per-tenant row isolation, and it never touches user *content*. Don't reintroduce RLS or a tenant column to serve it. **A second nuance (ADR-037):** the trust/validation workspace is deliberately **multi-actor per project** — an operator owns a project and an invited **expert reviewer** gains scoped access to that *one* project. This is enforced **app-level** by a **single access-guard** (`backend/src/trust/access.py` `require_project_access`, owner → `project_membership` reviewer → deny) plus a `project_membership` table — **still NOT Postgres RLS, still no tenant column on every table**; the sharing is scoped to the trust-project aggregate, not the whole DB. Redeem-on-login materializes membership from an email invite (`membership_repo`). Don't generalize this into RLS or a global tenant model.
 5. **No Celery beat / scheduled tasks at MVP.** All work is request-driven.
 6. **`asyncpg` for Postgres, `aioredis` for Redis, `httpx.AsyncClient` for outbound HTTP.** Never block the event loop.
 7. **No cross-product imports.** Backend never imports from `StudyBuddy_OnDemand`. Code reuse is exclusively via the `pipeline/` vendored copy. See ADR-002.
