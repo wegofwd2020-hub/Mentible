@@ -40,3 +40,14 @@ def test_output_model():
         _DerivativeOutput.model_validate(
             {"variants": [{"hook": "h", "body": "b", "hashtags": ["#a"], "cta": None}]}
         )
+
+
+def test_reference_guidance_present_when_flagged():
+    p = build_derivative_prompt("src", "linkedin", has_reference=True)
+    assert "reference image" in p.lower()
+    assert "do not" in p.lower() and "reproduce" in p.lower()
+
+
+def test_no_reference_guidance_by_default():
+    p = build_derivative_prompt("src", "linkedin")
+    assert "reference image" not in p.lower()
