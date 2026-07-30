@@ -16,6 +16,7 @@ const TABS: Record<string, { label: string; active: IconName; inactive: IconName
   library: { label: NAV.library, active: "library", inactive: "library-outline" },
   shelves: { label: NAV.shelves, active: "albums", inactive: "albums-outline" },
   books: { label: NAV.studio, active: "create", inactive: "create-outline" },
+  projects: { label: NAV.projects, active: "folder", inactive: "folder-outline" },
   reviews: { label: NAV.reviews, active: "shield-checkmark", inactive: "shield-checkmark-outline" },
   settings: { label: NAV.settings, active: "settings", inactive: "settings-outline" },
   help: { label: NAV.help, active: "help-circle", inactive: "help-circle-outline" },
@@ -23,14 +24,15 @@ const TABS: Record<string, { label: string; active: IconName; inactive: IconName
 };
 
 // Visual left→right order of the menu. Library is first (and the landing); the
-// brand logo is rendered before this row and links to Library (home). Reviews
-// needs a backend account (ADR-037) and is omitted from the demo build, which
-// has none — same reasoning as the other backend-only surfaces in this app.
+// brand logo is rendered before this row and links to Library (home). Projects
+// and Reviews need a backend account (ADR-037) and are omitted from the demo
+// build, which has none — same reasoning as the other backend-only surfaces in
+// this app.
 const ORDER = [
   "library",
   "shelves",
   "books",
-  ...(IS_DEMO ? [] : ["reviews"]),
+  ...(IS_DEMO ? [] : ["projects", "reviews"]),
   "settings",
   "help",
   "about",

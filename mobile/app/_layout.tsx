@@ -135,6 +135,10 @@ export default function RootLayout() {
           options={{ title: "User", headerBackTitle: "Users" }}
         />
         <Stack.Screen
+          name="trust/new"
+          options={{ title: "New project", headerBackTitle: "Projects" }}
+        />
+        <Stack.Screen
           name="trust/[projectId]"
           options={{ title: "Project", headerBackTitle: "Reviews" }}
         />
