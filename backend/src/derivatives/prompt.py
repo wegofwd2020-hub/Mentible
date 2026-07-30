@@ -28,10 +28,10 @@ def build_derivative_prompt(
     rules = _PLATFORM_RULES.get(platform, _PLATFORM_RULES["linkedin"])
     tone_line = f"\nTone: {tone}." if tone else ""
     reference_line = (
-        "\n\nA reference image is attached. Take ONLY stylistic and structural "
+        "A reference image is attached. Take ONLY stylistic and structural "
         "guidance from it — tone, layout, pacing, energy. Do NOT describe, "
         "transcribe, or reproduce the image, and do not treat it as a source of "
-        "facts. The post content comes ONLY from the source material above."
+        "facts. The post content comes ONLY from the source material above.\n\n"
         if has_reference
         else ""
     )
@@ -40,8 +40,7 @@ def build_derivative_prompt(
         f"{platform} posts that PROMOTE it. Do not invent facts beyond the source; the posts market "
         f"the source, they do not add claims.{tone_line}\n\n"
         f"Platform rules: {rules}\n\n"
-        f'SOURCE:\n"""\n{source_text}\n"""\n{reference_line}\n\n'
-        f"Respond with ONLY valid JSON, no prose, exactly matching this schema:\n"
+        f'SOURCE:\n"""\n{source_text}\n"""\n\n{reference_line}Respond with ONLY valid JSON, no prose, exactly matching this schema:\n'
         f'{{"variants": [{{"hook": "string", "body": "string", "hashtags": ["#tag"], "cta": "string or null"}}]}}\n'
         f"Return exactly 3 variants."
     )
