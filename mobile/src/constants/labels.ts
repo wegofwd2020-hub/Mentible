@@ -11,6 +11,7 @@ export const NAV = {
   // and removes the old Books/Library ambiguity (both read as "shelves").
   studio: "Studio",
   shelves: "Shelves",
+  reviews: "Reviews",
   settings: "Settings",
   help: "Help",
   about: "About",

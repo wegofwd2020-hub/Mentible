@@ -15,6 +15,7 @@ export default function TabLayout() {
       <Tabs.Screen name="library" />
       <Tabs.Screen name="shelves" />
       <Tabs.Screen name="books" />
+      <Tabs.Screen name="reviews" />
       <Tabs.Screen name="settings" />
       <Tabs.Screen name="help" />
       <Tabs.Screen name="about" />
