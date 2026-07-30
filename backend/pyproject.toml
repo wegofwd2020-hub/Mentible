@@ -24,6 +24,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "T20"]
 "src/core/owner_cli.py" = ["T20"]  # CLI — stdout is its interface (ADR-018 owner CLI)
+"src/trust/*_repo.py" = ["S608"]  # static column constants, not injection vectors
 
 [tool.ruff.lint.isort]
 known-first-party = ["backend"]
