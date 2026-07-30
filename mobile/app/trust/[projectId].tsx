@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { TrustJourney } from "@/components/TrustJourney";
@@ -31,6 +31,7 @@ function sourceDate(createdAt: string | null): string | null {
 
 export default function TrustProjectDetail() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
+  const router = useRouter();
   const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,6 +43,10 @@ export default function TrustProjectDetail() {
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const sourcesY = useRef(0);
+  const artifactsY = useRef(0);
+  const ownerActionsY = useRef(0);
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -126,13 +131,31 @@ export default function TrustProjectDetail() {
 
   const isOwner = project.my_role === "owner";
 
+  const onNextAction = (phaseKey: string) => {
+    const scrollTo = (y: number) => scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
+    switch (phaseKey) {
+      case "capture":
+        scrollTo(sourcesY.current);
+        break;
+      case "create":
+        scrollTo(artifactsY.current);
+        break;
+      case "validate":
+        scrollTo(isOwner ? ownerActionsY.current : artifactsY.current);
+        break;
+      default:
+        router.push("/posts"); // share
+        break;
+    }
+  };
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
-        <TrustJourney detail={project} isOwner={isOwner} />
-        <View style={styles.sourcesBlock}>
+        <TrustJourney detail={project} isOwner={isOwner} onNext={onNextAction} />
+        <View style={styles.sourcesBlock} onLayout={(e) => { sourcesY.current = e.nativeEvent.layout.y; }}>
           <Text style={styles.artifactTitle}>Sources</Text>
           <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
           {isOwner ? (
@@ -190,52 +213,54 @@ export default function TrustProjectDetail() {
             ))
           )}
         </View>
-        {project.artifacts.map(({ artifact, versions }) => (
-          <View key={artifact.id} style={styles.artifact}>
-            <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-            {versions.map((v) => (
-              <View key={v.id} style={styles.versionRow}>
-                <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                {v.is_validated ? (
-                  <View style={styles.validatedRow}>
-                    <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                    {v.recorded_via === "expert_self" ? (
-                      <Text style={styles.chip}>expert-validated</Text>
-                    ) : v.recorded_via === "operator" ? (
-                      <Text style={styles.chip}>operator-recorded</Text>
-                    ) : null}
-                  </View>
-                ) : (
+        <View onLayout={(e) => { artifactsY.current = e.nativeEvent.layout.y; }}>
+          {project.artifacts.map(({ artifact, versions }) => (
+            <View key={artifact.id} style={styles.artifact}>
+              <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+              {versions.map((v) => (
+                <View key={v.id} style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                  {v.is_validated ? (
+                    <View style={styles.validatedRow}>
+                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                      {v.recorded_via === "expert_self" ? (
+                        <Text style={styles.chip}>expert-validated</Text>
+                      ) : v.recorded_via === "operator" ? (
+                        <Text style={styles.chip}>operator-recorded</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Approve version ${v.version_no}`}
+                      disabled={busy === v.id}
+                      style={styles.approveBtn}
+                      onPress={() => onApprove(v.id, v.version_no)}
+                    >
+                      <Text style={styles.approveText}>{busy === v.id ? "…" : "Approve"}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+              {isOwner ? (
+                <View style={styles.draftRow}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Approve version ${v.version_no}`}
-                    disabled={busy === v.id}
-                    style={styles.approveBtn}
-                    onPress={() => onApprove(v.id, v.version_no)}
+                    accessibilityLabel="Generate a draft"
+                    disabled={genBusy === artifact.id || inputs.length === 0}
+                    style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
+                    onPress={() => onGenerateDraft(artifact.id)}
                   >
-                    <Text style={styles.approveText}>{busy === v.id ? "…" : "Approve"}</Text>
+                    <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
                   </Pressable>
-                )}
-              </View>
-            ))}
-            {isOwner ? (
-              <View style={styles.draftRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Generate a draft"
-                  disabled={genBusy === artifact.id || inputs.length === 0}
-                  style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
-                  onPress={() => onGenerateDraft(artifact.id)}
-                >
-                  <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
-                </Pressable>
-                {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
-              </View>
-            ) : null}
-          </View>
-        ))}
+                  {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </View>
         {isOwner ? (
-          <View style={styles.ownerBlock}>
+          <View style={styles.ownerBlock} onLayout={(e) => { ownerActionsY.current = e.nativeEvent.layout.y; }}>
             <Text style={styles.artifactTitle}>Owner actions</Text>
             <View style={styles.inviteRow}>
               <TextInput
