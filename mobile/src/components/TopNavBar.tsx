@@ -4,40 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { colors, radius, spacing, typography } from "@/constants/theme";
-import { NAV } from "@/constants/labels";
-import { IS_DEMO } from "@/constants/demo";
-
-type IconName = keyof typeof Ionicons.glyphMap;
-
-// route name → label + active/inactive icon. The app launches on Library;
-// `index` is a redirect-to-Library route (not shown). Labels come from the
-// shared NAV vocabulary; the `books` route now reads as "Studio" (authoring).
-const TABS: Record<string, { label: string; active: IconName; inactive: IconName }> = {
-  library: { label: NAV.library, active: "library", inactive: "library-outline" },
-  shelves: { label: NAV.shelves, active: "albums", inactive: "albums-outline" },
-  books: { label: NAV.studio, active: "create", inactive: "create-outline" },
-  projects: { label: NAV.projects, active: "folder", inactive: "folder-outline" },
-  reviews: { label: NAV.reviews, active: "shield-checkmark", inactive: "shield-checkmark-outline" },
-  posts: { label: NAV.posts, active: "megaphone", inactive: "megaphone-outline" },
-  settings: { label: NAV.settings, active: "settings", inactive: "settings-outline" },
-  help: { label: NAV.help, active: "help-circle", inactive: "help-circle-outline" },
-  about: { label: NAV.about, active: "information-circle", inactive: "information-circle-outline" },
-};
-
-// Visual left→right order of the menu. Library is first (and the landing); the
-// brand logo is rendered before this row and links to Library (home). Projects
-// and Reviews need a backend account (ADR-037) and are omitted from the demo
-// build, which has none — same reasoning as the other backend-only surfaces in
-// this app.
-const ORDER = [
-  "library",
-  "shelves",
-  "books",
-  ...(IS_DEMO ? [] : ["projects", "reviews", "posts"]),
-  "settings",
-  "help",
-  "about",
-];
+import { NAV_TABS, NAV_ORDER } from "./navItems";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
 // Mentible mark that jumps to Library (home). Replaces the default bottom tab bar
@@ -80,8 +47,8 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
           />
         </Pressable>
 
-        {ORDER.map((name) => {
-          const cfg = TABS[name];
+        {NAV_ORDER.map((name) => {
+          const cfg = NAV_TABS[name];
           if (!cfg || !routeByName.has(name)) return null;
           const focused = name === activeName;
           return (
