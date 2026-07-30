@@ -53,6 +53,13 @@ async def make_post(
     """
     managed = body.api_key is None
     if managed:
+        # SCOPE (slice 1, deliberate): the managed gate here is the Phase-1 staff
+        # allowlist ONLY. /generate additionally resolves DB-backed managed-plan
+        # entitlement + cap (accounts_repo -> resolve_managed_access -> over_cap
+        # -> 429); this endpoint does NOT yet, so a real managed-plan customer is
+        # rejected with the same generic 400 as any ineligible caller. Fails
+        # closed (never leaks the key or allowlist membership). Wiring the full
+        # DB entitlement path is a follow-up (metering was deferred for this slice).
         if not is_managed_eligible(principal, body.provider_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
