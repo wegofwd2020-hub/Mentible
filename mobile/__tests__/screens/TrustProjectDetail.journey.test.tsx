@@ -1,6 +1,7 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
+import { colors } from "@/constants/theme";
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }) }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
@@ -76,4 +77,30 @@ it("on a captured-but-no-artifact owner project, the next-step is 'add an artifa
   const nextBtn = await screen.findByLabelText(/Go to next step: Next: add an artifact/i);
   expect(() => fireEvent.press(nextBtn)).not.toThrow();
   expect(mockPush).not.toHaveBeenCalled();
+});
+
+describe("post-scroll highlight", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => { jest.runOnlyPendingTimers(); jest.useRealTimers(); });
+
+  const borderOf = (el: any) => {
+    const s = Array.isArray(el.props.style) ? Object.assign({}, ...el.props.style.filter(Boolean)) : el.props.style;
+    return s?.borderColor;
+  };
+
+  it("Capture next-step highlights the Sources section, then clears", () => {
+    (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [], []));   // no inputs → Capture current
+    render(<TrustProjectDetail />);
+    fireEvent.press(screen.getByLabelText(/Go to next step/i));
+    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).toBe(colors.primary);
+    act(() => jest.advanceTimersByTime(1500));
+    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).not.toBe(colors.primary);
+  });
+
+  it("Create next-step highlights the Artifacts section", () => {
+    (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [{ id: "i" }], []));  // source + artifact-no-version → Create current
+    render(<TrustProjectDetail />);
+    fireEvent.press(screen.getByLabelText(/Go to next step/i));
+    expect(borderOf(screen.getByTestId("journey-anchor-artifacts"))).toBe(colors.primary);
+  });
 });

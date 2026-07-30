@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { TrustJourney } from "@/components/TrustJourney";
@@ -47,6 +47,14 @@ export default function TrustProjectDetail() {
   const sourcesY = useRef(0);
   const artifactsY = useRef(0);
   const ownerActionsY = useRef(0);
+  const [highlight, setHighlight] = useState<"sources" | "artifacts" | "owner" | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = (key: "sources" | "artifacts" | "owner") => {
+    setHighlight(key);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlight(null), 1500);
+  };
+  useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -135,19 +143,19 @@ export default function TrustProjectDetail() {
     const scrollTo = (y: number) => scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
     switch (phaseKey) {
       case "capture":
-        scrollTo(sourcesY.current);
+        scrollTo(sourcesY.current); flash("sources");
         break;
       case "create":
-        scrollTo(artifactsY.current);
+        scrollTo(artifactsY.current); flash("artifacts");
         break;
       case "create_artifact":
-        scrollTo(ownerActionsY.current);
+        scrollTo(ownerActionsY.current); flash("owner");
         break;
       case "validate":
-        scrollTo(isOwner ? ownerActionsY.current : artifactsY.current);
+        scrollTo(isOwner ? ownerActionsY.current : artifactsY.current); flash(isOwner ? "owner" : "artifacts");
         break;
       default:
-        router.push("/posts"); // share
+        router.push("/posts"); // share — no highlight
         break;
     }
   };
@@ -158,7 +166,7 @@ export default function TrustProjectDetail() {
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
         <TrustJourney detail={project} isOwner={isOwner} onNext={onNextAction} />
-        <View style={styles.sourcesBlock} onLayout={(e) => { sourcesY.current = e.nativeEvent.layout.y; }}>
+        <View testID="journey-anchor-sources" style={[styles.sourcesBlock, highlight === "sources" && styles.highlighted]} onLayout={(e) => { sourcesY.current = e.nativeEvent.layout.y; }}>
           <Text style={styles.artifactTitle}>Sources</Text>
           <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
           {isOwner ? (
@@ -216,7 +224,7 @@ export default function TrustProjectDetail() {
             ))
           )}
         </View>
-        <View onLayout={(e) => { artifactsY.current = e.nativeEvent.layout.y; }}>
+        <View testID="journey-anchor-artifacts" style={[styles.artifactsWrap, highlight === "artifacts" && styles.highlighted]} onLayout={(e) => { artifactsY.current = e.nativeEvent.layout.y; }}>
           {project.artifacts.map(({ artifact, versions }) => (
             <View key={artifact.id} style={styles.artifact}>
               <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
@@ -263,7 +271,7 @@ export default function TrustProjectDetail() {
           ))}
         </View>
         {isOwner ? (
-          <View style={styles.ownerBlock} onLayout={(e) => { ownerActionsY.current = e.nativeEvent.layout.y; }}>
+          <View testID="journey-anchor-owner" style={[styles.ownerBlock, highlight === "owner" && styles.highlighted]} onLayout={(e) => { ownerActionsY.current = e.nativeEvent.layout.y; }}>
             <Text style={styles.artifactTitle}>Owner actions</Text>
             <View style={styles.inviteRow}>
               <TextInput
@@ -398,4 +406,6 @@ const styles = StyleSheet.create({
   sourceKindLabel: { color: colors.textSecondary, fontSize: typography.sizeXs, fontWeight: "700", textTransform: "uppercase" },
   sourceRowTitle: { color: colors.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: colors.textMuted, fontSize: typography.sizeXs },
+  artifactsWrap: { borderWidth: 1, borderColor: "transparent", borderRadius: radius.md },
+  highlighted: { borderColor: colors.primary },
 });
