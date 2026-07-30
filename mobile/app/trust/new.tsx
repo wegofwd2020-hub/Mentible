@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
+import { RequireSignIn } from "@/auth/RequireSignIn";
 import { Alert } from "@/lib/alert";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { ApiError } from "@/api/client";
@@ -27,15 +28,17 @@ export default function NewProjectScreen() {
       <TextInput value={v} onChangeText={set} style={styles.input} placeholderTextColor={colors.textMuted} accessibilityLabel={label} /></View>
   );
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}><PageContainer>
-      {field("Title", title, setTitle)}
-      {field("Topic", topic, setTopic)}
-      {field("Audience", audience, setAudience)}
-      {field("Goal", goal, setGoal)}
-      <Pressable accessibilityRole="button" accessibilityLabel="Create project" disabled={busy} style={styles.submit} onPress={submit}>
-        <Text style={styles.submitText}>{busy ? "…" : "Create project"}</Text>
-      </Pressable>
-    </PageContainer></ScrollView>
+    <RequireSignIn action="start a project">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body}><PageContainer>
+        {field("Title", title, setTitle)}
+        {field("Topic", topic, setTopic)}
+        {field("Audience", audience, setAudience)}
+        {field("Goal", goal, setGoal)}
+        <Pressable accessibilityRole="button" accessibilityLabel="Create project" disabled={busy} style={styles.submit} onPress={submit}>
+          <Text style={styles.submitText}>{busy ? "…" : "Create project"}</Text>
+        </Pressable>
+      </PageContainer></ScrollView>
+    </RequireSignIn>
   );
 }
 const styles = StyleSheet.create({
