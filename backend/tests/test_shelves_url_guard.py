@@ -43,14 +43,14 @@ async def test_non_https_or_malformed_is_rejected(url: str):
 @pytest.mark.parametrize(
     "ip",
     [
-        "127.0.0.1",        # loopback
-        "10.0.0.5",         # private
-        "172.16.3.9",       # private
-        "192.168.1.10",     # private
+        "127.0.0.1",  # loopback
+        "10.0.0.5",  # private
+        "172.16.3.9",  # private
+        "192.168.1.10",  # private
         "169.254.169.254",  # cloud metadata — the one that matters
-        "::1",              # IPv6 loopback
-        "fd00::1",          # IPv6 unique-local
-        "fe80::1",          # IPv6 link-local
+        "::1",  # IPv6 loopback
+        "fd00::1",  # IPv6 unique-local
+        "fe80::1",  # IPv6 link-local
         "0.0.0.0",
     ],
 )
@@ -101,9 +101,7 @@ async def test_literal_public_ip_host_is_allowed_without_dns():
 @pytest.mark.asyncio
 async def test_hostname_resolving_to_cgnat_ip_is_rejected():
     with pytest.raises(BlockedUrlError) as exc:
-        await assert_fetchable(
-            "https://evil.example.org/f.opds", resolver_returning("100.64.0.1")
-        )
+        await assert_fetchable("https://evil.example.org/f.opds", resolver_returning("100.64.0.1"))
     assert exc.value.reason == "blocked_host"
 
 
