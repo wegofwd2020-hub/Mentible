@@ -30,13 +30,13 @@ function sourceDate(createdAt: string | null): string | null {
 
 export default function TrustProjectDetail() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const { project, loading, error, approve, addArtifact, addVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [addArtifactBusy, setAddArtifactBusy] = useState(false);
-  const [addVersionBusy, setAddVersionBusy] = useState<string | null>(null);
+  const [genBusy, setGenBusy] = useState<string | null>(null);
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -96,14 +96,14 @@ export default function TrustProjectDetail() {
     }
   };
 
-  const onAddVersion = async (artifactId: string) => {
-    setAddVersionBusy(artifactId);
+  const onGenerateDraft = async (artifactId: string) => {
+    setGenBusy(artifactId);
     try {
-      await addVersion(artifactId, { text: "" });
+      await generateVersion(artifactId);
     } catch (e) {
-      Alert.alert("Couldn't add version", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      Alert.alert("Couldn't generate", e instanceof Error ? e.message : "Try again.");
     } finally {
-      setAddVersionBusy(null);
+      setGenBusy(null);
     }
   };
 
@@ -217,15 +217,18 @@ export default function TrustProjectDetail() {
               </View>
             ))}
             {isOwner ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add a version"
-                disabled={addVersionBusy === artifact.id}
-                style={styles.addVersionBtn}
-                onPress={() => onAddVersion(artifact.id)}
-              >
-                <Text style={styles.addVersionText}>{addVersionBusy === artifact.id ? "…" : "Add a version"}</Text>
-              </Pressable>
+              <View style={styles.draftRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Generate a draft"
+                  disabled={genBusy === artifact.id || inputs.length === 0}
+                  style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
+                  onPress={() => onGenerateDraft(artifact.id)}
+                >
+                  <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
+                </Pressable>
+                {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+              </View>
             ) : null}
           </View>
         ))}
@@ -300,6 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   addVersionText: { color: colors.text, fontSize: typography.sizeSm, fontWeight: "600" },
+  draftRow: { gap: spacing.xs },
   ownerBlock: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
