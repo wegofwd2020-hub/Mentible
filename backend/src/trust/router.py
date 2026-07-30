@@ -20,6 +20,8 @@ from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing.eligibility import is_managed_eligible
 from ..billing.vault import get_managed_key
+from ..core.log_redaction import get_logger
+from ..core.rate_limit import enforce_rate_limit
 from ..db.deps import get_conn
 from . import approval_repo, artifact_repo, membership_repo, project_repo, schemas
 from .access import (
@@ -31,6 +33,7 @@ from .access import (
 from .generate import generate_draft
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
+log = get_logger("trust")
 
 
 async def _account(conn: asyncpg.Connection, principal: Principal) -> Account:
@@ -186,7 +189,11 @@ async def create_version(
     )
 
 
-@router.post("/artifacts/{artifact_id}/versions/generate", response_model=schemas.VersionOut)
+@router.post(
+    "/artifacts/{artifact_id}/versions/generate",
+    response_model=schemas.VersionOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
 async def generate_version(
     artifact_id: uuid.UUID,
     body: schemas.DraftGenerateIn,
@@ -201,6 +208,8 @@ async def generate_version(
 
     fmt = await conn.fetchval("SELECT format FROM artifact WHERE id=$1", artifact_id)
     p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
     sources = await project_repo.list_inputs(conn, project_id=project_id)
     if not sources:
         raise HTTPException(
@@ -233,20 +242,28 @@ async def generate_version(
             model=model,
         )
     except LLMSchemaError:
+        log.warning("draft_generation_failed", reason="schema", artifact_id=str(artifact_id))
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, "generated draft failed validation"
         ) from None
     except LLMAuthError:
+        log.warning("draft_generation_failed", reason="auth", artifact_id=str(artifact_id))
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             "The API key was rejected by the provider. Check it in Settings.",
         ) from None
     except LLMRateLimitError:
+        log.warning("draft_generation_failed", reason="rate_limit", artifact_id=str(artifact_id))
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "The provider is rate-limiting requests. Try again shortly.",
         ) from None
-    except (LLMError, Exception):
+    except LLMError:
+        log.warning("draft_generation_failed", reason="llm_error", artifact_id=str(artifact_id))
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "draft generation failed") from None
+    except Exception:
+        # Defense in depth: never let a raw error escape with key material.
+        log.warning("draft_generation_failed", reason="unexpected", artifact_id=str(artifact_id))
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "draft generation failed") from None
 
     # map model labels S1..Sn -> real input ids (drop unknowns; never 500 on a bad label)
