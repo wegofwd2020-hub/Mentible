@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ProjectDetailView } from "@/api/trustClient";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
@@ -26,7 +26,15 @@ function nextStep(currentKey: string, isOwner: boolean): string {
   }
 }
 
-export function TrustJourney({ detail, isOwner }: { detail: ProjectDetailView; isOwner: boolean }): React.JSX.Element {
+export function TrustJourney({
+  detail,
+  isOwner,
+  onNext,
+}: {
+  detail: ProjectDetailView;
+  isOwner: boolean;
+  onNext?: (phaseKey: string) => void;
+}): React.JSX.Element {
   const captured = (detail.inputs?.length ?? 0) > 0;
   const created = detail.artifacts.some((a) => a.versions.length > 0);
   const validated = detail.artifacts.some((a) => a.versions.some((v) => v.is_validated));
@@ -38,6 +46,8 @@ export function TrustJourney({ detail, isOwner }: { detail: ProjectDetailView; i
   ];
   // First not-done phase is "current". Share is never done, so this is always ≥0.
   const currentIdx = phases.findIndex((p) => !p.done);
+  const currentKey = phases[currentIdx].key;
+  const nextText = nextStep(currentKey, isOwner);
 
   return (
     <View style={styles.wrap} accessibilityLabel="Project journey">
@@ -55,7 +65,17 @@ export function TrustJourney({ detail, isOwner }: { detail: ProjectDetailView; i
           );
         })}
       </View>
-      <Text style={styles.next}>{nextStep(phases[currentIdx].key, isOwner)}</Text>
+      {onNext ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Go to next step: ${nextText}`}
+          onPress={() => onNext(currentKey)}
+        >
+          <Text style={styles.nextTappable}>{nextText} →</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.next}>{nextText}</Text>
+      )}
     </View>
   );
 }
@@ -70,4 +90,5 @@ const styles = StyleSheet.create({
   label: { fontSize: typography.sizeXs, color: colors.textSecondary },
   labelCurrent: { color: colors.text, fontWeight: "700" },
   next: { fontSize: typography.sizeSm, color: colors.text, lineHeight: 20 },
+  nextTappable: { fontSize: typography.sizeSm, color: colors.primary, fontWeight: "600", lineHeight: 20 },
 });

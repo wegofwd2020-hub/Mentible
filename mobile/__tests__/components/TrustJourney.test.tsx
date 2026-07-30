@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import { TrustJourney } from "@/components/TrustJourney";
 
 function detail(over: Partial<any> = {}) {
@@ -43,4 +43,25 @@ it("a validated version → Share step (both roles), never claims validation ear
   const d = detail({ inputs: [{ id: "i", kind: "note", title: null, content: "x", source_ref: null, created_at: null }], ...withVersion(true) });
   render(<TrustJourney detail={d} isOwner />);
   expect(screen.getByText(/Posts tab/i)).toBeTruthy();
+});
+
+it("with onNext, the next step is a button that reports the current phase key", () => {
+  const onNext = jest.fn();
+  render(<TrustJourney detail={detail()} isOwner onNext={onNext} />); // no data → capture
+  fireEvent.press(screen.getByLabelText(/Go to next step/i));
+  expect(onNext).toHaveBeenCalledWith("capture");
+});
+
+it("with onNext, a validated project reports the share phase key", () => {
+  const d = detail({ inputs: [{ id: "i", kind: "note", title: null, content: "x", source_ref: null, created_at: null }], ...withVersion(true) });
+  const onNext = jest.fn();
+  render(<TrustJourney detail={d} isOwner onNext={onNext} />);
+  fireEvent.press(screen.getByLabelText(/Go to next step/i));
+  expect(onNext).toHaveBeenCalledWith("share");
+});
+
+it("without onNext, the next step is plain text (not a button)", () => {
+  render(<TrustJourney detail={detail()} isOwner />);
+  expect(screen.queryByLabelText(/Go to next step/i)).toBeNull();
+  expect(screen.getByText(/add a source/i)).toBeTruthy();
 });
