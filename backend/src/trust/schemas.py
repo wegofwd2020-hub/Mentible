@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+from wegofwd_llm.registry import PROVIDER_REGISTRY
 
 
 class MembershipOut(BaseModel):
@@ -132,3 +133,25 @@ class ApprovalOut(BaseModel):
     expert_name: str
     approved_at: datetime
     recorded_via: str
+
+
+class DraftGenerateIn(BaseModel):
+    api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
+    provider_id: str = "anthropic"
+    model: str | None = None
+
+    @field_validator("provider_id")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in PROVIDER_REGISTRY:
+            raise ValueError(f"unknown provider_id {v!r}")
+        return v
+
+    @model_validator(mode="after")
+    def _api_key_matches_provider(self) -> DraftGenerateIn:
+        if self.api_key is None:
+            return self
+        prefix = PROVIDER_REGISTRY[self.provider_id].key_prefix
+        if prefix and not self.api_key.startswith(prefix):
+            raise ValueError(f"{self.provider_id} api_key must start with {prefix}")
+        return self
