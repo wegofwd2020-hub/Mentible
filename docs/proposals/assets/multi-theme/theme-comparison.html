@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  html,body{width:1880px; background:#e9eaf0; color:#1b2333;}
+  .page{padding:34px 34px 40px;}
+  h1{font-size:23px; font-weight:800; margin-bottom:4px;}
+  .sub{font-size:14px; color:#5b6480; margin-bottom:24px;}
+  .row{display:flex; gap:26px;}
+  .col{flex:1;}
+  .cap{font-size:13px; font-weight:750; margin-bottom:4px;}
+  .capm{font-size:11.5px; color:#6b7490; margin-bottom:11px; height:30px;}
+
+  /* the repeated mini-screen — driven entirely by CSS vars set per column */
+  .screen{
+    border-radius:16px; overflow:hidden; border:1px solid rgba(0,0,0,.10);
+    background:var(--bg); color:var(--text); box-shadow:0 10px 30px rgba(20,25,50,.13);
+  }
+  .scr-in{display:flex; min-height:452px;}
+  .nav{width:112px; background:var(--bg); border-right:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; gap:5px;}
+  .logo{font-weight:800; font-size:17px; color:var(--brand); margin-bottom:16px; font-style:italic;}
+  .nav a{font-size:12px; color:var(--textMuted); padding:7px 9px; border-radius:8px;}
+  .nav a.on{background:var(--onWash); color:var(--onText); font-weight:700;}
+  .nav a.on::before{content:"● "; color:var(--brand); font-size:9px;}
+  .body{flex:1; padding:16px 17px; background:var(--surfaceLow, var(--bg));}
+  .lbl{font-size:9.5px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--brand); margin-bottom:9px;}
+  .hero{display:flex; gap:13px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:13px; margin-bottom:16px;}
+  .cover{width:58px; height:87px; border-radius:6px; flex-shrink:0; background:linear-gradient(150deg,var(--cov1),var(--cov2)); box-shadow:0 3px 10px rgba(0,0,0,.25);}
+  .hero .t{font-size:14px; font-weight:750; line-height:1.25; color:var(--text);}
+  .hero .m{font-size:11px; color:var(--textMuted); margin-top:3px;}
+  .bar{height:6px; border-radius:6px; background:var(--track); margin-top:12px; overflow:hidden;}
+  .bar i{display:block; height:6px; width:62%; background:var(--brand);}
+  .btn{display:inline-block; margin-top:11px; font-size:11.5px; font-weight:700; padding:7px 13px; border-radius:8px; background:var(--btnBg); color:var(--btnText);}
+  .grid{display:flex; gap:10px;}
+  .gcov{flex:1; height:104px; border-radius:8px; background:linear-gradient(150deg,var(--cov1),var(--cov2)); border:1px solid var(--border);}
+  .gcov.b{background:linear-gradient(150deg,var(--cov3),var(--cov4));}
+  .gadd{flex:1; height:104px; border-radius:8px; border:1.5px dashed var(--border); display:flex; align-items:center; justify-content:center; color:var(--textMuted); font-size:22px;}
+  .chips{display:flex; gap:6px; margin-top:15px;}
+  .chip{font-size:10px; padding:5px 9px; border-radius:16px; background:var(--surface); border:1px solid var(--border); color:var(--textSecondary);}
+  .chip.g{color:var(--growthText); background:var(--growth); border-color:var(--growth);}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>One screen, five themes — user-selectable (layer 3)</h1>
+  <div class="sub">The same Library <b>layout</b> (layer 2), only the <b>palette</b> swapped (layer 3). Study/Manuscript/Reading already exist in <code>theme.ts</code>; Gilded Noir and Forest &amp; Moss are two Lovable directions — <b>identical layout docs, different palettes</b> — mapped to the same token keys. That's the proof a theme is layer-3-only.</div>
+  <div class="row">
+
+    <!-- STUDY (current default dark) -->
+    <div class="col">
+      <div class="cap">Study · dark <span style="font-weight:400;color:#6b7490">(current default)</span></div>
+      <div class="capm">Growing-mind brand — indigo·orange·green, 3 semantic accents.</div>
+      <div class="screen" style="
+        --bg:#14152a; --surface:#1f2140; --border:#2c2f52; --text:#eef1f8; --textSecondary:#9aa3c0; --textMuted:#6b7299;
+        --brand:#f2731f; --primary:#6d5ae6; --growth:#6cc79a; --growthText:#06321f;
+        --onWash:rgba(242,115,31,.16); --onText:#f2731f; --track:#2c2f52;
+        --btnBg:#6d5ae6; --btnText:#fff; --cov1:#6d5ae6; --cov2:#312a8c; --cov3:#f2731f; --cov4:#b5400f;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUSCRIPT (light, exists) -->
+    <div class="col">
+      <div class="cap">Manuscript · light <span style="font-weight:400;color:#6b7490">(exists, unused)</span></div>
+      <div class="capm">Warm-paper print-bridge — keeps a light theme for a11y &amp; KDP work.</div>
+      <div class="screen" style="
+        --bg:#faf7f1; --surface:#ffffff; --border:#ece8fb; --text:#1e1b4b; --textSecondary:#5b5a78; --textMuted:#8a89a3;
+        --brand:#d2400c; --primary:#312a8c; --growth:#2a9258; --growthText:#fff;
+        --onWash:rgba(210,64,12,.12); --onText:#d2400c; --track:#ece8fb;
+        --btnBg:#312a8c; --btnText:#fff; --cov1:#312a8c; --cov2:#6d5ae6; --cov3:#d2400c; --cov4:#9e2f08;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- READING (sepia, exists) -->
+    <div class="col">
+      <div class="cap">Reading · sepia <span style="font-weight:400;color:#6b7490">(exists, reader-only)</span></div>
+      <div class="capm">Low-glare e-reader page mode — chrome recedes behind the book.</div>
+      <div class="screen" style="
+        --bg:#f3e9d2; --surface:#f7efdc; --border:#e0d3b5; --text:#3a2f1b; --textSecondary:#6d5d40; --textMuted:#8a795b;
+        --brand:#a23708; --primary:#312a8c; --growth:#1f7544; --growthText:#fff;
+        --onWash:rgba(162,55,8,.12); --onText:#a23708; --track:#e0d3b5;
+        --btnBg:#a23708; --btnText:#fff; --cov1:#a23708; --cov2:#7a2906; --cov3:#6d5d40; --cov4:#3a2f1b;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GILDED NOIR (new, from Lovable) -->
+    <div class="col">
+      <div class="cap">Gilded Noir · dark <span style="font-weight:400;color:#b5910f">★ new (Lovable)</span></div>
+      <div class="capm">Editorial charcoal + single gold. ⚠ collapses 3 accents → 1 (see note).</div>
+      <div class="screen" style="
+        --bg:#0d0d0d; --surface:#1a1a1a; --border:#262626; --text:#f5f5f4; --textSecondary:#d6d3d1; --textMuted:#a8a29e;
+        --brand:#c9a84c; --primary:#c9a84c; --growth:#c9a84c; --growthText:#0d0d0d;
+        --onWash:rgba(201,168,76,.15); --onText:#f0d78c; --track:#262626;
+        --btnBg:#f5f5f4; --btnText:#0d0d0d; --cov1:#3a3320; --cov2:#0d0d0d; --cov3:#c9a84c; --cov4:#5a4a1e;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOREST & MOSS (new, from Lovable) -->
+    <div class="col">
+      <div class="cap">Forest &amp; Moss · dark <span style="font-weight:400;color:#4e8a52">★ new (Lovable)</span></div>
+      <div class="capm">Greenhouse-at-dusk, single moss. Green-accent aligns w/ growth semantics.</div>
+      <div class="screen" style="
+        --bg:#1a3c2a; --surface:#2d5a3d; --border:#366348; --text:#f5f5f4; --textSecondary:#d6d3d1; --textMuted:#a8a29e;
+        --brand:#5a8a5c; --primary:#5a8a5c; --growth:#5a8a5c; --growthText:#0d2016;
+        --onWash:rgba(90,138,92,.20); --onText:#a0c49d; --track:#366348;
+        --btnBg:#f5f5f4; --btnText:#1a3c2a; --cov1:#2d5a3d; --cov2:#1a3c2a; --cov3:#5a8a5c; --cov4:#366348;">
+        <div class="scr-in">
+          <nav class="nav"><div class="logo">M.</div><a class="on">Library</a><a>Shelves</a><a>Studio</a><a>Settings</a><a>Help</a></nav>
+          <div class="body">
+            <div class="lbl">Reading now</div>
+            <div class="hero"><div class="cover"></div><div><div class="t">Product Sense &amp; AI</div><div class="m">Chapter 14 · 62%</div><div class="bar"><i></i></div><span class="btn">Resume</span></div></div>
+            <div class="lbl">Recent</div>
+            <div class="grid"><div class="gcov"></div><div class="gcov b"></div><div class="gadd">+</div></div>
+            <div class="chips"><span class="chip g">✓ Generated</span><span class="chip">Draft</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
