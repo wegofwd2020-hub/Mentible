@@ -7,14 +7,40 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
+const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] = [
+  { value: "transcript", label: "Transcript" },
+  { value: "note", label: "Note" },
+  { value: "link", label: "Link" },
+];
+
+function sourceKindLabel(kind: string): string {
+  return SOURCE_KINDS.find((k) => k.value === kind)?.label ?? kind;
+}
+
+function sourcePreview(title: string | null, content: string): string {
+  if (title) return title;
+  return content.length > 80 ? `${content.slice(0, 80)}…` : content;
+}
+
+function sourceDate(createdAt: string | null): string | null {
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+}
+
 export default function TrustProjectDetail() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const { project, loading, error, approve, addArtifact, addVersion, invite } = useTrustProject(String(projectId));
+  const { project, loading, error, approve, addArtifact, addVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const inputs = sourceInputs ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [addArtifactBusy, setAddArtifactBusy] = useState(false);
   const [addVersionBusy, setAddVersionBusy] = useState<string | null>(null);
+  const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [sourceContent, setSourceContent] = useState("");
+  const [addSourceBusy, setAddSourceBusy] = useState(false);
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -81,6 +107,22 @@ export default function TrustProjectDetail() {
     }
   };
 
+  const onAddSource = async () => {
+    const content = sourceContent.trim();
+    if (!content) return;
+    setAddSourceBusy(true);
+    try {
+      await addInput({ kind: sourceKind, title: sourceTitle.trim() || undefined, content });
+      setSourceTitle("");
+      setSourceContent("");
+      setSourceKind("note");
+    } catch (e) {
+      Alert.alert("Couldn't add source", e instanceof ApiError ? e.userMessage() : "Please try again.");
+    } finally {
+      setAddSourceBusy(false);
+    }
+  };
+
   const isOwner = project.my_role === "owner";
 
   return (
@@ -88,6 +130,64 @@ export default function TrustProjectDetail() {
       <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
+        <View style={styles.sourcesBlock}>
+          <Text style={styles.artifactTitle}>Sources</Text>
+          <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
+          {isOwner ? (
+            <View style={styles.sourceForm}>
+              <View style={styles.kindRow}>
+                {SOURCE_KINDS.map(({ value, label }) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Source kind ${label}`}
+                    style={[styles.kindBtn, sourceKind === value ? styles.kindBtnActive : null]}
+                    onPress={() => setSourceKind(value)}
+                  >
+                    <Text style={sourceKind === value ? styles.kindTextActive : styles.kindText}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                style={styles.inviteInput}
+                placeholder="Title (optional)"
+                placeholderTextColor={colors.textMuted}
+                value={sourceTitle}
+                onChangeText={setSourceTitle}
+              />
+              <TextInput
+                style={styles.sourceContentInput}
+                placeholder="Paste a transcript, note, or link…"
+                placeholderTextColor={colors.textMuted}
+                value={sourceContent}
+                onChangeText={setSourceContent}
+                multiline
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add source"
+                disabled={addSourceBusy || !sourceContent.trim()}
+                style={[styles.approveBtn, !sourceContent.trim() ? styles.disabledBtn : null]}
+                onPress={onAddSource}
+              >
+                <Text style={styles.approveText}>{addSourceBusy ? "…" : "Add source"}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {inputs.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No sources yet.{isOwner ? " Add a transcript, note, or link above to get started." : ""}
+            </Text>
+          ) : (
+            inputs.map((input) => (
+              <View key={input.id} style={styles.sourceRow}>
+                <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
+                <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
+                {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
+              </View>
+            ))
+          )}
+        </View>
         {project.artifacts.map(({ artifact, versions }) => (
           <View key={artifact.id} style={styles.artifact}>
             <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
@@ -221,4 +321,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   error: { color: colors.error, fontSize: typography.sizeMd, textAlign: "center" },
+  sourcesBlock: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  sourcesHelper: { color: colors.textSecondary, fontSize: typography.sizeSm },
+  sourceForm: { gap: spacing.sm },
+  kindRow: { flexDirection: "row", gap: spacing.sm },
+  kindBtn: {
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  kindBtnActive: { backgroundColor: colors.primary },
+  kindText: { color: colors.text, fontSize: typography.sizeSm, fontWeight: "600" },
+  kindTextActive: { color: colors.primaryText, fontSize: typography.sizeSm, fontWeight: "600" },
+  sourceContentInput: {
+    color: colors.text,
+    fontSize: typography.sizeSm,
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  disabledBtn: { opacity: 0.5 },
+  emptyText: { color: colors.textMuted, fontSize: typography.sizeSm },
+  sourceRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    gap: 2,
+  },
+  sourceKindLabel: { color: colors.textSecondary, fontSize: typography.sizeXs, fontWeight: "700", textTransform: "uppercase" },
+  sourceRowTitle: { color: colors.text, fontSize: typography.sizeSm },
+  sourceRowDate: { color: colors.textMuted, fontSize: typography.sizeXs },
 });

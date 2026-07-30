@@ -11,7 +11,11 @@ export interface ArtifactView {
 }
 export interface VersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean; recorded_via: string | null }
 export interface ArtifactDetailView { artifact: ArtifactView; versions: VersionSummaryView[] }
-export interface ProjectDetailView { project: ProjectView; artifacts: ArtifactDetailView[]; my_role: string }
+export interface ProjectInputView {
+  id: string; kind: string; title: string | null;
+  content: string; source_ref: string | null; created_at: string | null;
+}
+export interface ProjectDetailView { project: ProjectView; artifacts: ArtifactDetailView[]; inputs: ProjectInputView[]; my_role: string }
 export interface ApprovalView {
   id: string; version_id: string; expert_name: string; approved_at: string; recorded_via: string;
 }
@@ -76,4 +80,14 @@ export async function createVersion(
 
 export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {
   return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email }) })) as InvitationView;
+}
+
+export async function addProjectInput(
+  projectId: string,
+  body: { kind: "transcript" | "note" | "link"; title?: string; content: string; source_ref?: string },
+  token: string,
+): Promise<ProjectInputView> {
+  return (await trustFetch<ProjectInputView>(
+    `/projects/${projectId}/inputs`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as ProjectInputView;
 }
