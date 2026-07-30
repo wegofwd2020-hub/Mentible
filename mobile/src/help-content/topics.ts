@@ -453,11 +453,15 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "projects",
     title: "Create & set up a project",
     featureKey: "projects",
-    keywords: ["project", "expert", "knowledge", "version", "invite"],
+    keywords: ["project", "expert", "knowledge", "version", "invite", "capture", "create", "validate", "share", "journey"],
     blocks: [
       {
         kind: "text",
         text: "A project captures a piece of expert knowledge you want to write down, refine, and have validated by someone qualified. Create one from the Projects tab, add versions as your understanding improves, and invite an expert to review it once it's ready.",
+      },
+      {
+        kind: "text",
+        text: "Every project moves through four phases: capture your sources, create a draft from them, have an expert validate it, then share it once it's ready. The project screen shows a small journey stepper marking which phase you're currently in and what to do next, so you always know where a project stands.",
       },
       {
         kind: "steps",
