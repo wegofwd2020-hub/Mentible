@@ -95,8 +95,11 @@ async def test_html_content_type_is_rejected_not_parsed():
     """A 404-page-shaped-as-a-feed (the Feedbooks case) must never reach the parser."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=b"<!doctype html><html>nope</html>",
-                              headers={"content-type": "text/html; charset=utf-8"})
+        return httpx.Response(
+            200,
+            content=b"<!doctype html><html>nope</html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
 
     async with client_for(handler) as c:
         with pytest.raises(FeedFetchError) as exc:
@@ -189,7 +192,9 @@ async def test_fetch_feed_sends_user_agent():
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["ua"] = request.headers.get("user-agent", "")
-        return httpx.Response(200, headers={"content-type": "application/atom+xml"}, content=b"<feed/>")
+        return httpx.Response(
+            200, headers={"content-type": "application/atom+xml"}, content=b"<feed/>"
+        )
 
     async with client_for(handler) as c:
         await fetch_feed("https://example.org/f.opds", c, public)

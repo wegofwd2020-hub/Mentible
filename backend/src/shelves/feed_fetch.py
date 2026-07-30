@@ -23,9 +23,7 @@ MAX_FEED_BYTES = 8 * 1024 * 1024  # keep in step with mobile MAX_FEED_BYTES
 FEED_USER_AGENT = "Mentible (+https://mambakkam.net/mentible)"
 TIMEOUT_S = 10.0
 MAX_REDIRECTS = 3
-ALLOWED_CONTENT_TYPES = frozenset(
-    {"application/atom+xml", "application/xml", "text/xml"}
-)
+ALLOWED_CONTENT_TYPES = frozenset({"application/atom+xml", "application/xml", "text/xml"})
 
 
 class FeedFetchError(Exception):
@@ -88,9 +86,7 @@ async def fetch_feed(
         # credential-free (ADR-028 no-auth guardrail).
         request.headers.pop("authorization", None)
         request.headers.pop("cookie", None)
-        response = await client.send(
-            request, stream=True, follow_redirects=False, auth=None
-        )
+        response = await client.send(request, stream=True, follow_redirects=False, auth=None)
 
         if response.is_redirect:
             location = response.headers.get("location", "")
@@ -116,9 +112,7 @@ async def fetch_feed(
             content_type = response.headers.get("content-type", "")
             if _base_type(content_type) not in ALLOWED_CONTENT_TYPES:
                 # An HTML error page must never reach the parser.
-                raise FeedFetchError(
-                    "That URL doesn't look like an OPDS catalog.", "not_a_feed"
-                )
+                raise FeedFetchError("That URL doesn't look like an OPDS catalog.", "not_a_feed")
 
             body = await _read_capped(response)
         finally:
