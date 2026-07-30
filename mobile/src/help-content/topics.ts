@@ -490,4 +490,25 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "make-a-post",
+    title: "Make a post from your writing",
+    featureKey: "make-a-post",
+    keywords: ["post", "posts", "share", "linkedin", "x", "twitter", "social", "promote", "publish"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The Posts tab turns any writing into short, platform-ready social posts. Paste the source text, pick LinkedIn or X, optionally give it a tone, and you get three distinct drafts to choose from. Each draft is yours to copy and post — Mentible does not publish for you.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Add an Anthropic API key in Settings — the Posts tab uses your key (BYOK).",
+          "Open Posts and paste the source text you want to promote.",
+          "Choose the platform (LinkedIn or X) and, if you like, a tone.",
+          "Make the posts, then copy the draft you want and share it yourself.",
+        ],
+      },
+    ],
+  },
 ];

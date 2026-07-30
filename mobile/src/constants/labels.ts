@@ -13,6 +13,7 @@ export const NAV = {
   shelves: "Shelves",
   projects: "Projects",
   reviews: "Reviews",
+  posts: "Posts",
   settings: "Settings",
   help: "Help",
   about: "About",
