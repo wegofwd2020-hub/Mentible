@@ -13,7 +13,12 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from wegofwd_llm.errors import LLMAuthError, LLMSchemaError
+from wegofwd_llm.errors import (
+    LLMAuthError,
+    LLMError,
+    LLMRateLimitError,
+    LLMSchemaError,
+)
 
 from backend.config import settings
 from backend.src.auth.deps import optional_user
@@ -82,7 +87,28 @@ async def make_post(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
-                "The API key was rejected by the provider. Check it in Settings — "
+                "Your API key was rejected by the provider. Check it in Settings — "
                 "it may be invalid, revoked, or out of credit."
             ),
+        ) from None
+    except LLMRateLimitError:
+        log.warning("derivative_rate_limited", platform=body.platform)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The provider is rate-limiting requests. Wait a moment and try again.",
+        ) from None
+    except LLMError:
+        # Other LLM failure (timeout / transport / unexpected status) — key-free.
+        log.warning("derivative_llm_error", platform=body.platform)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="post generation failed",
+        ) from None
+    except Exception:
+        # Defense in depth (mirrors generate/tasks.py): never let a raw exception
+        # escape with key material to the framework logger. Type-only log, generic 502.
+        log.warning("derivative_unexpected_error", platform=body.platform)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="post generation failed",
         ) from None

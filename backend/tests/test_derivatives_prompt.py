@@ -27,7 +27,16 @@ def test_request_validation():
 
 
 def test_output_model():
+    # The contract is exactly 3 variants (enforced structurally).
     out = _DerivativeOutput.model_validate(
-        {"variants": [{"hook": "h", "body": "b", "hashtags": ["#a"], "cta": None}]}
+        {
+            "variants": [
+                {"hook": f"h{i}", "body": "b", "hashtags": ["#a"], "cta": None} for i in range(3)
+            ]
+        }
     )
-    assert out.variants[0].hook == "h"
+    assert out.variants[0].hook == "h0"
+    with pytest.raises(ValidationError):  # wrong count → rejected → repair loop
+        _DerivativeOutput.model_validate(
+            {"variants": [{"hook": "h", "body": "b", "hashtags": ["#a"], "cta": None}]}
+        )

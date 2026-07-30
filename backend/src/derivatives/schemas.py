@@ -73,6 +73,11 @@ class DerivativeResponse(BaseModel):
 
 
 class _DerivativeOutput(BaseModel):
-    """Shape the model's JSON response is validated against."""
+    """Shape the model's JSON response is validated against.
 
-    variants: list[PostVariant]
+    The variant count is pinned to exactly 3 (spec open-item 1) — a model that
+    returns a different count fails validation and re-enters the repair loop,
+    rather than silently shipping the wrong contract.
+    """
+
+    variants: list[PostVariant] = Field(min_length=3, max_length=3)
