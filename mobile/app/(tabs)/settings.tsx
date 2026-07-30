@@ -86,7 +86,7 @@ export default function SettingsScreen() {
             >
               <Text style={[styles.swatchSample, { color: p.text }]}>Aa</Text>
               <View style={[styles.swatchDot, { backgroundColor: p.primary }]} />
-              <Text style={styles.swatchLabel}>{THEME_META[name].label}</Text>
+              <Text style={[styles.swatchLabel, { color: p.textSecondary }]}>{THEME_META[name].label}</Text>
               {active ? <Text style={styles.swatchCheck}>✓</Text> : null}
             </Pressable>
           );
@@ -261,7 +261,9 @@ function makeStyles(c: Palette) {
     swatch: { width: 92, borderRadius: radius.md, borderWidth: 2, padding: spacing.sm, alignItems: "center" as const, gap: 4 },
     swatchSample: { fontSize: typography.sizeLg, fontWeight: "700" as const },
     swatchDot: { width: 14, height: 14, borderRadius: 7 },
-    swatchLabel: { color: c.textSecondary, fontSize: typography.sizeXs, textAlign: "center" as const },
+    // Colour is set inline per tile (p.textSecondary) so each caption stays
+    // legible on its OWN palette background, not the active theme's.
+    swatchLabel: { fontSize: typography.sizeXs, textAlign: "center" as const },
     swatchCheck: { color: c.primary, fontWeight: "700" as const },
   };
 }
