@@ -523,4 +523,16 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "sources",
+    title: "Sources — capture the expert's knowledge",
+    featureKey: "sources",
+    keywords: ["source", "sources", "capture", "transcript", "note", "link", "input", "material", "intake"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Sources are the raw material a project is built from — an interview transcript, a note, or a link to something the expert wrote. Open a project and, as its owner, paste a source under Sources. Everyone invited to the project can see the sources behind the work. Adding sources is the first step; a later step turns them into a drafted, expert-reviewed asset.",
+      },
+    ],
+  },
 ];
