@@ -34,3 +34,20 @@ it("reports themeName navy-trust inside the scope", () => {
   );
   expect(getByText("navy-trust")).toBeTruthy();
 });
+
+it("setTheme is inert inside the scope (cannot switch away)", () => {
+  function TryEscape() {
+    const theme = useTheme();
+    const { setTheme } = useThemeControls();
+    // Attempting to switch to Study inside the scope must NOT change the palette.
+    React.useEffect(() => setTheme("study"), [setTheme]);
+    return <Text>{theme.background}</Text>;
+  }
+  const { getByText } = render(
+    <SmeThemeScope>
+      <TryEscape />
+    </SmeThemeScope>,
+  );
+  // Still navy-trust after the setTheme attempt — the scope's setTheme is a no-op.
+  expect(getByText(themes["navy-trust"].background)).toBeTruthy();
+});
