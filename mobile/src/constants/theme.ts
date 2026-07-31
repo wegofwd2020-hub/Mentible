@@ -229,12 +229,33 @@ export const forestMossColors: Palette = {
   white: "#ffffff",
 };
 
+// "Navy Trust" — the SME studio brand (ADR-038): deep navy + a single restrained
+// gold accent, warm cream text. Editorial, trustworthy, Anthropic-adjacent — the
+// look of the design export ported to RN (OKLCH → the export's own hex fallbacks:
+// navy #101828, card #1b2436, cream #F7F4EE, gold #D9A75A). Single-accent like
+// Gilded Noir (brand/growth collapse to gold); gold is an ACCENT — components must
+// use it for small marks (rules, labels, icons, badges), never a large fill.
+export const navyTrustColors: Palette = {
+  background: "#101828", surface: "#1b2436", surfaceHigh: "#24304a",
+  border: "#2a3550", borderLight: "#35425f",
+  text: "#f7f4ee", textSecondary: "#cdd2df", textMuted: "#98a0b5",
+  primary: "#d9a75a", primaryText: "#101828",
+  brand: "#d9a75a", brandText: "#101828",
+  growth: "#d9a75a", growthText: "#101828",
+  tileOffFace: "#1b2436", tileOffGlyph: "#e7c789", tileOffShadow: "#060a13",
+  tileOnFace: "#d9a75a", tileOnGlyph: "#101828", tileOnHi: "#ecc98a", tileOnLo: "#a97e38",
+  tileSubGlyph: "#98a0b5",
+  success: "#7fae86", error: "#d1705a", warning: "#d6b25e",
+  white: "#ffffff",
+};
+
 export const themes = {
   study: colors as unknown as Palette,
   manuscript: manuscriptColors,
   reading: readingColors,
   "gilded-noir": gildedNoirColors,
   "forest-moss": forestMossColors,
+  "navy-trust": navyTrustColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
@@ -245,4 +266,5 @@ export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "ligh
   reading: { label: "Reading", mode: "sepia" },
   "gilded-noir": { label: "Gilded Noir", mode: "dark" },
   "forest-moss": { label: "Forest & Moss", mode: "dark" },
+  "navy-trust": { label: "Navy Trust", mode: "dark" },
 };
