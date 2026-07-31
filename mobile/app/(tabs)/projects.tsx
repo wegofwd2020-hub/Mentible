@@ -39,7 +39,9 @@ export default function ProjectsScreen() {
   return (
     <RequireSignIn action="manage projects">
       <SmeThemeScope>
-        <PageContainer><ProjectsInner /></PageContainer>
+        {/* flex:1 so the FlatList/centered-empty (flex:1) has a bounded parent —
+            without it the content collapses to 0 height on native (New Arch). */}
+        <PageContainer style={{ flex: 1 }}><ProjectsInner /></PageContainer>
       </SmeThemeScope>
     </RequireSignIn>
   );
