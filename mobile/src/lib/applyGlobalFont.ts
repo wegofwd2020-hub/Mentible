@@ -35,6 +35,15 @@ const SERIF_RE = /serif|georgia/i;
 // dyslexic mode still overrides it (a11y) instead of leaving it untouched.
 const FRAUNCES_RE = /fraunces/i;
 
+// The concrete Fraunces family already bakes its weight (e.g. "Fraunces_700Bold"),
+// so we read the weight from the NAME rather than the style's fontWeight. That lets
+// SME heading styles omit fontWeight entirely — which they must, so web (where this
+// interceptor doesn't run) doesn't synthesise faux-bold from a redundant fontWeight
+// on a weight-400-registered @font-face.
+function weightFromFraunces(family: string): string | undefined {
+  return /_(\d{3})/.exec(family)?.[1];
+}
+
 function isBoldish(weight: unknown): boolean {
   if (weight === "bold") return true;
   const n = typeof weight === "number" ? weight : parseInt(String(weight ?? "400"), 10);
@@ -51,10 +60,11 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
   };
 
   if (flat.fontFamily) {
-    // The SME Fraunces heading brand: re-resolve by weight, and (crucially) keep
-    // it subject to the dyslexic override, which resolveFamily applies.
+    // The SME Fraunces heading brand: re-resolve from the weight baked into the
+    // family name (not the style's fontWeight, which the styles omit), and keep it
+    // subject to the dyslexic override, which resolveFamily applies.
     if (FRAUNCES_RE.test(flat.fontFamily)) {
-      return resolveFamily("heading", flat.fontWeight, dyslexic, "fraunces");
+      return resolveFamily("heading", weightFromFraunces(flat.fontFamily), dyslexic, "fraunces");
     }
     // Only our serif text-intent gets remapped; every other explicit family
     // (icon sets, "monospace", a deliberate family) is left exactly as-is.

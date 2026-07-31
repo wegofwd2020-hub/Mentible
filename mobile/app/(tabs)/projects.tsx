@@ -50,10 +50,10 @@ const makeStyles = (c: Palette) => ({
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
   row: { flexDirection: "row" as const, alignItems: "center" as const, backgroundColor: c.surface, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border },
-  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const, fontFamily: FRAUNCES.semibold },
+  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold },
   rowMeta: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: 2 },
   chevron: { color: c.textMuted, fontSize: typography.sizeXl },
-  empty: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const, fontFamily: FRAUNCES.semibold },
+  empty: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold },
   emptySub: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   error: { color: c.error, fontSize: typography.sizeMd, textAlign: "center" as const },
 });

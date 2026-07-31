@@ -327,10 +327,12 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1 },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
-  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const, fontFamily: FRAUNCES.bold },
+  // Fraunces bakes the weight into the family name, so no fontWeight here (a
+  // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
+  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const, fontFamily: FRAUNCES.semibold },
+  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold },
   versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
   versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
   validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },

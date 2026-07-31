@@ -44,21 +44,24 @@ describe("resolveFamilyForStyle", () => {
     );
   });
 
-  // ADR-038 O2: SME heading styles set a concrete Fraunces family. The interceptor
-  // recognises Fraunces as heading-intent so (a) native re-resolves it by weight,
-  // and (b) dyslexic mode still overrides it (a11y), unlike an unrecognised family.
-  it("recognises an explicit Fraunces family as a heading and keeps it Fraunces", () => {
-    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold", fontWeight: "700" }, false)).toBe(
-      "Fraunces_700Bold",
-    );
-    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold", fontWeight: "600" }, false)).toBe(
+  // ADR-038 O2: SME heading styles set a concrete Fraunces family and NO fontWeight
+  // (the weight is baked into the name; a redundant fontWeight would faux-bold on
+  // web). The interceptor derives the weight from the family name, keeps it Fraunces
+  // on native, and still lets dyslexic mode override it (a11y).
+  it("resolves an explicit Fraunces family by its baked weight, without a fontWeight", () => {
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold" }, false)).toBe("Fraunces_700Bold");
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold" }, false)).toBe(
       "Fraunces_600SemiBold",
+    );
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_400Regular" }, false)).toBe(
+      "Fraunces_400Regular",
     );
   });
 
-  it("still swaps Fraunces headings to OpenDyslexic in dyslexic mode", () => {
-    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold", fontWeight: "700" }, true)).toBe(
-      "OpenDyslexic_700Bold",
+  it("still swaps Fraunces headings to OpenDyslexic in dyslexic mode (by baked weight)", () => {
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold" }, true)).toBe("OpenDyslexic_700Bold");
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_400Regular" }, true)).toBe(
+      "OpenDyslexic_400Regular",
     );
   });
 });
