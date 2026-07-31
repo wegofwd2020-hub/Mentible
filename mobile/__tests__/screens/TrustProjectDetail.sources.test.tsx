@@ -25,7 +25,7 @@ it("owner sees the add-source form and can add a source", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
-  expect(await screen.findByText("Sources")).toBeTruthy();
+  fireEvent.press(await screen.findByLabelText(/Sources:/));
   const addBtn = screen.getByLabelText("Add source");
   expect(addBtn).toBeTruthy();
 
@@ -42,7 +42,7 @@ it("reviewer sees the source list but not the add form", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer"));
   render(<TrustProjectDetail />);
 
-  expect(await screen.findByText("Sources")).toBeTruthy();
+  fireEvent.press(await screen.findByLabelText(/Sources:/));
   expect(screen.getByText("Kickoff notes")).toBeTruthy();
   expect(screen.queryByLabelText("Add source")).toBeNull();
 });

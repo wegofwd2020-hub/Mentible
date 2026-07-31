@@ -13,17 +13,29 @@ const proj = (my_role: string, is_validated = false, recorded_via: string | null
   addArtifact: jest.fn().mockResolvedValue({ id: "a2" }), addVersion: jest.fn().mockResolvedValue({ id: "v2" }), invite: jest.fn().mockResolvedValue({}),
 });
 beforeEach(() => jest.clearAllMocks());
-it("owner sees Invite + Add-artifact actions; reviewer does not", async () => {
+it("owner sees the Invite action on Feedback; reviewer does not", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("owner"));
   const { rerender } = render(<TrustProjectDetail />);
-  expect(await screen.findByLabelText("Invite an expert")).toBeTruthy();
-  expect(screen.getByLabelText("Add an artifact")).toBeTruthy();
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
+  expect(screen.getByLabelText("Invite an expert")).toBeTruthy();
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer"));
   rerender(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   expect(screen.queryByLabelText("Invite an expert")).toBeNull();
 });
-it("shows the recorded_via chip on a validated version", async () => {
+it("owner sees Add-artifact on Drafts when there are no artifacts yet", async () => {
+  const noArtifacts = proj("owner");
+  (useTrustProject as jest.Mock).mockReturnValue({
+    ...noArtifacts,
+    project: { ...noArtifacts.project, artifacts: [] },
+  });
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  expect(screen.getByLabelText("Add an artifact")).toBeTruthy();
+});
+it("shows the recorded_via chip on a validated version (Feedback)", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer", true, "expert_self"));
   render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   expect(await screen.findByText(/expert-validated/i)).toBeTruthy();
 });

@@ -1,11 +1,7 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
-import { themes } from "@/constants/theme";
 
-// TrustProjectDetail is an SME surface → rendered in the forced Navy Trust theme
-// (ADR-038), so the highlight border is the navy-trust accent, not Study's.
-const accent = themes["navy-trust"].primary;
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }) }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
@@ -25,6 +21,7 @@ const proj = (my_role: string, inputs: unknown[] = [], versions: unknown[] = [])
   approve: jest.fn().mockResolvedValue({ recorded_via: "operator" }),
   addArtifact: jest.fn().mockResolvedValue({ id: "a2" }),
   addVersion: jest.fn().mockResolvedValue({ id: "v2" }),
+  generateVersion: jest.fn().mockResolvedValue({ id: "v2" }),
   invite: jest.fn().mockResolvedValue({}),
 });
 
@@ -33,78 +30,52 @@ beforeEach(() => {
   mockPush.mockClear();
 });
 
-it("renders the Project journey stepper with all four phases", async () => {
+it("auto-selects the current phase on load (no sources → Sources)", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("owner"));
   render(<TrustProjectDetail />);
-  expect(await screen.findByLabelText("Project journey")).toBeTruthy();
-  expect(screen.getByText("Capture")).toBeTruthy();
-  expect(screen.getByText("Create")).toBeTruthy();
-  expect(screen.getByText("Validate")).toBeTruthy();
-  expect(screen.getByText("Share")).toBeTruthy();
+  // Sources tab is selected, and its add-source control is visible.
+  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  expect(screen.getByLabelText("Add source")).toBeTruthy();
 });
 
-it("on a validated project, pressing the next-step opens the Posts tab", async () => {
+it("tapping the Drafts tab switches to the drafts panel", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [{ id: "i" }]));
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  expect(screen.getByLabelText("Generate a draft")).toBeTruthy();
+});
+
+it("a reviewer auto-lands on Feedback with an Approve control", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(
-    proj("owner", [{ id: "in1", kind: "note", title: "Notes", content: "hi", created_at: null }], [{ id: "v1", version_no: 1, is_validated: true, recorded_via: "operator" }]),
+    proj("reviewer", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: false, recorded_via: null }]),
   );
   render(<TrustProjectDetail />);
-  const nextBtn = await screen.findByLabelText(/Go to next step/i);
-  fireEvent.press(nextBtn);
-  expect(mockPush).toHaveBeenCalledWith("/posts");
+  expect((await screen.findByLabelText(/Feedback:/)).props.accessibilityState.selected).toBe(true);
+  expect(screen.getByLabelText(/Approve version 1/)).toBeTruthy();
 });
 
-it("on a capture-phase project, pressing the next-step does not throw or navigate", async () => {
-  (useTrustProject as jest.Mock).mockReturnValue(proj("owner"));
+it("keeps the recorded_via chip on a validated version (Feedback)", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(
+    proj("owner", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: true, recorded_via: "expert_self" }]),
+  );
   render(<TrustProjectDetail />);
-  const nextBtn = await screen.findByLabelText(/Go to next step/i);
-  expect(() => fireEvent.press(nextBtn)).not.toThrow();
-  expect(mockPush).not.toHaveBeenCalled();
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
+  expect(screen.getByText("expert-validated")).toBeTruthy();
 });
 
-it("on a captured-but-no-artifact owner project, the next-step is 'add an artifact' and pressing it scrolls (no navigate)", async () => {
-  (useTrustProject as jest.Mock).mockReturnValue({
-    project: {
-      project: { id: "p1", title: "P", topic: null },
-      my_role: "owner",
-      inputs: [{ id: "in1", kind: "note", title: "Notes", content: "hi", created_at: null }],
-      artifacts: [],
-    },
-    loading: false,
-    error: null,
-    refresh: jest.fn(),
-    approve: jest.fn(),
-    addArtifact: jest.fn().mockResolvedValue({ id: "a2" }),
-    addVersion: jest.fn(),
-    invite: jest.fn(),
-  });
+it("the Publish tab shows a placeholder with no CTA", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(
+    proj("owner", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: true, recorded_via: "operator" }]),
+  );
   render(<TrustProjectDetail />);
-  const nextBtn = await screen.findByLabelText(/Go to next step: Next: add an artifact/i);
-  expect(() => fireEvent.press(nextBtn)).not.toThrow();
-  expect(mockPush).not.toHaveBeenCalled();
+  fireEvent.press(await screen.findByLabelText(/Publish:/));
+  expect(screen.getByText(/Sharing & export are coming soon\./)).toBeTruthy();
 });
 
-describe("post-scroll highlight", () => {
-  beforeEach(() => jest.useFakeTimers());
-  afterEach(() => { act(() => jest.runOnlyPendingTimers()); jest.useRealTimers(); });
-
-  const borderOf = (el: any) => {
-    const s = Array.isArray(el.props.style) ? Object.assign({}, ...el.props.style.filter(Boolean)) : el.props.style;
-    return s?.borderColor;
-  };
-
-  it("Capture next-step highlights the Sources section, then clears", () => {
-    (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [], []));   // no inputs → Capture current
-    render(<TrustProjectDetail />);
-    fireEvent.press(screen.getByLabelText(/Go to next step/i));
-    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).toBe(accent);
-    act(() => jest.advanceTimersByTime(1500));
-    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).not.toBe(accent);
-  });
-
-  it("Create next-step highlights the Artifacts section", () => {
-    (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [{ id: "i" }], []));  // source + artifact-no-version → Create current
-    render(<TrustProjectDetail />);
-    fireEvent.press(screen.getByLabelText(/Go to next step/i));
-    expect(borderOf(screen.getByTestId("journey-anchor-artifacts"))).toBe(accent);
-  });
+it("a phase not reachable yet shows a finish-prior-phase note instead of actions", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(proj("owner")); // no versions yet → Feedback is unreachable
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
+  expect(screen.queryByLabelText(/Approve version/)).toBeNull();
+  expect(screen.getByText(/first/i)).toBeTruthy();
 });

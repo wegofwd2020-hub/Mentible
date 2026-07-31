@@ -48,6 +48,7 @@ it("disables Generate a draft and shows a hint when there are no sources yet", a
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
   const btn = await screen.findByLabelText("Generate a draft");
   expect(btn.props.accessibilityState?.disabled).toBe(true);
   expect(screen.getByText(/add a source first/i)).toBeTruthy();
