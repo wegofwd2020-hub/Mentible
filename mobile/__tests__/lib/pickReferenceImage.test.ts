@@ -42,6 +42,9 @@ test("strips EXIF and returns base64 + media_type", async () => {
   expect(out).toEqual({ media_type: "image/png", data: "BASE64DATA" });
   // EXIF strip ran (no transform ops).
   expect(IM.manipulateAsync).toHaveBeenCalledWith("file://x.png", [], expect.any(Object));
+  // Verify metadata and base64 are read from the STRIPPED uri, not the original.
+  expect(FS.getInfoAsync).toHaveBeenCalledWith("file://stripped.png");
+  expect(FS.readAsStringAsync).toHaveBeenCalledWith("file://stripped.png", expect.any(Object));
 });
 
 test("rejects an unsupported format", async () => {
@@ -50,4 +53,15 @@ test("rejects an unsupported format", async () => {
     assets: [{ uri: "file://x.gif", mimeType: "image/gif", fileSize: 10 }],
   } as any);
   await expect(pickReferenceImage()).rejects.toThrow(/JPEG, PNG or WebP/);
+});
+
+test("rejects an oversize image", async () => {
+  IP.launchImageLibraryAsync.mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: "file://x.png", mimeType: "image/png", fileSize: 6 * 1024 * 1024 }],
+  } as any);
+  IM.manipulateAsync.mockResolvedValue({ uri: "file://stripped.png" } as any);
+  FS.getInfoAsync.mockResolvedValue({ exists: true, size: 6 * 1024 * 1024 } as any);
+
+  await expect(pickReferenceImage()).rejects.toThrow(/too large/i);
 });
