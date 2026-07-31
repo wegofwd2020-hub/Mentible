@@ -109,7 +109,19 @@ the design language for *new* SME surfaces. Concretely:
      limited to those surfaces; the ~76-file global migration stays deferred.
    - Whole-slice adversarial review: APPROVE after fixing the `TrustJourney`
      seam. Full mobile suite 1201/1201, tsc 0, eslint 0.
-2. **Fraunces** (O2) — not started; separate PR.
+2. **Fraunces (O2) — ✅ BUILT** (branch `next/2026-07-31`, brand=B / SME-scoped).
+   `@expo-google-fonts/fraunces` (400/600/700) added to `FONT_ASSETS`;
+   `resolveFamily` gained a heading `brand` (serif default / fraunces). SME
+   heading styles set the concrete `Fraunces_*` family (so they render on web,
+   where the native text interceptor doesn't run); the interceptor recognises
+   Fraunces-intent and derives the weight from the family name, so (a) it stays
+   Fraunces on native and (b) **dyslexic mode still overrides it** (OpenDyslexic —
+   a11y preserved). Applied to the trust detail title + section titles and the
+   projects/reviews list/empty headings. Rest of the app keeps Source Serif 4.
+   Review: APPROVE after fixing a web faux-bold (redundant fontWeight beside a
+   baked-weight family). Full suite 1207/1207, tsc 0, eslint 0.
+   *Deferred:* the italic-Fraunces **accent word** (export §4) + `letterSpacing`
+   `-0.02em` polish — not yet applied.
 3. **Tab-label + app-shell IA** (O3) — inside the wayfinding workstream, after O4.
 
 ## Deferred (non-blocking)
