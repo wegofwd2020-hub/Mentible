@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from wegofwd_llm.errors import LLMAuthError, LLMRateLimitError
 
+from backend.src.derivatives.schemas import DerivativeResponse, PostVariant
 from backend.tests.helpers import fake_provider
 
 _GOOD = json.dumps(
@@ -150,20 +151,23 @@ async def test_provider_rate_limited_429(client, known_test_api_key):
     assert known_test_api_key not in json.dumps(r.json())
 
 
-def _fake_anthropic_factory(text):
-    block = MagicMock()
-    block.type = "text"
-    block.text = text
-    client = MagicMock()
-    client.messages.create.return_value = MagicMock(content=[block])
-    return MagicMock(return_value=client)
-
-
-async def test_image_ok_anthropic(client, known_test_api_key):
-    with patch(
-        "backend.src.derivatives.generate.anthropic.Anthropic",
-        _fake_anthropic_factory(_GOOD),
-    ):
+async def test_image_forwarded_to_generate_post(client, known_test_api_key):
+    # Proves the router→generate_post CONTRACT directly: patch generate_post
+    # itself (not the vision plumbing) and assert it was called with the
+    # ReferenceImage built from the request body. A test that instead patches
+    # `anthropic.Anthropic` can't distinguish "image forwarded" from "image
+    # silently dropped" — build_provider's text path and the vision path share
+    # that same module attribute, so both would return the fake response
+    # regardless of whether `image=` ever reached generate_post.
+    fake_response = DerivativeResponse(
+        platform="linkedin",
+        variants=[
+            PostVariant(hook=f"h{i}", body=f"b{i}", hashtags=["#x"], cta=None) for i in range(3)
+        ],
+        provenance="ai-generated",
+    )
+    mock_generate_post = MagicMock(return_value=fake_response)
+    with patch("backend.src.derivatives.router.generate_post", mock_generate_post):
         r = await client.post(
             "/api/v1/derivatives/post",
             json={
@@ -176,15 +180,30 @@ async def test_image_ok_anthropic(client, known_test_api_key):
     assert len(r.json()["variants"]) == 3
     assert known_test_api_key not in json.dumps(r.json())
 
+    mock_generate_post.assert_called_once()
+    _, kwargs = mock_generate_post.call_args
+    forwarded_image = kwargs["image"]
+    assert forwarded_image is not None
+    assert forwarded_image.media_type == "image/png"
+    assert forwarded_image.data == "aGk="
+
 
 async def test_image_non_anthropic_provider_400(client):
-    r = await client.post(
-        "/api/v1/derivatives/post",
-        json={
-            "source_text": "s",
-            "provider_id": "openai",
-            "api_key": "sk-" + "y" * 40,
-            "image": {"media_type": "image/png", "data": "aGk="},
-        },
-    )
+    # The guard must fire BEFORE any key selection / LLM work — patch
+    # generate_post and assert it was never called.
+    mock_generate_post = MagicMock()
+    with patch("backend.src.derivatives.router.generate_post", mock_generate_post):
+        r = await client.post(
+            "/api/v1/derivatives/post",
+            json={
+                "source_text": "s",
+                "provider_id": "openai",
+                "api_key": "sk-" + "y" * 40,
+                "image": {"media_type": "image/png", "data": "aGk="},
+            },
+        )
     assert r.status_code == 400
+    mock_generate_post.assert_not_called()
+    body = r.json()
+    assert "anthropic" in body["detail"].lower()
+    assert "sk-" + "y" * 40 not in json.dumps(body)
