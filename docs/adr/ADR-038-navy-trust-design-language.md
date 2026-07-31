@@ -1,6 +1,6 @@
 # ADR-038 — Navy Trust design language for the SME studio
 
-**Status:** Proposed (2026-07-31)
+**Status:** Accepted — direction (2026-07-31); palette build (D1) deferred as a fast-follow, O3/O4 as noted below
 **Relates to:** ADR-037 (SME expert-validation reposition — the product this brand dresses), [[project_multi_theme_engine]] (the ThemeProvider this would extend)
 **Source:** `mentible-design-export.md` (external design export — the Lovable prototype's design system), companion `mentible-direction.md` (product/IA — not yet reviewed here)
 
@@ -74,25 +74,35 @@ the design language for *new* SME surfaces. Concretely:
   product copy; never invent stats) adopted as-is; they don't conflict with
   anything shipped.
 
-## Open questions (decide before build — these are the user's calls)
+## Resolved (2026-07-31)
 
-- **O1 — Default theme.** Does `navy-trust` become the **app-wide default**
-  (replacing purple `study`), the **default only inside the SME/trust surfaces**
-  (study stays default for the learner mode), or just a **selectable** palette?
-  Recommendation: **default within the SME surfaces, selectable elsewhere** —
-  matches ADR-037's SME-primary/learner-secondary split without a disruptive
-  global reskin.
-- **O2 — Fraunces.** Adopt serif headings now (new font asset + gate work,
-  native + web), or defer type and ship the palette first? Recommendation:
-  **palette first, Fraunces as a fast-follow** (fonts are the riskier,
-  cross-platform-fiddly piece).
-- **O3 — Tab labels.** Rename the trust tabs to Input/Drafts/Feedback/Publish,
-  or keep Projects/Reviews? This is **layer-2 IA**, and per
-  [[feedback_real_gap_is_wayfinding]] the IA/flow is the higher-priority
-  workstream — fold it into the wayfinding work, not the theme work.
-- **O4 — Companion file.** `mentible-direction.md` (product vision, IA, data
-  model, voice) is referenced but not yet reviewed; it likely carries the
-  layer-2 decisions that should lead. Review it before committing O3.
+- **O1 — Default theme → DECIDED: SME-surfaces default, selectable elsewhere.**
+  `navy-trust` is the default palette **within the SME/trust surfaces**; the
+  learner mode keeps `study` as its default; the palette is user-selectable
+  everywhere. Matches ADR-037's SME-primary / learner-secondary split without a
+  disruptive global reskin, and avoids a big-bang change to the purple default.
+- **O2 — Fraunces → DECIDED: palette first, Fraunces as a fast-follow.** Ship
+  the `navy-trust` palette (D1) first; adopt Fraunces serif headings as a
+  separate follow-up (new `expo-font` asset + the app's font-gate wiring, native
+  + web) since fonts are the riskier cross-platform piece.
+- **O3 — Tab labels → DEFERRED to the wayfinding workstream.** Whether to rename
+  the trust tabs (Input/Drafts/Feedback/Publish vs Projects/Reviews) is
+  **layer-2 IA**; per [[feedback_real_gap_is_wayfinding]] the IA/flow is the
+  higher-priority workstream and this decision belongs there, not in the theme
+  work. Keep Projects/Reviews until then.
+- **O4 — Companion file → OPEN follow-up.** `mentible-direction.md` (product
+  vision, IA, data model, voice) is referenced but not yet supplied/reviewed; it
+  likely carries the layer-2 decisions that should lead O3. Review it before
+  acting on O3.
+
+## Build sequence (fast-follow, when picked up)
+
+1. **D1 palette PR** — add `navy-trust` to `constants/theme.ts` (hex from the
+   export) + `THEME_META` (`mode: "dark"`), run `contrast.ts`, wire it as the
+   SME-surfaces default (O1). Small, additive, reversible.
+2. **Fraunces** (O2) — separate PR.
+3. **Tab-label + app-shell IA** (O3) — inside the wayfinding workstream, after
+   O4.
 
 ## Consequences
 
