@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { ProjectDetailView } from "@/api/trustClient";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 type Phase = { key: string; label: string; done: boolean };
 
@@ -58,6 +59,7 @@ export function TrustJourney({
   const currentKey =
     phases[currentIdx].key === "create" && !hasArtifact ? "create_artifact" : phases[currentIdx].key;
   const nextText = nextStep(currentKey, isOwner);
+  const styles = useThemedStyles(makeStyles);
 
   return (
     <View style={styles.wrap} accessibilityLabel="Project journey">
@@ -90,15 +92,15 @@ export function TrustJourney({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md, gap: spacing.sm },
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  phase: { alignItems: "center", flex: 1, gap: 2 },
-  glyph: { fontSize: typography.sizeMd, color: colors.textMuted },
-  glyphCurrent: { color: colors.primary, fontWeight: "700" },
-  glyphDone: { color: colors.growth },
-  label: { fontSize: typography.sizeXs, color: colors.textSecondary },
-  labelCurrent: { color: colors.text, fontWeight: "700" },
-  next: { fontSize: typography.sizeSm, color: colors.text, lineHeight: 20 },
-  nextTappable: { fontSize: typography.sizeSm, color: colors.primary, fontWeight: "600", lineHeight: 20 },
+const makeStyles = (c: Palette) => ({
+  wrap: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, marginBottom: spacing.md, gap: spacing.sm },
+  row: { flexDirection: "row" as const, justifyContent: "space-between" as const },
+  phase: { alignItems: "center" as const, flex: 1, gap: 2 },
+  glyph: { fontSize: typography.sizeMd, color: c.textMuted },
+  glyphCurrent: { color: c.primary, fontWeight: "700" as const },
+  glyphDone: { color: c.growth },
+  label: { fontSize: typography.sizeXs, color: c.textSecondary },
+  labelCurrent: { color: c.text, fontWeight: "700" as const },
+  next: { fontSize: typography.sizeSm, color: c.text, lineHeight: 20 },
+  nextTappable: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "600" as const, lineHeight: 20 },
 });

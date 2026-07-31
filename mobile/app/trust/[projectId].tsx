@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { TrustJourney } from "@/components/TrustJourney";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { FRAUNCES } from "@/constants/fonts";
+import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
 
 const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] = [
   { value: "transcript", label: "Transcript" },
@@ -29,9 +31,11 @@ function sourceDate(createdAt: string | null): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
 }
 
-export default function TrustProjectDetail() {
+function TrustProjectDetailInner() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [busy, setBusy] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export default function TrustProjectDetail() {
   };
   useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
 
-  if (loading && !project) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
+  if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!project) return null;
 
@@ -187,14 +191,14 @@ export default function TrustProjectDetail() {
               <TextInput
                 style={styles.inviteInput}
                 placeholder="Title (optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={sourceTitle}
                 onChangeText={setSourceTitle}
               />
               <TextInput
                 style={styles.sourceContentInput}
                 placeholder="Paste a transcript, note, or link…"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={sourceContent}
                 onChangeText={setSourceContent}
                 multiline
@@ -277,7 +281,7 @@ export default function TrustProjectDetail() {
               <TextInput
                 style={styles.inviteInput}
                 placeholder="expert@example.com"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={inviteEmail}
                 onChangeText={setInviteEmail}
                 autoCapitalize="none"
@@ -309,103 +313,116 @@ export default function TrustProjectDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+export default function TrustProjectDetail() {
+  // SME surface → always Navy Trust (ADR-038). Scope wraps the content so
+  // TrustProjectDetailInner's useThemedStyles resolves navy-trust.
+  return (
+    <SmeThemeScope>
+      <TrustProjectDetailInner />
+    </SmeThemeScope>
+  );
+}
+
+const makeStyles = (c: Palette) => ({
   scroll: { flex: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
-  topic: { color: colors.textSecondary, fontSize: typography.sizeMd },
-  artifact: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
-  artifactTitle: { color: colors.text, fontSize: typography.sizeLg, fontWeight: "600" },
-  versionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  versionLabel: { color: colors.textSecondary, fontSize: typography.sizeMd },
-  validatedRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  validated: { color: colors.growth, fontSize: typography.sizeSm, fontWeight: "700" },
+  // Fraunces bakes the weight into the family name, so no fontWeight here (a
+  // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
+  // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
+  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
+  topic: { color: c.textSecondary, fontSize: typography.sizeMd },
+  artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
+  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+  versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
+  validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  validated: { color: c.growth, fontSize: typography.sizeSm, fontWeight: "700" as const },
   chip: {
-    color: colors.textSecondary,
+    color: c.textSecondary,
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    backgroundColor: colors.surfaceHigh,
+    fontWeight: "600" as const,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.full,
     paddingVertical: 2,
     paddingHorizontal: spacing.sm,
-    overflow: "hidden",
+    overflow: "hidden" as const,
   },
-  approveBtn: { backgroundColor: colors.primary, borderRadius: radius.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
-  approveText: { color: colors.primaryText, fontSize: typography.sizeSm, fontWeight: "700" },
+  approveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  approveText: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "700" as const },
   addVersionBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.surfaceHigh,
+    alignSelf: "flex-start" as const,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
   },
-  addVersionText: { color: colors.text, fontSize: typography.sizeSm, fontWeight: "600" },
+  addVersionText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
   draftRow: { gap: spacing.xs },
   ownerBlock: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  inviteRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  inviteRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   inviteInput: {
     flex: 1,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeSm,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
-  error: { color: colors.error, fontSize: typography.sizeMd, textAlign: "center" },
+  error: { color: c.error, fontSize: typography.sizeMd, textAlign: "center" as const },
   sourcesBlock: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  sourcesHelper: { color: colors.textSecondary, fontSize: typography.sizeSm },
+  sourcesHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
   sourceForm: { gap: spacing.sm },
-  kindRow: { flexDirection: "row", gap: spacing.sm },
+  kindRow: { flexDirection: "row" as const, gap: spacing.sm },
   kindBtn: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
   },
-  kindBtnActive: { backgroundColor: colors.primary },
-  kindText: { color: colors.text, fontSize: typography.sizeSm, fontWeight: "600" },
-  kindTextActive: { color: colors.primaryText, fontSize: typography.sizeSm, fontWeight: "600" },
+  kindBtnActive: { backgroundColor: c.primary },
+  kindText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  kindTextActive: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "600" as const },
   sourceContentInput: {
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeSm,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     minHeight: 80,
-    textAlignVertical: "top",
+    textAlignVertical: "top" as const,
   },
   disabledBtn: { opacity: 0.5 },
-  emptyText: { color: colors.textMuted, fontSize: typography.sizeSm },
+  emptyText: { color: c.textMuted, fontSize: typography.sizeSm },
   sourceRow: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
     paddingTop: spacing.sm,
     gap: 2,
   },
-  sourceKindLabel: { color: colors.textSecondary, fontSize: typography.sizeXs, fontWeight: "700", textTransform: "uppercase" },
-  sourceRowTitle: { color: colors.text, fontSize: typography.sizeSm },
-  sourceRowDate: { color: colors.textMuted, fontSize: typography.sizeXs },
+  sourceKindLabel: { color: c.textSecondary, fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const },
+  sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
+  sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
   artifactsWrap: { borderWidth: 1, borderColor: "transparent", borderRadius: radius.md },
-  highlighted: { borderColor: colors.primary },
+  highlighted: { borderColor: c.primary },
 });

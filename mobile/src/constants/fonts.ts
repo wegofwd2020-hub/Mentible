@@ -24,6 +24,13 @@ import {
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
 } from "@expo-google-fonts/source-serif-4";
+import {
+  Fraunces_400Regular,
+  Fraunces_600SemiBold,
+  Fraunces_700Bold,
+  Fraunces_400Regular_Italic,
+  Fraunces_600SemiBold_Italic,
+} from "@expo-google-fonts/fraunces";
 
 // The map passed to useFonts(). Keys are the family names referenced everywhere else.
 export const FONT_ASSETS = {
@@ -34,6 +41,14 @@ export const FONT_ASSETS = {
   SourceSerif4_400Regular,
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
+  // Fraunces: the SME/Navy-Trust heading brand (ADR-038 O2). Only the SME
+  // surfaces opt in; the rest of the app keeps Source Serif 4. The italics power
+  // the editorial "accent word" (ADR-038 O2 polish).
+  Fraunces_400Regular,
+  Fraunces_600SemiBold,
+  Fraunces_700Bold,
+  Fraunces_400Regular_Italic,
+  Fraunces_600SemiBold_Italic,
   OpenDyslexic_400Regular: require("../../assets/fonts/OpenDyslexic-Regular.ttf"),
   OpenDyslexic_700Bold: require("../../assets/fonts/OpenDyslexic-Bold.ttf"),
 } as const;
@@ -69,6 +84,30 @@ const SERIF = {
   bold: "SourceSerif4_700Bold",
 } as const;
 
+// Fraunces — the SME/Navy-Trust heading brand (ADR-038 O2). Same weight buckets
+// as SERIF (no bundled medium → regular). SME heading styles reference these
+// concrete names directly so they resolve on web too (where the native text
+// interceptor doesn't run); on native the interceptor still routes Fraunces
+// through resolveFamily so dyslexic mode keeps overriding it.
+export const FRAUNCES = {
+  regular: "Fraunces_400Regular",
+  medium: "Fraunces_400Regular",
+  semibold: "Fraunces_600SemiBold",
+  bold: "Fraunces_700Bold",
+} as const;
+
+// Italic Fraunces — the editorial "accent word" (ADR-038 O2). The slant is baked
+// into the family name (no fontStyle:"italic", which would synth double-italic on
+// web). The interceptor preserves the exact family on native and still yields to
+// dyslexic mode.
+export const FRAUNCES_ITALIC = {
+  regular: "Fraunces_400Regular_Italic",
+  semibold: "Fraunces_600SemiBold_Italic",
+} as const;
+
+// Heading brand: the default serif (Source Serif 4, app-wide) or Fraunces (SME).
+export type HeadingBrand = "serif" | "fraunces";
+
 // OpenDyslexic ships only Regular + Bold; semibold/medium round to the nearest.
 const DYSLEXIC = {
   regular: "OpenDyslexic_400Regular",
@@ -78,9 +117,17 @@ const DYSLEXIC = {
 } as const;
 
 // Resolve the concrete family name for a (role, weight), honouring dyslexic mode
-// which overrides both roles so ALL text uses OpenDyslexic.
-export function resolveFamily(role: FontRole, weight: Weight | undefined, dyslexic: boolean): string {
+// which overrides both roles so ALL text uses OpenDyslexic. `brand` selects the
+// heading family (default serif; "fraunces" for the SME surfaces) and never
+// affects body text; dyslexic still wins over the brand (a11y).
+export function resolveFamily(
+  role: FontRole,
+  weight: Weight | undefined,
+  dyslexic: boolean,
+  brand: HeadingBrand = "serif",
+): string {
   const b = bucket(weight);
   if (dyslexic) return DYSLEXIC[b];
-  return role === "heading" ? SERIF[b] : INTER[b];
+  if (role === "heading") return brand === "fraunces" ? FRAUNCES[b] : SERIF[b];
+  return INTER[b];
 }

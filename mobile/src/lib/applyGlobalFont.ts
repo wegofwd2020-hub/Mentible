@@ -30,6 +30,20 @@ const HEADING_MIN_SIZE = 22;
 // else with an explicit family — icon sets, "monospace" — is deliberately skipped.
 const SERIF_RE = /serif|georgia/i;
 
+// Fraunces is the SME/Navy-Trust heading brand (ADR-038 O2). SME heading styles
+// set a concrete Fraunces_* family; recognising it here as heading-intent means
+// dyslexic mode still overrides it (a11y) instead of leaving it untouched.
+const FRAUNCES_RE = /fraunces/i;
+
+// The concrete Fraunces family already bakes its weight (e.g. "Fraunces_700Bold"),
+// so we read the weight from the NAME rather than the style's fontWeight. That lets
+// SME heading styles omit fontWeight entirely — which they must, so web (where this
+// interceptor doesn't run) doesn't synthesise faux-bold from a redundant fontWeight
+// on a weight-400-registered @font-face.
+function weightFromFraunces(family: string): string | undefined {
+  return /_(\d{3})/.exec(family)?.[1];
+}
+
 function isBoldish(weight: unknown): boolean {
   if (weight === "bold") return true;
   const n = typeof weight === "number" ? weight : parseInt(String(weight ?? "400"), 10);
@@ -46,6 +60,14 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
   };
 
   if (flat.fontFamily) {
+    // The SME Fraunces heading brand (upright headings + the italic accent word):
+    // keep the exact instance the style chose, but still honour dyslexic mode
+    // (OpenDyslexic by the weight baked into the family — it has no italic, so the
+    // a11y font wins over the accent slant).
+    if (FRAUNCES_RE.test(flat.fontFamily)) {
+      if (dyslexic) return resolveFamily("heading", weightFromFraunces(flat.fontFamily), true, "fraunces");
+      return flat.fontFamily;
+    }
     // Only our serif text-intent gets remapped; every other explicit family
     // (icon sets, "monospace", a deliberate family) is left exactly as-is.
     if (SERIF_RE.test(flat.fontFamily)) return resolveFamily("heading", flat.fontWeight, dyslexic);
