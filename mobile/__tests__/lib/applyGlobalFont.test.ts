@@ -43,4 +43,22 @@ describe("resolveFamilyForStyle", () => {
       "OpenDyslexic_700Bold",
     );
   });
+
+  // ADR-038 O2: SME heading styles set a concrete Fraunces family. The interceptor
+  // recognises Fraunces as heading-intent so (a) native re-resolves it by weight,
+  // and (b) dyslexic mode still overrides it (a11y), unlike an unrecognised family.
+  it("recognises an explicit Fraunces family as a heading and keeps it Fraunces", () => {
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold", fontWeight: "700" }, false)).toBe(
+      "Fraunces_700Bold",
+    );
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold", fontWeight: "600" }, false)).toBe(
+      "Fraunces_600SemiBold",
+    );
+  });
+
+  it("still swaps Fraunces headings to OpenDyslexic in dyslexic mode", () => {
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold", fontWeight: "700" }, true)).toBe(
+      "OpenDyslexic_700Bold",
+    );
+  });
 });

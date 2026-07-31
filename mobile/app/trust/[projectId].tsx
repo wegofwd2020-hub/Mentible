@@ -7,6 +7,7 @@ import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { FRAUNCES } from "@/constants/fonts";
 import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
 
 const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] = [
@@ -326,10 +327,10 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1 },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
-  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const, fontFamily: FRAUNCES.bold },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const },
+  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const, fontFamily: FRAUNCES.semibold },
   versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
   versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
   validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },

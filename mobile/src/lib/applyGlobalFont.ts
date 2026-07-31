@@ -30,6 +30,11 @@ const HEADING_MIN_SIZE = 22;
 // else with an explicit family — icon sets, "monospace" — is deliberately skipped.
 const SERIF_RE = /serif|georgia/i;
 
+// Fraunces is the SME/Navy-Trust heading brand (ADR-038 O2). SME heading styles
+// set a concrete Fraunces_* family; recognising it here as heading-intent means
+// dyslexic mode still overrides it (a11y) instead of leaving it untouched.
+const FRAUNCES_RE = /fraunces/i;
+
 function isBoldish(weight: unknown): boolean {
   if (weight === "bold") return true;
   const n = typeof weight === "number" ? weight : parseInt(String(weight ?? "400"), 10);
@@ -46,6 +51,11 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
   };
 
   if (flat.fontFamily) {
+    // The SME Fraunces heading brand: re-resolve by weight, and (crucially) keep
+    // it subject to the dyslexic override, which resolveFamily applies.
+    if (FRAUNCES_RE.test(flat.fontFamily)) {
+      return resolveFamily("heading", flat.fontWeight, dyslexic, "fraunces");
+    }
     // Only our serif text-intent gets remapped; every other explicit family
     // (icon sets, "monospace", a deliberate family) is left exactly as-is.
     if (SERIF_RE.test(flat.fontFamily)) return resolveFamily("heading", flat.fontWeight, dyslexic);
