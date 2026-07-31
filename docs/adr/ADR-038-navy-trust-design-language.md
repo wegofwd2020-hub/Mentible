@@ -95,14 +95,30 @@ the design language for *new* SME surfaces. Concretely:
   likely carries the layer-2 decisions that should lead O3. Review it before
   acting on O3.
 
-## Build sequence (fast-follow, when picked up)
+## Build sequence
 
-1. **D1 palette PR** — add `navy-trust` to `constants/theme.ts` (hex from the
-   export) + `THEME_META` (`mode: "dark"`), run `contrast.ts`, wire it as the
-   SME-surfaces default (O1). Small, additive, reversible.
-2. **Fraunces** (O2) — separate PR.
-3. **Tab-label + app-shell IA** (O3) — inside the wayfinding workstream, after
-   O4.
+1. **D1 palette — ✅ BUILT** (branch `next/2026-07-31`).
+   - *Slice 1:* `navyTrustColors` in `constants/theme.ts` + `THEME_META`
+     (`mode: "dark"`); contrast-gated in `__tests__/theme/palettes.test.ts`;
+     auto-listed in the Settings Appearance switcher.
+   - *Slice 2 (O1 = forced):* `SmeThemeScope` (a `ThemeContext` override forcing
+     navy-trust, no persistence, no-op `setTheme`) + migrated the 4 SME screens
+     (`projects`, `reviews`, `trust/new`, `trust/[projectId]`) **and** the
+     `TrustJourney` stepper from static `colors` → `useThemedStyles`. The SME
+     surfaces always render Navy Trust regardless of the global theme. Scope
+     limited to those surfaces; the ~76-file global migration stays deferred.
+   - Whole-slice adversarial review: APPROVE after fixing the `TrustJourney`
+     seam. Full mobile suite 1201/1201, tsc 0, eslint 0.
+2. **Fraunces** (O2) — not started; separate PR.
+3. **Tab-label + app-shell IA** (O3) — inside the wayfinding workstream, after O4.
+
+## Deferred (non-blocking)
+
+- `navyTrustColors.success` reuses Forest & Moss's green (`#7fae86`) — cosmetic,
+  passes contrast; give it a bespoke navy-appropriate hue if/when polishing.
+- Native stack **headers** on the trust screens are not themed (SmeThemeScope
+  wraps screen content, not the router-owned header) — follow-up if the header
+  chrome needs the navy brand too.
 
 ## Consequences
 
