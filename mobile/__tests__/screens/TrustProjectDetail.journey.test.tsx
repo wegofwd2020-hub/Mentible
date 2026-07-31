@@ -1,7 +1,11 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
-import { colors } from "@/constants/theme";
+import { themes } from "@/constants/theme";
+
+// TrustProjectDetail is an SME surface → rendered in the forced Navy Trust theme
+// (ADR-038), so the highlight border is the navy-trust accent, not Study's.
+const accent = themes["navy-trust"].primary;
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }) }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
@@ -92,15 +96,15 @@ describe("post-scroll highlight", () => {
     (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [], []));   // no inputs → Capture current
     render(<TrustProjectDetail />);
     fireEvent.press(screen.getByLabelText(/Go to next step/i));
-    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).toBe(colors.primary);
+    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).toBe(accent);
     act(() => jest.advanceTimersByTime(1500));
-    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).not.toBe(colors.primary);
+    expect(borderOf(screen.getByTestId("journey-anchor-sources"))).not.toBe(accent);
   });
 
   it("Create next-step highlights the Artifacts section", () => {
     (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [{ id: "i" }], []));  // source + artifact-no-version → Create current
     render(<TrustProjectDetail />);
     fireEvent.press(screen.getByLabelText(/Go to next step/i));
-    expect(borderOf(screen.getByTestId("journey-anchor-artifacts"))).toBe(colors.primary);
+    expect(borderOf(screen.getByTestId("journey-anchor-artifacts"))).toBe(accent);
   });
 });

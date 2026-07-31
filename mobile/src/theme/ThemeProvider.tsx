@@ -11,7 +11,9 @@ interface ThemeContextValue {
 
 // Default = Study, so useTheme() outside a provider returns the current look
 // (the compat shim: un-migrated screens/tests never crash and never change).
-const ThemeContext = createContext<ThemeContextValue>({
+// Exported so a scoped provider (e.g. SmeThemeScope) can force a fixed theme
+// over a subtree without going through the persisted global ThemeProvider.
+export const ThemeContext = createContext<ThemeContextValue>({
   theme: themes.study,
   themeName: "study",
   setTheme: () => {},

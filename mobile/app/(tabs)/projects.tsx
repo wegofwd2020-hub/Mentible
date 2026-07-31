@@ -1,13 +1,16 @@
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
 
 function ProjectsInner() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { projects, loading, error, refresh } = useOwnedProjects();
   useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
   return (
@@ -15,7 +18,7 @@ function ProjectsInner() {
       <Pressable accessibilityRole="button" accessibilityLabel="New project" style={styles.newBtn} onPress={() => router.push("/trust/new")}>
         <Text style={styles.newBtnText}>+ New project</Text>
       </Pressable>
-      {loading ? <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+      {loading ? <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>
         : error ? <View style={styles.center}><Text style={styles.error}>{error}</Text></View>
         : projects.length === 0 ? <View style={styles.center}><Text style={styles.empty}>No projects yet.</Text><Text style={styles.emptySub}>Create one to capture and validate expert knowledge.</Text></View>
         : <FlatList data={projects} keyExtractor={(p) => p.id} contentContainerStyle={styles.list}
@@ -29,19 +32,27 @@ function ProjectsInner() {
   );
 }
 export default function ProjectsScreen() {
-  return <RequireSignIn action="manage projects"><PageContainer><ProjectsInner /></PageContainer></RequireSignIn>;
+  // SME surface → always the Navy Trust brand (ADR-038). Scope wraps the content
+  // (not the sign-in gate) so ProjectsInner's useThemedStyles resolves navy-trust.
+  return (
+    <RequireSignIn action="manage projects">
+      <SmeThemeScope>
+        <PageContainer><ProjectsInner /></PageContainer>
+      </SmeThemeScope>
+    </RequireSignIn>
+  );
 }
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: { flex: 1 },
-  newBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" },
-  newBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  newBtn: { margin: spacing.md, backgroundColor: c.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const },
+  newBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
+  center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
-  row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
-  rowTitle: { color: colors.text, fontSize: typography.sizeLg, fontWeight: "600" },
-  rowMeta: { color: colors.textSecondary, fontSize: typography.sizeSm, marginTop: 2 },
-  chevron: { color: colors.textMuted, fontSize: typography.sizeXl },
-  empty: { color: colors.text, fontSize: typography.sizeLg, fontWeight: "600" },
-  emptySub: { color: colors.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" },
-  error: { color: colors.error, fontSize: typography.sizeMd, textAlign: "center" },
+  row: { flexDirection: "row" as const, alignItems: "center" as const, backgroundColor: c.surface, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border },
+  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const },
+  rowMeta: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: 2 },
+  chevron: { color: c.textMuted, fontSize: typography.sizeXl },
+  empty: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const },
+  emptySub: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
+  error: { color: c.error, fontSize: typography.sizeMd, textAlign: "center" as const },
 });
