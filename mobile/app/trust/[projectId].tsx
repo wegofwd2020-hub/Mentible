@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
@@ -20,6 +20,13 @@ const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] =
   { value: "note", label: "Note" },
   { value: "link", label: "Link" },
 ];
+
+// Collapses the synthetic "create_artifact" sub-state (Drafts, no artifact
+// yet) into the "create" tab key. Module-level so both the seed effect
+// (which runs before the early-return guards) and render can share it.
+function basePhase(k: PhaseKey | "create_artifact"): PhaseKey {
+  return k === "create_artifact" ? "create" : k;
+}
 
 function sourceKindLabel(kind: string): string {
   return SOURCE_KINDS.find((k) => k.value === kind)?.label ?? kind;
@@ -332,6 +339,20 @@ function TrustProjectDetailInner() {
   const [addSourceBusy, setAddSourceBusy] = useState(false);
   const [selected, setSelected] = useState<PhaseKey | null>(null);
 
+  // Seed the selected tab ONCE, from the phase the project is in when it
+  // first loads. Later data changes (e.g. adding a source advances the
+  // phase past Sources) must not yank the owner to a different tab — see
+  // the "does not yank" journey test. Hooks must run unconditionally, so
+  // this sits above the loading/error/!project early returns; project may
+  // still be undefined on the first render(s), so it's read directly here
+  // rather than via the (not-yet-derived) `phase`.
+  useEffect(() => {
+    if (project && selected === null) {
+      const isOwnerNow = project.my_role === "owner";
+      setSelected(basePhase(deriveProjectPhase(project, isOwnerNow).currentKey));
+    }
+  }, [project, selected]);
+
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!project) return null;
@@ -415,8 +436,9 @@ function TrustProjectDetailInner() {
 
   const isOwner = project.my_role === "owner";
   const phase = deriveProjectPhase(project, isOwner);
-  const basePhase = (k: typeof phase.currentKey): PhaseKey => (k === "create_artifact" ? "create" : k);
-  const active = selected ?? basePhase(phase.currentKey); // auto-select current until the user taps a tab
+  // Fallback for the first frame(s) before the seed effect fires; once
+  // `selected` is set it wins and no longer tracks phase changes.
+  const active = selected ?? basePhase(phase.currentKey);
   const anyVersion = project.artifacts.some((a) => a.versions.length > 0);
 
   return (

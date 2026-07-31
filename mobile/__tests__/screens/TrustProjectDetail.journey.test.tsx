@@ -23,6 +23,9 @@ const proj = (my_role: string, inputs: unknown[] = [], versions: unknown[] = [])
   addVersion: jest.fn().mockResolvedValue({ id: "v2" }),
   generateVersion: jest.fn().mockResolvedValue({ id: "v2" }),
   invite: jest.fn().mockResolvedValue({}),
+  // Mirror useTrustProject's real shape (inputs = project?.inputs ?? []) — see
+  // TrustProjectDetail.generate.test.tsx, which sets both the same way.
+  inputs,
 });
 
 beforeEach(() => {
@@ -70,6 +73,25 @@ it("the Publish tab shows a placeholder with no CTA", async () => {
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Publish:/));
   expect(screen.getByText(/Sharing & export are coming soon\./)).toBeTruthy();
+});
+
+it("does not yank the owner off Sources after adding the first source", async () => {
+  const initial = proj("owner", []);
+  (useTrustProject as jest.Mock).mockReturnValue(initial);
+  const { rerender } = render(<TrustProjectDetail />);
+  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  expect(screen.getByLabelText("Add source")).toBeTruthy();
+
+  // Simulate the refresh a first addInput triggers: the hook now returns a
+  // project with one input, which advances the derived phase past Sources
+  // into Drafts. The selected tab must stay on Sources regardless.
+  (useTrustProject as jest.Mock).mockReturnValue(
+    proj("owner", [{ id: "i1", kind: "note", title: "Kickoff notes", content: "We discussed scope.", source_ref: null, created_at: null }]),
+  );
+  rerender(<TrustProjectDetail />);
+
+  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  expect(screen.getByLabelText("Add source")).toBeTruthy();
 });
 
 it("a phase not reachable yet shows a finish-prior-phase note instead of actions", async () => {

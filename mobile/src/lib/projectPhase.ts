@@ -15,7 +15,6 @@ export interface ProjectPhase {
   currentKey: PhaseKey | "create_artifact";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function deriveProjectPhase(detail: ProjectDetailView, isOwner: boolean): ProjectPhase {
   const captured = (detail.inputs?.length ?? 0) > 0;
   const hasArtifact = detail.artifacts.length > 0;
