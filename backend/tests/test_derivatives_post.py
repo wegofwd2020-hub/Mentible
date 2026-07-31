@@ -10,7 +10,7 @@ Anthropic, no live DB.
 from __future__ import annotations
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from wegofwd_llm.errors import LLMAuthError, LLMRateLimitError
@@ -148,3 +148,43 @@ async def test_provider_rate_limited_429(client, known_test_api_key):
         )
     assert r.status_code == 429
     assert known_test_api_key not in json.dumps(r.json())
+
+
+def _fake_anthropic_factory(text):
+    block = MagicMock()
+    block.type = "text"
+    block.text = text
+    client = MagicMock()
+    client.messages.create.return_value = MagicMock(content=[block])
+    return MagicMock(return_value=client)
+
+
+async def test_image_ok_anthropic(client, known_test_api_key):
+    with patch(
+        "backend.src.derivatives.generate.anthropic.Anthropic",
+        _fake_anthropic_factory(_GOOD),
+    ):
+        r = await client.post(
+            "/api/v1/derivatives/post",
+            json={
+                "source_text": "s",
+                "api_key": known_test_api_key,
+                "image": {"media_type": "image/png", "data": "aGk="},
+            },
+        )
+    assert r.status_code == 200
+    assert len(r.json()["variants"]) == 3
+    assert known_test_api_key not in json.dumps(r.json())
+
+
+async def test_image_non_anthropic_provider_400(client):
+    r = await client.post(
+        "/api/v1/derivatives/post",
+        json={
+            "source_text": "s",
+            "provider_id": "openai",
+            "api_key": "sk-" + "y" * 40,
+            "image": {"media_type": "image/png", "data": "aGk="},
+        },
+    )
+    assert r.status_code == 400
