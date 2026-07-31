@@ -66,7 +66,9 @@ export default function SharedDraftReader(): React.JSX.Element {
 
   if (loading) {
     return (
-      <PageContainer>
+      // flex:1 so the centered (flex:1) child has a bounded parent — otherwise it
+      // collapses to 0 height on native (New Arch), hiding the spinner/text.
+      <PageContainer style={{ flex: 1 }}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -76,7 +78,7 @@ export default function SharedDraftReader(): React.JSX.Element {
 
   if (error || !book) {
     return (
-      <PageContainer>
+      <PageContainer style={{ flex: 1 }}>
         <View style={styles.centered}>
           <Text style={styles.error}>{error ?? "This draft is unavailable."}</Text>
           <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.backBtn}>
