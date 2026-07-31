@@ -2,6 +2,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
+import { AccentText } from "@/components/AccentText";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useReviews } from "@/hooks/useReviews";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -21,7 +22,7 @@ function ReviewsInner() {
   if (reviews.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.empty}>No projects to review yet.</Text>
+        <Text style={styles.empty}>No projects to <AccentText>review</AccentText> yet.</Text>
         <Text style={styles.emptySub}>When an expert invites you, the project appears here.</Text>
       </View>
     );

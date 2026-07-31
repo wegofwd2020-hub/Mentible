@@ -48,20 +48,22 @@ describe("resolveFamilyForStyle", () => {
   // (the weight is baked into the name; a redundant fontWeight would faux-bold on
   // web). The interceptor derives the weight from the family name, keeps it Fraunces
   // on native, and still lets dyslexic mode override it (a11y).
-  it("resolves an explicit Fraunces family by its baked weight, without a fontWeight", () => {
+  it("keeps the exact Fraunces instance (upright OR italic accent word) without a fontWeight", () => {
     expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold" }, false)).toBe("Fraunces_700Bold");
     expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold" }, false)).toBe(
       "Fraunces_600SemiBold",
     );
-    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_400Regular" }, false)).toBe(
-      "Fraunces_400Regular",
+    // The italic accent word keeps its italic instance — not stripped to upright.
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold_Italic" }, false)).toBe(
+      "Fraunces_600SemiBold_Italic",
     );
   });
 
-  it("still swaps Fraunces headings to OpenDyslexic in dyslexic mode (by baked weight)", () => {
+  it("still swaps Fraunces headings AND the italic accent word to OpenDyslexic (a11y)", () => {
     expect(resolveFamilyForStyle({ fontFamily: "Fraunces_700Bold" }, true)).toBe("OpenDyslexic_700Bold");
-    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_400Regular" }, true)).toBe(
-      "OpenDyslexic_400Regular",
+    // Italic accent word yields to OpenDyslexic too (semibold rounds to bold).
+    expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold_Italic" }, true)).toBe(
+      "OpenDyslexic_700Bold",
     );
   });
 });

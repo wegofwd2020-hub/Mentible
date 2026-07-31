@@ -60,11 +60,13 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
   };
 
   if (flat.fontFamily) {
-    // The SME Fraunces heading brand: re-resolve from the weight baked into the
-    // family name (not the style's fontWeight, which the styles omit), and keep it
-    // subject to the dyslexic override, which resolveFamily applies.
+    // The SME Fraunces heading brand (upright headings + the italic accent word):
+    // keep the exact instance the style chose, but still honour dyslexic mode
+    // (OpenDyslexic by the weight baked into the family — it has no italic, so the
+    // a11y font wins over the accent slant).
     if (FRAUNCES_RE.test(flat.fontFamily)) {
-      return resolveFamily("heading", weightFromFraunces(flat.fontFamily), dyslexic, "fraunces");
+      if (dyslexic) return resolveFamily("heading", weightFromFraunces(flat.fontFamily), true, "fraunces");
+      return flat.fontFamily;
     }
     // Only our serif text-intent gets remapped; every other explicit family
     // (icon sets, "monospace", a deliberate family) is left exactly as-is.

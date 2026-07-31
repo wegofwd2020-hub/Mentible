@@ -28,6 +28,8 @@ import {
   Fraunces_400Regular,
   Fraunces_600SemiBold,
   Fraunces_700Bold,
+  Fraunces_400Regular_Italic,
+  Fraunces_600SemiBold_Italic,
 } from "@expo-google-fonts/fraunces";
 
 // The map passed to useFonts(). Keys are the family names referenced everywhere else.
@@ -40,10 +42,13 @@ export const FONT_ASSETS = {
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
   // Fraunces: the SME/Navy-Trust heading brand (ADR-038 O2). Only the SME
-  // surfaces opt in; the rest of the app keeps Source Serif 4.
+  // surfaces opt in; the rest of the app keeps Source Serif 4. The italics power
+  // the editorial "accent word" (ADR-038 O2 polish).
   Fraunces_400Regular,
   Fraunces_600SemiBold,
   Fraunces_700Bold,
+  Fraunces_400Regular_Italic,
+  Fraunces_600SemiBold_Italic,
   OpenDyslexic_400Regular: require("../../assets/fonts/OpenDyslexic-Regular.ttf"),
   OpenDyslexic_700Bold: require("../../assets/fonts/OpenDyslexic-Bold.ttf"),
 } as const;
@@ -89,6 +94,15 @@ export const FRAUNCES = {
   medium: "Fraunces_400Regular",
   semibold: "Fraunces_600SemiBold",
   bold: "Fraunces_700Bold",
+} as const;
+
+// Italic Fraunces — the editorial "accent word" (ADR-038 O2). The slant is baked
+// into the family name (no fontStyle:"italic", which would synth double-italic on
+// web). The interceptor preserves the exact family on native and still yields to
+// dyslexic mode.
+export const FRAUNCES_ITALIC = {
+  regular: "Fraunces_400Regular_Italic",
+  semibold: "Fraunces_600SemiBold_Italic",
 } as const;
 
 // Heading brand: the default serif (Source Serif 4, app-wide) or Fraunces (SME).

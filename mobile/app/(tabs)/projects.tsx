@@ -2,6 +2,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
+import { AccentText } from "@/components/AccentText";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -21,7 +22,7 @@ function ProjectsInner() {
       </Pressable>
       {loading ? <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>
         : error ? <View style={styles.center}><Text style={styles.error}>{error}</Text></View>
-        : projects.length === 0 ? <View style={styles.center}><Text style={styles.empty}>No projects yet.</Text><Text style={styles.emptySub}>Create one to capture and validate expert knowledge.</Text></View>
+        : projects.length === 0 ? <View style={styles.center}><Text style={styles.empty}>No <AccentText>projects</AccentText> yet.</Text><Text style={styles.emptySub}>Create one to capture and validate expert knowledge.</Text></View>
         : <FlatList data={projects} keyExtractor={(p) => p.id} contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <Pressable accessibilityRole="button" accessibilityLabel={`Open project: ${item.title}`} style={styles.row} onPress={() => router.push(`/trust/${item.id}`)}>
