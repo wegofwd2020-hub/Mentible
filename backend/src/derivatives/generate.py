@@ -7,6 +7,10 @@ provider seam + conformance loop discipline as `generate.tasks.run_generation`:
 build a provider from the registry, issue a JSON-mode request, and validate +
 repair via `generate_validated`. On validation exhaustion, `LLMSchemaError`
 propagates to the caller (the router maps it to a 502 — see Task 3).
+
+When a reference image is present, `generate_post` bypasses the text seam and
+calls Anthropic's vision API directly (single call, no repair loop), returning
+the same `DerivativeResponse` contract.
 """
 
 from __future__ import annotations
@@ -109,7 +113,9 @@ def _generate_post_with_image(
     except Exception:  # transport / unexpected — key-free
         raise LLMError("anthropic vision call failed") from None
 
-    text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+    text = "".join(
+        getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text"
+    )
     try:
         out = _DerivativeOutput.model_validate(parse_json_response(text))
     except Exception:

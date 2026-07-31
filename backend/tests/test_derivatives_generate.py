@@ -140,6 +140,8 @@ def test_vision_path_returns_variants_and_sends_image(caplog):
     # BYOK key went only to the client factory, not into the response.
     factory.assert_called_once_with(api_key=_API_KEY)
     assert _API_KEY not in caplog.text
+    # Base64 image data must not leak into the response.
+    assert "aGk=" not in json.dumps(out.model_dump())
 
 
 def test_vision_bad_json_raises_schema_error(caplog):

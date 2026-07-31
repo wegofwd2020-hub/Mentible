@@ -179,6 +179,8 @@ async def test_image_forwarded_to_generate_post(client, known_test_api_key):
     assert r.status_code == 200
     assert len(r.json()["variants"]) == 3
     assert known_test_api_key not in json.dumps(r.json())
+    # Base64 image data must not leak into the response.
+    assert "aGk=" not in json.dumps(r.json())
 
     mock_generate_post.assert_called_once()
     _, kwargs = mock_generate_post.call_args
