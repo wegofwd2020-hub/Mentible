@@ -1,4 +1,3 @@
-import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
@@ -12,11 +11,22 @@ const SAVE_FORMAT: Record<string, ImageManipulator.SaveFormat> = {
 // ~5 MB raw. Mirrors the backend base64 cap (7_000_000 chars).
 const MAX_BYTES = 5 * 1024 * 1024;
 
+// Approx raw byte count of a base64 string (ignores the 1-2 padding chars —
+// close enough for a size gate).
+function base64Bytes(b64: string): number {
+  return Math.floor((b64.length * 3) / 4);
+}
+
 /**
- * Pick one image from the library, strip its EXIF (re-encode, no transform),
- * and return base64 + media_type. `null` if the user cancels. Throws a
- * friendly Error for an unsupported format or an oversize file. The bytes stay
- * on-device except as the transient reference sent with the post request.
+ * Pick one image from the library, strip its EXIF (re-encode, no transform ops),
+ * and return base64 + media_type. `null` if the user cancels. Throws a friendly
+ * Error for an unsupported format or an oversize image.
+ *
+ * Cross-platform: reads the base64 straight off `manipulateAsync` (works on web
+ * via canvas AND native) rather than `expo-file-system`, whose `getInfoAsync` /
+ * `readAsStringAsync` are not implemented on web. The re-encode is what strips
+ * EXIF/GPS on both platforms. The bytes stay on-device except as the transient
+ * reference sent with the post request.
  */
 export async function pickReferenceImage(): Promise<ReferenceImage | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -32,17 +42,17 @@ export async function pickReferenceImage(): Promise<ReferenceImage | null> {
   const mime = asset.mimeType ?? "";
   if (!SAVE_FORMAT[mime]) throw new Error("Only JPEG, PNG or WebP images are supported.");
 
+  // Empty ops array = format/quality pass only; the re-encode drops EXIF/GPS.
+  // base64:true returns the encoded bytes directly — no FileSystem (web-safe).
   const stripped = await ImageManipulator.manipulateAsync(asset.uri, [], {
     compress: 0.9,
     format: SAVE_FORMAT[mime],
+    base64: true,
   });
 
-  const info = await FileSystem.getInfoAsync(stripped.uri);
-  const bytes = info.exists && typeof info.size === "number" ? info.size : (asset.fileSize ?? 0);
-  if (bytes > MAX_BYTES) throw new Error("That image is too large (max 5 MB).");
+  const data = stripped.base64;
+  if (!data) throw new Error("Could not read the selected image.");
+  if (base64Bytes(data) > MAX_BYTES) throw new Error("That image is too large (max 5 MB).");
 
-  const data = await FileSystem.readAsStringAsync(stripped.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
   return { media_type: mime, data };
 }
