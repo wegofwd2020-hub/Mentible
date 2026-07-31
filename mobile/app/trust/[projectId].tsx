@@ -1,20 +1,32 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
-import { TrustJourney } from "@/components/TrustJourney";
+import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
+import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
+import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+
+type Styles = ReturnType<typeof makeStyles>;
+type ThemeShape = ReturnType<typeof useTheme>;
 
 const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] = [
   { value: "transcript", label: "Transcript" },
   { value: "note", label: "Note" },
   { value: "link", label: "Link" },
 ];
+
+// Collapses the synthetic "create_artifact" sub-state (Drafts, no artifact
+// yet) into the "create" tab key. Module-level so both the seed effect
+// (which runs before the early-return guards) and render can share it.
+function basePhase(k: PhaseKey | "create_artifact"): PhaseKey {
+  return k === "create_artifact" ? "create" : k;
+}
 
 function sourceKindLabel(kind: string): string {
   return SOURCE_KINDS.find((k) => k.value === kind)?.label ?? kind;
@@ -31,9 +43,287 @@ function sourceDate(createdAt: string | null): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
 }
 
+// Sources (capture phase): the owner's raw-knowledge intake form + the input list.
+// Reviewers see the list only — capture is an owner action.
+function SourcesPanel({
+  styles,
+  theme,
+  isOwner,
+  inputs,
+  sourceKind,
+  setSourceKind,
+  sourceTitle,
+  setSourceTitle,
+  sourceContent,
+  setSourceContent,
+  addSourceBusy,
+  onAddSource,
+}: {
+  styles: Styles;
+  theme: ThemeShape;
+  isOwner: boolean;
+  inputs: ProjectInputView[];
+  sourceKind: "transcript" | "note" | "link";
+  setSourceKind: (k: "transcript" | "note" | "link") => void;
+  sourceTitle: string;
+  setSourceTitle: (v: string) => void;
+  sourceContent: string;
+  setSourceContent: (v: string) => void;
+  addSourceBusy: boolean;
+  onAddSource: () => void;
+}) {
+  return (
+    <View style={styles.sourcesBlock}>
+      <Text style={styles.artifactTitle}>Sources</Text>
+      <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
+      {isOwner ? (
+        <View style={styles.sourceForm}>
+          <View style={styles.kindRow}>
+            {SOURCE_KINDS.map(({ value, label }) => (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={`Source kind ${label}`}
+                style={[styles.kindBtn, sourceKind === value ? styles.kindBtnActive : null]}
+                onPress={() => setSourceKind(value)}
+              >
+                <Text style={sourceKind === value ? styles.kindTextActive : styles.kindText}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            style={styles.inviteInput}
+            placeholder="Title (optional)"
+            placeholderTextColor={theme.textMuted}
+            value={sourceTitle}
+            onChangeText={setSourceTitle}
+          />
+          <TextInput
+            style={styles.sourceContentInput}
+            placeholder="Paste a transcript, note, or link…"
+            placeholderTextColor={theme.textMuted}
+            value={sourceContent}
+            onChangeText={setSourceContent}
+            multiline
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add source"
+            disabled={addSourceBusy || !sourceContent.trim()}
+            style={[styles.approveBtn, !sourceContent.trim() ? styles.disabledBtn : null]}
+            onPress={onAddSource}
+          >
+            <Text style={styles.approveText}>{addSourceBusy ? "…" : "Add source"}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {inputs.length === 0 ? (
+        <Text style={styles.emptyText}>
+          No sources yet.{isOwner ? " Add a transcript, note, or link above to get started." : ""}
+        </Text>
+      ) : (
+        inputs.map((input) => (
+          <View key={input.id} style={styles.sourceRow}>
+            <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
+            <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
+            {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+// Drafts (create phase): artifacts → versions, read-only-ish (validated/recorded_via
+// state only — Approve lives in FeedbackPanel). Owner generates a draft here, or —
+// when there's no artifact yet — creates the artifact that will hold one.
+function DraftsPanel({
+  styles,
+  isOwner,
+  artifacts,
+  inputs,
+  genBusy,
+  onGenerateDraft,
+  addArtifactBusy,
+  onAddArtifact,
+}: {
+  styles: Styles;
+  isOwner: boolean;
+  artifacts: ArtifactDetailView[];
+  inputs: ProjectInputView[];
+  genBusy: string | null;
+  onGenerateDraft: (artifactId: string) => void;
+  addArtifactBusy: boolean;
+  onAddArtifact: () => void;
+}) {
+  if (artifacts.length === 0) {
+    return (
+      <View style={styles.artifactsWrap}>
+        {isOwner ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add an artifact"
+            disabled={addArtifactBusy}
+            style={styles.approveBtn}
+            onPress={onAddArtifact}
+          >
+            <Text style={styles.approveText}>{addArtifactBusy ? "…" : "Add an artifact"}</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.emptyText}>Waiting for the owner to create a draft.</Text>
+        )}
+      </View>
+    );
+  }
+  return (
+    <View style={styles.artifactsWrap}>
+      {artifacts.map(({ artifact, versions }) => (
+        <View key={artifact.id} style={styles.artifact}>
+          <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+          {versions.length === 0 ? (
+            <Text style={styles.emptyText}>No drafts yet.</Text>
+          ) : (
+            versions.map((v) => (
+              <View key={v.id} style={styles.versionRow}>
+                <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                {v.is_validated ? (
+                  <View style={styles.validatedRow}>
+                    <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                    {v.recorded_via === "expert_self" ? (
+                      <Text style={styles.chip}>expert-validated</Text>
+                    ) : v.recorded_via === "operator" ? (
+                      <Text style={styles.chip}>operator-recorded</Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.versionLabel}>Awaiting review</Text>
+                )}
+              </View>
+            ))
+          )}
+          {isOwner ? (
+            <View style={styles.draftRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Generate a draft"
+                disabled={genBusy === artifact.id || inputs.length === 0}
+                style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
+                onPress={() => onGenerateDraft(artifact.id)}
+              >
+                <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
+              </Pressable>
+              {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Feedback (validate phase): the Approve flow for unvalidated versions + the
+// validated/recorded_via display, plus (owner) the Invite-an-expert control.
+// Nothing to review until a draft exists, so this stays gated on anyVersion.
+function FeedbackPanel({
+  styles,
+  theme,
+  isOwner,
+  artifacts,
+  anyVersion,
+  busy,
+  onApprove,
+  inviteEmail,
+  setInviteEmail,
+  inviteBusy,
+  onInvite,
+}: {
+  styles: Styles;
+  theme: ThemeShape;
+  isOwner: boolean;
+  artifacts: ArtifactDetailView[];
+  anyVersion: boolean;
+  busy: string | null;
+  onApprove: (versionId: string, versionNo: number) => void;
+  inviteEmail: string;
+  setInviteEmail: (v: string) => void;
+  inviteBusy: boolean;
+  onInvite: () => void;
+}) {
+  if (!anyVersion) {
+    return <Text style={styles.emptyText}>Finish Drafts first — generate a draft before it can be reviewed.</Text>;
+  }
+  return (
+    <View style={styles.artifactsWrap}>
+      {artifacts.map(({ artifact, versions }) => (
+        <View key={artifact.id} style={styles.artifact}>
+          <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+          {versions.map((v) => (
+            <View key={v.id} style={styles.versionRow}>
+              <Text style={styles.versionLabel}>v{v.version_no}</Text>
+              {v.is_validated ? (
+                <View style={styles.validatedRow}>
+                  <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                  {v.recorded_via === "expert_self" ? (
+                    <Text style={styles.chip}>expert-validated</Text>
+                  ) : v.recorded_via === "operator" ? (
+                    <Text style={styles.chip}>operator-recorded</Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Approve version ${v.version_no}`}
+                  disabled={busy === v.id}
+                  style={styles.approveBtn}
+                  onPress={() => onApprove(v.id, v.version_no)}
+                >
+                  <Text style={styles.approveText}>{busy === v.id ? "…" : "Approve"}</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </View>
+      ))}
+      {isOwner ? (
+        <View style={styles.ownerBlock}>
+          <Text style={styles.artifactTitle}>Invite an expert</Text>
+          <View style={styles.inviteRow}>
+            <TextInput
+              style={styles.inviteInput}
+              placeholder="expert@example.com"
+              placeholderTextColor={theme.textMuted}
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite an expert"
+              disabled={inviteBusy}
+              style={styles.approveBtn}
+              onPress={onInvite}
+            >
+              <Text style={styles.approveText}>{inviteBusy ? "…" : "Invite"}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// Publish (share phase): deferred (user decision) — placeholder only, no CTA.
+function PublishPanel({ styles }: { styles: Styles }) {
+  return (
+    <View style={styles.artifactsWrap}>
+      <Text style={styles.emptyText}>Sharing & export are coming soon.</Text>
+    </View>
+  );
+}
+
 function TrustProjectDetailInner() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
@@ -47,18 +337,21 @@ function TrustProjectDetailInner() {
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const sourcesY = useRef(0);
-  const artifactsY = useRef(0);
-  const ownerActionsY = useRef(0);
-  const [highlight, setHighlight] = useState<"sources" | "artifacts" | "owner" | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flash = (key: "sources" | "artifacts" | "owner") => {
-    setHighlight(key);
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    highlightTimer.current = setTimeout(() => setHighlight(null), 1500);
-  };
-  useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
+  const [selected, setSelected] = useState<PhaseKey | null>(null);
+
+  // Seed the selected tab ONCE, from the phase the project is in when it
+  // first loads. Later data changes (e.g. adding a source advances the
+  // phase past Sources) must not yank the owner to a different tab — see
+  // the "does not yank" journey test. Hooks must run unconditionally, so
+  // this sits above the loading/error/!project early returns; project may
+  // still be undefined on the first render(s), so it's read directly here
+  // rather than via the (not-yet-derived) `phase`.
+  useEffect(() => {
+    if (project && selected === null) {
+      const isOwnerNow = project.my_role === "owner";
+      setSelected(basePhase(deriveProjectPhase(project, isOwnerNow).currentKey));
+    }
+  }, [project, selected]);
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -142,172 +435,62 @@ function TrustProjectDetailInner() {
   };
 
   const isOwner = project.my_role === "owner";
-
-  const onNextAction = (phaseKey: string) => {
-    const scrollTo = (y: number) => scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
-    switch (phaseKey) {
-      case "capture":
-        scrollTo(sourcesY.current); flash("sources");
-        break;
-      case "create":
-        scrollTo(artifactsY.current); flash("artifacts");
-        break;
-      case "create_artifact":
-        scrollTo(ownerActionsY.current); flash("owner");
-        break;
-      case "validate":
-        scrollTo(isOwner ? ownerActionsY.current : artifactsY.current); flash(isOwner ? "owner" : "artifacts");
-        break;
-      default:
-        router.push("/posts"); // share — no highlight
-        break;
-    }
-  };
+  const phase = deriveProjectPhase(project, isOwner);
+  // Fallback for the first frame(s) before the seed effect fires; once
+  // `selected` is set it wins and no longer tracks phase changes.
+  const active = selected ?? basePhase(phase.currentKey);
+  const anyVersion = project.artifacts.some((a) => a.versions.length > 0);
 
   return (
-    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.body}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
-        <TrustJourney detail={project} isOwner={isOwner} onNext={onNextAction} />
-        <View testID="journey-anchor-sources" style={[styles.sourcesBlock, highlight === "sources" && styles.highlighted]} onLayout={(e) => { sourcesY.current = e.nativeEvent.layout.y; }}>
-          <Text style={styles.artifactTitle}>Sources</Text>
-          <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
-          {isOwner ? (
-            <View style={styles.sourceForm}>
-              <View style={styles.kindRow}>
-                {SOURCE_KINDS.map(({ value, label }) => (
-                  <Pressable
-                    key={value}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Source kind ${label}`}
-                    style={[styles.kindBtn, sourceKind === value ? styles.kindBtnActive : null]}
-                    onPress={() => setSourceKind(value)}
-                  >
-                    <Text style={sourceKind === value ? styles.kindTextActive : styles.kindText}>{label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <TextInput
-                style={styles.inviteInput}
-                placeholder="Title (optional)"
-                placeholderTextColor={theme.textMuted}
-                value={sourceTitle}
-                onChangeText={setSourceTitle}
-              />
-              <TextInput
-                style={styles.sourceContentInput}
-                placeholder="Paste a transcript, note, or link…"
-                placeholderTextColor={theme.textMuted}
-                value={sourceContent}
-                onChangeText={setSourceContent}
-                multiline
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add source"
-                disabled={addSourceBusy || !sourceContent.trim()}
-                style={[styles.approveBtn, !sourceContent.trim() ? styles.disabledBtn : null]}
-                onPress={onAddSource}
-              >
-                <Text style={styles.approveText}>{addSourceBusy ? "…" : "Add source"}</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          {inputs.length === 0 ? (
-            <Text style={styles.emptyText}>
-              No sources yet.{isOwner ? " Add a transcript, note, or link above to get started." : ""}
-            </Text>
-          ) : (
-            inputs.map((input) => (
-              <View key={input.id} style={styles.sourceRow}>
-                <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
-                <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
-                {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
-              </View>
-            ))
-          )}
-        </View>
-        <View testID="journey-anchor-artifacts" style={[styles.artifactsWrap, highlight === "artifacts" && styles.highlighted]} onLayout={(e) => { artifactsY.current = e.nativeEvent.layout.y; }}>
-          {project.artifacts.map(({ artifact, versions }) => (
-            <View key={artifact.id} style={styles.artifact}>
-              <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-              {versions.map((v) => (
-                <View key={v.id} style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                  {v.is_validated ? (
-                    <View style={styles.validatedRow}>
-                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                      {v.recorded_via === "expert_self" ? (
-                        <Text style={styles.chip}>expert-validated</Text>
-                      ) : v.recorded_via === "operator" ? (
-                        <Text style={styles.chip}>operator-recorded</Text>
-                      ) : null}
-                    </View>
-                  ) : (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Approve version ${v.version_no}`}
-                      disabled={busy === v.id}
-                      style={styles.approveBtn}
-                      onPress={() => onApprove(v.id, v.version_no)}
-                    >
-                      <Text style={styles.approveText}>{busy === v.id ? "…" : "Approve"}</Text>
-                    </Pressable>
-                  )}
-                </View>
-              ))}
-              {isOwner ? (
-                <View style={styles.draftRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Generate a draft"
-                    disabled={genBusy === artifact.id || inputs.length === 0}
-                    style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
-                    onPress={() => onGenerateDraft(artifact.id)}
-                  >
-                    <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
-                  </Pressable>
-                  {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
-                </View>
-              ) : null}
-            </View>
-          ))}
-        </View>
-        {isOwner ? (
-          <View testID="journey-anchor-owner" style={[styles.ownerBlock, highlight === "owner" && styles.highlighted]} onLayout={(e) => { ownerActionsY.current = e.nativeEvent.layout.y; }}>
-            <Text style={styles.artifactTitle}>Owner actions</Text>
-            <View style={styles.inviteRow}>
-              <TextInput
-                style={styles.inviteInput}
-                placeholder="expert@example.com"
-                placeholderTextColor={theme.textMuted}
-                value={inviteEmail}
-                onChangeText={setInviteEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Invite an expert"
-                disabled={inviteBusy}
-                style={styles.approveBtn}
-                onPress={onInvite}
-              >
-                <Text style={styles.approveText}>{inviteBusy ? "…" : "Invite"}</Text>
-              </Pressable>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add an artifact"
-              disabled={addArtifactBusy}
-              style={styles.approveBtn}
-              onPress={onAddArtifact}
-            >
-              <Text style={styles.approveText}>{addArtifactBusy ? "…" : "Add an artifact"}</Text>
-            </Pressable>
-          </View>
+        <PhaseTabBar phase={phase} selected={active} onSelect={setSelected} />
+        {active === "capture" ? (
+          <SourcesPanel
+            styles={styles}
+            theme={theme}
+            isOwner={isOwner}
+            inputs={inputs}
+            sourceKind={sourceKind}
+            setSourceKind={setSourceKind}
+            sourceTitle={sourceTitle}
+            setSourceTitle={setSourceTitle}
+            sourceContent={sourceContent}
+            setSourceContent={setSourceContent}
+            addSourceBusy={addSourceBusy}
+            onAddSource={onAddSource}
+          />
         ) : null}
+        {active === "create" ? (
+          <DraftsPanel
+            styles={styles}
+            isOwner={isOwner}
+            artifacts={project.artifacts}
+            inputs={inputs}
+            genBusy={genBusy}
+            onGenerateDraft={onGenerateDraft}
+            addArtifactBusy={addArtifactBusy}
+            onAddArtifact={onAddArtifact}
+          />
+        ) : null}
+        {active === "validate" ? (
+          <FeedbackPanel
+            styles={styles}
+            theme={theme}
+            isOwner={isOwner}
+            artifacts={project.artifacts}
+            anyVersion={anyVersion}
+            busy={busy}
+            onApprove={onApprove}
+            inviteEmail={inviteEmail}
+            setInviteEmail={setInviteEmail}
+            inviteBusy={inviteBusy}
+            onInvite={onInvite}
+          />
+        ) : null}
+        {active === "share" ? <PublishPanel styles={styles} /> : null}
       </PageContainer>
     </ScrollView>
   );
@@ -423,6 +606,5 @@ const makeStyles = (c: Palette) => ({
   sourceKindLabel: { color: c.textSecondary, fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const },
   sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
-  artifactsWrap: { borderWidth: 1, borderColor: "transparent", borderRadius: radius.md },
-  highlighted: { borderColor: c.primary },
+  artifactsWrap: { gap: spacing.md },
 });

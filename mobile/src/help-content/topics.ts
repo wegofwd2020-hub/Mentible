@@ -461,7 +461,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Every project moves through four phases: capture your sources, create a draft from them, have an expert validate it, then share it once it's ready. The project screen shows a small journey stepper marking which phase you're currently in and what to do next, so you always know where a project stands.",
+        text: "Every project moves through four phases: capture your sources, create a draft from them, have an expert validate it, then share it once it's ready. The project screen has a tab for each phase — Sources, Drafts, Feedback, Publish — and opens on whichever one you're currently in, so you always know where a project stands. Tap any tab to jump to a different phase.",
       },
       {
         kind: "steps",

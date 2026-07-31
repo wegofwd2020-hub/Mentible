@@ -22,6 +22,7 @@ it("shows validated + awaiting badges and approves an awaiting version", async (
   (useTrustProject as jest.Mock).mockReturnValue({ ...base, approve });
   render(<TrustProjectDetail />);
   expect(await screen.findByText("Stormwater")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText(/Feedback:/));
   expect(screen.getByLabelText("Version 1 validated")).toBeTruthy();
   fireEvent.press(screen.getByLabelText("Approve version 2"));
   await waitFor(() => expect(approve).toHaveBeenCalledWith("v2"));
