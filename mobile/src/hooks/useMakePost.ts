@@ -13,6 +13,7 @@ export interface RunPostArgs {
   sourceText: string;
   platform: Platform;
   tone?: string;
+  image?: { media_type: string; data: string }; // optional reference (FR-1b) — transient, never stored
 }
 
 export interface UseMakePostResult {
@@ -41,7 +42,7 @@ export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
   }, []);
 
   const run = useCallback(
-    async ({ sourceText, platform, tone }: RunPostArgs): Promise<void> => {
+    async ({ sourceText, platform, tone, image }: RunPostArgs): Promise<void> => {
       setError(null);
       setStatus("generating");
 
@@ -57,6 +58,7 @@ export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
           source_text: sourceText,
           platform,
           ...(tone ? { tone } : {}),
+          ...(image ? { image } : {}),
           api_key: apiKey,
           provider_id: "anthropic",
         });

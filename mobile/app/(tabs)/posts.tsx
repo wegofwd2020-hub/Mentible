@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useMakePost } from "@/hooks/useMakePost";
 import { copyText } from "@/lib/clipboard";
+import { pickReferenceImage } from "@/lib/pickReferenceImage";
+import { Alert } from "@/lib/alert";
 import { loadApiKey } from "@/secure/keyStore";
 import { type Platform, type PostVariant } from "@/api/derivativesClient";
 import { colors, radius, spacing, typography } from "@/constants/theme";
@@ -34,14 +36,29 @@ export default function PostsScreen() {
   const [source, setSource] = useState("");
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [tone, setTone] = useState("");
+  const [image, setImage] = useState<{ media_type: string; data: string } | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const busy = status === "generating";
   const canGenerate = source.trim().length > 0 && !busy;
 
   const onGenerate = useCallback(() => {
-    void run({ sourceText: source.trim(), platform, ...(tone.trim() ? { tone: tone.trim() } : {}) });
-  }, [run, source, platform, tone]);
+    void run({
+      sourceText: source.trim(),
+      platform,
+      ...(tone.trim() ? { tone: tone.trim() } : {}),
+      ...(image ? { image } : {}),
+    });
+  }, [run, source, platform, tone, image]);
+
+  const onPickImage = useCallback(async () => {
+    try {
+      const picked = await pickReferenceImage();
+      if (picked) setImage(picked);
+    } catch (e) {
+      Alert.alert("Could not add image", e instanceof Error ? e.message : "Try another image.");
+    }
+  }, []);
 
   const onCopy = useCallback(async (v: PostVariant, i: number) => {
     await copyText(assemblePost(v));
@@ -92,6 +109,31 @@ export default function PostsScreen() {
           value={tone}
           onChangeText={setTone}
         />
+
+        <Text style={styles.label}>Reference image (optional)</Text>
+        <Text style={styles.helper}>The model takes cues from this — it won't copy it.</Text>
+        {image == null ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add reference image"
+            onPress={() => void onPickImage()}
+            style={styles.imageBtn}
+          >
+            <Text style={styles.imageBtnText}>Add reference image</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.imageRow}>
+            <Image source={{ uri: `data:${image.media_type};base64,${image.data}` }} style={styles.thumb} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove reference image"
+              onPress={() => setImage(null)}
+              style={styles.removeImageBtn}
+            >
+              <Text style={styles.removeImageBtnText}>Remove</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -148,6 +190,19 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     padding: spacing.sm, color: colors.text,
   },
+  helper: { fontSize: typography.sizeXs, color: colors.textMuted },
+  imageBtn: {
+    alignSelf: "flex-start", paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+  },
+  imageBtnText: { color: colors.text, fontWeight: "600" },
+  imageRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  thumb: { width: 96, height: 96, borderRadius: radius.md },
+  removeImageBtn: {
+    paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
+    borderRadius: radius.sm, backgroundColor: colors.tileOffFace,
+  },
+  removeImageBtnText: { color: colors.tileOffGlyph, fontWeight: "600" },
   segment: { flexDirection: "row", gap: spacing.xs },
   segmentBtn: {
     paddingVertical: spacing.xs, paddingHorizontal: spacing.md,

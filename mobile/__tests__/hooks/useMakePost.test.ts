@@ -58,3 +58,29 @@ it("surfaces ApiError.userMessage on failure", async () => {
   await waitFor(() => expect(result.current.status).toBe("failed"));
   expect(result.current.error).toBe("generated content failed validation");
 });
+
+it("forwards the image when provided", async () => {
+  makePost.mockResolvedValue({ platform: "linkedin", variants: VARIANTS, provenance: "ai-generated" });
+  const getApiKey = jest.fn().mockResolvedValue("sk-ant-xxxxxxxxxxxxxxxxxxxx");
+  const { result } = renderHook(() => useMakePost({ getApiKey }));
+
+  await act(async () => {
+    await result.current.run({
+      sourceText: "Stormwater.",
+      platform: "linkedin",
+      image: { media_type: "image/png", data: "AAA" },
+    });
+  });
+
+  expect(makePost).toHaveBeenCalledWith(
+    expect.objectContaining({
+      source_text: "Stormwater.",
+      platform: "linkedin",
+      image: { media_type: "image/png", data: "AAA" },
+      api_key: "sk-ant-xxxxxxxxxxxxxxxxxxxx",
+      provider_id: "anthropic",
+    }),
+  );
+  await waitFor(() => expect(result.current.status).toBe("done"));
+  expect(result.current.variants).toHaveLength(3);
+});

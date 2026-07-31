@@ -514,7 +514,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "The Posts tab turns any writing into short, platform-ready social posts. Paste the source text, pick LinkedIn or X, optionally give it a tone, and you get three distinct drafts to choose from. Each draft is yours to copy and post — Mentible does not publish for you.",
+        text: "The Posts tab turns any writing into short, platform-ready social posts. Paste the source text, pick LinkedIn or X, optionally give it a tone, and you get three distinct drafts to choose from. Each draft is yours to copy and post — Mentible does not publish for you. You can also attach an optional reference image to steer style and tone — the model takes cues from it, it does not copy the image, and your posts are still AI-generated.",
       },
       {
         kind: "steps",

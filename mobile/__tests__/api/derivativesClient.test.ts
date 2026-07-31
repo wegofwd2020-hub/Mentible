@@ -51,3 +51,17 @@ it("throws ApiError on a non-2xx response", async () => {
     makePost({ source_text: "x", platform: "x", api_key: "sk-ant-xxxxxxxxxxxxxxxxxxxx" }),
   ).rejects.toBeInstanceOf(ApiError);
 });
+
+it("makePost sends the image in the body when provided", async () => {
+  mockFetchOnce(200, RESPONSE);
+  await makePost({
+    source_text: "s",
+    platform: "linkedin",
+    api_key: "sk-ant-x",
+    image: { media_type: "image/png", data: "AAA" },
+  });
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [, init] = fetchMock.mock.calls[0];
+  const sentBody = JSON.parse(init.body);
+  expect(sentBody.image).toEqual({ media_type: "image/png", data: "AAA" });
+});

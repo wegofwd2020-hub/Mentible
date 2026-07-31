@@ -51,6 +51,13 @@ async def make_post(
     call off the event loop via `asyncio.to_thread`. A model that never returns
     schema-valid JSON within the repair budget surfaces as a 502 — never the key.
     """
+    # A reference image requires vision — Anthropic-only this slice (FR-1b).
+    if body.image is not None and body.provider_id != "anthropic":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="a reference image requires the Anthropic provider",
+        )
+
     managed = body.api_key is None
     if managed:
         # SCOPE (slice 1, deliberate): the managed gate here is the Phase-1 staff
@@ -80,6 +87,7 @@ async def make_post(
             provider_id=body.provider_id,
             api_key=api_key,
             model=model,
+            image=body.image,
         )
     except LLMSchemaError:
         log.warning("derivative_validation_failed", platform=body.platform)

@@ -13,6 +13,20 @@ from wegofwd_llm.registry import PROVIDER_REGISTRY
 # Supported destination platforms for a derivative post.
 Platform = Literal["linkedin", "x"]
 
+ImageMediaType = Literal["image/jpeg", "image/png", "image/webp"]
+
+
+class ReferenceImage(BaseModel):
+    """An optional reference image that STEERS post style — never copied.
+
+    Transient: the base64 `data` is passed straight to the vision call and is
+    never logged or persisted (ADR-001 / ADR-036 custody).
+    """
+
+    media_type: ImageMediaType
+    # base64-encoded bytes. Capped ~5 MB raw (~6.7 MB base64) to bound the payload.
+    data: str = Field(min_length=1, max_length=7_000_000)
+
 
 class DerivativeRequest(BaseModel):
     """Body of POST /derivatives — generate platform-scoped promotional posts.
@@ -36,6 +50,11 @@ class DerivativeRequest(BaseModel):
 
     # Optional model override — defaults to the provider's registry default.
     model: str | None = None
+
+    # Optional reference image (FR-1b). Steers style/tone/layout only — the
+    # backend instructs the model NOT to reproduce it. Anthropic-only (the
+    # router rejects image + non-anthropic with a 400).
+    image: ReferenceImage | None = None
 
     @field_validator("provider_id")
     @classmethod
