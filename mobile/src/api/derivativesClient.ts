@@ -14,6 +14,7 @@ export interface MakePostRequest {
   source_text: string;
   platform: Platform;
   tone?: string;
+  image?: { media_type: string; data: string }; // optional reference (FR-1b) — transient, never stored
   api_key: string; // BYOK-only this slice — always sent (never logged/stored)
   provider_id?: string; // default "anthropic"; omit → server default
   model?: string;
