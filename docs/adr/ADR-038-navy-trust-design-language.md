@@ -123,9 +123,14 @@ the design language for *new* SME surfaces. Concretely:
    *Accent word (✅ built):* the export's italic-Fraunces **accent word** (§4) —
    `<AccentText>` primitive + Fraunces italic faces (400/600), slant baked into
    the family (no synth), interceptor preserves it + dyslexic-safe. Applied to the
-   projects/reviews empty-state headings. *Still deferred:* `letterSpacing`
-   `-0.02em` heading polish; a real editorial hero to showcase the accent word
-   (empty states are the current demo) — a fit for the wayfinding/onboarding work.
+   projects/reviews empty-state headings.
+   *Heading tracking (✅ built):* `letterSpacing -0.02em` (export §4), as points
+   (`-0.02 × fontSize`) on the SME Fraunces headings.
+   *Still open:* a real editorial hero to showcase the accent word (empty states
+   are the current demo) — a fit for the wayfinding/onboarding work.
+
+**D1 + O2 are complete.** Remaining ADR items are O3 (tab-labels / app-shell IA →
+the wayfinding workstream) and O4 (companion `mentible-direction.md` review).
 3. **Tab-label + app-shell IA** (O3) — inside the wayfinding workstream, after O4.
 
 ## Deferred (non-blocking)
