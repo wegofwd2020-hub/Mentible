@@ -125,6 +125,13 @@ const makeStyles = (c: Palette) => ({
     lineHeight: 21 as const,
     marginTop: spacing.xs,
   },
+  // flexShrink (RN defaults it to 0) lets the scroll body shrink to fit when the
+  // card hits maxHeight, so long content (e.g. the "Add an LLM key" step) scrolls
+  // *inside* the card instead of being clipped / pushing the footer off-screen.
+  // minHeight:0 is required for the shrink to actually happen on web — RN-web
+  // inherits CSS `min-height:auto`, which otherwise pins the body to its content
+  // height (footer gets pushed off, nothing scrolls, no scrollbar). Harmless on
+  // native (Yoga already defaults min-height to 0).
   body: { flexShrink: 1 as const, minHeight: 0 as const },
   bodyContent: { paddingVertical: spacing.sm, gap: spacing.sm },
   primaryBtn: {

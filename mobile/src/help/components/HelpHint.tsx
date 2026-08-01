@@ -59,6 +59,7 @@ const makeStyles = (c: Palette) => ({
     fontWeight: "700" as const,
     lineHeight: typography.sizeSm + 2,
   },
+  // Floats above the "?" and aligns to the right edge so it stays on-screen.
   bubble: {
     position: "absolute" as const,
     bottom: SIZE + 6,

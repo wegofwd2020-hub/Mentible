@@ -145,6 +145,7 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
 const makeStyles = (c: Palette) => ({
   tabList: { gap: spacing.sm },
   tabRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
+  // A calm echo of the nav tile: white face, dark glyph, soft bevel.
   iconTile: {
     width: 44 as const,
     height: 44 as const,

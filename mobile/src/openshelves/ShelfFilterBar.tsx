@@ -30,16 +30,16 @@ export function ShelfFilterBar({ entries, prefs, onChange }: Props) {
   return (
     <View style={styles.bar}>
       <View style={styles.chips}>
-        {choices.map((c) => {
-          const selected = prefs.language === c;
+        {choices.map((lang) => {
+          const selected = prefs.language === lang;
           return (
             <Pressable
-              key={c}
-              testID={`lang-${c}`}
+              key={lang}
+              testID={`lang-${lang}`}
               style={[styles.chip, selected && styles.chipOn]}
-              onPress={() => onChange({ ...prefs, language: c })}
+              onPress={() => onChange({ ...prefs, language: lang })}
             >
-              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{c === "all" ? "All" : c.toUpperCase()}</Text>
+              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{lang === "all" ? "All" : lang.toUpperCase()}</Text>
             </Pressable>
           );
         })}

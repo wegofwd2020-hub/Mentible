@@ -87,7 +87,7 @@ export function ShareDraftModal({
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>Share "{book.title}"</Text>
+            <Text style={styles.title}>Share “{book.title}”</Text>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={22} color={theme.textSecondary} />
             </Pressable>
@@ -97,8 +97,8 @@ export function ShareDraftModal({
             {figureCount > 0 ? (
               <Text style={styles.figuresNotice}>
                 {figureCount === 1
-                  ? "Your 1 figure won't be shared - reviewers see a note instead. "
-                  : `Your ${figureCount} figures won't be shared - reviewers see a note instead. `}
+                  ? "Your 1 figure won't be shared — reviewers see a note instead. "
+                  : `Your ${figureCount} figures won't be shared — reviewers see a note instead. `}
                 To share figures, export the book as EPUB or PDF.
               </Text>
             ) : null}
