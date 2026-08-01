@@ -1,7 +1,8 @@
 import React from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { HelpButton } from "@/help";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // Shared chrome for a single first-run wizard step. Presentational only — the
 // coordinator (FirstRunWizard) supplies the Modal/overlay and the step logic.
@@ -43,6 +44,8 @@ export function WizardScaffold({
   skipLabel = "Skip for now",
   onSkip,
 }: WizardScaffoldProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.card}>
       <View style={styles.dots} accessibilityRole="progressbar">
@@ -78,7 +81,7 @@ export function WizardScaffold({
           accessibilityState={{ disabled: primaryDisabled || primaryBusy }}
         >
           {primaryBusy ? (
-            <ActivityIndicator color={colors.primaryText} />
+            <ActivityIndicator color={theme.primaryText} />
           ) : (
             <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
           )}
@@ -94,32 +97,32 @@ export function WizardScaffold({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   card: {
-    width: "100%",
-    maxWidth: 520,
-    maxHeight: "90%",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+    width: "100%" as const,
+    maxWidth: 520 as const,
+    maxHeight: "90%" as const,
+    backgroundColor: c.surface,
+    borderColor: c.border,
+    borderWidth: 1 as const,
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  dots: { flexDirection: "row", justifyContent: "center", gap: spacing.xs, marginBottom: spacing.xs },
+  dots: { flexDirection: "row" as const, justifyContent: "center" as const, gap: spacing.xs, marginBottom: spacing.xs },
   dot: {
-    width: 8,
-    height: 8,
+    width: 8 as const,
+    height: 8 as const,
     borderRadius: radius.full,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
   },
-  dotActive: { backgroundColor: colors.primary, width: 22 },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  title: { flex: 1, fontSize: typography.sizeXl, fontWeight: "800", color: colors.text },
+  dotActive: { backgroundColor: c.primary, width: 22 as const },
+  headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
+  title: { flex: 1 as const, fontSize: typography.sizeXl, fontWeight: "800" as const, color: c.text },
   subtitle: {
     fontSize: typography.sizeSm,
-    color: colors.textSecondary,
-    lineHeight: 21,
+    color: c.textSecondary,
+    lineHeight: 21 as const,
     marginTop: spacing.xs,
   },
   // flexShrink (RN defaults it to 0) lets the scroll body shrink to fit when the
@@ -129,21 +132,21 @@ const styles = StyleSheet.create({
   // inherits CSS `min-height:auto`, which otherwise pins the body to its content
   // height (footer gets pushed off, nothing scrolls, no scrollbar). Harmless on
   // native (Yoga already defaults min-height to 0).
-  body: { flexShrink: 1, minHeight: 0 },
+  body: { flexShrink: 1 as const, minHeight: 0 as const },
   bodyContent: { paddingVertical: spacing.sm, gap: spacing.sm },
   primaryBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.xs,
   },
-  primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
+  primaryBtnDisabled: { opacity: 0.5 as const },
+  primaryBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
   skipText: {
-    color: colors.textSecondary,
+    color: c.textSecondary,
     fontSize: typography.sizeSm,
-    textAlign: "center",
+    textAlign: "center" as const,
     paddingVertical: spacing.sm,
   },
 });

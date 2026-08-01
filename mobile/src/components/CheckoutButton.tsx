@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { TrustBadge } from "@/components/TrustBadge";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 import type { TrustManifest } from "@/types/trust";
 
@@ -22,6 +23,8 @@ function slug(title: string): string {
 // saved in the Library (instant download); PDF is compiled on demand by the
 // backend (slower — minutes for a big book).
 export function CheckoutButton({ book }: { book: Book }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [state, setState] = useState<State>({ kind: "idle" });
 
   // Compile a fresh artifact WITH diagrams (Mermaid→SVG) and hand it to the
@@ -73,7 +76,7 @@ export function CheckoutButton({ book }: { book: Book }) {
 
       {working && (
         <View style={styles.statusRow}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={theme.primary} />
           <Text style={styles.statusText}>
             Rendering diagrams + building the {state.fmt.toUpperCase()} — this can take a
             few minutes for a large book.
@@ -111,30 +114,30 @@ function messageFor(err: unknown): string {
   return err instanceof Error ? err.message : "Checkout failed.";
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs, marginTop: spacing.lg },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
-  row: { flexDirection: "row", gap: spacing.sm },
+  row: { flexDirection: "row" as const, gap: spacing.sm },
   btn: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  btnAlt: { backgroundColor: colors.surfaceHigh, borderColor: colors.primary, borderWidth: 1 },
+  btnAlt: { backgroundColor: c.surfaceHigh, borderColor: c.primary, borderWidth: 1 },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
-  btnAltText: { color: colors.primary },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
-  statusText: { color: colors.textSecondary, fontSize: typography.sizeSm },
+  btnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  btnAltText: { color: c.primary },
+  statusRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginTop: spacing.xs },
+  statusText: { color: c.textSecondary, fontSize: typography.sizeSm },
   doneBlock: { gap: spacing.sm, marginTop: spacing.xs },
-  doneText: { color: colors.success, fontSize: typography.sizeSm },
-  errText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs },
+  doneText: { color: c.success, fontSize: typography.sizeSm },
+  errText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs },
 });

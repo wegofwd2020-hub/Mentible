@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteBook, hasRenderableLesson, loadBook, loadBookIndex } from "@/storage/bookStore";
@@ -12,7 +12,8 @@ import { BookCover } from "@/components/BookCover";
 import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { myDrafts } from "@/api/client";
@@ -30,25 +31,25 @@ function progressLabel(m: BookMeta): string | undefined {
   return m.generatedCount >= m.unitCount ? `${m.unitCount}` : `${m.generatedCount}/${m.unitCount}`;
 }
 
-function NewBookButton({ onPress }: { onPress: () => void }) {
+function NewBookButton({ onPress, styles }: { onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
     <Pressable style={styles.newBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel="New book">
       <Text style={styles.newBtnText}>+ New book</Text>
     </Pressable>
   );
 }
-function ImportButton({ onPress }: { onPress: () => void }) {
+function ImportButton({ onPress, styles }: { onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
     <Pressable style={styles.importBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel="Import a book">
       <Text style={styles.importBtnText}>Import a book</Text>
     </Pressable>
   );
 }
-function BooksHeader({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
+function BooksHeader({ onNew, onImport, styles }: { onNew: () => void; onImport: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.header}>
-      <NewBookButton onPress={onNew} />
-      <ImportButton onPress={onImport} />
+      <NewBookButton onPress={onNew} styles={styles} />
+      <ImportButton onPress={onImport} styles={styles} />
       <HelpButton topic="formats" label="Books & formats" />
     </View>
   );
@@ -71,6 +72,8 @@ function BookDetail({
   commentCount: number;
   onFeedback: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -103,7 +106,7 @@ function BookDetail({
   if (!id) {
     return (
       <View style={styles.detailEmpty}>
-        <Ionicons name="book-outline" size={40} color={colors.textMuted} />
+        <Ionicons name="book-outline" size={40} color={theme.textMuted} />
         <Text style={styles.detailEmptyText}>Select a book to see its details.</Text>
       </View>
     );
@@ -111,7 +114,7 @@ function BookDetail({
   if (loading || !book) {
     return (
       <View style={styles.detailEmpty}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
@@ -152,7 +155,7 @@ function BookDetail({
           accessibilityRole="button"
           accessibilityHint="Opens the generation screen to refresh stale topics"
         >
-          <Ionicons name="refresh-circle-outline" size={16} color={colors.warning} />
+          <Ionicons name="refresh-circle-outline" size={16} color={theme.warning} />
           <Text style={styles.staleText}>
             {staleCount} {staleCount === 1 ? "topic was" : "topics were"} made with an older
             model — regenerate?
@@ -190,7 +193,7 @@ function BookDetail({
           accessibilityRole="button"
           accessibilityLabel={`Delete book: ${book.title}`}
         >
-          <Ionicons name="trash-outline" size={18} color={colors.error} />
+          <Ionicons name="trash-outline" size={18} color={theme.error} />
         </Pressable>
       </View>
     </ScrollView>
@@ -207,6 +210,7 @@ export default function BooksScreen() {
 
 function BooksScreenInner() {
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
   const [books, setBooks] = useState<BookMeta[]>([]);
   const [exportStatus, setExportStatus] = useState<Record<string, BookExportStatus>>({});
   const [published, setPublished] = useState<Record<string, { epub?: boolean; pdf?: boolean }>>({});
@@ -270,14 +274,14 @@ function BooksScreenInner() {
         <Text style={styles.emptyBody}>
           Paste a table of contents and we’ll turn it into an editable topic tree you can build a book from.
         </Text>
-        <NewBookButton onPress={() => router.push("/book/new")} />
-        <ImportButton onPress={() => router.push("/book/import")} />
+        <NewBookButton onPress={() => router.push("/book/new")} styles={styles} />
+        <ImportButton onPress={() => router.push("/book/import")} styles={styles} />
       </View>
     );
   }
 
   const header = (
-    <BooksHeader onNew={() => router.push("/book/new")} onImport={() => router.push("/book/import")} />
+    <BooksHeader onNew={() => router.push("/book/new")} onImport={() => router.push("/book/import")} styles={styles} />
   );
 
   const feedbackModal =
@@ -375,76 +379,76 @@ function BooksScreenInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  list: { flex: 1, backgroundColor: c.background },
   header: { marginBottom: spacing.md },
-  rowMetaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  rowMetaRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   empty: {
-    flex: 1, backgroundColor: colors.background, justifyContent: "center",
-    alignItems: "center", padding: spacing.xl, gap: spacing.md,
+    flex: 1, backgroundColor: c.background, justifyContent: "center" as const,
+    alignItems: "center" as const, padding: spacing.xl, gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
-  emptyBody: { fontSize: typography.sizeSm, color: colors.textMuted, textAlign: "center", lineHeight: 22, maxWidth: 280 },
-  newBtn: { backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center", marginBottom: spacing.sm },
-  newBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
-  importBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, alignItems: "center" },
-  importBtnText: { color: colors.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" },
+  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
+  emptyBody: { fontSize: typography.sizeSm, color: c.textMuted, textAlign: "center" as const, lineHeight: 22, maxWidth: 280 },
+  newBtn: { backgroundColor: c.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const, marginBottom: spacing.sm },
+  newBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  importBtn: { borderColor: c.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const },
+  importBtnText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
 
   // Phone grid
   gridContent: { padding: spacing.md },
   gridRow: { gap: spacing.md },
   tile: { flex: 1, marginBottom: spacing.md, gap: spacing.xs },
-  tileHalf: { maxWidth: "50%" },
-  tileTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
-  tileMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
+  tileHalf: { maxWidth: "50%" as const },
+  tileTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
+  tileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
   // Wide split
-  split: { flex: 1, flexDirection: "row", backgroundColor: colors.background, maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
-  leftPane: { flex: 4, borderRightColor: colors.border, borderRightWidth: 1 },
+  split: { flex: 1, flexDirection: "row" as const, backgroundColor: c.background, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
+  leftPane: { flex: 4, borderRightColor: c.border, borderRightWidth: 1 },
   leftContent: { padding: spacing.md },
   rowSep: { height: spacing.sm },
-  listRow: { flexDirection: "row", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, alignItems: "center" },
-  listRowSelected: { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1 },
-  rowCover: { width: 42, position: "relative" },
-  coverWrap: { position: "relative", alignSelf: "flex-start" },
-  coverBadge: { position: "absolute", top: 6, left: 6, zIndex: 2 },
+  listRow: { flexDirection: "row" as const, gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, alignItems: "center" as const },
+  listRowSelected: { backgroundColor: c.surface, borderColor: c.primary, borderWidth: 1 },
+  rowCover: { width: 42, position: "relative" as const },
+  coverWrap: { position: "relative" as const, alignSelf: "flex-start" as const },
+  coverBadge: { position: "absolute" as const, top: 6, left: 6, zIndex: 2 },
   rowMain: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
-  rowMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
-  rightPane: { flex: 6, backgroundColor: colors.background },
+  rowTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
+  rowMeta: { fontSize: typography.sizeXs, color: c.textMuted },
+  rightPane: { flex: 6, backgroundColor: c.background },
 
   // Detail panel
-  detailEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.sm, padding: spacing.xl },
-  detailEmptyText: { color: colors.textMuted, fontSize: typography.sizeSm },
+  detailEmpty: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, gap: spacing.sm, padding: spacing.xl },
+  detailEmptyText: { color: c.textMuted, fontSize: typography.sizeSm },
   detailContent: { padding: spacing.lg, gap: spacing.xs },
-  detailCover: { alignItems: "center", marginBottom: spacing.sm },
-  detailCoverWrap: { position: "relative", alignSelf: "flex-start" },
-  detailTitle: { fontSize: typography.sizeXl, fontWeight: "700", color: colors.text },
-  detailMeta: { fontSize: typography.sizeSm, color: colors.textMuted },
-  detailDone: { color: colors.success, fontWeight: "600" },
+  detailCover: { alignItems: "center" as const, marginBottom: spacing.sm },
+  detailCoverWrap: { position: "relative" as const, alignSelf: "flex-start" as const },
+  detailTitle: { fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text },
+  detailMeta: { fontSize: typography.sizeSm, color: c.textMuted },
+  detailDone: { color: c.success, fontWeight: "600" as const },
   staleRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     marginTop: spacing.sm,
   },
-  staleText: { flex: 1, fontSize: typography.sizeSm, color: colors.warning },
-  detailDesc: { fontSize: typography.sizeMd, color: colors.textSecondary, lineHeight: 22, marginTop: spacing.sm },
-  detailDescMuted: { fontSize: typography.sizeSm, color: colors.textMuted, fontStyle: "italic", marginTop: spacing.sm },
+  staleText: { flex: 1, fontSize: typography.sizeSm, color: c.warning },
+  detailDesc: { fontSize: typography.sizeMd, color: c.textSecondary, lineHeight: 22, marginTop: spacing.sm },
+  detailDescMuted: { fontSize: typography.sizeSm, color: c.textMuted, fontStyle: "italic" as const, marginTop: spacing.sm },
   contentsLabel: {
-    fontSize: typography.sizeXs, fontWeight: "600", color: colors.textSecondary,
-    textTransform: "uppercase", letterSpacing: 0.8, marginTop: spacing.lg, marginBottom: spacing.xs,
+    fontSize: typography.sizeXs, fontWeight: "600" as const, color: c.textSecondary,
+    textTransform: "uppercase" as const, letterSpacing: 0.8, marginTop: spacing.lg, marginBottom: spacing.xs,
   },
-  tocRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", paddingVertical: 3 },
-  tocMark: { width: 16, textAlign: "center", color: colors.textMuted },
-  tocDone: { color: colors.success },
-  tocTitle: { flex: 1, fontSize: typography.sizeSm, color: colors.text },
-  tocMore: { fontSize: typography.sizeXs, color: colors.textMuted, marginTop: spacing.xs },
-  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg, alignItems: "center" },
-  actionPrimary: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  actionPrimaryText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
-  actionSecondary: { borderColor: colors.primary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  actionSecondaryText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
-  actionDelete: { marginLeft: "auto", padding: spacing.sm },
+  tocRow: { flexDirection: "row" as const, gap: spacing.sm, alignItems: "center" as const, paddingVertical: 3 },
+  tocMark: { width: 16, textAlign: "center" as const, color: c.textMuted },
+  tocDone: { color: c.success },
+  tocTitle: { flex: 1, fontSize: typography.sizeSm, color: c.text },
+  tocMore: { fontSize: typography.sizeXs, color: c.textMuted, marginTop: spacing.xs },
+  actions: { flexDirection: "row" as const, gap: spacing.sm, marginTop: spacing.lg, alignItems: "center" as const },
+  actionPrimary: { backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  actionPrimaryText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  actionSecondary: { borderColor: c.primary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  actionSecondaryText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  actionDelete: { marginLeft: "auto" as const, padding: spacing.sm },
 });

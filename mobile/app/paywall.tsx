@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { getPurchaseController, usePlanOffers } from "@/billing";
 import type { PlanOffer } from "@/billing";
 import { PageContainer } from "@/components/PageContainer";
 import { PlanCard } from "@/components/PlanCard";
 import { HelpButton } from "@/help";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // The Plans screen. Two key-custody paths side by side: Managed (we hold the provider
 // key and carry token cost under an allowance) and BYOK (you pay your provider direct).
@@ -34,6 +35,8 @@ type Action = { kind: "idle" } | { kind: "purchasing" } | { kind: "notice"; mess
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { state, reload } = usePlanOffers();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [action, setAction] = useState<Action>({ kind: "idle" });
@@ -73,7 +76,7 @@ export default function PaywallScreen() {
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <PageContainer>
-          <ActivityIndicator color={colors.brand} accessibilityLabel="loading plans" />
+          <ActivityIndicator color={theme.brand} accessibilityLabel="loading plans" />
         </PageContainer>
       </ScrollView>
     );
@@ -146,7 +149,7 @@ export default function PaywallScreen() {
               accessibilityRole="button"
             >
               {busy ? (
-                <ActivityIndicator color={colors.brandText} />
+                <ActivityIndicator color={theme.brandText} />
               ) : (
                 <Text style={styles.ctaText}>{ctaLabel(selected)}</Text>
               )}
@@ -182,46 +185,46 @@ export default function PaywallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1 },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scrollContent: { flexGrow: 1 as const },
   previewBanner: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderLeftWidth: 3,
-    borderLeftColor: colors.warning,
+    borderLeftColor: c.warning,
     borderRadius: radius.sm,
     padding: spacing.md,
   },
-  previewBannerText: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
+  previewBannerText: { color: c.textMuted, fontSize: 13, lineHeight: 19 },
   h1: {
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeXl,
     fontFamily: typography.fontHeading,
     lineHeight: 30,
   },
   benefits: { gap: spacing.sm },
-  benefitRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  tick: { color: colors.growth, fontSize: typography.sizeMd, fontWeight: "700" },
-  benefitText: { color: colors.text, fontSize: typography.sizeSm },
+  benefitRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  tick: { color: c.growth, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  benefitText: { color: c.text, fontSize: typography.sizeSm },
   cards: { gap: spacing.sm },
-  terms: { color: colors.textMuted, fontSize: typography.sizeXs, lineHeight: 18 },
+  terms: { color: c.textMuted, fontSize: typography.sizeXs, lineHeight: 18 },
   cta: {
-    backgroundColor: colors.brand,
+    backgroundColor: c.brand,
     borderRadius: radius.full,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
   ctaDisabled: { opacity: 0.6 },
-  ctaText: { color: colors.brandText, fontSize: typography.sizeMd, fontWeight: "700" },
-  notice: { color: colors.textSecondary, fontSize: typography.sizeSm, textAlign: "center" },
-  error: { color: colors.error, fontSize: typography.sizeSm },
+  ctaText: { color: c.brandText, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  notice: { color: c.textSecondary, fontSize: typography.sizeSm, textAlign: "center" as const },
+  error: { color: c.error, fontSize: typography.sizeSm },
   footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     gap: spacing.md,
     marginTop: spacing.sm,
   },
-  footerLink: { color: colors.textMuted, fontSize: typography.sizeXs },
-  footerDot: { color: colors.textMuted, fontSize: typography.sizeXs },
+  footerLink: { color: c.textMuted, fontSize: typography.sizeXs },
+  footerDot: { color: c.textMuted, fontSize: typography.sizeXs },
 });

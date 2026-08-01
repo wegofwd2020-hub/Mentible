@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -17,7 +17,8 @@ import { SharedWithYou } from "@/components/SharedWithYou";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { IS_DEMO } from "@/constants/demo";
 import { loadBook, loadBookIndex } from "@/storage/bookStore";
 import { seedDefaultLibrary } from "@/storage/seedLibrary";
@@ -45,6 +46,7 @@ import {
 function DemoLibrary() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const styles = useThemedStyles(makeStyles);
   // Fixed, icon-sized covers that left-pack and wrap — so 2 books read as small
   // thumbnails rather than each stretching to half the (wide) screen.
   const tileW = isDesktop ? 172 : 132;
@@ -95,6 +97,7 @@ function DemoLibrary() {
 //
 // Demo builds swap in DemoLibrary so the tab shows the seeded books for reading.
 export default function LibraryScreen() {
+  const styles = useThemedStyles(makeStyles);
   // The profile chip floats top-right over whichever shelf renders; it self-gates
   // (hidden in demo/unconfigured, "Sign in" when signed out, photo+name when in).
   return (
@@ -108,6 +111,8 @@ export default function LibraryScreen() {
 function EpubLibrary() {
   const router = useRouter();
   const { accessToken } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [items, setItems] = useState<EpubMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [importing, setImporting] = useState(false);
@@ -336,7 +341,7 @@ function EpubLibrary() {
       accessibilityRole="button"
       accessibilityLabel="Create a new shelf"
     >
-      <Ionicons name="add" size={16} color={colors.primary} />
+      <Ionicons name="add" size={16} color={theme.primary} />
       <Text style={styles.importBtnText}>New shelf</Text>
     </Pressable>
   );
@@ -349,7 +354,7 @@ function EpubLibrary() {
       accessibilityRole="button"
       accessibilityLabel="Import an EPUB file into your library"
     >
-      <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />
+      <Ionicons name="cloud-upload-outline" size={16} color={theme.primary} />
       <Text style={styles.importBtnText}>{importing ? "Importing…" : "Import EPUB"}</Text>
     </Pressable>
   );
@@ -459,61 +464,61 @@ function EpubLibrary() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // Demo Library (bundled-books shelf) — small, left-packed cover thumbnails.
-  demoShelf: { flex: 1, backgroundColor: colors.background },
-  demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
+  demoShelf: { flex: 1, backgroundColor: c.background },
+  demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   demoHeader: {
-    fontSize: typography.sizeXl, fontWeight: "700", color: colors.text,
+    fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text,
     marginBottom: spacing.md,
   },
-  demoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg },
+  demoGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.lg },
   demoTile: { marginBottom: spacing.sm, gap: spacing.xs },
-  demoTileTitle: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.text },
-  demoTileMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
+  demoTileTitle: { fontSize: typography.sizeXs, fontWeight: "700" as const, color: c.text },
+  demoTileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
-  list: { flex: 1, backgroundColor: colors.background },
+  list: { flex: 1, backgroundColor: c.background },
   gridContent: { padding: spacing.md },
-  gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
+  gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   screen: { flex: 1 },
   // Import sits left so it clears the floating profile chip (top-right).
-  header: { flexDirection: "row", justifyContent: "flex-start", marginBottom: spacing.md },
+  header: { flexDirection: "row" as const, justifyContent: "flex-start" as const, marginBottom: spacing.md },
   importBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary + "1A",
+    backgroundColor: c.primary + "1A",
   },
   importBtnDisabled: { opacity: 0.6 },
-  importBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
-  errorText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" },
+  importBtnText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  errorText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   empty: {
     flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: c.background,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     padding: spacing.xl,
     gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
+  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
   emptyBody: {
     fontSize: typography.sizeSm,
-    color: colors.textMuted,
-    textAlign: "center",
+    color: c.textMuted,
+    textAlign: "center" as const,
     lineHeight: 22,
     maxWidth: 300,
   },
   cta: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  ctaText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
+  ctaText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
 });

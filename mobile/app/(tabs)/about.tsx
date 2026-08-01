@@ -1,11 +1,13 @@
 import React from "react";
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { BRAND_AUTHOR, BRAND_CONTACT, BRAND_NAME, BRAND_TAGLINE } from "@/constants/brand";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
+  const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <PageContainer>
@@ -29,17 +31,17 @@ export default function AboutScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>About this app</Text>
         <View style={styles.card}>
-          <Row label="App" value={BRAND_NAME} />
-          <Row label="Tagline" value={BRAND_TAGLINE} />
-          <Row label="Version" value="0.1.0 (MVP)" />
-          <Row label="Default model" value="claude-sonnet-4-6" />
+          <Row label="App" value={BRAND_NAME} styles={styles} />
+          <Row label="Tagline" value={BRAND_TAGLINE} styles={styles} />
+          <Row label="Version" value="0.1.0 (MVP)" styles={styles} />
+          <Row label="Default model" value="claude-sonnet-4-6" styles={styles} />
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Author</Text>
         <View style={styles.card}>
-          <Row label="Author" value={BRAND_AUTHOR} />
+          <Row label="Author" value={BRAND_AUTHOR} styles={styles} />
           <Pressable
             style={styles.row}
             onPress={() => Linking.openURL(`mailto:${BRAND_CONTACT}`)}
@@ -71,7 +73,7 @@ export default function AboutScreen() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -80,12 +82,12 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
-  brandHeader: { alignItems: "center", paddingTop: spacing.sm },
+  brandHeader: { alignItems: "center" as const, paddingTop: spacing.sm },
   brandCard: {
-    alignSelf: "center",
+    alignSelf: "center" as const,
     backgroundColor: "#ffffff",
     borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
@@ -94,35 +96,35 @@ const styles = StyleSheet.create({
   brandLogo: { width: 150, height: 150 },
   blurb: {
     fontSize: typography.sizeMd,
-    color: colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 23,
-    textAlign: "center",
+    textAlign: "center" as const,
   },
   section: { gap: spacing.xs },
   sectionLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  body: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 21 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  rowLabel: { fontSize: typography.sizeSm, color: colors.textMuted },
-  rowValue: { fontSize: typography.sizeSm, color: colors.text, fontWeight: "600" },
-  contactValue: { fontSize: typography.sizeSm, color: colors.primary, fontWeight: "600" },
+  body: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
+  row: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+  rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
+  rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "600" as const },
+  contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "600" as const },
   footnote: {
     fontSize: typography.sizeXs,
-    color: colors.textMuted,
-    textAlign: "center",
+    color: c.textMuted,
+    textAlign: "center" as const,
     marginTop: spacing.sm,
   },
 });

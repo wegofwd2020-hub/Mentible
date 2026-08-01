@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
 import { openEpub } from "@/storage/epubLibrary";
@@ -7,7 +7,8 @@ import { TopicReadList } from "@/components/TopicReadList";
 import { CheckoutButton } from "@/components/CheckoutButton";
 import { PageContainer } from "@/components/PageContainer";
 import { HelpButton } from "@/help";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 
 // Reading view for a Library book: browse its topics (reusing the topic reader)
@@ -16,6 +17,8 @@ import type { Book } from "@/types/book";
 export default function ReadBookScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +39,7 @@ export default function ReadBookScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -87,19 +90,19 @@ export default function ReadBookScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
-  title: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
+  title: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text, marginBottom: spacing.sm },
   centered: {
     flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.xl,
     gap: spacing.md,
   },
-  missing: { color: colors.textSecondary, fontSize: typography.sizeMd, textAlign: "center", lineHeight: 22 },
-  dlBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  dlBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
+  missing: { color: c.textSecondary, fontSize: typography.sizeMd, textAlign: "center" as const, lineHeight: 22 },
+  dlBtn: { backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  dlBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
 });

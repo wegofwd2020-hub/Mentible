@@ -1,7 +1,8 @@
 // Inline catalog filter (ADR-028 §6b). Presentational: language chips (the subtags
 // actually present + "All") and a Hide-mature toggle. The screen owns persistence.
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { primarySubtag, type ShelfPrefs } from "./filterEntries";
 import type { FeedEntry } from "./types";
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ShelfFilterBar({ entries, prefs, onChange }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const langSet = new Set(
     entries.map((e) => (e.language ? primarySubtag(e.language) : null)).filter((l): l is string => !!l),
   );
@@ -28,16 +30,16 @@ export function ShelfFilterBar({ entries, prefs, onChange }: Props) {
   return (
     <View style={styles.bar}>
       <View style={styles.chips}>
-        {choices.map((c) => {
-          const selected = prefs.language === c;
+        {choices.map((lang) => {
+          const selected = prefs.language === lang;
           return (
             <Pressable
-              key={c}
-              testID={`lang-${c}`}
+              key={lang}
+              testID={`lang-${lang}`}
               style={[styles.chip, selected && styles.chipOn]}
-              onPress={() => onChange({ ...prefs, language: c })}
+              onPress={() => onChange({ ...prefs, language: lang })}
             >
-              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{c === "all" ? "All" : c.toUpperCase()}</Text>
+              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{lang === "all" ? "All" : lang.toUpperCase()}</Text>
             </Pressable>
           );
         })}
@@ -49,13 +51,13 @@ export function ShelfFilterBar({ entries, prefs, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   bar: { gap: spacing.sm, marginBottom: spacing.sm },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  chip: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.textMuted, fontSize: typography.sizeSm },
-  chipTextOn: { color: colors.primaryText, fontWeight: "600" },
-  toggle: { alignSelf: "flex-start" },
-  toggleText: { color: colors.text, fontSize: typography.sizeSm },
+  chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs },
+  chip: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
+  chipOn: { backgroundColor: c.primary, borderColor: c.primary },
+  chipText: { color: c.textMuted, fontSize: typography.sizeSm },
+  chipTextOn: { color: c.primaryText, fontWeight: "600" as const },
+  toggle: { alignSelf: "flex-start" as const },
+  toggleText: { color: c.text, fontSize: typography.sizeSm },
 });

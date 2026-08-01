@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -17,7 +16,8 @@ import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
 import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Book } from "@/types/book";
@@ -34,6 +34,8 @@ function SavedBookScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { accessToken } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
@@ -55,7 +57,7 @@ function SavedBookScreenInner() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -170,43 +172,43 @@ function SavedBookScreenInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   centered: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1 as const,
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.xl,
   },
-  missing: { color: colors.textSecondary, fontSize: typography.sizeMd },
+  missing: { color: c.textSecondary, fontSize: typography.sizeMd },
   generateBtn: {
-    backgroundColor: colors.surfaceHigh,
-    borderColor: colors.primary,
+    backgroundColor: c.surfaceHigh,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.lg,
   },
-  generateBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
+  generateBtnText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const },
   generateHint: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: typography.sizeXs,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.xs,
   },
   publishDivider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
     marginTop: spacing.xl,
   },
   publishLabel: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.md,
   },

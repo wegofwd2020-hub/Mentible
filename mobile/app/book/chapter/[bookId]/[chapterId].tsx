@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
 import { ChapterRenderer, QuizRenderer } from "@/components/LessonRenderer";
@@ -8,7 +8,8 @@ import { useGenerateChapterQuiz } from "@/hooks/useGenerateChapterQuiz";
 import { useNudge } from "@/discovery/useNudge";
 import { DiscoveryNudge } from "@/discovery/DiscoveryNudge";
 import { IS_DEMO } from "@/constants/demo";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { ImportedChapter, QuizSet } from "@/types/book";
 
 // One chapter of an IMPORTED book (Open Shelves F1). Deliberately read-only:
@@ -25,6 +26,8 @@ import type { ImportedChapter, QuizSet } from "@/types/book";
 // companion (book.chapterQuizzes[chapterId]).
 export default function ReadChapterScreen() {
   const { bookId, chapterId } = useLocalSearchParams<{ bookId: string; chapterId: string }>();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [chapter, setChapter] = useState<ImportedChapter | null>(null);
   const [bookTitle, setBookTitle] = useState<string>("");
   const [quiz, setQuiz] = useState<QuizSet | null>(null);
@@ -66,7 +69,7 @@ export default function ReadChapterScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -101,7 +104,7 @@ export default function ReadChapterScreen() {
           <View style={styles.quizBar}>
             {generating ? (
               <View style={styles.quizBusy}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={theme.primary} />
                 <Text style={styles.quizBusyText}>Generating quiz…</Text>
               </View>
             ) : (
@@ -134,37 +137,37 @@ export default function ReadChapterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   centered: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.lg,
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
   },
-  missing: { fontSize: typography.sizeMd, color: colors.textSecondary, textAlign: "center" },
+  missing: { fontSize: typography.sizeMd, color: c.textSecondary, textAlign: "center" as const },
   quizBar: {
     gap: spacing.xs,
     marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.md,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderWidth: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   quizBtn: {
-    alignSelf: "flex-start",
-    borderColor: colors.primary,
+    alignSelf: "flex-start" as const,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  quizBtnText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "700" },
-  quizBusy: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  quizBusyText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "600" },
-  quizHint: { color: colors.textMuted, fontSize: typography.sizeXs },
-  quizTruncated: { color: colors.warning, fontSize: typography.sizeXs },
-  quizError: { color: colors.error, fontSize: typography.sizeSm },
+  quizBtnText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "700" as const },
+  quizBusy: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  quizBusyText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  quizHint: { color: c.textMuted, fontSize: typography.sizeXs },
+  quizTruncated: { color: c.warning, fontSize: typography.sizeXs },
+  quizError: { color: c.error, fontSize: typography.sizeSm },
 });

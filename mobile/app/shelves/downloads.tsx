@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable, Platform } from "react-native";
+import { ScrollView, Text, View, Pressable, Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import { useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, spacing, typography } from "@/constants/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { useDownloads } from "@/openshelves/useDownloads";
 import { importEpub } from "@/openshelves/importEpub";
 import { fromBase64 } from "@/storage/pickBookFile";
@@ -16,6 +17,7 @@ function mb(bytes: number): string {
 export default function DownloadsScreen() {
   const dl = useDownloads();
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
   const [opening, setOpening] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
@@ -89,19 +91,19 @@ export default function DownloadsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: spacing.md },
-  sub: { color: colors.textMuted, fontSize: typography.sizeMd },
-  delAll: { color: colors.error, fontSize: typography.sizeMd, fontWeight: "600" },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm, gap: spacing.sm },
-  meta: { flex: 1, minWidth: 0 },
-  itemTitle: { color: colors.text, fontSize: typography.sizeMd },
-  itemSub: { color: colors.textMuted, fontSize: typography.sizeSm },
-  openBtn: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  del: { color: colors.error, fontSize: typography.sizeMd, fontWeight: "600" },
-  empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
-  error: { color: colors.error, fontSize: typography.sizeMd, marginTop: spacing.md },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
+  headerRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginVertical: spacing.md },
+  sub: { color: c.textMuted, fontSize: typography.sizeMd },
+  delAll: { color: c.error, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  row: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, paddingVertical: spacing.sm, gap: spacing.sm },
+  meta: { flex: 1 as const, minWidth: 0 },
+  itemTitle: { color: c.text, fontSize: typography.sizeMd },
+  itemSub: { color: c.textMuted, fontSize: typography.sizeSm },
+  openBtn: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  del: { color: c.error, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  empty: { color: c.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
+  error: { color: c.error, fontSize: typography.sizeMd, marginTop: spacing.md },
 });

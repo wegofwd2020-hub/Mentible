@@ -1,13 +1,15 @@
 import React, { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { sharedWithMe, type SharedItem } from "@/api/client";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 // Library-tab section listing drafts other authors shared with the signed-in
 // user (ADR-027 D2–D4). Self-hides when signed out or empty; refetches on focus.
 // Tapping a draft opens the full-screen reader (/book/shared/[id]).
 export function SharedWithYou({ token }: { token: string | null }): React.JSX.Element | null {
+  const styles = useThemedStyles(makeStyles);
   const [items, setItems] = useState<SharedItem[]>([]);
   const router = useRouter();
 
@@ -50,10 +52,10 @@ export function SharedWithYou({ token }: { token: string | null }): React.JSX.El
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs },
-  header: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text },
-  item: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  itemTitle: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  itemMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
+  header: { fontSize: typography.sizeMd, fontWeight: "700" as const, color: c.text },
+  item: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, padding: spacing.sm, borderWidth: 1, borderColor: c.border, borderRadius: radius.md },
+  itemTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text, flexShrink: 1 },
+  itemMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 });

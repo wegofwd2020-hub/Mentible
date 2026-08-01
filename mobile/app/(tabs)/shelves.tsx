@@ -3,11 +3,12 @@
 // list/refresh/remove sources. User-added sources are warned (P0-8, neutral
 // conduit) and never blocked. No auth required.
 import { useCallback } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { ScrollView, Text, View, Pressable } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, spacing, typography } from "@/constants/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { useOpenShelves } from "@/openshelves/useOpenShelves";
 import { AddSourceForm } from "@/openshelves/AddSourceForm";
 import { SourceRow } from "@/openshelves/SourceRow";
@@ -23,6 +24,7 @@ const WARNING =
 export default function ShelvesScreen() {
   const shelves = useOpenShelves();
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
   const dlNudge = useNudge("shelves-download");
   const hasStarter = shelves.sources.some((s) => s.isStarter);
 
@@ -119,17 +121,17 @@ export default function ShelvesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  heading: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700", marginBottom: spacing.xs },
-  blurb: { color: colors.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },
-  linksRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg, marginBottom: spacing.lg },
-  downloadsLink: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  secondaryBtn: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  sectionTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "600" },
-  refreshAll: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
+  heading: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const, marginBottom: spacing.xs },
+  blurb: { color: c.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },
+  linksRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.lg, marginBottom: spacing.lg },
+  downloadsLink: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  secondaryBtn: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  listHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginTop: spacing.lg },
+  headerActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
+  sectionTitle: { color: c.text, fontSize: typography.sizeXl, fontWeight: "600" as const },
+  refreshAll: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  empty: { color: c.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });

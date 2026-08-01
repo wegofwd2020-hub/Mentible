@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/auth/AuthProvider";
 import { AuthForm } from "@/components/AuthForm";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { WizardScaffold } from "../WizardScaffold";
 import type { WizardStepProps } from "./types";
 
@@ -15,6 +16,8 @@ import type { WizardStepProps } from "./types";
 // An email sign-up may instead require confirmation before a session exists; in
 // that case status stays signed_out and we surface a "check your email" hint.
 export function SignupStep({ stepIndex, stepCount, onSkip }: WizardStepProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { status } = useAuth();
   const [pendingConfirm, setPendingConfirm] = useState(false);
 
@@ -39,7 +42,7 @@ export function SignupStep({ stepIndex, stepCount, onSkip }: WizardStepProps) {
       />
       {showConfirmHint ? (
         <View style={styles.hint} accessibilityLiveRegion="polite">
-          <Ionicons name="mail-outline" size={18} color={colors.primary} style={styles.hintIcon} />
+          <Ionicons name="mail-outline" size={18} color={theme.primary} style={styles.hintIcon} />
           <Text style={styles.hintText}>
             Almost there — check your email and tap the confirmation link, then sign in to finish.
             You can also Skip for now and confirm later.
@@ -50,17 +53,17 @@ export function SignupStep({ stepIndex, stepCount, onSkip }: WizardStepProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   hint: {
-    flexDirection: "row",
+    flexDirection: "row" as const,
     gap: spacing.sm,
-    backgroundColor: colors.primary + "1a",
-    borderColor: colors.primary,
-    borderWidth: 1,
+    backgroundColor: c.primary + "1a",
+    borderColor: c.primary,
+    borderWidth: 1 as const,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.sm,
   },
-  hintIcon: { marginTop: 1 },
-  hintText: { flex: 1, fontSize: typography.sizeSm, color: colors.text, lineHeight: 20 },
+  hintIcon: { marginTop: 1 as const },
+  hintText: { flex: 1 as const, fontSize: typography.sizeSm, color: c.text, lineHeight: 20 as const },
 });

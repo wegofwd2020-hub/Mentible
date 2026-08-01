@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { loadBook, saveBook } from "@/storage/bookStore";
 import { loadDefaultParams } from "@/storage/settingsStore";
 import { randomUUID } from "@/lib/uuid";
 import { parseTags, formatTags } from "@/lib/tags";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { Book, StructuredTOC } from "@/types/book";
 
 interface Props {
@@ -34,6 +35,8 @@ export function BookEditor({
   createdAt,
   onSaved,
 }: Props) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [title, setTitle] = useState(initialTitle);
   const [toc, setToc] = useState<StructuredTOC>(initialToc);
   const [description, setDescription] = useState(initialDescription ?? "");
@@ -82,7 +85,7 @@ export function BookEditor({
         value={title}
         onChangeText={setTitle}
         placeholder="e.g. My Physics Primer"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         accessibilityLabel="Book title"
       />
 
@@ -92,7 +95,7 @@ export function BookEditor({
         value={description}
         onChangeText={setDescription}
         placeholder="A short blurb about this book"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         accessibilityLabel="Book description"
         multiline
       />
@@ -103,7 +106,7 @@ export function BookEditor({
         value={tagsText}
         onChangeText={setTagsText}
         placeholder="comma, separated, tags"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         accessibilityLabel="Book tags"
         autoCapitalize="none"
       />
@@ -125,54 +128,54 @@ export function BookEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.md },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
   titleInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
   },
   descInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
     minHeight: 72,
-    textAlignVertical: "top",
+    textAlignVertical: "top" as const,
   },
   // Free-form tags read as regular body text, not a bold title (a tag field is
   // not a heading — avoids reusing titleInput's sizeLg/700 weight).
   tagsInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
   },
   saveBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.sm,
   },
   saveBtnDisabled: { opacity: 0.45 },
-  saveBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  saveBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
 });

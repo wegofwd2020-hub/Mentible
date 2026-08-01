@@ -1,7 +1,8 @@
 // Presentational catalog list item. Plaintext fields only (plan-1 normalized) +
 // a scheme-allowlisted cover URL — no HTML, no navigation, no store.
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Image, Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import type { FeedEntry } from "./types";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function EntryRow({ entry, onPress }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const author = entry.authors[0] ?? "Unknown author";
   return (
     <Pressable testID={`entry-${entry.id}`} style={styles.row} onPress={() => onPress(entry.id)}>
@@ -31,13 +33,13 @@ export function EntryRow({ entry, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: spacing.md, paddingVertical: spacing.sm, alignItems: "center" },
-  cover: { width: 44, height: 60, borderRadius: radius.sm, backgroundColor: colors.border },
-  coverPlaceholder: { backgroundColor: colors.borderLight },
+const makeStyles = (c: Palette) => ({
+  row: { flexDirection: "row" as const, gap: spacing.md, paddingVertical: spacing.sm, alignItems: "center" as const },
+  cover: { width: 44, height: 60, borderRadius: radius.sm, backgroundColor: c.border },
+  coverPlaceholder: { backgroundColor: c.borderLight },
   meta: { flex: 1, minWidth: 0 },
-  title: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  author: { color: colors.textMuted, fontSize: typography.sizeSm },
-  badge: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
-  browse: { color: colors.primary, fontSize: typography.sizeXs, fontWeight: "600", marginTop: 2 },
+  title: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  author: { color: c.textMuted, fontSize: typography.sizeSm },
+  badge: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
+  browse: { color: c.primary, fontSize: typography.sizeXs, fontWeight: "600" as const, marginTop: 2 },
 });

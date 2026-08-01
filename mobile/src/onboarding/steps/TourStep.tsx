@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { IS_DEMO } from "@/constants/demo";
 import { NAV } from "@/constants/labels";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { WizardScaffold } from "../WizardScaffold";
 import type { WizardStepProps } from "./types";
 
@@ -31,6 +32,8 @@ const READ_STEPS = [
 // to open a book. The final CTA closes the tour and drops the user into their
 // Library. Skippable like the other steps.
 export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const [page, setPage] = useState<0 | 1>(0);
 
@@ -65,7 +68,7 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
           {TABS.map((t) => (
             <View key={t.label} style={styles.tabRow}>
               <View style={styles.iconTile}>
-                <Ionicons name={t.icon} size={22} color={colors.tileOffGlyph} />
+                <Ionicons name={t.icon} size={22} color={theme.tileOffGlyph} />
               </View>
               <View style={styles.tabText}>
                 <Text style={styles.tabLabel}>{t.label}</Text>
@@ -139,36 +142,36 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   tabList: { gap: spacing.sm },
-  tabRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  tabRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
   // A calm echo of the nav tile: white face, dark glyph, soft bevel.
   iconTile: {
-    width: 44,
-    height: 44,
+    width: 44 as const,
+    height: 44 as const,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
-    borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: c.tileOffFace,
+    borderWidth: 2 as const,
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
-  tabText: { flex: 1 },
-  tabLabel: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text },
-  tabBlurb: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 19 },
+  tabText: { flex: 1 as const },
+  tabLabel: { fontSize: typography.sizeMd, fontWeight: "700" as const, color: c.text },
+  tabBlurb: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 19 as const },
   steps: { gap: spacing.md, marginTop: spacing.xs },
-  step: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  step: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: spacing.sm },
   stepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.primary + "33",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 24 as const,
+    height: 24 as const,
+    borderRadius: 12 as const,
+    backgroundColor: c.primary + "33",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
-  stepNumText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
-  stepText: { flex: 1, fontSize: typography.sizeMd, color: colors.text, lineHeight: 22 },
+  stepNumText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  stepText: { flex: 1 as const, fontSize: typography.sizeMd, color: c.text, lineHeight: 22 as const },
 });

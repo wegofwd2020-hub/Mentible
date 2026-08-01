@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert } from "@/lib/alert";
 import {
@@ -9,7 +9,8 @@ import {
 import { DraftCommentThread } from "@/components/DraftCommentThread";
 import { countBookFigures } from "@/lib/figuresHtml";
 import type { Book } from "@/types/book";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // Author-facing sharing sheet for a draft book (ADR-027 D2-D4): shares the
 // current draft to the backend on open, then lets the author invite reviewers
@@ -17,8 +18,10 @@ import { colors, radius, spacing, typography } from "@/constants/theme";
 export function ShareDraftModal({
   visible, book, token, onClose,
 }: { visible: boolean; book: Book; token: string; onClose: () => void }): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const version = book.metadata?.version ?? "1.0";
-  // Figure bytes stay on the author's device — only refs travel in book_json
+  // Figure bytes stay on the author's device - only refs travel in book_json
   // (ADR-035 D4). Tell the author BEFORE they invite anyone: their false
   // assumption is upstream of the reviewer's confusion (#320). Exported
   // EPUB/PDF does embed figures, so that is a real alternative, not a
@@ -86,7 +89,7 @@ export function ShareDraftModal({
           <View style={styles.header}>
             <Text style={styles.title}>Share “{book.title}”</Text>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
+              <Ionicons name="close" size={22} color={theme.textSecondary} />
             </Pressable>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -105,7 +108,7 @@ export function ShareDraftModal({
                 value={email}
                 onChangeText={setEmail}
                 placeholder="name@email.com"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 accessibilityLabel="Invite by email"
@@ -119,7 +122,7 @@ export function ShareDraftModal({
               <View key={i.invited_email} style={styles.inviteItem}>
                 <Text style={styles.inviteEmail}>{i.invited_email}</Text>
                 <Pressable onPress={() => revoke(i.invited_email)} accessibilityRole="button" accessibilityLabel={`Remove ${i.invited_email}`} hitSlop={8}>
-                  <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+                  <Ionicons name="trash-outline" size={16} color={theme.textMuted} />
                 </Pressable>
               </View>
             ))}
@@ -132,25 +135,25 @@ export function ShareDraftModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "#0008", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: "85%" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  title: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
+const makeStyles = (c: Palette) => ({
+  backdrop: { flex: 1, backgroundColor: "#0008", justifyContent: "flex-end" as const },
+  sheet: { backgroundColor: c.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: "85%" as const },
+  header: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginBottom: spacing.sm },
+  title: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text, flexShrink: 1 },
+  error: { color: c.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   content: { gap: spacing.xs, paddingBottom: spacing.lg },
   figuresNotice: {
     fontSize: typography.sizeSm,
-    color: colors.textSecondary,
-    backgroundColor: colors.surfaceHigh,
+    color: c.textSecondary,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.md,
     padding: spacing.sm,
   },
-  section: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.textSecondary },
-  inviteRow: { flexDirection: "row", gap: spacing.sm },
-  input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, color: colors.text, fontSize: typography.sizeSm },
-  inviteBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, justifyContent: "center" },
-  inviteBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
-  inviteItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.xs },
-  inviteEmail: { fontSize: typography.sizeSm, color: colors.text },
+  section: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.textSecondary },
+  inviteRow: { flexDirection: "row" as const, gap: spacing.sm },
+  input: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, color: c.text, fontSize: typography.sizeSm },
+  inviteBtn: { backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, justifyContent: "center" as const },
+  inviteBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  inviteItem: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, paddingVertical: spacing.xs },
+  inviteEmail: { fontSize: typography.sizeSm, color: c.text },
 });

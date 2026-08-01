@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import {
   deleteApiKey,
@@ -9,7 +9,8 @@ import {
   saveApiKey,
 } from "@/secure/keyStore";
 import { HelpHint } from "@/help";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { DEFAULT_PROVIDER_ID, PROVIDERS, providerInfo } from "@/constants/providers";
 
 // Per-provider BYOK key management, extracted from the Settings screen so the
@@ -29,6 +30,8 @@ export function ProviderKeyForm({
   onCleared,
   onProviderChange,
 }: ProviderKeyFormProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [keyProvider, setKeyProvider] = useState(initialProvider);
   const [draftKey, setDraftKey] = useState("");
   const [savedMask, setSavedMask] = useState<string | null>(null);
@@ -148,7 +151,7 @@ export function ProviderKeyForm({
         <TextInput
           style={styles.keyInput}
           placeholder={providerInfo(keyProvider).keyHint}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={draftKey}
           onChangeText={setDraftKey}
           autoCapitalize="none"
@@ -173,51 +176,51 @@ export function ProviderKeyForm({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // Provider selector — same beveled white/brand tiles as the param chips
   // (selected = brand face, unselected = white; dark glyphs).
-  providerRow: { flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.xs },
+  providerRow: { flexDirection: "row" as const, gap: spacing.sm, paddingVertical: spacing.xs },
   providerChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
   },
   providerChipSelected: {
-    backgroundColor: colors.tileOnFace,
-    borderTopColor: colors.tileOnLo,
-    borderLeftColor: colors.tileOnLo,
-    borderBottomColor: colors.tileOnHi,
-    borderRightColor: colors.tileOnHi,
+    backgroundColor: c.tileOnFace,
+    borderTopColor: c.tileOnLo,
+    borderLeftColor: c.tileOnLo,
+    borderBottomColor: c.tileOnHi,
+    borderRightColor: c.tileOnHi,
   },
-  providerChipText: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.tileOffGlyph },
-  providerChipTextSelected: { color: colors.tileOnGlyph },
+  providerChipText: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.tileOffGlyph },
+  providerChipTextSelected: { color: c.tileOnGlyph },
   savedKeyCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
   },
   savedKeyRow: { flex: 1 },
   savedKeyLabel: {
     fontSize: typography.sizeXs,
-    color: colors.textMuted,
-    fontWeight: "600",
-    textTransform: "uppercase",
+    color: c.textMuted,
+    fontWeight: "600" as const,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.6,
   },
   savedKeyMask: {
     fontSize: typography.sizeMd,
-    color: colors.text,
+    color: c.text,
     fontFamily: "monospace",
     marginTop: 4,
   },
@@ -226,36 +229,36 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.error + "66",
+    borderColor: c.error + "66",
   },
-  clearBtnText: { color: colors.error, fontSize: typography.sizeSm, fontWeight: "600" },
-  noKeyText: { fontSize: typography.sizeSm, color: colors.textMuted, fontStyle: "italic" },
+  clearBtnText: { color: c.error, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  noKeyText: { fontSize: typography.sizeSm, color: c.textMuted, fontStyle: "italic" as const },
   keyLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
-  keyLabel: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.textSecondary },
-  inputRow: { flexDirection: "row", gap: spacing.sm },
+  keyLabel: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.textSecondary },
+  inputRow: { flexDirection: "row" as const, gap: spacing.sm },
   keyInput: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
     fontFamily: "monospace",
   },
   saveBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   saveBtnDisabled: { opacity: 0.45 },
-  saveBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
+  saveBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
 });

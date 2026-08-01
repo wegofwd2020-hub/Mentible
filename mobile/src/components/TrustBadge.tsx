@@ -16,10 +16,11 @@
 //       never "verified by <provider>".
 
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing } from "@/constants/theme";
+import { Pressable, Text, View } from "react-native";
+import { radius, spacing, type Palette } from "@/constants/theme";
 import { providerInfo } from "@/constants/providers";
 import type { TrustManifest } from "@/types/trust";
+import { useTheme, useThemedStyles } from "@/theme";
 
 type RowTone = "pass" | "note" | "info";
 
@@ -30,11 +31,11 @@ interface TrustRow {
   value: string; // the fact
 }
 
-const TONE_COLOR: Record<RowTone, string> = {
-  pass: colors.success,
-  note: colors.warning,
-  info: colors.textSecondary,
-};
+const makeToneColor = (c: Palette): Record<RowTone, string> => ({
+  pass: c.success,
+  note: c.warning,
+  info: c.textSecondary,
+});
 
 const ACRONYMS: Record<string, string> = { gpt: "GPT", ai: "AI", llm: "LLM" };
 
@@ -202,6 +203,9 @@ export function TrustBadge({
   revisionCount,
   isStale = false,
 }: TrustBadgeProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const toneColor = useMemo(() => makeToneColor(theme), [theme]);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rows = useMemo(() => deriveTrustRows(manifest), [manifest]);
   const head = useMemo(() => headline(rows), [rows]);
@@ -222,7 +226,7 @@ export function TrustBadge({
         }. ${expanded ? "Collapse" : "Expand"} details.`}
         style={styles.header}
       >
-        <Text style={[styles.shield, { color: TONE_COLOR[head.tone] }]}>◈</Text>
+        <Text style={[styles.shield, { color: toneColor[head.tone] }]}>◈</Text>
         {/* Always-visible block: headline + LLM identity + content version (D7) */}
         <View style={styles.headText}>
           <Text style={styles.headTitle}>{head.text}</Text>
@@ -242,7 +246,7 @@ export function TrustBadge({
         <View style={styles.body}>
           {rows.map((r, i) => (
             <View key={i} style={styles.row}>
-              <Text style={[styles.glyph, { color: TONE_COLOR[r.tone] }]}>{r.glyph}</Text>
+              <Text style={[styles.glyph, { color: toneColor[r.tone] }]}>{r.glyph}</Text>
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{r.label}</Text>
                 <Text style={styles.rowValue}>{r.value}</Text>
@@ -260,51 +264,51 @@ export function TrustBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
+    borderColor: c.border,
+    overflow: "hidden" as const,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   shield: { fontSize: 16, marginTop: 1 },
   headText: { flex: 1 },
-  headTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  identity: { color: colors.textSecondary, fontSize: 12, marginTop: 1 },
-  version: { color: colors.textMuted, fontSize: 11, marginTop: 1 },
-  chevron: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  headTitle: { color: c.text, fontSize: 14, fontWeight: "600" as const },
+  identity: { color: c.textSecondary, fontSize: 12, marginTop: 1 },
+  version: { color: c.textMuted, fontSize: 11, marginTop: 1 },
+  chevron: { color: c.textMuted, fontSize: 12, marginTop: 2 },
   stale: {
-    color: colors.warning,
+    color: c.warning,
     fontSize: 12,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   body: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  glyph: { fontSize: 14, width: 16, textAlign: "center", marginTop: 1 },
+  row: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: spacing.sm },
+  glyph: { fontSize: 14, width: 16, textAlign: "center" as const, marginTop: 1 },
   rowText: { flex: 1 },
-  rowLabel: { color: colors.textSecondary, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 },
-  rowValue: { color: colors.text, fontSize: 13 },
+  rowLabel: { color: c.textSecondary, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 0.4 },
+  rowValue: { color: c.text, fontSize: 13 },
   footnote: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: 11,
     marginTop: spacing.xs,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
   },
 });

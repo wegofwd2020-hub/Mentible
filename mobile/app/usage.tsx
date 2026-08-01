@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import { useFocusEffect } from "expo-router";
 import { getManagedStatus, type ManagedStatus } from "@/api/billingClient";
@@ -7,7 +7,8 @@ import { useAuth } from "@/auth/AuthProvider";
 import { ManagedPlanCard } from "@/components/ManagedPlanCard";
 import { PageContainer } from "@/components/PageContainer";
 import { clearUsage, listUsage, summarizeUsage, type UsageSummary } from "@/storage/usageStore";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 const fmt = (n: number) => n.toLocaleString();
 
@@ -18,6 +19,7 @@ function fmtCost(n: number | null): string {
 }
 
 export default function UsageScreen() {
+  const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [managed, setManaged] = useState<ManagedStatus | null>(null);
@@ -94,12 +96,12 @@ export default function UsageScreen() {
             <View style={styles.card}>
               <Text style={styles.cardLabel}>This device</Text>
               <View style={styles.totalRow}>
-                <Stat label="Generations" value={fmt(summary.totalGenerations)} />
-                <Stat label="Est. cost" value={fmtCost(summary.estCostUsd)} />
+                <Stat label="Generations" value={fmt(summary.totalGenerations)} styles={styles} />
+                <Stat label="Est. cost" value={fmtCost(summary.estCostUsd)} styles={styles} />
               </View>
               <View style={styles.totalRow}>
-                <Stat label="Input tokens" value={fmt(summary.totalInputTokens)} />
-                <Stat label="Output tokens" value={fmt(summary.totalOutputTokens)} />
+                <Stat label="Input tokens" value={fmt(summary.totalInputTokens)} styles={styles} />
+                <Stat label="Output tokens" value={fmt(summary.totalOutputTokens)} styles={styles} />
               </View>
               {summary.anyRateUnknown && (
                 <Text style={styles.note}>
@@ -144,7 +146,7 @@ export default function UsageScreen() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -153,61 +155,61 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer goes
   // inside and supplies the padding+gap the old `content` style did.
-  scroll: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1 },
+  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scrollContent: { flexGrow: 1 as const },
   disclaimer: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderLeftWidth: 3,
-    borderLeftColor: colors.warning,
+    borderLeftColor: c.warning,
     borderRadius: radius.sm,
     padding: spacing.md,
   },
-  disclaimerText: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
-  emptyBox: { padding: spacing.lg, alignItems: "center", gap: spacing.sm },
-  emptyText: { color: colors.text, fontSize: 15, textAlign: "center" },
-  emptySub: { color: colors.textMuted, fontSize: 13, textAlign: "center" },
+  disclaimerText: { color: c.textMuted, fontSize: 13, lineHeight: 19 },
+  emptyBox: { padding: spacing.lg, alignItems: "center" as const, gap: spacing.sm },
+  emptyText: { color: c.text, fontSize: 15, textAlign: "center" as const },
+  emptySub: { color: c.textMuted, fontSize: 13, textAlign: "center" as const },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
   cardLabel: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: 12,
-    textTransform: "uppercase",
+    textTransform: "uppercase" as const,
     letterSpacing: 1,
   },
-  totalRow: { flexDirection: "row", gap: spacing.md },
-  stat: { flex: 1 },
-  statValue: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  statLabel: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  note: { color: colors.textMuted, fontSize: 12, fontStyle: "italic" },
+  totalRow: { flexDirection: "row" as const, gap: spacing.md },
+  stat: { flex: 1 as const },
+  statValue: { color: c.text, fontSize: 22, fontWeight: "700" as const },
+  statLabel: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+  note: { color: c.textMuted, fontSize: 12, fontStyle: "italic" as const },
   sectionTitle: {
-    color: colors.text,
+    color: c.text,
     fontSize: 16,
     fontFamily: typography.fontHeading,
     marginTop: spacing.sm,
   },
   modelRow: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.xs,
   },
-  modelHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  modelName: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  modelProvider: { color: colors.textMuted, fontSize: 12 },
-  modelStats: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  modelStat: { color: colors.textMuted, fontSize: 13 },
-  modelCost: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  clearBtn: { padding: spacing.md, alignItems: "center", marginTop: spacing.sm },
-  clearText: { color: colors.brand, fontSize: 14 },
+  modelHead: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "baseline" as const },
+  modelName: { color: c.text, fontSize: 15, fontWeight: "600" as const },
+  modelProvider: { color: c.textMuted, fontSize: 12 },
+  modelStats: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+  modelStat: { color: c.textMuted, fontSize: 13 },
+  modelCost: { color: c.text, fontSize: 14, fontWeight: "600" as const },
+  clearBtn: { padding: spacing.md, alignItems: "center" as const, marginTop: spacing.sm },
+  clearText: { color: c.brand, fontSize: 14 },
 });

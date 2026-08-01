@@ -3,10 +3,11 @@
 // and owns the download (the engine call + the platform branch — EntryDetail stays
 // presentational).
 import { useState } from "react";
-import { Linking, ScrollView, StyleSheet, Text } from "react-native";
+import { Linking, ScrollView, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, spacing } from "@/constants/theme";
+import { spacing, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { useSourceCatalog } from "@/openshelves/useSourceCatalog";
 import { EntryDetail, type DownloadState } from "@/openshelves/EntryDetail";
 import { pickDownloadLink } from "@/openshelves/downloadTarget";
@@ -17,6 +18,7 @@ import { getBrowseFrame } from "@/openshelves/browseContext";
 
 export default function EntryDetailScreen() {
   const { sourceId, entryId } = useLocalSearchParams<{ sourceId: string; entryId: string }>();
+  const styles = useThemedStyles(makeStyles);
   const cat = useSourceCatalog(sourceId);
 
   // A leaf entry reached inside a drilled-in sub-feed was never written to
@@ -82,8 +84,8 @@ export default function EntryDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  missing: { color: colors.textMuted, marginTop: spacing.lg },
+  missing: { color: c.textMuted, marginTop: spacing.lg },
 });

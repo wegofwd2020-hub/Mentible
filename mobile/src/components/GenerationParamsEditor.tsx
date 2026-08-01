@@ -1,18 +1,27 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { HelpHint } from "@/help";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
 import { PROVIDERS, providerInfo } from "@/constants/providers";
 import { REGISTERS } from "@/constants/registers";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { GenerationParams } from "@/types/generationParams";
 
 // A field heading with an inline `?` HelpHint (SBQ-UI-003). The always-visible
 // paramHint under each control stays; the hint carries a deeper "how to choose"
 // tip for users who want it.
-function FieldLabel({ children, hint }: { children: string; hint: string }) {
+function FieldLabel({
+  children,
+  hint,
+  styles,
+}: {
+  children: string;
+  hint: string;
+  styles: ReturnType<typeof makeStyles>;
+}) {
   return (
     <View style={styles.labelRow}>
       <Text style={styles.label}>{children}</Text>
@@ -24,7 +33,7 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
 // The single editor for the generation template (Model + Level + Depth + Pages),
 // shared by Settings (global default) and the book generate screen (per-book).
 // Stepper buttons keep Pages settable without a soft keyboard (the emulator
-// doesn't always render one).
+// doesn’t always render one).
 export function GenerationParamsEditor({
   value,
   onChange,
@@ -37,13 +46,15 @@ export function GenerationParamsEditor({
   pagesHint?: string;
 }) {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const set = (patch: Partial<GenerationParams>) => onChange({ ...value, ...patch });
   const adjustPages = (delta: number) =>
     set({ pages: Math.min(999, Math.max(0, value.pages + delta)) });
 
   return (
     <View style={styles.root}>
-      <FieldLabel hint="Authoring-grade models give the most coherent long books; experimental ones are faster or cheaper but rougher. Switching providers clears the model pick.">
+      <FieldLabel styles={styles} hint="Authoring-grade models give the most coherent long books; experimental ones are faster or cheaper but rougher. Switching providers clears the model pick.">
         Model
       </FieldLabel>
       <Text style={styles.paramHint}>
@@ -73,13 +84,13 @@ export function GenerationParamsEditor({
         <Text style={styles.paramHint}>{providerInfo(value.provider).note}</Text>
       ) : null}
 
-      <FieldLabel hint="Set it to the reader's level, not the topic's difficulty — an advanced topic at a beginner level is explained from the ground up.">
+      <FieldLabel styles={styles} hint="Set it to the reader's level, not the topic's difficulty — an advanced topic at a beginner level is explained from the ground up.">
         Level
       </FieldLabel>
       <Text style={styles.paramHint}>Who it&apos;s written for — sets the reading level and assumed background.</Text>
       <LevelPicker value={value.level} onChange={(level) => set({ level })} />
 
-      <FieldLabel hint="More depth means more sections and detail per topic — and longer generation time and higher token use.">
+      <FieldLabel styles={styles} hint="More depth means more sections and detail per topic — and longer generation time and higher token use.">
         Depth
       </FieldLabel>
       <Text style={styles.paramHint}>How thorough — how many sections and how much detail.</Text>
@@ -102,7 +113,7 @@ export function GenerationParamsEditor({
         })}
       </View>
 
-      <FieldLabel hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
+      <FieldLabel styles={styles} hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
         Diagrams
       </FieldLabel>
       <Text style={styles.paramHint}>What kind of visuals the model favours (conceptual ↔ technical).</Text>
@@ -133,7 +144,7 @@ export function GenerationParamsEditor({
         <Text style={styles.examplesLink}>See examples →</Text>
       </Pressable>
 
-      <FieldLabel hint="A target the model aims for across all topics, not a hard limit — set 0 to let each topic run as long as it needs.">
+      <FieldLabel styles={styles} hint="A target the model aims for across all topics, not a hard limit — set 0 to let each topic run as long as it needs.">
         {pagesLabel}
       </FieldLabel>
       <View style={styles.pagesRow}>
@@ -162,7 +173,7 @@ export function GenerationParamsEditor({
           }}
           keyboardType="number-pad"
           placeholder="0"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           maxLength={3}
           textAlign="center"
           accessibilityLabel="Target pages for the whole book — 0 means no limit"
@@ -189,81 +200,82 @@ export function GenerationParamsEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs },
   // Field heading + its `?` HelpHint on one row (the label keeps its own marginTop).
-  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
   // Wrap chips onto multiple rows rather than scrolling horizontally, so every
   // option stays visible in the narrow desktop options column (and on phones).
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingVertical: spacing.xs },
+  chipRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.xs },
   // Beveled, matching the nav tiles: raised white face by default, inset yellow
   // face when selected. Black glyphs throughout; the face + bevel carry on/off.
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    alignItems: "center",
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    alignItems: "center" as const,
   },
   chipSelected: {
-    backgroundColor: colors.tileOnFace,
-    borderTopColor: colors.tileOnLo,
-    borderLeftColor: colors.tileOnLo,
-    borderBottomColor: colors.tileOnHi,
-    borderRightColor: colors.tileOnHi,
+    backgroundColor: c.tileOnFace,
+    borderTopColor: c.tileOnLo,
+    borderLeftColor: c.tileOnLo,
+    borderBottomColor: c.tileOnHi,
+    borderRightColor: c.tileOnHi,
   },
-  chipLabel: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.tileOffGlyph },
-  chipLabelSelected: { color: colors.tileOnGlyph },
-  chipDesc: { fontSize: typography.sizeXs, color: colors.tileSubGlyph, marginTop: 2 },
-  chipDescSelected: { color: colors.tileSubGlyph },
+  chipLabel: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.tileOffGlyph },
+  chipLabelSelected: { color: c.tileOnGlyph },
+  chipDesc: { fontSize: typography.sizeXs, color: c.tileSubGlyph, marginTop: 2 },
+  chipDescSelected: { color: c.tileSubGlyph },
   // wrap so the steppers drop to a second line rather than overflowing the
   // (narrow) options column and spilling over the topics column on desktop web.
-  pagesRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.xs },
+  pagesRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "stretch" as const, gap: spacing.xs },
   pagesInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
+    textAlign: "center" as const,
   },
   pagesInputFlex: { flex: 1, minWidth: 120 },
   // Raised white beveled buttons, matching the OFF chips/tiles.
   stepBtn: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     paddingHorizontal: spacing.md,
     minWidth: 52,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderRadius: radius.md,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
   },
-  stepBtnText: { color: colors.tileOffGlyph, fontSize: typography.sizeMd, fontWeight: "700" },
-  hint: { color: colors.textMuted, fontSize: typography.sizeXs },
-  paramHint: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: -2, marginBottom: 2 },
+  stepBtnText: { color: c.tileOffGlyph, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  hint: { color: c.textMuted, fontSize: typography.sizeXs },
+  paramHint: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: -2, marginBottom: 2 },
   examplesLink: {
-    color: colors.brand,
+    color: c.brand,
     fontSize: typography.sizeXs,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     marginTop: spacing.xs,
   },
 });

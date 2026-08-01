@@ -10,7 +10,6 @@ import {
   Image,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -18,11 +17,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Alert } from "@/lib/alert";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/constants/brand";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 const CONCEPTS = ["Lens", "Preview", "Shelf", "One-line"] as const;
 
 export default function ConceptGallery() {
+  const styles = useThemedStyles(makeStyles);
   const [active, setActive] = useState(0);
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
@@ -49,10 +50,10 @@ export default function ConceptGallery() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        {active === 0 && <ScopeLens />}
-        {active === 1 && <LivingPreview />}
-        {active === 2 && <Shelf />}
-        {active === 3 && <OneLine />}
+        {active === 0 && <ScopeLens styles={styles} />}
+        {active === 1 && <LivingPreview styles={styles} />}
+        {active === 2 && <Shelf styles={styles} />}
+        {active === 3 && <OneLine styles={styles} />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -68,10 +69,12 @@ function Segmented({
   options,
   value,
   onChange,
+  styles,
 }: {
   options: string[];
   value: string;
   onChange: (v: string) => void;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <View style={styles.segmented}>
@@ -95,7 +98,7 @@ function Segmented({
   );
 }
 
-function Cover({ title, hue }: { title: string; hue: string }) {
+function Cover({ title, hue, styles }: { title: string; hue: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={[styles.cover, { borderLeftColor: hue }]}>
       <Text style={styles.coverKicker}>{BRAND_NAME}</Text>
@@ -111,7 +114,8 @@ function Cover({ title, hue }: { title: string; hue: string }) {
 
 // ── Concept 1: Scope Lens ─────────────────────────────────────────────────────
 
-function ScopeLens() {
+function ScopeLens({ styles }: { styles: ReturnType<typeof makeStyles> }) {
+  const theme = useTheme();
   const [topic, setTopic] = useState("");
   const [level, setLevel] = useState("Professional");
   const [prior, setPrior] = useState("Some");
@@ -132,7 +136,7 @@ function ScopeLens() {
       <TextInput
         style={styles.topicInput}
         placeholder="quantum entanglement"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={topic}
         onChangeText={setTopic}
       />
@@ -143,20 +147,23 @@ function ScopeLens() {
         options={["Student", "Professional", "Expert"]}
         value={level}
         onChange={setLevel}
+        styles={styles}
       />
       <Text style={styles.dimLabel}>Prior knowledge</Text>
-      <Segmented options={["None", "Some", "Lots"]} value={prior} onChange={setPrior} />
+      <Segmented options={["None", "Some", "Lots"]} value={prior} onChange={setPrior} styles={styles} />
       <Text style={styles.dimLabel}>Depth</Text>
       <Segmented
         options={["Overview", "Standard", "Deep"]}
         value={depth}
         onChange={setDepth}
+        styles={styles}
       />
       <Text style={styles.dimLabel}>Format</Text>
       <Segmented
         options={["Lesson", "Explanation", "Quiz"]}
         value={format}
         onChange={setFormat}
+        styles={styles}
       />
 
       <Pressable style={styles.cta} onPress={prototypeTap}>
@@ -171,7 +178,8 @@ function ScopeLens() {
 
 // ── Concept 2: Living Preview ─────────────────────────────────────────────────
 
-function LivingPreview() {
+function LivingPreview({ styles }: { styles: ReturnType<typeof makeStyles> }) {
+  const theme = useTheme();
   const [topic, setTopic] = useState("photosynthesis");
   const [depth, setDepth] = useState("Standard");
   const title = topic.trim() || "your topic";
@@ -181,7 +189,7 @@ function LivingPreview() {
       <TextInput
         style={styles.topicInput}
         placeholder="photosynthesis"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={topic}
         onChangeText={setTopic}
       />
@@ -189,6 +197,7 @@ function LivingPreview() {
         options={["Overview", "Standard", "Deep"]}
         value={depth}
         onChange={setDepth}
+        styles={styles}
       />
 
       <Text style={styles.previewLabel}>Live preview</Text>
@@ -226,7 +235,7 @@ const SHELF = [
   { title: "Stoicism in practice", hue: "#ef4444" },
 ];
 
-function Shelf() {
+function Shelf({ styles }: { styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.block}>
       <Text style={styles.wordmark}>{BRAND_NAME}</Text>
@@ -234,7 +243,7 @@ function Shelf() {
 
       <View style={styles.grid}>
         {SHELF.map((b) => (
-          <Cover key={b.title} title={b.title} hue={b.hue} />
+          <Cover key={b.title} title={b.title} hue={b.hue} styles={styles} />
         ))}
         <Pressable style={styles.addCard} onPress={prototypeTap}>
           <Text style={styles.addPlus}>＋</Text>
@@ -256,7 +265,8 @@ function Shelf() {
 
 const STAGES = ["▣ Designing cover…", "≡ Structuring chapters…", "✍ Writing pages…", "✓ Ready"];
 
-function OneLine() {
+function OneLine({ styles }: { styles: ReturnType<typeof makeStyles> }) {
+  const theme = useTheme();
   const [topic, setTopic] = useState("");
   const [stage, setStage] = useState(-1);
   const [showScope, setShowScope] = useState(false);
@@ -282,7 +292,7 @@ function OneLine() {
       <TextInput
         style={[styles.topicInput, styles.oneLineInput]}
         placeholder="the Krebs cycle"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={topic}
         onChangeText={setTopic}
       />
@@ -300,6 +310,7 @@ function OneLine() {
           options={["Student", "Professional", "Expert"]}
           value={level}
           onChange={setLevel}
+          styles={styles}
         />
       )}
 
@@ -322,210 +333,210 @@ function OneLine() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  safe: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   container: { padding: spacing.md, paddingBottom: spacing.xxl },
 
   switcher: {
-    flexDirection: "row",
+    flexDirection: "row" as const,
     gap: spacing.xs,
     padding: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomColor: colors.border,
+    backgroundColor: c.surface,
+    borderBottomColor: c.border,
     borderBottomWidth: 1,
   },
   switchTab: {
-    flex: 1,
+    flex: 1 as const,
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  switchTabOn: { backgroundColor: colors.primary + "22" },
-  switchText: { color: colors.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" },
-  switchTextOn: { color: colors.primary },
+  switchTabOn: { backgroundColor: c.primary + "22" },
+  switchText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  switchTextOn: { color: c.primary },
 
   block: { gap: spacing.sm },
   conceptMark: {
     width: 72,
     height: 72,
-    alignSelf: "center",
+    alignSelf: "center" as const,
   },
   wordmark: {
     fontSize: typography.sizeXxl,
-    fontWeight: "800",
-    color: colors.text,
-    textAlign: "center",
+    fontWeight: "800" as const,
+    color: c.text,
+    textAlign: "center" as const,
     marginTop: spacing.sm,
   },
   tagline: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.primary,
-    textAlign: "center",
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.primary,
+    textAlign: "center" as const,
+    textTransform: "uppercase" as const,
     letterSpacing: 2,
     marginBottom: spacing.sm,
   },
   bigPrompt: {
     fontSize: typography.sizeXl,
-    fontWeight: "700",
-    color: colors.text,
+    fontWeight: "700" as const,
+    color: c.text,
     marginTop: spacing.sm,
   },
   topicInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
   },
   lensHeader: {
     fontSize: typography.sizeSm,
-    fontWeight: "700",
-    color: colors.primary,
-    textTransform: "uppercase",
+    fontWeight: "700" as const,
+    color: c.primary,
+    textTransform: "uppercase" as const,
     letterSpacing: 1,
     marginTop: spacing.md,
   },
   dimLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
   segmented: {
-    flexDirection: "row",
+    flexDirection: "row" as const,
     gap: spacing.xs,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     padding: spacing.xs,
   },
   segment: {
-    flex: 1,
+    flex: 1 as const,
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  segmentOn: { backgroundColor: colors.primary },
-  segmentText: { color: colors.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" },
-  segmentTextOn: { color: colors.primaryText },
+  segmentOn: { backgroundColor: c.primary },
+  segmentText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  segmentTextOn: { color: c.primaryText },
 
   cta: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
-  ctaText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  ctaText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
   note: {
     fontSize: typography.sizeXs,
-    color: colors.textMuted,
-    fontStyle: "italic",
+    color: c.textMuted,
+    fontStyle: "italic" as const,
     marginTop: spacing.sm,
-    textAlign: "center",
+    textAlign: "center" as const,
   },
 
   previewLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textMuted,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textMuted,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.md,
   },
   previewCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderLight,
+    backgroundColor: c.surface,
+    borderColor: c.borderLight,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.xs,
   },
-  previewCover: { fontSize: typography.sizeLg, fontWeight: "800", color: colors.text },
-  previewToc: { fontSize: typography.sizeSm, color: colors.textSecondary },
+  previewCover: { fontSize: typography.sizeLg, fontWeight: "800" as const, color: c.text },
+  previewToc: { fontSize: typography.sizeSm, color: c.textSecondary },
   previewMath: {
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
     borderRadius: radius.sm,
     padding: spacing.sm,
     marginTop: spacing.xs,
   },
-  previewMono: { color: colors.text, fontFamily: typography.fontMono },
+  previewMono: { color: c.text, fontFamily: typography.fontMono },
   previewQuiz: {
-    backgroundColor: colors.primary + "1a",
+    backgroundColor: c.primary + "1a",
     borderRadius: radius.sm,
     padding: spacing.sm,
   },
-  previewQuizText: { color: colors.primary, fontWeight: "600", fontSize: typography.sizeSm },
+  previewQuizText: { color: c.primary, fontWeight: "600" as const, fontSize: typography.sizeSm },
 
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
+  grid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.sm },
   cover: {
-    width: "47%",
+    width: "47%" as const,
     minHeight: 120,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderLeftWidth: 4,
     padding: spacing.md,
-    justifyContent: "space-between",
+    justifyContent: "space-between" as const,
   },
   coverKicker: {
     fontSize: 9,
-    fontWeight: "700",
-    color: colors.textMuted,
-    textTransform: "uppercase",
+    fontWeight: "700" as const,
+    color: c.textMuted,
+    textTransform: "uppercase" as const,
     letterSpacing: 1,
   },
-  coverTitle: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text, marginTop: 4 },
+  coverTitle: { fontSize: typography.sizeMd, fontWeight: "700" as const, color: c.text, marginTop: 4 },
   coverFoot: { marginTop: spacing.sm },
-  coverFootText: { fontSize: 10, color: colors.textMuted },
+  coverFootText: { fontSize: 10, color: c.textMuted },
   addCard: {
-    width: "47%",
+    width: "47%" as const,
     minHeight: 120,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: c.borderLight,
+    borderStyle: "dashed" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     gap: spacing.xs,
   },
-  addPlus: { fontSize: 28, color: colors.primary, fontWeight: "300" },
-  addText: { fontSize: typography.sizeSm, color: colors.textSecondary, fontWeight: "600" },
+  addPlus: { fontSize: 28, color: c.primary, fontWeight: "300" as const },
+  addText: { fontSize: typography.sizeSm, color: c.textSecondary, fontWeight: "600" as const },
   continueRow: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.md,
   },
-  continueText: { color: colors.text, fontWeight: "600", fontSize: typography.sizeSm },
+  continueText: { color: c.text, fontWeight: "600" as const, fontSize: typography.sizeSm },
 
   oneLineBlock: { paddingTop: spacing.xxl },
   oneLineHero: {
     fontSize: typography.sizeXxl,
-    fontWeight: "800",
-    color: colors.text,
-    textAlign: "center",
+    fontWeight: "800" as const,
+    color: c.text,
+    textAlign: "center" as const,
     marginBottom: spacing.md,
   },
-  oneLineInput: { fontSize: typography.sizeLg, textAlign: "center" },
+  oneLineInput: { fontSize: typography.sizeLg, textAlign: "center" as const },
   advanced: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: typography.sizeSm,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.sm,
   },
   assemble: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.md,
     gap: spacing.xs,
   },
-  assembleLine: { color: colors.textMuted, fontSize: typography.sizeSm },
-  assembleLineOn: { color: colors.success, fontWeight: "600" },
+  assembleLine: { color: c.textMuted, fontSize: typography.sizeSm },
+  assembleLineOn: { color: c.success, fontWeight: "600" as const },
 });

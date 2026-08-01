@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { DraftComment } from "@/api/client";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
-function CommentRow({ comment, isOwner, onRespond }: { comment: DraftComment; isOwner: boolean; onRespond?: (id: number, r: string) => void }) {
+function CommentRow({ comment, isOwner, onRespond, styles, theme }: { comment: DraftComment; isOwner: boolean; onRespond?: (id: number, r: string) => void; styles: ReturnType<typeof makeStyles>; theme: Palette }) {
   const [resp, setResp] = useState(comment.author_response ?? "");
   return (
     <View style={styles.row}>
@@ -18,7 +19,7 @@ function CommentRow({ comment, isOwner, onRespond }: { comment: DraftComment; is
             value={resp}
             onChangeText={setResp}
             placeholder="Respond…"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             accessibilityLabel={`Response to comment ${comment.id}`}
             style={styles.respondInput}
           />
@@ -44,6 +45,8 @@ export function DraftCommentThread({
   onPost: (body: string) => void;
   onRespond?: (commentId: number, response: string) => void;
 }): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState("");
   const submit = () => {
     const clean = draft.trim();
@@ -54,14 +57,14 @@ export function DraftCommentThread({
   return (
     <View style={styles.thread}>
       {comments.map((c) => (
-        <CommentRow key={c.id} comment={c} isOwner={isOwner} onRespond={onRespond} />
+        <CommentRow key={c.id} comment={c} isOwner={isOwner} onRespond={onRespond} styles={styles} theme={theme} />
       ))}
       <View style={styles.composer}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
           placeholder="Add a comment…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           accessibilityLabel="Add a comment"
           style={styles.input}
           multiline
@@ -74,18 +77,18 @@ export function DraftCommentThread({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   thread: { gap: spacing.sm },
-  row: { gap: 2, paddingVertical: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  author: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.textSecondary },
-  body: { fontSize: typography.sizeSm, color: colors.text },
-  response: { fontSize: typography.sizeSm, color: colors.growth, fontStyle: "italic", marginTop: 2 },
-  respondRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs },
-  respondInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.xs, color: colors.text, fontSize: typography.sizeXs },
-  respondBtn: { backgroundColor: colors.surfaceHigh, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: spacing.sm },
-  respondBtnText: { color: colors.text, fontWeight: "700", fontSize: typography.sizeXs },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, marginTop: spacing.sm },
-  input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, color: colors.text, fontSize: typography.sizeSm, minHeight: 40 },
-  sendBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  sendText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
+  row: { gap: 2, paddingVertical: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+  author: { fontSize: typography.sizeXs, fontWeight: "700" as const, color: c.textSecondary },
+  body: { fontSize: typography.sizeSm, color: c.text },
+  response: { fontSize: typography.sizeSm, color: c.growth, fontStyle: "italic" as const, marginTop: 2 },
+  respondRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs, marginTop: spacing.xs },
+  respondInput: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.xs, color: c.text, fontSize: typography.sizeXs },
+  respondBtn: { backgroundColor: c.surfaceHigh, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: spacing.sm },
+  respondBtnText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeXs },
+  composer: { flexDirection: "row" as const, alignItems: "flex-end" as const, gap: spacing.sm, marginTop: spacing.sm },
+  input: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, color: c.text, fontSize: typography.sizeSm, minHeight: 40 },
+  sendBtn: { backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  sendText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
 });

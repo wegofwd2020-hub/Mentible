@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View,
 } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useMakePost } from "@/hooks/useMakePost";
@@ -9,7 +9,8 @@ import { pickReferenceImage } from "@/lib/pickReferenceImage";
 import { Alert } from "@/lib/alert";
 import { loadApiKey } from "@/secure/keyStore";
 import { type Platform, type PostVariant } from "@/api/derivativesClient";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "linkedin", label: "LinkedIn" },
@@ -30,6 +31,8 @@ export function humanizeProvenance(p: string | null): string {
 }
 
 export default function PostsScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { status, error, variants, provenance, run } = useMakePost({
     getApiKey: () => loadApiKey("anthropic"),
   });
@@ -76,7 +79,7 @@ export default function PostsScreen() {
           style={styles.source}
           multiline
           placeholder="Paste the text you want to turn into posts…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={source}
           onChangeText={setSource}
         />
@@ -105,7 +108,7 @@ export default function PostsScreen() {
           accessibilityLabel="Tone"
           style={styles.tone}
           placeholder="e.g. punchy, professional"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={tone}
           onChangeText={setTone}
         />
@@ -143,7 +146,7 @@ export default function PostsScreen() {
           onPress={onGenerate}
           style={[styles.generate, !canGenerate && styles.generateDisabled]}
         >
-          {busy ? <ActivityIndicator color={colors.tileOnGlyph} /> : <Text style={styles.generateText}>Make posts</Text>}
+          {busy ? <ActivityIndicator color={theme.tileOnGlyph} /> : <Text style={styles.generateText}>Make posts</Text>}
         </Pressable>
 
         {status === "failed" && error ? <Text style={styles.error}>{error}</Text> : null}
@@ -175,56 +178,56 @@ export default function PostsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // ScrollView must be flex:1 (a bounded height) so it actually scrolls on web —
   // PageContainer supplies the padding; `body` only spaces the children.
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   body: { gap: spacing.sm },
-  label: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.text, marginTop: spacing.sm },
+  label: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.text, marginTop: spacing.sm },
   source: {
-    minHeight: 120, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    padding: spacing.sm, color: colors.text, textAlignVertical: "top",
+    minHeight: 120, borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
+    padding: spacing.sm, color: c.text, textAlignVertical: "top" as const,
   },
   tone: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    padding: spacing.sm, color: colors.text,
+    borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
+    padding: spacing.sm, color: c.text,
   },
-  helper: { fontSize: typography.sizeXs, color: colors.textMuted },
+  helper: { fontSize: typography.sizeXs, color: c.textMuted },
   imageBtn: {
-    alignSelf: "flex-start", paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    alignSelf: "flex-start" as const, paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
   },
-  imageBtnText: { color: colors.text, fontWeight: "600" },
-  imageRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  imageBtnText: { color: c.text, fontWeight: "600" as const },
+  imageRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   thumb: { width: 96, height: 96, borderRadius: radius.md },
   removeImageBtn: {
     paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: radius.sm, backgroundColor: colors.tileOffFace,
+    borderRadius: radius.sm, backgroundColor: c.tileOffFace,
   },
-  removeImageBtnText: { color: colors.tileOffGlyph, fontWeight: "600" },
-  segment: { flexDirection: "row", gap: spacing.xs },
+  removeImageBtnText: { color: c.tileOffGlyph, fontWeight: "600" as const },
+  segment: { flexDirection: "row" as const, gap: spacing.xs },
   segmentBtn: {
     paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
   },
-  segmentBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segmentText: { color: colors.text, fontWeight: "600" },
-  segmentTextActive: { color: colors.tileOnGlyph },
+  segmentBtnActive: { backgroundColor: c.primary, borderColor: c.primary },
+  segmentText: { color: c.text, fontWeight: "600" as const },
+  segmentTextActive: { color: c.tileOnGlyph },
   generate: {
-    marginTop: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingVertical: spacing.sm, alignItems: "center",
+    marginTop: spacing.md, backgroundColor: c.primary, borderRadius: radius.md,
+    paddingVertical: spacing.sm, alignItems: "center" as const,
   },
   generateDisabled: { opacity: 0.5 },
-  generateText: { color: colors.tileOnGlyph, fontWeight: "700" },
-  error: { color: colors.error, marginTop: spacing.sm },
+  generateText: { color: c.tileOnGlyph, fontWeight: "700" as const },
+  error: { color: c.error, marginTop: spacing.sm },
   results: { marginTop: spacing.md, gap: spacing.sm },
-  provenance: { fontSize: typography.sizeXs, color: colors.textMuted, fontStyle: "italic" },
-  card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs },
-  hook: { fontWeight: "700", color: colors.text },
-  postBody: { color: colors.text },
-  hashtags: { color: colors.primary },
-  cta: { color: colors.text, fontWeight: "600" },
-  copyBtn: { alignSelf: "flex-start", paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.sm, backgroundColor: colors.tileOffFace },
-  copyText: { color: colors.tileOffGlyph, fontWeight: "600" },
+  provenance: { fontSize: typography.sizeXs, color: c.textMuted, fontStyle: "italic" as const },
+  card: { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs },
+  hook: { fontWeight: "700" as const, color: c.text },
+  postBody: { color: c.text },
+  hashtags: { color: c.primary },
+  cta: { color: c.text, fontWeight: "600" as const },
+  copyBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.sm, backgroundColor: c.tileOffFace },
+  copyText: { color: c.tileOffGlyph, fontWeight: "600" as const },
 });

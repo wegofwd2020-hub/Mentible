@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
@@ -8,7 +8,8 @@ import { TopicReadList } from "@/components/TopicReadList";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { DraftCommentThread } from "@/components/DraftCommentThread";
 import type { Book } from "@/types/book";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // Full-screen, read-only reader for a draft shared with the signed-in user
 // (ADR-027 D2–D4). Same reading UI as the Studio book screen — a contents list
@@ -18,6 +19,8 @@ export default function SharedDraftReader(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { accessToken } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [book, setBook] = useState<Book | null>(null);
   const [version, setVersion] = useState("1.0");
   const [topicId, setTopicId] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export default function SharedDraftReader(): React.JSX.Element {
       // collapses to 0 height on native (New Arch), hiding the spinner/text.
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       </PageContainer>
     );
@@ -137,24 +140,24 @@ export default function SharedDraftReader(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.lg },
-  error: { fontSize: typography.sizeMd, color: colors.textSecondary, textAlign: "center" },
-  backBtn: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  backBtnText: { color: colors.text, fontWeight: "700", fontSize: typography.sizeSm },
+const makeStyles = (c: Palette) => ({
+  centered: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, gap: spacing.md, padding: spacing.lg },
+  error: { fontSize: typography.sizeMd, color: c.textSecondary, textAlign: "center" as const },
+  backBtn: { backgroundColor: c.surfaceHigh, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  backBtnText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeSm },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  title: { fontSize: typography.sizeXl, fontWeight: "700", color: colors.text },
-  screen: { flex: 1, backgroundColor: colors.background },
+  title: { fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text },
+  screen: { flex: 1, backgroundColor: c.background },
   topicBar: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
   topicBody: { flex: 1 },
-  back: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.primary },
+  back: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.primary },
   figuresNotice: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     padding: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: c.surfaceHigh,
   },
-  figuresNoticeText: { fontSize: typography.sizeSm, color: colors.textSecondary },
-  commentsHeader: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text, marginTop: spacing.md },
+  figuresNoticeText: { fontSize: typography.sizeSm, color: c.textSecondary },
+  commentsHeader: { fontSize: typography.sizeMd, fontWeight: "700" as const, color: c.text, marginTop: spacing.md },
 });

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -21,7 +20,8 @@ import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import { demoBlocked } from "@/constants/demo";
 import { FiguresPanel } from "@/components/FiguresPanel";
 import { useTopicFigures } from "@/reader/useTopicFigures";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { Book, GeneratedTopic, Subtopic } from "@/types/book";
 
 // Locate the topic's node in the (possibly edited) TOC so regeneration uses the
@@ -65,6 +65,8 @@ function setNodeInstructions(book: Book, topicId: string, instructions: string):
 // a per-topic regenerate control for iterating on a single lesson.
 export default function BookTopicScreen() {
   const { bookId, topicId } = useLocalSearchParams<{ bookId: string; topicId: string }>();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [book, setBook] = useState<Book | null>(null);
   const [topic, setTopic] = useState<GeneratedTopic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,7 +154,7 @@ export default function BookTopicScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -186,7 +188,7 @@ export default function BookTopicScreen() {
         </Text>
         {regenerating ? (
           <View style={styles.barBusy}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={theme.primary} />
             <Text style={styles.barBusyText}>Regenerating…</Text>
           </View>
         ) : canEdit ? (
@@ -222,7 +224,7 @@ export default function BookTopicScreen() {
             value={instructions}
             onChangeText={setInstructions}
             placeholder="e.g. Add a diagram for the T-shape; add a worked example."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             multiline
             textAlignVertical="top"
             accessibilityLabel="Enhancement instructions for this topic"
@@ -281,70 +283,70 @@ export default function BookTopicScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  screen: { flex: 1, backgroundColor: c.background },
   trust: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   body: { flex: 1 },
   centered: {
     flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.xl,
   },
-  missing: { color: colors.textSecondary, fontSize: typography.sizeMd, textAlign: "center" },
+  missing: { color: c.textSecondary, fontSize: typography.sizeMd, textAlign: "center" as const },
   bar: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomColor: colors.border,
+    borderBottomColor: c.border,
     borderBottomWidth: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
-  barTitle: { flex: 1, color: colors.text, fontSize: typography.sizeMd, fontWeight: "700" },
+  barTitle: { flex: 1, color: c.text, fontSize: typography.sizeMd, fontWeight: "700" as const },
   barBtn: {
-    borderColor: colors.primary,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  barBtnText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "700" },
-  barBusy: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  barBusyText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "600" },
+  barBtnText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "700" as const },
+  barBusy: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  barBusyText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
   panel: {
     gap: spacing.sm,
     padding: spacing.md,
-    borderBottomColor: colors.border,
+    borderBottomColor: c.border,
     borderBottomWidth: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   panelLabel: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
-  panelError: { color: colors.error, fontSize: typography.sizeSm },
+  panelError: { color: c.error, fontSize: typography.sizeSm },
   instrInput: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
+    backgroundColor: c.background,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
     minHeight: 70,
   },
-  panelHint: { color: colors.textMuted, fontSize: typography.sizeXs },
+  panelHint: { color: c.textMuted, fontSize: typography.sizeXs },
   confirmBtn: {
-    backgroundColor: colors.warning,
+    backgroundColor: c.warning,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  confirmBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  confirmBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
 });

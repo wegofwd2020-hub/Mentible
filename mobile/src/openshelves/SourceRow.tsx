@@ -1,7 +1,8 @@
 // Presentational row for one subscribed source (spec P0-1). Title/url, entry
 // count, last-refreshed, and Refresh/Remove buttons. The screen owns any confirm.
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import type { FeedSource } from "./types";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function SourceRow({ source, onRefresh, onRemove, onOpen, busy }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const { id, title, url, entryCount, lastRefreshedAt, isStarter } = source;
   return (
     <View style={styles.row}>
@@ -33,13 +35,13 @@ export function SourceRow({ source, onRefresh, onRemove, onOpen, busy }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
+const makeStyles = (c: Palette) => ({
+  row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, paddingVertical: spacing.sm },
   meta: { flex: 1, minWidth: 0 },
-  title: { color: colors.text, fontSize: typography.sizeMd },
-  badge: { color: colors.primary, fontSize: typography.sizeXs, fontWeight: "600" },
-  sub: { color: colors.textMuted, fontSize: typography.sizeXs },
+  title: { color: c.text, fontSize: typography.sizeMd },
+  badge: { color: c.primary, fontSize: typography.sizeXs, fontWeight: "600" as const },
+  sub: { color: c.textMuted, fontSize: typography.sizeXs },
   action: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm },
-  actionText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  removeText: { color: colors.error },
+  actionText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  removeText: { color: c.error },
 });

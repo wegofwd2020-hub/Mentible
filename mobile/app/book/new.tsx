@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -21,7 +20,8 @@ import { randomUUID } from "@/lib/uuid";
 import { BookEditor } from "@/components/BookEditor";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 
 function randomRequestId(): string {
@@ -53,6 +53,8 @@ export default function NewBookScreen() {
 function NewBookScreenInner() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [title, setTitle] = useState("");
   const [rawToc, setRawToc] = useState("");
   const [phase, setPhase] = useState<Phase>("input");
@@ -180,7 +182,7 @@ function NewBookScreenInner() {
     }
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.structuringText}>Structuring your table of contents…</Text>
         <Text style={styles.structuringMeta}>{elapsed}s</Text>
       </View>
@@ -201,7 +203,7 @@ function NewBookScreenInner() {
         value={title}
         onChangeText={setTitle}
         placeholder="e.g. My Physics Primer"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         maxLength={200}
         accessibilityLabel="Book title"
       />
@@ -222,7 +224,7 @@ function NewBookScreenInner() {
         accessibilityState={{ disabled: picking }}
       >
         {picking ? (
-          <ActivityIndicator size="small" color={colors.primary} />
+          <ActivityIndicator size="small" color={theme.primary} />
         ) : (
           <Text style={styles.loadBtnText}>📄 Load from a Markdown file</Text>
         )}
@@ -245,7 +247,7 @@ function NewBookScreenInner() {
         placeholder={
           "Physics\n- Kinematics: speed, velocity, acceleration\n- Dynamics: Newton's laws, friction\n..."
         }
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         multiline
         textAlignVertical="top"
         accessibilityLabel="Table of contents input"
@@ -272,90 +274,90 @@ function NewBookScreenInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   tocInputDesktop: { minHeight: 300 },
   centered: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1 as const,
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     gap: spacing.sm,
     padding: spacing.xl,
   },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
-  hint: { color: colors.textMuted, fontSize: typography.sizeSm },
+  hint: { color: c.textMuted, fontSize: typography.sizeSm },
   loadBtn: {
-    borderColor: colors.primary,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.xs,
   },
-  loadBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
+  loadBtnText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const },
   templateLink: {
-    color: colors.textSecondary,
+    color: c.textSecondary,
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    textAlign: "center",
+    fontWeight: "600" as const,
+    textAlign: "center" as const,
     marginTop: spacing.xs,
   },
-  templateMsg: { color: colors.success, fontSize: typography.sizeXs, textAlign: "center" },
+  templateMsg: { color: c.success, fontSize: typography.sizeXs, textAlign: "center" as const },
   titleInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
   },
   tocInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
     minHeight: 180,
   },
   errorBanner: {
-    backgroundColor: colors.error + "22",
-    borderColor: colors.error + "66",
+    backgroundColor: c.error + "22",
+    borderColor: c.error + "66",
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  errorBannerText: { color: colors.error, fontSize: typography.sizeSm },
+  errorBannerText: { color: c.error, fontSize: typography.sizeSm },
   structureBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
   structureBtnDisabled: { opacity: 0.45 },
-  structureBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  structureBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
   structuringText: {
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.md,
   },
-  structuringMeta: { color: colors.textMuted, fontSize: typography.sizeSm },
-  errorTitle: { color: colors.error, fontSize: typography.sizeLg, fontWeight: "700" },
-  errorBody: { color: colors.textSecondary, fontSize: typography.sizeSm, textAlign: "center" },
+  structuringMeta: { color: c.textMuted, fontSize: typography.sizeSm },
+  errorTitle: { color: c.error, fontSize: typography.sizeLg, fontWeight: "700" as const },
+  errorBody: { color: c.textSecondary, fontSize: typography.sizeSm, textAlign: "center" as const },
   retryBtn: { marginTop: spacing.md },
-  retryBtnText: { color: colors.primary, fontWeight: "600", fontSize: typography.sizeMd },
+  retryBtnText: { color: c.primary, fontWeight: "600" as const, fontSize: typography.sizeMd },
 });

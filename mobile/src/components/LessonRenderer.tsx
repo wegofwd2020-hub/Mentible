@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, View } from "react-native";
 import type { GeneratedTopic, ImportedChapter, QuizSet } from "@/types/book";
 import { buildChapterHtml, buildChapterQuizHtml, buildTopicHtml } from "@/components/contentHtml";
-import { colors } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { NativeTopicReader } from "@/reader/NativeTopicReader";
 import { NativeChapterReader } from "@/reader/NativeChapterReader";
 import { NativeQuizReader } from "@/reader/NativeQuizReader";
@@ -26,6 +27,7 @@ interface HtmlViewProps {
 }
 
 function HtmlView({ html, label }: HtmlViewProps) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.container}>
       <WebView
@@ -114,13 +116,13 @@ function WebViewQuizRenderer({ quiz }: { quiz: QuizSet }) {
   return <HtmlView html={html} label="Chapter quiz" />;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
   },
   webview: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
   },
 });

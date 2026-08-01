@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ShelfBook } from "@/components/ShelfBook";
 import type { EpubMeta } from "@/storage/epubLibrary";
 import type { Shelf } from "@/storage/shelfStore";
-import { colors, spacing, typography } from "@/constants/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // A shelf hugs the width of the books on it, but never grows past half the screen;
 // once the books exceed that, the rack scrolls (with a visible scrollbar). Empty /
@@ -24,6 +25,8 @@ export function ShelfBand({
   onRename: () => void;
   onDeleteShelf: () => void;
 }): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const name = shelf ? shelf.name : "Unshelved";
   const { width: screenWidth } = useWindowDimensions();
   // RN ScrollViews don't shrink-wrap to their content, so we measure the books'
@@ -48,10 +51,10 @@ export function ShelfBand({
         {shelf ? (
           <View style={styles.headerActions}>
             <Pressable onPress={onRename} accessibilityRole="button" accessibilityLabel={`Rename shelf: ${name}`} hitSlop={8}>
-              <Ionicons name="pencil-outline" size={16} color={colors.textSecondary} />
+              <Ionicons name="pencil-outline" size={16} color={theme.textSecondary} />
             </Pressable>
             <Pressable onPress={onDeleteShelf} accessibilityRole="button" accessibilityLabel={`Delete shelf: ${name}`} hitSlop={8}>
-              <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+              <Ionicons name="trash-outline" size={16} color={theme.textMuted} />
             </Pressable>
           </View>
         ) : null}
@@ -84,24 +87,24 @@ export function ShelfBand({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   band: { marginBottom: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
-  name: { fontSize: typography.sizeMd, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  count: { fontSize: typography.sizeXs, color: colors.textMuted },
-  headerActions: { flexDirection: "row", gap: spacing.md, marginLeft: "auto" },
+  header: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginBottom: spacing.sm },
+  name: { fontSize: typography.sizeMd, fontWeight: "700" as const, color: c.text, flexShrink: 1 },
+  count: { fontSize: typography.sizeXs, color: c.textMuted },
+  headerActions: { flexDirection: "row" as const, gap: spacing.md, marginLeft: "auto" as const },
   // The rack viewport hugs the books (up to half-screen); flex-start keeps it left-packed.
-  rack: { alignSelf: "flex-start" },
-  rackContent: { flexDirection: "column", alignItems: "flex-start" },
-  rackRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs, minHeight: 132, paddingHorizontal: spacing.xs },
-  emptyWrap: { alignSelf: "flex-start" },
-  emptyHint: { fontSize: typography.sizeSm, color: colors.textMuted, fontStyle: "italic", paddingVertical: spacing.lg, paddingHorizontal: spacing.xs },
+  rack: { alignSelf: "flex-start" as const },
+  rackContent: { flexDirection: "column" as const, alignItems: "flex-start" as const },
+  rackRow: { flexDirection: "row" as const, alignItems: "flex-end" as const, gap: spacing.xs, minHeight: 132, paddingHorizontal: spacing.xs },
+  emptyWrap: { alignSelf: "flex-start" as const },
+  emptyHint: { fontSize: typography.sizeSm, color: c.textMuted, fontStyle: "italic" as const, paddingVertical: spacing.lg, paddingHorizontal: spacing.xs },
   emptyPlank: { width: MIN_SHELF_WIDTH },
   plank: {
     height: 12,
     borderRadius: 2,
     backgroundColor: "#5a3d26", // warm wood
-    width: "100%",
+    width: "100%" as const,
     shadowColor: "#000",
     shadowOpacity: 0.4,
     shadowRadius: 6,

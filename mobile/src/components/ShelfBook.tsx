@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, Text } from "react-native";
 import type { EpubMeta } from "@/storage/epubLibrary";
-import { colors, spacing } from "@/constants/theme";
+import { spacing, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 // Warm spine palette (shelf visual direction "A" — saturated, bookshelf-real).
 const SPINE_PALETTE = ["#c14b3a", "#3a7d55", "#b8892b", "#4a5bbf", "#8a4bb0", "#c07a2b", "#487d8a"];
@@ -35,6 +36,7 @@ export function spineStyleFor(id: string, sizeBytes: number): { backgroundColor:
 // A book on a shelf: just the spine. Tapping it opens the metadata sidebar
 // (BookMetadataModal), which carries the cover-less detail view + actions.
 export function ShelfBook({ meta, onPress }: { meta: EpubMeta; onPress: () => void }): React.JSX.Element {
+  const styles = useThemedStyles(makeStyles);
   const s = spineStyleFor(meta.id, meta.sizeBytes);
   return (
     <Pressable
@@ -50,22 +52,22 @@ export function ShelfBook({ meta, onPress }: { meta: EpubMeta; onPress: () => vo
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   spine: {
     width: 30,
     borderRadius: 3,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     paddingVertical: spacing.sm,
-    overflow: "hidden",
+    overflow: "hidden" as const,
   },
   spineText: {
-    color: colors.white,
+    color: c.white,
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     // Title runs down the binding.
     transform: [{ rotate: "90deg" }],
     width: 110,
-    textAlign: "center",
+    textAlign: "center" as const,
   },
 });
