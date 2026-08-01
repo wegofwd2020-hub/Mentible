@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -23,7 +22,8 @@ import {
   type Review,
 } from "@/storage/reviewStore";
 import { maybeSeedReviews } from "@/storage/seedReviews";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -39,6 +39,8 @@ function formatDate(iso: string): string {
 export default function BookReviewsScreen() {
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState<Review | null>(null);
@@ -126,7 +128,7 @@ export default function BookReviewsScreen() {
       accessibilityRole="button"
       accessibilityLabel="Add a review"
     >
-      <Ionicons name="add" size={16} color={colors.primary} />
+      <Ionicons name="add" size={16} color={theme.primary} />
       <Text style={styles.addBtnText}>Add review</Text>
     </Pressable>
   );
@@ -134,7 +136,7 @@ export default function BookReviewsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -182,7 +184,7 @@ export default function BookReviewsScreen() {
                 hitSlop={8}
                 style={styles.rowDelete}
               >
-                <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+                <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
               </Pressable>
             </View>
           ))
@@ -208,7 +210,7 @@ export default function BookReviewsScreen() {
                 accessibilityLabel="Edit review"
                 hitSlop={8}
               >
-                <Ionicons name="create-outline" size={20} color={colors.primary} />
+                <Ionicons name="create-outline" size={20} color={theme.primary} />
               </Pressable>
               <Pressable
                 onPress={() => setReading(null)}
@@ -216,7 +218,7 @@ export default function BookReviewsScreen() {
                 accessibilityLabel="Close review"
                 hitSlop={8}
               >
-                <Ionicons name="close" size={22} color={colors.text} />
+                <Ionicons name="close" size={22} color={theme.text} />
               </Pressable>
             </View>
             {reading?.reviewer || reading?.createdAt ? (
@@ -256,7 +258,7 @@ export default function BookReviewsScreen() {
                 accessibilityLabel="Cancel"
                 hitSlop={8}
               >
-                <Ionicons name="close" size={22} color={colors.text} />
+                <Ionicons name="close" size={22} color={theme.text} />
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.form}>
@@ -266,7 +268,7 @@ export default function BookReviewsScreen() {
                 value={fTitle}
                 onChangeText={setFTitle}
                 placeholder="e.g. Sridhar — targeting & flow"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
               />
               <Text style={styles.label}>Reviewer (optional)</Text>
               <TextInput
@@ -274,7 +276,7 @@ export default function BookReviewsScreen() {
                 value={fReviewer}
                 onChangeText={setFReviewer}
                 placeholder="e.g. Sridhar Parthasarathy"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
               />
               <Text style={styles.label}>Review text</Text>
               <TextInput
@@ -282,7 +284,7 @@ export default function BookReviewsScreen() {
                 value={fBody}
                 onChangeText={setFBody}
                 placeholder="Paste the review here…"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 multiline
                 textAlignVertical="top"
               />
@@ -312,40 +314,40 @@ export default function BookReviewsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   centered: {
     flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     marginBottom: spacing.md,
   },
-  heading: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
+  heading: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
 
   addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary + "1A",
+    backgroundColor: c.primary + "1A",
   },
-  addBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
+  addBtnText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
 
   row: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
@@ -353,17 +355,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rowMain: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: typography.sizeMd, fontWeight: "600", color: colors.text },
-  rowMeta: { fontSize: typography.sizeXs, color: colors.textMuted },
+  rowTitle: { fontSize: typography.sizeMd, fontWeight: "600" as const, color: c.text },
+  rowMeta: { fontSize: typography.sizeXs, color: c.textMuted },
   rowDelete: { padding: spacing.xs },
 
-  empty: { alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.sm },
+  empty: { alignItems: "center" as const, paddingVertical: spacing.xxl, gap: spacing.sm },
   emptyIcon: { fontSize: 40 },
-  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
+  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
   emptyBody: {
     fontSize: typography.sizeSm,
-    color: colors.textMuted,
-    textAlign: "center",
+    color: c.textMuted,
+    textAlign: "center" as const,
     lineHeight: 22,
     maxWidth: 320,
   },
@@ -371,47 +373,47 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
+    justifyContent: "flex-end" as const,
   },
   modalCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,
-    maxHeight: "85%",
+    maxHeight: "85%" as const,
   },
   modalHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
-  modalTitle: { flex: 1, fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
-  modalMeta: { fontSize: typography.sizeXs, color: colors.textMuted, marginBottom: spacing.sm },
+  modalTitle: { flex: 1, fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
+  modalMeta: { fontSize: typography.sizeXs, color: c.textMuted, marginBottom: spacing.sm },
 
   readerBox: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
     marginTop: spacing.sm,
   },
   readerContent: { padding: spacing.md },
   readerText: {
     fontSize: typography.sizeMd,
-    color: colors.text,
+    color: c.text,
     lineHeight: 24,
   },
 
   form: { gap: spacing.xs, paddingBottom: spacing.md },
-  label: { fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: spacing.sm },
+  label: { fontSize: typography.sizeXs, color: c.textSecondary, marginTop: spacing.sm },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
-    color: colors.text,
+    backgroundColor: c.background,
+    color: c.text,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     fontSize: typography.sizeMd,
@@ -419,8 +421,8 @@ const styles = StyleSheet.create({
   inputMultiline: { minHeight: 160 },
 
   modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+    flexDirection: "row" as const,
+    justifyContent: "flex-end" as const,
     gap: spacing.sm,
     marginTop: spacing.md,
   },
@@ -429,12 +431,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  cancelBtnText: { color: colors.textSecondary, fontWeight: "700", fontSize: typography.sizeMd },
+  cancelBtnText: { color: c.textSecondary, fontWeight: "700" as const, fontSize: typography.sizeMd },
   saveBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  saveBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeMd },
+  saveBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
 });
