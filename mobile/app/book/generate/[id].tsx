@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -16,7 +15,8 @@ import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { demoBlocked } from "@/constants/demo";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import type { Book } from "@/types/book";
@@ -32,10 +32,13 @@ const STATUS_GLYPH: Record<TopicProgress["status"], string> = {
 function StatusRow({
   item,
   onOpen,
+  theme,
 }: {
   item: TopicProgress;
   onOpen?: () => void;
+  theme: ReturnType<typeof useTheme>;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const tappable = item.status === "done" && onOpen;
   return (
     <Pressable
@@ -51,7 +54,7 @@ function StatusRow({
         {item.status === "generating" ? "" : STATUS_GLYPH[item.status]}
       </Text>
       {item.status === "generating" && (
-        <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
+        <ActivityIndicator size="small" color={theme.primary} style={styles.spinner} />
       )}
       <View style={styles.rowMain}>
         <Text style={styles.rowTitle} numberOfLines={2}>
@@ -79,6 +82,8 @@ export default function GenerateAllScreen() {
 function GenerateAllScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
 
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +166,7 @@ function GenerateAllScreenInner() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -259,6 +264,7 @@ function GenerateAllScreenInner() {
               <StatusRow
                 key={item.topicId}
                 item={item}
+                theme={theme}
                 onOpen={() => router.push(`/book/topic/${book.id}/${item.topicId}`)}
               />
             ))}
@@ -275,13 +281,13 @@ function GenerateAllScreenInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   page: { padding: spacing.md, gap: spacing.sm },
   // Desktop: cap + center, lay controls and progress side by side.
-  pageWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" },
-  pageRow: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
+  pageWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
+  pageRow: { flexDirection: "row" as const, gap: spacing.lg, alignItems: "flex-start" as const },
   // minWidth: 0 lets each column shrink to its flex allocation. Without it,
   // react-native-web's default `min-width: auto` keeps the options column as wide
   // as its horizontal option rows (they refuse to shrink), so it overflows its
@@ -290,96 +296,96 @@ const styles = StyleSheet.create({
   colLeft: { flex: 4 },
   colRight: { flex: 6 },
   centered: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1 as const,
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.xl,
   },
-  missing: { color: colors.textSecondary, fontSize: typography.sizeMd },
-  bookTitle: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700" },
-  summary: { color: colors.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.sm },
+  missing: { color: c.textSecondary, fontSize: typography.sizeMd },
+  bookTitle: { color: c.text, fontSize: typography.sizeXl, fontWeight: "700" as const },
+  summary: { color: c.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
-  pagesRow: { flexDirection: "row", alignItems: "stretch", gap: spacing.xs },
+  pagesRow: { flexDirection: "row" as const, alignItems: "stretch" as const, gap: spacing.xs },
   pagesInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
   },
   pagesInputFlex: { flex: 1 },
   stepBtn: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     paddingHorizontal: spacing.md,
     minWidth: 52,
-    backgroundColor: colors.surfaceHigh,
-    borderColor: colors.primary,
+    backgroundColor: c.surfaceHigh,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
   },
-  stepBtnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
-  pagesHint: { color: colors.textMuted, fontSize: typography.sizeXs },
+  stepBtnText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  pagesHint: { color: c.textMuted, fontSize: typography.sizeXs },
   errorBanner: {
-    backgroundColor: colors.error + "22",
-    borderColor: colors.error + "66",
+    backgroundColor: c.error + "22",
+    borderColor: c.error + "66",
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  errorBannerText: { color: colors.error, fontSize: typography.sizeSm },
+  errorBannerText: { color: c.error, fontSize: typography.sizeSm },
   actionBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginVertical: spacing.sm,
   },
-  cancelBtn: { backgroundColor: colors.warning },
-  actionBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  cancelBtn: { backgroundColor: c.warning },
+  actionBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
   // Outline (destructive-ish) so "overwrite" reads as the deliberate, secondary action.
   regenBtn: {
-    backgroundColor: "transparent",
-    borderColor: colors.warning,
+    backgroundColor: "transparent" as const,
+    borderColor: c.warning,
     borderWidth: 1,
     marginTop: 0,
   },
-  regenBtnText: { color: colors.warning, fontSize: typography.sizeMd, fontWeight: "700" },
+  regenBtnText: { color: c.warning, fontSize: typography.sizeMd, fontWeight: "700" as const },
   list: { gap: spacing.xs },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  glyph: { width: 18, textAlign: "center", fontSize: typography.sizeMd, fontWeight: "700" },
-  glyph_pending: { color: colors.textMuted },
-  glyph_generating: { color: colors.primary },
-  glyph_done: { color: colors.success },
-  glyph_failed: { color: colors.error },
+  glyph: { width: 18, textAlign: "center" as const, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  glyph_pending: { color: c.textMuted },
+  glyph_generating: { color: c.primary },
+  glyph_done: { color: c.success },
+  glyph_failed: { color: c.error },
   spinner: { width: 18 },
   rowMain: { flex: 1 },
-  rowTitle: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  rowError: { color: colors.error, fontSize: typography.sizeXs, marginTop: 2 },
-  openChevron: { color: colors.textMuted, fontSize: typography.sizeXl, fontWeight: "700" },
+  rowTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  rowError: { color: c.error, fontSize: typography.sizeXs, marginTop: 2 },
+  openChevron: { color: c.textMuted, fontSize: typography.sizeXl, fontWeight: "700" as const },
   finishedNote: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: typography.sizeSm,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.md,
   },
 });

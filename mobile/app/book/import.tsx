@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { importBook } from "@/storage/importBook";
 import { parseBookBundle } from "@/storage/bookBundle";
@@ -7,7 +7,8 @@ import { saveBook } from "@/storage/bookStore";
 import { pickBookFileOrBundle } from "@/storage/pickBookFile";
 import { PageContainer } from "@/components/PageContainer";
 import { useResponsive } from "@/hooks/useResponsive";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 
 // Import a book exported elsewhere (e.g. a migrated book.json from the OnDemand
@@ -24,6 +25,8 @@ export default function ImportBookScreen() {
 function ImportBookScreenInner() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [raw, setRaw] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,7 +112,7 @@ function ImportBookScreenInner() {
           value={raw}
           onChangeText={setRaw}
           placeholder={'{\n  "title": "…",\n  "toc": { "subjects": [ … ] },\n  "content": { … }\n}'}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           multiline
           autoCapitalize="none"
           autoCorrect={false}
@@ -138,55 +141,55 @@ function ImportBookScreenInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
-  hint: { color: colors.textMuted, fontSize: typography.sizeSm },
-  orHint: { color: colors.textMuted, fontSize: typography.sizeSm, marginTop: spacing.sm },
+  hint: { color: c.textMuted, fontSize: typography.sizeSm },
+  orHint: { color: c.textMuted, fontSize: typography.sizeSm, marginTop: spacing.sm },
   input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
     fontFamily: "Menlo",
     minHeight: 200,
   },
   inputDesktop: { minHeight: 320 },
   errorBanner: {
-    backgroundColor: colors.error + "22",
-    borderColor: colors.error + "66",
+    backgroundColor: c.error + "22",
+    borderColor: c.error + "66",
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  errorBannerText: { color: colors.error, fontSize: typography.sizeSm },
+  errorBannerText: { color: c.error, fontSize: typography.sizeSm },
   importBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
   importBtnDisabled: { opacity: 0.45 },
-  importBtnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
+  importBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
   pasteBtn: {
-    borderColor: colors.border,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
-  pasteBtnText: { color: colors.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" },
+  pasteBtnText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
 });
