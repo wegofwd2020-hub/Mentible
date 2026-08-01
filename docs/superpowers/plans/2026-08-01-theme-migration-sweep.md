@@ -25,6 +25,7 @@
 3. Inline `colors.x` (e.g. `ActivityIndicator color=`, `placeholderTextColor=`, icon `color=`) → `const theme = useTheme();` then `theme.x`.
 4. If `colors` is used at **module scope outside any component** (a const array/map built at import) → it can't call the hook. Move that piece inside the component (compute per-render), OR if it's e.g. an icon-name→color map, thread the palette in. Flag in the report if a file needs judgment here.
 5. Multiple components in one file each get their own `useThemedStyles` call (or share one factory).
+   ⚠ **NEVER define a component inside another component's render body** to give it `styles`. A nested sub-component (`Row`, `FieldLabel`, `MiniButton`, etc.) must stay at **MODULE scope** and receive the themed `styles` as a **PROP** (`styles: ReturnType<typeof makeStyles>`), plus `theme`/palette values as props if it uses inline `theme.x`. Defining a component inside render = new identity every render → it unmounts/remounts each render, losing internal state (e.g. a tooltip's open state, or a TextInput's focus). This bit Task 7 (`FieldLabel`→`HelpHint` state reset). Prop-drill `styles`, don't move components inside.
 6. Verify: `grep -nE '\bcolors\.' <file>` → empty; tsc 0; eslint 0.
 
 Reference examples already in the codebase: `app/(tabs)/settings.tsx`, `app/(tabs)/projects.tsx` (both use `useThemedStyles(makeStyles)` with `as const`).
