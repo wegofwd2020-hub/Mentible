@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   type LayoutChangeEvent,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,7 +11,8 @@ import { PageContainer } from "@/components/PageContainer";
 import { searchHelpTopics, HelpTopicView } from "@/help";
 import { HELP_TOPICS } from "@/help-content";
 import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // Help screen — renders the structured, searchable help content (issue #60).
 // Topics live in help-content/ so they stay maintainable + indexable; the
@@ -21,6 +21,8 @@ import { colors, radius, spacing, typography } from "@/constants/theme";
 // highlights that topic.
 export default function HelpScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { topic } = useLocalSearchParams<{ topic?: string }>();
   const [query, setQuery] = useState("");
   const topics = useMemo(() => searchHelpTopics(query, HELP_TOPICS), [query]);
@@ -61,7 +63,7 @@ export default function HelpScreen() {
             if (highlight) setHighlight(undefined);
           }}
           placeholder="Search help…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           returnKeyType="search"
           autoCorrect={false}
           accessibilityLabel="Search help"
@@ -95,41 +97,41 @@ export default function HelpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   title: {
     fontSize: typography.sizeXl,
-    fontWeight: "800",
-    color: colors.text,
+    fontWeight: "800" as const,
+    color: c.text,
     marginBottom: spacing.xs,
   },
   search: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
   },
-  empty: { color: colors.textMuted, fontSize: typography.sizeSm, paddingVertical: spacing.md },
+  empty: { color: c.textMuted, fontSize: typography.sizeSm, paddingVertical: spacing.md },
   section: { gap: spacing.xs },
   sectionLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  cardHighlight: { borderColor: colors.primary },
+  cardHighlight: { borderColor: c.primary },
 });
