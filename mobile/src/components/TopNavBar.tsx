@@ -1,9 +1,10 @@
 import React from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { NAV_TABS, NAV_ORDER } from "./navItems";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
@@ -11,6 +12,8 @@ import { NAV_TABS, NAV_ORDER } from "./navItems";
 // (passed to <Tabs tabBar={…}>); horizontally scrollable so items don't cramp a phone.
 export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const routeByName = new Map(state.routes.map((r) => [r.name, r] as const));
   const activeName = state.routes[state.index]?.name;
 
@@ -63,7 +66,7 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={focused ? cfg.active : cfg.inactive}
                 size={22}
-                color={focused ? colors.tileOnGlyph : colors.tileOffGlyph}
+                color={focused ? theme.tileOnGlyph : theme.tileOffGlyph}
               />
               <Text
                 style={[styles.tileLabel, focused && styles.tileLabelActive]}
@@ -79,18 +82,18 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   bar: {
     // Darkest token so the lighter tiles read as raised buttons against it.
-    backgroundColor: colors.background,
-    borderBottomColor: colors.border,
+    backgroundColor: c.background,
+    borderBottomColor: c.border,
     borderBottomWidth: 1,
   },
   // flexGrow + center → centered when the row fits, scrollable when it overflows.
   row: {
     flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
@@ -99,14 +102,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    justifyContent: "center",
-    alignItems: "center",
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     marginRight: spacing.xs,
   },
   logoBtnPressed: { opacity: 0.6, transform: [{ scale: 0.96 }] },
@@ -122,27 +125,27 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    justifyContent: "center",
-    alignItems: "center",
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     gap: 3,
   },
   tileActive: {
-    backgroundColor: colors.tileOnFace,
-    borderTopColor: colors.tileOnLo,
-    borderLeftColor: colors.tileOnLo,
-    borderBottomColor: colors.tileOnHi,
-    borderRightColor: colors.tileOnHi,
+    backgroundColor: c.tileOnFace,
+    borderTopColor: c.tileOnLo,
+    borderLeftColor: c.tileOnLo,
+    borderBottomColor: c.tileOnHi,
+    borderRightColor: c.tileOnHi,
   },
   tileLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.tileOffGlyph,
+    fontWeight: "600" as const,
+    color: c.tileOffGlyph,
   },
-  tileLabelActive: { color: colors.tileOnGlyph },
+  tileLabelActive: { color: c.tileOnGlyph },
 });

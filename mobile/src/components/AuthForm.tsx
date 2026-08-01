@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { useAuth } from "@/auth/AuthProvider";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // The email + Google sign-in/up form, extracted from the sign-in screen so the
 // same flow can be reused inside the first-run wizard (SignupStep). The host is
@@ -26,6 +27,8 @@ export function AuthForm({
   showHeader = true,
 }: AuthFormProps) {
   const { signIn, signUp, signInWithGoogle } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [mode, setMode] = useState<"sign_in" | "sign_up">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -76,7 +79,7 @@ export function AuthForm({
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -86,7 +89,7 @@ export function AuthForm({
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -100,7 +103,7 @@ export function AuthForm({
         onPress={submit}
       >
         {busy ? (
-          <ActivityIndicator color={colors.primaryText} />
+          <ActivityIndicator color={theme.primaryText} />
         ) : (
           <Text style={styles.buttonText}>{mode === "sign_in" ? "Sign in" : "Create account"}</Text>
         )}
@@ -118,7 +121,7 @@ export function AuthForm({
         onPress={onGoogle}
       >
         {googleBusy ? (
-          <ActivityIndicator color={colors.text} />
+          <ActivityIndicator color={theme.text} />
         ) : (
           <Text style={styles.googleButtonText}>Continue with Google</Text>
         )}
@@ -139,42 +142,42 @@ export function AuthForm({
   );
 }
 
-const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700", marginBottom: spacing.xs },
-  sub: { color: colors.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.lg },
+const makeStyles = (c: Palette) => ({
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const, marginBottom: spacing.xs },
+  sub: { color: c.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.lg },
   input: {
-    backgroundColor: colors.surface,
-    color: colors.text,
+    backgroundColor: c.surface,
+    color: c.text,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: typography.sizeMd,
     marginBottom: spacing.sm,
   },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
+  error: { color: c.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   button: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.sm,
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
-  divider: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.textMuted, fontSize: typography.sizeSm, marginHorizontal: spacing.md },
+  buttonText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  divider: { flexDirection: "row" as const, alignItems: "center" as const, marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: c.border },
+  dividerText: { color: c.textMuted, fontSize: typography.sizeSm, marginHorizontal: spacing.md },
   googleButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  googleButtonText: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  switch: { alignItems: "center", marginTop: spacing.lg },
-  switchText: { color: colors.primary, fontSize: typography.sizeSm },
+  googleButtonText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  switch: { alignItems: "center" as const, marginTop: spacing.lg },
+  switchText: { color: c.primary, fontSize: typography.sizeSm },
 });

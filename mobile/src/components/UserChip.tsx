@@ -1,9 +1,10 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 const AVATAR = 56;
 
@@ -24,6 +25,8 @@ function initials(name: string): string {
 export function UserChip() {
   const router = useRouter();
   const { status, session } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
 
   if (status === "unavailable") return null;
 
@@ -36,7 +39,7 @@ export function UserChip() {
         accessibilityLabel="Sign in"
       >
         <View style={styles.placeholder}>
-          <Ionicons name="person-circle-outline" size={52} color={colors.textSecondary} />
+          <Ionicons name="person-circle-outline" size={52} color={theme.textSecondary} />
         </View>
         <Text style={styles.name} numberOfLines={1}>
           Sign in
@@ -81,12 +84,12 @@ export function UserChip() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: {
-    position: "absolute",
+    position: "absolute" as const,
     top: spacing.sm,
     right: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     maxWidth: 110,
     zIndex: 10,
   },
@@ -95,25 +98,25 @@ const styles = StyleSheet.create({
     height: AVATAR,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   fallback: {
     width: AVATAR,
     height: AVATAR,
     borderRadius: radius.full,
-    backgroundColor: colors.surfaceHigh,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: c.surfaceHigh,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
-  fallbackText: { color: colors.text, fontWeight: "700", fontSize: typography.sizeSm },
-  placeholder: { width: AVATAR, height: AVATAR, alignItems: "center", justifyContent: "center" },
+  fallbackText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  placeholder: { width: AVATAR, height: AVATAR, alignItems: "center" as const, justifyContent: "center" as const },
   name: {
     marginTop: 2,
     fontSize: typography.sizeXs,
-    color: colors.textSecondary,
+    color: c.textSecondary,
     maxWidth: 110,
-    textAlign: "center",
+    textAlign: "center" as const,
   },
 });
