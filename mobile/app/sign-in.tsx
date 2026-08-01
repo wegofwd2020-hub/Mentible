@@ -1,15 +1,17 @@
 import React from "react";
-import { StyleSheet, Text } from "react-native";
+import { Text } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { AuthForm } from "@/components/AuthForm";
 import { PageContainer } from "@/components/PageContainer";
 import { HelpButton } from "@/help";
-import { colors, typography } from "@/constants/theme";
+import { typography, type Palette } from "@/constants/theme";
 import { IS_DEMO } from "@/constants/demo";
+import { useThemedStyles } from "@/theme";
 
 export default function SignInScreen() {
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
   const { status } = useAuth();
 
   if (status === "signed_in") return <Redirect href="/library" />;
@@ -33,6 +35,6 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  note: { color: colors.textSecondary, fontSize: typography.sizeMd, lineHeight: 22 },
+const makeStyles = (c: Palette) => ({
+  note: { color: c.textSecondary, fontSize: typography.sizeMd, lineHeight: 22 },
 });

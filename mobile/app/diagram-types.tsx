@@ -4,13 +4,13 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
   type ImageSourcePropType,
 } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 interface Example {
   name: string;
@@ -104,6 +104,7 @@ const REGISTERS: RegisterGroup[] = [
 ];
 
 export default function DiagramTypesScreen() {
+  const styles = useThemedStyles(makeStyles);
   const [zoom, setZoom] = useState<ImageSourcePropType | null>(null);
 
   return (
@@ -154,26 +155,26 @@ export default function DiagramTypesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1 },
-  intro: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 21 },
-  bold: { fontWeight: "700", color: colors.text },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scrollContent: { flexGrow: 1 as const },
+  intro: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
+  bold: { fontWeight: "700" as const, color: c.text },
   group: { gap: spacing.xs, marginTop: spacing.sm },
   groupLabel: {
     fontSize: typography.sizeMd,
-    fontWeight: "800",
-    color: colors.primary,
+    fontWeight: "800" as const,
+    color: c.primary,
   },
   groupBlurb: {
     fontSize: typography.sizeSm,
-    color: colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     marginBottom: spacing.xs,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.sm,
@@ -184,29 +185,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: radius.sm,
     padding: spacing.sm,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  image: { width: "100%", height: 180 },
+  image: { width: "100%" as const, height: 180 },
   exName: {
     fontSize: typography.sizeSm,
-    fontWeight: "700",
-    color: colors.text,
+    fontWeight: "700" as const,
+    color: c.text,
     marginTop: spacing.sm,
   },
-  exUse: { fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
+  exUse: { fontSize: typography.sizeXs, color: c.textMuted, marginTop: 2 },
   footnote: {
     fontSize: typography.sizeXs,
-    color: colors.textMuted,
+    color: c.textMuted,
     lineHeight: 18,
     marginTop: spacing.sm,
   },
   lightbox: {
-    flex: 1,
+    flex: 1 as const,
     backgroundColor: "rgba(0,0,0,0.92)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     padding: spacing.md,
   },
-  lightboxImage: { width: "100%", height: "82%", backgroundColor: "#ffffff", borderRadius: radius.md },
+  lightboxImage: { width: "100%" as const, height: "82%" as const, backgroundColor: "#ffffff", borderRadius: radius.md },
   lightboxHint: { color: "#cbd5e1", fontSize: typography.sizeSm, marginTop: spacing.md },
 });

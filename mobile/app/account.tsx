@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Stack, useRouter } from "expo-router";
@@ -10,10 +10,13 @@ import { HelpHint } from "@/help";
 import { PROVIDERS } from "@/constants/providers";
 import { deleteApiKey } from "@/secure/keyStore";
 import { clearDeviceData } from "@/device/clearDeviceData";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 export default function AccountScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { status, session, resetPassword, signOut } = useAuth();
   const { account, error, setCredential, removeCredential, purge } = useAccount();
   const [busy, setBusy] = useState(false);
@@ -117,7 +120,7 @@ export default function AccountScreen() {
               accessibilityLabel="Back"
               style={styles.headerBack}
             >
-              <Ionicons name="chevron-back" size={26} color={colors.text} />
+              <Ionicons name="chevron-back" size={26} color={theme.text} />
             </Pressable>
           ),
         }}
@@ -234,66 +237,66 @@ export default function AccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   headerBack: { paddingHorizontal: spacing.sm },
   // ScrollView must own a bounded height (flex:1) to actually scroll; otherwise it
   // grows to its content and the page overflows the viewport with no scrollbar
   // (PageContainer goes *inside* the ScrollView — see its doc + settings.tsx).
-  scroll: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
+  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scrollContent: { flexGrow: 1 as const, paddingBottom: spacing.xl },
   // A destructive action + its HelpHint on one row (the button's own marginTop
   // moves to the row via actionBtn).
-  actionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.lg },
-  actionBtn: { flex: 1, marginTop: 0 },
-  label: { color: colors.textMuted, fontSize: typography.sizeXs, textTransform: "uppercase" },
-  email: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700", marginBottom: spacing.md },
+  actionRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginTop: spacing.lg },
+  actionBtn: { flex: 1 as const, marginTop: 0 },
+  label: { color: c.textMuted, fontSize: typography.sizeXs, textTransform: "uppercase" as const },
+  email: { color: c.text, fontSize: typography.sizeXl, fontWeight: "700" as const, marginBottom: spacing.md },
   linkRow: { paddingVertical: spacing.sm },
-  linkText: { color: colors.primary, fontSize: typography.sizeMd },
+  linkText: { color: c.primary, fontSize: typography.sizeMd },
   adminRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.sm,
   },
-  adminText: { flex: 1, color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  adminChevron: { color: colors.textMuted, fontSize: typography.sizeXl },
-  section: { color: colors.text, fontSize: typography.sizeLg, fontWeight: "700", marginTop: spacing.lg },
+  adminText: { flex: 1 as const, color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  adminChevron: { color: c.textMuted, fontSize: typography.sizeXl },
+  section: { color: c.text, fontSize: typography.sizeLg, fontWeight: "700" as const, marginTop: spacing.lg },
   // Section heading + its `?` HelpHint on one row (marginTop moves to the row).
   sectionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
   sectionInRow: { marginTop: 0 },
-  hint: { color: colors.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.sm },
+  hint: { color: c.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.sm },
   providerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  providerLabel: { color: colors.text, fontSize: typography.sizeMd },
-  providerStatus: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
-  addText: { color: colors.primary, fontSize: typography.sizeSm },
-  removeText: { color: colors.error, fontSize: typography.sizeSm },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.sm },
+  providerLabel: { color: c.text, fontSize: typography.sizeMd },
+  providerStatus: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
+  addText: { color: c.primary, fontSize: typography.sizeSm },
+  removeText: { color: c.error, fontSize: typography.sizeSm },
+  error: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.sm },
   secondaryButton: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.lg,
   },
-  secondaryText: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  deleteButton: { paddingVertical: spacing.md, alignItems: "center", marginTop: spacing.xl },
-  deleteText: { color: colors.error, fontSize: typography.sizeMd, fontWeight: "700" },
+  secondaryText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  deleteButton: { paddingVertical: spacing.md, alignItems: "center" as const, marginTop: spacing.xl },
+  deleteText: { color: c.error, fontSize: typography.sizeMd, fontWeight: "700" as const },
 });

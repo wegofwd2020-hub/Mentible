@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import { listUsers, type AdminUserRow } from "@/api/adminClient";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -16,6 +17,8 @@ function formatDate(iso: string): string {
 // here; per-user actions live on the detail screen.
 export default function AdminScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { status, accessToken } = useAuth();
   const { account } = useAccount();
   const isAdmin = account?.is_super_admin === true;
@@ -60,7 +63,7 @@ export default function AdminScreen() {
       </Text>
 
       {loading && users.length === 0 ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+        <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
         <Text style={styles.error}>{error}</Text>
       ) : (
@@ -97,28 +100,28 @@ export default function AdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
-  sub: { color: colors.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.md },
+const makeStyles = (c: Palette) => ({
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
+  sub: { color: c.textSecondary, fontSize: typography.sizeSm, marginBottom: spacing.md },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  email: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  meta: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
+  email: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  meta: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
   suspended: {
-    color: colors.warning,
+    color: c.warning,
     fontSize: typography.sizeXs,
-    fontWeight: "700",
-    textTransform: "uppercase",
+    fontWeight: "700" as const,
+    textTransform: "uppercase" as const,
   },
-  chevron: { color: colors.textMuted, fontSize: typography.sizeXl },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.md },
+  chevron: { color: c.textMuted, fontSize: typography.sizeXl },
+  error: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.md },
 });

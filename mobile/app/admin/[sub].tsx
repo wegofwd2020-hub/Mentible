@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
@@ -12,7 +12,8 @@ import {
   type AdminUserDetail,
 } from "@/api/adminClient";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -28,6 +29,8 @@ function formatDateTime(iso: string): string {
 // suspend / reactivate / delete actions (all audited server-side).
 export default function AdminUserScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { sub } = useLocalSearchParams<{ sub: string }>();
   const { status, accessToken } = useAuth();
   const { account } = useAccount();
@@ -104,7 +107,7 @@ export default function AdminUserScreen() {
   if (loading && !user) {
     return (
       <PageContainer>
-        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+        <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
       </PageContainer>
     );
   }
@@ -168,46 +171,46 @@ export default function AdminUserScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer inside.
-  scroll: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
-  email: { color: colors.text, fontSize: typography.sizeXl, fontWeight: "700" },
-  sub: { color: colors.textMuted, fontSize: typography.sizeXs, fontFamily: "monospace", marginTop: 2 },
+  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scrollContent: { flexGrow: 1 as const, paddingBottom: spacing.xl },
+  email: { color: c.text, fontSize: typography.sizeXl, fontWeight: "700" as const },
+  sub: { color: c.textMuted, fontSize: typography.sizeXs, fontFamily: "monospace" as const, marginTop: 2 },
   suspendedBadge: {
-    color: colors.warning,
+    color: c.warning,
     fontSize: typography.sizeXs,
-    fontWeight: "800",
+    fontWeight: "800" as const,
     marginTop: spacing.sm,
   },
   section: {
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-  muted: { color: colors.textMuted, fontSize: typography.sizeSm },
+  muted: { color: c.textMuted, fontSize: typography.sizeSm },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  cardTitle: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
+  cardTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
   action: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.lg,
   },
   actionDisabled: { opacity: 0.5 },
-  actionText: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  deleteBtn: { paddingVertical: spacing.md, alignItems: "center", marginTop: spacing.md },
-  deleteText: { color: colors.error, fontSize: typography.sizeMd, fontWeight: "700" },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.lg },
+  actionText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  deleteBtn: { paddingVertical: spacing.md, alignItems: "center" as const, marginTop: spacing.md },
+  deleteText: { color: c.error, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  error: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.lg },
 });
