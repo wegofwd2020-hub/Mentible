@@ -5,18 +5,21 @@
 // app/book/topic/[bookId]/[topicId].tsx); a read-only viewer never sees this.
 
 import React, { useState } from "react";
-import { View, Text, Image, Pressable, TextInput, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Image, Pressable, TextInput, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import type { Book } from "@/types/book";
 import { attachImage, deleteImage, pruneOrphanMedia, type PickedImage, MediaCapError } from "@/storage/mediaStore";
 import { saveBook } from "@/storage/bookStore";
 import { useTopicFigures } from "@/reader/useTopicFigures";
 import { Alert } from "@/lib/alert";
-import { colors, spacing, typography } from "@/constants/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 export function FiguresPanel({
   book, topicId, onBookChange,
 }: { book: Book; topicId: string; onBookChange: (b: Book) => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const topic = book.content?.[topicId];
   const urls = useTopicFigures(topic);
   const [busy, setBusy] = useState(false);
@@ -116,7 +119,7 @@ export function FiguresPanel({
         </View>
       )}
 
-      {busy && <ActivityIndicator size="small" color={colors.primary} />}
+      {busy && <ActivityIndicator size="small" color={theme.primary} />}
 
       {images.map((img) => (
         <View key={img.id} style={styles.row}>
@@ -130,7 +133,7 @@ export function FiguresPanel({
               style={styles.caption}
               defaultValue={img.caption}
               placeholder="Caption (optional)"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               onEndEditing={(e) => editField(img.id, "caption", e.nativeEvent.text)}
               accessibilityLabel="Figure caption"
             />
@@ -143,7 +146,7 @@ export function FiguresPanel({
               style={styles.caption}
               defaultValue={img.alt}
               placeholder="Alt text — describe it for someone who can't see it"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               onEndEditing={(e) => editField(img.id, "alt", e.nativeEvent.text)}
               accessibilityLabel="Figure alt text"
             />
@@ -159,20 +162,20 @@ export function FiguresPanel({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { fontSize: typography.sizeMd, fontWeight: "600", color: colors.text },
-  addBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.primary, borderRadius: 8 },
-  addBtnText: { color: colors.primaryText, fontWeight: "600" },
-  chooser: { flexDirection: "row", gap: spacing.sm },
-  chooserBtn: { flex: 1, padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: "center" },
-  chooserText: { color: colors.text },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
-  thumbEmpty: { borderWidth: 1, borderColor: colors.border },
+  header: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+  title: { fontSize: typography.sizeMd, fontWeight: "600" as const, color: c.text },
+  addBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: c.primary, borderRadius: 8 },
+  addBtnText: { color: c.primaryText, fontWeight: "600" as const },
+  chooser: { flexDirection: "row" as const, gap: spacing.sm },
+  chooserBtn: { flex: 1, padding: spacing.sm, borderWidth: 1, borderColor: c.border, borderRadius: 8, alignItems: "center" as const },
+  chooserText: { color: c.text },
+  row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: c.surface },
+  thumbEmpty: { borderWidth: 1, borderColor: c.border },
   fields: { flex: 1, gap: spacing.xs },
-  caption: { flex: 1, color: colors.text, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 4 },
-  remove: { color: colors.textMuted, fontSize: typography.sizeLg, paddingHorizontal: spacing.xs },
-  note: { color: colors.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" },
+  caption: { flex: 1, color: c.text, borderBottomWidth: 1, borderColor: c.border, paddingVertical: 4 },
+  remove: { color: c.textMuted, fontSize: typography.sizeLg, paddingHorizontal: spacing.xs },
+  note: { color: c.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" as const },
 });

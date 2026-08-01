@@ -1,6 +1,7 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { hasRenderableLesson } from "@/storage/bookStore";
 import type { Book } from "@/types/book";
 
@@ -46,6 +47,7 @@ export function TopicReadList({
   book: Book;
   onOpen: (id: string, kind: "topic" | "chapter") => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const topics = flatten(book);
   if (!topics.some((t) => t.hasContent)) return null;
 
@@ -79,28 +81,28 @@ export function TopicReadList({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs },
   heading: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
   row: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.sm,
   },
   rowDisabled: { opacity: 0.5 },
   rowMain: { flex: 1 },
-  rowTitle: { fontSize: typography.sizeMd, fontWeight: "600", color: colors.text },
-  chevron: { fontSize: typography.sizeLg, color: colors.primary, fontWeight: "700" },
-  pending: { fontSize: typography.sizeMd, color: colors.textMuted },
+  rowTitle: { fontSize: typography.sizeMd, fontWeight: "600" as const, color: c.text },
+  chevron: { fontSize: typography.sizeLg, color: c.primary, fontWeight: "700" as const },
+  pending: { fontSize: typography.sizeMd, color: c.textMuted },
 });

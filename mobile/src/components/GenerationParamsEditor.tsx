@@ -1,30 +1,19 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { HelpHint } from "@/help";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
 import { PROVIDERS, providerInfo } from "@/constants/providers";
 import { REGISTERS } from "@/constants/registers";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { GenerationParams } from "@/types/generationParams";
-
-// A field heading with an inline `?` HelpHint (SBQ-UI-003). The always-visible
-// paramHint under each control stays; the hint carries a deeper "how to choose"
-// tip for users who want it.
-function FieldLabel({ children, hint }: { children: string; hint: string }) {
-  return (
-    <View style={styles.labelRow}>
-      <Text style={styles.label}>{children}</Text>
-      <HelpHint label={children} text={hint} />
-    </View>
-  );
-}
 
 // The single editor for the generation template (Model + Level + Depth + Pages),
 // shared by Settings (global default) and the book generate screen (per-book).
 // Stepper buttons keep Pages settable without a soft keyboard (the emulator
-// doesn't always render one).
+// doesn’t always render one).
 export function GenerationParamsEditor({
   value,
   onChange,
@@ -37,9 +26,23 @@ export function GenerationParamsEditor({
   pagesHint?: string;
 }) {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const set = (patch: Partial<GenerationParams>) => onChange({ ...value, ...patch });
   const adjustPages = (delta: number) =>
     set({ pages: Math.min(999, Math.max(0, value.pages + delta)) });
+
+  // A field heading with an inline `?` HelpHint (SBQ-UI-003). The always-visible
+  // paramHint under each control stays; the hint carries a deeper "how to choose"
+  // tip for users who want it.
+  function FieldLabel({ children, hint }: { children: string; hint: string }) {
+    return (
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{children}</Text>
+        <HelpHint label={children} text={hint} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -162,7 +165,7 @@ export function GenerationParamsEditor({
           }}
           keyboardType="number-pad"
           placeholder="0"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           maxLength={3}
           textAlign="center"
           accessibilityLabel="Target pages for the whole book — 0 means no limit"
@@ -189,81 +192,82 @@ export function GenerationParamsEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs },
   // Field heading + its `?` HelpHint on one row (the label keeps its own marginTop).
-  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   label: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
     letterSpacing: 0.8,
     marginTop: spacing.sm,
   },
   // Wrap chips onto multiple rows rather than scrolling horizontally, so every
   // option stays visible in the narrow desktop options column (and on phones).
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingVertical: spacing.xs },
+  chipRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.xs },
   // Beveled, matching the nav tiles: raised white face by default, inset yellow
   // face when selected. Black glyphs throughout; the face + bevel carry on/off.
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    alignItems: "center",
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    alignItems: "center" as const,
   },
   chipSelected: {
-    backgroundColor: colors.tileOnFace,
-    borderTopColor: colors.tileOnLo,
-    borderLeftColor: colors.tileOnLo,
-    borderBottomColor: colors.tileOnHi,
-    borderRightColor: colors.tileOnHi,
+    backgroundColor: c.tileOnFace,
+    borderTopColor: c.tileOnLo,
+    borderLeftColor: c.tileOnLo,
+    borderBottomColor: c.tileOnHi,
+    borderRightColor: c.tileOnHi,
   },
-  chipLabel: { fontSize: typography.sizeSm, fontWeight: "600", color: colors.tileOffGlyph },
-  chipLabelSelected: { color: colors.tileOnGlyph },
-  chipDesc: { fontSize: typography.sizeXs, color: colors.tileSubGlyph, marginTop: 2 },
-  chipDescSelected: { color: colors.tileSubGlyph },
+  chipLabel: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.tileOffGlyph },
+  chipLabelSelected: { color: c.tileOnGlyph },
+  chipDesc: { fontSize: typography.sizeXs, color: c.tileSubGlyph, marginTop: 2 },
+  chipDescSelected: { color: c.tileSubGlyph },
   // wrap so the steppers drop to a second line rather than overflowing the
   // (narrow) options column and spilling over the topics column on desktop web.
-  pagesRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.xs },
+  pagesRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "stretch" as const, gap: spacing.xs },
   pagesInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
+    fontWeight: "700" as const,
+    textAlign: "center" as const,
   },
   pagesInputFlex: { flex: 1, minWidth: 120 },
   // Raised white beveled buttons, matching the OFF chips/tiles.
   stepBtn: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
     paddingHorizontal: spacing.md,
     minWidth: 52,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderRadius: radius.md,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
   },
-  stepBtnText: { color: colors.tileOffGlyph, fontSize: typography.sizeMd, fontWeight: "700" },
-  hint: { color: colors.textMuted, fontSize: typography.sizeXs },
-  paramHint: { color: colors.textMuted, fontSize: typography.sizeXs, marginTop: -2, marginBottom: 2 },
+  stepBtnText: { color: c.tileOffGlyph, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  hint: { color: c.textMuted, fontSize: typography.sizeXs },
+  paramHint: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: -2, marginBottom: 2 },
   examplesLink: {
-    color: colors.brand,
+    color: c.brand,
     fontSize: typography.sizeXs,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     marginTop: spacing.xs,
   },
 });

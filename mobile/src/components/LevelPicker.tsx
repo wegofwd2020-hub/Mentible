@@ -2,12 +2,11 @@ import React from "react";
 import {
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
-  View,
 } from "react-native";
 import { LEVELS } from "@/constants/levels";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 interface LevelPickerProps {
   value: string;
@@ -15,6 +14,7 @@ interface LevelPickerProps {
 }
 
 export function LevelPicker({ value, onChange }: LevelPickerProps) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView
       horizontal
@@ -45,9 +45,9 @@ export function LevelPicker({ value, onChange }: LevelPickerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   row: {
-    flexDirection: "row",
+    flexDirection: "row" as const,
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
@@ -58,35 +58,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.tileOffFace,
+    backgroundColor: c.tileOffFace,
     borderWidth: 2,
-    borderTopColor: colors.tileOffFace,
-    borderLeftColor: colors.tileOffFace,
-    borderBottomColor: colors.tileOffShadow,
-    borderRightColor: colors.tileOffShadow,
-    alignItems: "center",
+    borderTopColor: c.tileOffFace,
+    borderLeftColor: c.tileOffFace,
+    borderBottomColor: c.tileOffShadow,
+    borderRightColor: c.tileOffShadow,
+    alignItems: "center" as const,
   },
   chipSelected: {
-    backgroundColor: colors.tileOnFace,
-    borderTopColor: colors.tileOnLo,
-    borderLeftColor: colors.tileOnLo,
-    borderBottomColor: colors.tileOnHi,
-    borderRightColor: colors.tileOnHi,
+    backgroundColor: c.tileOnFace,
+    borderTopColor: c.tileOnLo,
+    borderLeftColor: c.tileOnLo,
+    borderBottomColor: c.tileOnHi,
+    borderRightColor: c.tileOnHi,
   },
   chipLabel: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.tileOffGlyph,
+    fontWeight: "600" as const,
+    color: c.tileOffGlyph,
   },
   chipLabelSelected: {
-    color: colors.tileOnGlyph,
+    color: c.tileOnGlyph,
   },
   chipDesc: {
     fontSize: typography.sizeXs,
-    color: colors.tileSubGlyph,
+    color: c.tileSubGlyph,
     marginTop: 2,
   },
   chipDescSelected: {
-    color: colors.tileSubGlyph,
+    color: c.tileSubGlyph,
   },
 });

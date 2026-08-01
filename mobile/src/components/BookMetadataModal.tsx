@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 import { Ionicons } from "@expo/vector-icons";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
@@ -96,18 +97,6 @@ export function deriveRows(book: Book | null, fallback: BookMetaFallback): BookM
   };
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  const muted = value === DASH || value === NOT_REVIEWED;
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, muted && styles.rowValueMuted]} selectable>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 export interface BookMetadataModalProps {
   visible: boolean;
   book: Book | null;
@@ -141,8 +130,22 @@ export function BookMetadataModal({
   onDelete,
   onClose,
 }: BookMetadataModalProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (!visible) return null;
   const rows = deriveRows(book, meta ?? { title: "" });
+
+  function Row({ label, value }: { label: string; value: string }) {
+    const muted = value === DASH || value === NOT_REVIEWED;
+    return (
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={[styles.rowValue, muted && styles.rowValueMuted]} selectable>
+          {value}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     // Non-blocking overlay: the container passes touches through (`box-none`) so
@@ -158,7 +161,7 @@ export function BookMetadataModal({
         <ExportStatusPills status={exportStatus} published={published} />
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={theme.primary} />
           </View>
         ) : (
           <ScrollView style={styles.rows} contentContainerStyle={styles.rowsContent}>
@@ -181,18 +184,18 @@ export function BookMetadataModal({
             </Pressable>
             {onMove ? (
               <Pressable style={styles.iconBtn} onPress={onMove} accessibilityRole="button" accessibilityLabel="Move to shelf" hitSlop={8}>
-                <Ionicons name="folder-outline" size={20} color={colors.textSecondary} />
+                <Ionicons name="folder-outline" size={20} color={theme.textSecondary} />
               </Pressable>
             ) : null}
             {onReviews ? (
               <Pressable style={styles.iconBtn} onPress={onReviews} accessibilityRole="button" accessibilityLabel="Reviews" hitSlop={8}>
-                <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.textSecondary} />
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.textSecondary} />
                 {reviewCount ? <Text style={styles.count}>{reviewCount}</Text> : null}
               </Pressable>
             ) : null}
             {onDelete ? (
               <Pressable style={styles.iconBtn} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete from library" hitSlop={8}>
-                <Ionicons name="trash-outline" size={20} color={colors.textMuted} />
+                <Ionicons name="trash-outline" size={20} color={theme.textMuted} />
               </Pressable>
             ) : null}
           </View>
@@ -205,7 +208,7 @@ export function BookMetadataModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   // Full-screen, touch-transparent layer that the panel + scrim live in.
   overlay: { ...StyleSheet.absoluteFillObject },
   // Faint scrim over the shelf — visual separation only (never blocks taps).
@@ -213,15 +216,15 @@ const styles = StyleSheet.create({
   // Panel docked to the right edge, starting below the floating profile chip
   // (UserChip: top 8 + 56px avatar + name ≈ 80) so it doesn't cover it.
   sidebar: {
-    position: "absolute",
+    position: "absolute" as const,
     top: 88,
     right: 0,
     bottom: 0,
     width: 340,
-    maxWidth: "92%",
-    backgroundColor: colors.surface,
+    maxWidth: "92%" as const,
+    backgroundColor: c.surface,
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
+    borderLeftColor: c.border,
     borderTopLeftRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
@@ -232,46 +235,46 @@ const styles = StyleSheet.create({
     shadowOffset: { width: -8, height: 0 },
     elevation: 12,
   },
-  title: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
-  loading: { paddingVertical: spacing.xl, alignItems: "center" },
+  title: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
+  loading: { paddingVertical: spacing.xl, alignItems: "center" as const },
   rows: { flex: 1 },
   rowsContent: { gap: spacing.sm },
   row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
+    justifyContent: "space-between" as const,
     gap: spacing.md,
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: c.border,
   },
-  rowLabel: { fontSize: typography.sizeSm, color: colors.textSecondary, flexShrink: 0 },
+  rowLabel: { fontSize: typography.sizeSm, color: c.textSecondary, flexShrink: 0 },
   rowValue: {
     fontSize: typography.sizeSm,
-    fontWeight: "600",
-    color: colors.text,
+    fontWeight: "600" as const,
+    color: c.text,
     flexShrink: 1,
-    textAlign: "right",
+    textAlign: "right" as const,
   },
-  rowValueMuted: { color: colors.textMuted, fontWeight: "400", fontStyle: "italic" },
+  rowValueMuted: { color: c.textMuted, fontWeight: "400" as const, fontStyle: "italic" as const },
   footer: { gap: spacing.sm, marginTop: spacing.xs },
-  actions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  iconBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
-  count: { fontSize: typography.sizeXs, fontWeight: "700", color: colors.textSecondary },
+  actions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
+  iconBtn: { flexDirection: "row" as const, alignItems: "center" as const, gap: 2 },
+  count: { fontSize: typography.sizeXs, fontWeight: "700" as const, color: c.textSecondary },
   closeBtn: {
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
+    borderColor: c.border,
+    alignItems: "center" as const,
   },
-  closeBtnText: { color: colors.textSecondary, fontWeight: "700", fontSize: typography.sizeSm },
+  closeBtnText: { color: c.textSecondary, fontWeight: "700" as const, fontSize: typography.sizeSm },
   readBtn: {
     flex: 1,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: "center",
+    backgroundColor: c.primary,
+    alignItems: "center" as const,
   },
-  readBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
+  readBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
 });

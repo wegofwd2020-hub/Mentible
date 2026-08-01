@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { randomUUID } from "@/lib/uuid";
 import {
   subtopicLabel,
@@ -35,33 +36,9 @@ function move<T>(arr: T[], from: number, to: number): void {
   arr.splice(to, 0, item);
 }
 
-// A small round icon-button used for add / remove / reorder actions.
-function MiniButton({
-  label,
-  glyph,
-  onPress,
-  tone = "default",
-}: {
-  label: string;
-  glyph: string;
-  onPress: () => void;
-  tone?: "default" | "danger";
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={[styles.mini, tone === "danger" && styles.miniDanger]}
-    >
-      <Text style={[styles.miniGlyph, tone === "danger" && styles.miniGlyphDanger]}>
-        {glyph}
-      </Text>
-    </Pressable>
-  );
-}
-
 export function TopicTreeEditor({ toc, onChange }: Props) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const mutate = useCallback(
     (fn: (draft: StructuredTOC) => void) => {
       const draft = clone(toc);
@@ -70,6 +47,32 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
     },
     [toc, onChange],
   );
+
+  // A small round icon-button used for add / remove / reorder actions.
+  function MiniButton({
+    label,
+    glyph,
+    onPress,
+    tone = "default",
+  }: {
+    label: string;
+    glyph: string;
+    onPress: () => void;
+    tone?: "default" | "danger";
+  }) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={[styles.mini, tone === "danger" && styles.miniDanger]}
+      >
+        <Text style={[styles.miniGlyph, tone === "danger" && styles.miniGlyphDanger]}>
+          {glyph}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -86,7 +89,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                 })
               }
               placeholder="Subject"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               accessibilityLabel={`Subject ${si + 1} label`}
             />
             <MiniButton
@@ -114,7 +117,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                     })
                   }
                   placeholder="Topic title"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   accessibilityLabel={`Topic ${si + 1}.${ui + 1} title`}
                 />
                 <MiniButton
@@ -159,7 +162,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                         })
                       }
                       placeholder="Subtopic"
-                      placeholderTextColor={colors.textMuted}
+                      placeholderTextColor={theme.textMuted}
                       accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1} label`}
                     />
                     <MiniButton
@@ -186,7 +189,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                       })
                     }
                     placeholder="Detail (optional — scope guidance for generation)"
-                    placeholderTextColor={colors.textMuted}
+                    placeholderTextColor={theme.textMuted}
                     multiline
                     accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1} detail`}
                   />
@@ -251,59 +254,59 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.md },
   subjectCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  subjectHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  subjectHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   subjectInput: {
     flex: 1,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeLg,
-    fontWeight: "700",
-    borderBottomColor: colors.borderLight,
+    fontWeight: "700" as const,
+    borderBottomColor: c.borderLight,
     borderBottomWidth: 1,
     paddingVertical: spacing.xs,
   },
   unitCard: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
     padding: spacing.sm,
     gap: spacing.xs,
   },
-  unitHeader: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  unitHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   unitInput: {
     flex: 1,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     paddingVertical: spacing.xs,
   },
   subtopicCol: {
     marginBottom: spacing.xs,
   },
   subtopicRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     paddingLeft: spacing.sm,
   },
-  bullet: { color: colors.textMuted, fontSize: typography.sizeMd },
+  bullet: { color: c.textMuted, fontSize: typography.sizeMd },
   subtopicInput: {
     flex: 1,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeSm,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     paddingVertical: 2,
   },
   detailInput: {
-    color: colors.textMuted,
+    color: c.textMuted,
     fontSize: typography.sizeXs,
     lineHeight: 18,
     paddingVertical: 2,
@@ -311,18 +314,18 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm + spacing.md,
   },
   prereqRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
     paddingLeft: spacing.sm,
     marginTop: spacing.xs,
   },
-  prereqLabel: { color: colors.textMuted, fontSize: typography.sizeXs },
+  prereqLabel: { color: c.textMuted, fontSize: typography.sizeXs },
   prereqChip: {
-    color: colors.textSecondary,
+    color: c.textSecondary,
     fontSize: typography.sizeXs,
-    backgroundColor: colors.background,
+    backgroundColor: c.background,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
@@ -331,27 +334,27 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: radius.full,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: c.background,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
-  miniDanger: { backgroundColor: colors.error + "22" },
-  miniGlyph: { color: colors.textSecondary, fontSize: typography.sizeMd, fontWeight: "700" },
-  miniGlyphDanger: { color: colors.error },
-  addInline: { alignSelf: "flex-start", paddingVertical: spacing.xs, paddingLeft: spacing.sm },
-  addInlineText: { color: colors.primary, fontSize: typography.sizeXs, fontWeight: "600" },
+  miniDanger: { backgroundColor: c.error + "22" },
+  miniGlyph: { color: c.textSecondary, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  miniGlyphDanger: { color: c.error },
+  addInline: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs, paddingLeft: spacing.sm },
+  addInlineText: { color: c.primary, fontSize: typography.sizeXs, fontWeight: "600" as const },
   addUnit: {
-    alignSelf: "flex-start",
+    alignSelf: "flex-start" as const,
     paddingVertical: spacing.xs,
   },
-  addUnitText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "600" },
+  addUnitText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
   addSubject: {
-    borderColor: colors.borderLight,
+    borderColor: c.borderLight,
     borderWidth: 1,
-    borderStyle: "dashed",
+    borderStyle: "dashed" as const,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  addSubjectText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
+  addSubjectText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
 });
