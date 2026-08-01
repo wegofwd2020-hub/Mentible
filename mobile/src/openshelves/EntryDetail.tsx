@@ -1,8 +1,9 @@
 // Presentational entry detail with provenance (spec P0-7). Plaintext fields; the
 // screen owns loading + opening the source link. Rights are surfaced verbatim and
 // "Not stated by source" when absent — never fabricated.
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Image, Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import type { FeedEntry } from "./types";
 
 // "browser" = the web path: the browser took the file, we did not store it (see downloadIO).
@@ -40,6 +41,7 @@ export function EntryDetail({
   downloadState = "idle",
   downloadError = null,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const busy = downloadState === "downloading";
 
   return (
@@ -81,20 +83,20 @@ export function EntryDetail({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: { gap: spacing.sm },
-  cover: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.border },
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
-  author: { color: colors.textMuted, fontSize: typography.sizeMd },
-  badge: { color: colors.textMuted, fontSize: typography.sizeXs },
-  summary: { color: colors.text, fontSize: typography.sizeMd, marginTop: spacing.sm },
+  cover: { width: "100%" as const, height: 220, borderRadius: radius.md, backgroundColor: c.border },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
+  author: { color: c.textMuted, fontSize: typography.sizeMd },
+  badge: { color: c.textMuted, fontSize: typography.sizeXs },
+  summary: { color: c.text, fontSize: typography.sizeMd, marginTop: spacing.sm },
   download: { marginTop: spacing.md, gap: spacing.xs },
   buttonBusy: { opacity: 0.6 },
-  note: { color: colors.textMuted, fontSize: typography.sizeSm },
-  error: { color: colors.error, fontSize: typography.sizeSm },
-  provenance: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: spacing.xs },
-  provTitle: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "600" },
-  provLine: { color: colors.textMuted, fontSize: typography.sizeSm },
-  button: { marginTop: spacing.sm, backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: "center" },
-  buttonText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "600" },
+  note: { color: c.textMuted, fontSize: typography.sizeSm },
+  error: { color: c.error, fontSize: typography.sizeSm },
+  provenance: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, gap: spacing.xs },
+  provTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  provLine: { color: c.textMuted, fontSize: typography.sizeSm },
+  button: { marginTop: spacing.sm, backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: "center" as const },
+  buttonText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "600" as const },
 });

@@ -2,8 +2,9 @@
 // Presentational: collect a feed URL + surface parent-owned error/busy. No store,
 // no network, no alert — the screen owns add + the P0-8 warning confirm.
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 interface Props {
   onSubmit: (url: string) => void;
@@ -12,6 +13,8 @@ interface Props {
 }
 
 export function AddSourceForm({ onSubmit, busy, error }: Props) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [url, setUrl] = useState("");
   const submit = () => {
     const trimmed = url.trim();
@@ -25,7 +28,7 @@ export function AddSourceForm({ onSubmit, busy, error }: Props) {
         value={url}
         onChangeText={setUrl}
         placeholder="https://…  (an OPDS catalog URL)"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
@@ -44,18 +47,18 @@ export function AddSourceForm({ onSubmit, busy, error }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: { gap: spacing.sm },
   input: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+    borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    color: colors.text, fontSize: typography.sizeMd,
+    color: c.text, fontSize: typography.sizeMd,
   },
   button: {
-    backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingVertical: spacing.sm, alignItems: "center",
+    backgroundColor: c.primary, borderRadius: radius.md,
+    paddingVertical: spacing.sm, alignItems: "center" as const,
   },
-  buttonText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "600" },
-  warning: { color: colors.textMuted, fontSize: typography.sizeXs },
-  error: { color: colors.error, fontSize: typography.sizeXs },
+  buttonText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  warning: { color: c.textMuted, fontSize: typography.sizeXs },
+  error: { color: c.error, fontSize: typography.sizeXs },
 });

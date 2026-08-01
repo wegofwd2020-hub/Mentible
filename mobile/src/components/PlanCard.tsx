@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { PlanOffer } from "@/billing/types";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 interface Props {
   offer: PlanOffer;
@@ -13,6 +14,7 @@ interface Props {
 // It deliberately does NOT render `offer.renewalTerms`: store policy wants price, period
 // and renewal disclosed *adjacent to the purchase button*, so the screen owns that line.
 export function PlanCard({ offer, selected, onSelect }: Props) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       style={[styles.card, selected && styles.cardSelected]}
@@ -38,34 +40,34 @@ export function PlanCard({ offer, selected, onSelect }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.xs,
   },
-  cardSelected: { borderColor: colors.brand, backgroundColor: colors.surfaceHigh },
-  head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  cardSelected: { borderColor: c.brand, backgroundColor: c.surfaceHigh },
+  head: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+  titleRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   dot: {
     width: 18,
     height: 18,
     borderRadius: radius.full,
     borderWidth: 2,
-    borderColor: colors.textMuted,
+    borderColor: c.textMuted,
   },
-  dotSelected: { borderColor: colors.brand, backgroundColor: colors.brand },
-  title: { color: colors.text, fontSize: typography.sizeMd, fontWeight: "700" },
+  dotSelected: { borderColor: c.brand, backgroundColor: c.brand },
+  title: { color: c.text, fontSize: typography.sizeMd, fontWeight: "700" as const },
   badge: {
-    backgroundColor: colors.brand + "22",
+    backgroundColor: c.brand + "22",
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radius.sm,
   },
-  badgeText: { color: colors.text, fontSize: typography.sizeXs, fontWeight: "600" },
-  price: { color: colors.text, fontSize: typography.sizeLg, fontWeight: "700" },
-  blurb: { color: colors.textMuted, fontSize: typography.sizeSm, lineHeight: 19 },
+  badgeText: { color: c.text, fontSize: typography.sizeXs, fontWeight: "600" as const },
+  price: { color: c.text, fontSize: typography.sizeLg, fontWeight: "700" as const },
+  blurb: { color: c.textMuted, fontSize: typography.sizeSm, lineHeight: 19 },
 });
