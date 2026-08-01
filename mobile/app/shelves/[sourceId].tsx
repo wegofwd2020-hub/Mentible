@@ -3,11 +3,12 @@
 // in place (OPDS catalogs are a tree — Task 3's useFeedBrowser fetches the
 // sub-feed on demand; those entries are transient and never written to the
 // store). No downloads here (later plan).
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { ScrollView, Text, View, Pressable } from "react-native";
 import { useEffect, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
-import { colors, spacing, typography } from "@/constants/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { useSourceCatalog } from "@/openshelves/useSourceCatalog";
 import { useFeedBrowser } from "@/openshelves/useFeedBrowser";
 import { EntryRow } from "@/openshelves/EntryRow";
@@ -19,6 +20,7 @@ import { publishBrowseFrame } from "@/openshelves/browseContext";
 export default function CatalogScreen() {
   const { sourceId } = useLocalSearchParams<{ sourceId: string }>();
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
   const cat = useSourceCatalog(sourceId);
 
   const root = useMemo(
@@ -90,15 +92,15 @@ export default function CatalogScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: Palette) => ({
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  title: { color: colors.text, fontSize: typography.sizeXxl, fontWeight: "700" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: spacing.md },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  sub: { color: colors.textMuted, fontSize: typography.sizeMd },
-  back: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  refresh: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "600" },
-  error: { color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
-  empty: { color: colors.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
+  headerRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginVertical: spacing.md },
+  headerActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
+  sub: { color: c.textMuted, fontSize: typography.sizeMd },
+  back: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  refresh: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  error: { color: c.error, fontSize: typography.sizeSm, marginBottom: spacing.sm },
+  empty: { color: c.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });
