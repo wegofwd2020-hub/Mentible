@@ -10,6 +10,26 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import type { GenerationParams } from "@/types/generationParams";
 
+// A field heading with an inline `?` HelpHint (SBQ-UI-003). The always-visible
+// paramHint under each control stays; the hint carries a deeper "how to choose"
+// tip for users who want it.
+function FieldLabel({
+  children,
+  hint,
+  styles,
+}: {
+  children: string;
+  hint: string;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View style={styles.labelRow}>
+      <Text style={styles.label}>{children}</Text>
+      <HelpHint label={children} text={hint} />
+    </View>
+  );
+}
+
 // The single editor for the generation template (Model + Level + Depth + Pages),
 // shared by Settings (global default) and the book generate screen (per-book).
 // Stepper buttons keep Pages settable without a soft keyboard (the emulator
@@ -32,21 +52,9 @@ export function GenerationParamsEditor({
   const adjustPages = (delta: number) =>
     set({ pages: Math.min(999, Math.max(0, value.pages + delta)) });
 
-  // A field heading with an inline `?` HelpHint (SBQ-UI-003). The always-visible
-  // paramHint under each control stays; the hint carries a deeper "how to choose"
-  // tip for users who want it.
-  function FieldLabel({ children, hint }: { children: string; hint: string }) {
-    return (
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>{children}</Text>
-        <HelpHint label={children} text={hint} />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.root}>
-      <FieldLabel hint="Authoring-grade models give the most coherent long books; experimental ones are faster or cheaper but rougher. Switching providers clears the model pick.">
+      <FieldLabel styles={styles} hint="Authoring-grade models give the most coherent long books; experimental ones are faster or cheaper but rougher. Switching providers clears the model pick.">
         Model
       </FieldLabel>
       <Text style={styles.paramHint}>
@@ -76,13 +84,13 @@ export function GenerationParamsEditor({
         <Text style={styles.paramHint}>{providerInfo(value.provider).note}</Text>
       ) : null}
 
-      <FieldLabel hint="Set it to the reader's level, not the topic's difficulty — an advanced topic at a beginner level is explained from the ground up.">
+      <FieldLabel styles={styles} hint="Set it to the reader's level, not the topic's difficulty — an advanced topic at a beginner level is explained from the ground up.">
         Level
       </FieldLabel>
       <Text style={styles.paramHint}>Who it&apos;s written for — sets the reading level and assumed background.</Text>
       <LevelPicker value={value.level} onChange={(level) => set({ level })} />
 
-      <FieldLabel hint="More depth means more sections and detail per topic — and longer generation time and higher token use.">
+      <FieldLabel styles={styles} hint="More depth means more sections and detail per topic — and longer generation time and higher token use.">
         Depth
       </FieldLabel>
       <Text style={styles.paramHint}>How thorough — how many sections and how much detail.</Text>
@@ -105,7 +113,7 @@ export function GenerationParamsEditor({
         })}
       </View>
 
-      <FieldLabel hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
+      <FieldLabel styles={styles} hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
         Diagrams
       </FieldLabel>
       <Text style={styles.paramHint}>What kind of visuals the model favours (conceptual ↔ technical).</Text>
@@ -136,7 +144,7 @@ export function GenerationParamsEditor({
         <Text style={styles.examplesLink}>See examples →</Text>
       </Pressable>
 
-      <FieldLabel hint="A target the model aims for across all topics, not a hard limit — set 0 to let each topic run as long as it needs.">
+      <FieldLabel styles={styles} hint="A target the model aims for across all topics, not a hard limit — set 0 to let each topic run as long as it needs.">
         {pagesLabel}
       </FieldLabel>
       <View style={styles.pagesRow}>

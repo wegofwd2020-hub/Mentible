@@ -97,6 +97,26 @@ export function deriveRows(book: Book | null, fallback: BookMetaFallback): BookM
   };
 }
 
+function Row({
+  label,
+  value,
+  styles,
+}: {
+  label: string;
+  value: string;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const muted = value === DASH || value === NOT_REVIEWED;
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={[styles.rowValue, muted && styles.rowValueMuted]} selectable>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 export interface BookMetadataModalProps {
   visible: boolean;
   book: Book | null;
@@ -135,18 +155,6 @@ export function BookMetadataModal({
   if (!visible) return null;
   const rows = deriveRows(book, meta ?? { title: "" });
 
-  function Row({ label, value }: { label: string; value: string }) {
-    const muted = value === DASH || value === NOT_REVIEWED;
-    return (
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={[styles.rowValue, muted && styles.rowValueMuted]} selectable>
-          {value}
-        </Text>
-      </View>
-    );
-  }
-
   return (
     // Non-blocking overlay: the container passes touches through (`box-none`) so
     // the book shelf behind stays tappable — tapping another book just re-points
@@ -165,16 +173,16 @@ export function BookMetadataModal({
           </View>
         ) : (
           <ScrollView style={styles.rows} contentContainerStyle={styles.rowsContent}>
-            <Row label="Date Released" value={rows.released} />
-            <Row label="Model Used" value={rows.model} />
-            <Row label="Level" value={rows.level} />
-            <Row label="Depth" value={rows.depth} />
-            <Row label="Type of Diagrams" value={rows.diagrams} />
-            <Row label="Pages (target)" value={rows.pages} />
-            <Row label="Reviewed By" value={rows.reviewedBy} />
-            <Row label="Reviewed On" value={rows.reviewedOn} />
-            {rows.description ? <Row label="Description" value={rows.description} /> : null}
-            {rows.tags ? <Row label="Tags" value={rows.tags} /> : null}
+            <Row styles={styles} label="Date Released" value={rows.released} />
+            <Row styles={styles} label="Model Used" value={rows.model} />
+            <Row styles={styles} label="Level" value={rows.level} />
+            <Row styles={styles} label="Depth" value={rows.depth} />
+            <Row styles={styles} label="Type of Diagrams" value={rows.diagrams} />
+            <Row styles={styles} label="Pages (target)" value={rows.pages} />
+            <Row styles={styles} label="Reviewed By" value={rows.reviewedBy} />
+            <Row styles={styles} label="Reviewed On" value={rows.reviewedOn} />
+            {rows.description ? <Row styles={styles} label="Description" value={rows.description} /> : null}
+            {rows.tags ? <Row styles={styles} label="Tags" value={rows.tags} /> : null}
           </ScrollView>
         )}
         <View style={styles.footer}>

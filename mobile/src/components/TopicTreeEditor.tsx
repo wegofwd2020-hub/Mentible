@@ -36,6 +36,34 @@ function move<T>(arr: T[], from: number, to: number): void {
   arr.splice(to, 0, item);
 }
 
+// A small round icon-button used for add / remove / reorder actions.
+function MiniButton({
+  label,
+  glyph,
+  onPress,
+  tone = "default",
+  styles,
+}: {
+  label: string;
+  glyph: string;
+  onPress: () => void;
+  tone?: "default" | "danger";
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[styles.mini, tone === "danger" && styles.miniDanger]}
+    >
+      <Text style={[styles.miniGlyph, tone === "danger" && styles.miniGlyphDanger]}>
+        {glyph}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function TopicTreeEditor({ toc, onChange }: Props) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -47,32 +75,6 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
     },
     [toc, onChange],
   );
-
-  // A small round icon-button used for add / remove / reorder actions.
-  function MiniButton({
-    label,
-    glyph,
-    onPress,
-    tone = "default",
-  }: {
-    label: string;
-    glyph: string;
-    onPress: () => void;
-    tone?: "default" | "danger";
-  }) {
-    return (
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        style={[styles.mini, tone === "danger" && styles.miniDanger]}
-      >
-        <Text style={[styles.miniGlyph, tone === "danger" && styles.miniGlyphDanger]}>
-          {glyph}
-        </Text>
-      </Pressable>
-    );
-  }
 
   return (
     <View style={styles.root}>
@@ -93,6 +95,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
               accessibilityLabel={`Subject ${si + 1} label`}
             />
             <MiniButton
+              styles={styles}
               label={`Remove subject ${si + 1}`}
               glyph="✕"
               tone="danger"
@@ -121,16 +124,19 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                   accessibilityLabel={`Topic ${si + 1}.${ui + 1} title`}
                 />
                 <MiniButton
+                  styles={styles}
                   label={`Move topic ${si + 1}.${ui + 1} up`}
                   glyph="↑"
                   onPress={() => mutate((d) => move(d.subjects[si].units, ui, ui - 1))}
                 />
                 <MiniButton
+                  styles={styles}
                   label={`Move topic ${si + 1}.${ui + 1} down`}
                   glyph="↓"
                   onPress={() => mutate((d) => move(d.subjects[si].units, ui, ui + 1))}
                 />
                 <MiniButton
+                  styles={styles}
                   label={`Remove topic ${si + 1}.${ui + 1}`}
                   glyph="✕"
                   tone="danger"
@@ -166,6 +172,7 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                       accessibilityLabel={`Subtopic ${si + 1}.${ui + 1}.${sti + 1} label`}
                     />
                     <MiniButton
+                      styles={styles}
                       label={`Remove subtopic ${si + 1}.${ui + 1}.${sti + 1}`}
                       glyph="✕"
                       tone="danger"
