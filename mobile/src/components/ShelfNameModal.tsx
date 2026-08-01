@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 export function ShelfNameModal({
   visible,
@@ -15,6 +16,8 @@ export function ShelfNameModal({
   onSubmit: (name: string) => void;
   onClose: () => void;
 }): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [name, setName] = useState(initialName ?? "");
 
   // Reset the field each time the modal (re)opens.
@@ -37,7 +40,7 @@ export function ShelfNameModal({
             value={name}
             onChangeText={setName}
             placeholder="Shelf name"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             accessibilityLabel="Shelf name"
             style={styles.input}
             autoFocus
@@ -57,21 +60,21 @@ export function ShelfNameModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "#0008", justifyContent: "center", padding: spacing.xl },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
-  title: { fontSize: typography.sizeLg, fontWeight: "700", color: colors.text },
+const makeStyles = (c: Palette) => ({
+  backdrop: { flex: 1, backgroundColor: "#0008", justifyContent: "center" as const, padding: spacing.xl },
+  card: { backgroundColor: c.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
+  title: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     padding: spacing.sm,
-    color: colors.text,
+    color: c.text,
     fontSize: typography.sizeMd,
   },
-  row: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm },
+  row: { flexDirection: "row" as const, justifyContent: "flex-end" as const, gap: spacing.sm },
   btn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md },
-  btnText: { fontWeight: "700", color: colors.textSecondary, fontSize: typography.sizeMd },
-  save: { backgroundColor: colors.primary },
-  saveText: { color: colors.primaryText },
+  btnText: { fontWeight: "700" as const, color: c.textSecondary, fontSize: typography.sizeMd },
+  save: { backgroundColor: c.primary },
+  saveText: { color: c.primaryText },
 });

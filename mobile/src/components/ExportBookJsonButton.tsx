@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { downloadArtifact, downloadTextArtifact } from "@/storage/epubLibrary";
 import { exportBookBundle } from "@/storage/bookBundle";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 
 type State =
@@ -27,6 +28,7 @@ function hasAnyImages(book: Book): boolean {
 // (book.json + media/…, see bookBundle.ts) instead; an image-less book keeps
 // the plain JSON path.
 export function ExportBookJsonButton({ book }: { book: Book }) {
+  const styles = useThemedStyles(makeStyles);
   const [state, setState] = useState<State>({ kind: "idle" });
 
   const exportBook = async () => {
@@ -71,17 +73,17 @@ export function ExportBookJsonButton({ book }: { book: Book }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs, marginTop: spacing.md },
   btn: {
-    borderColor: colors.border,
+    borderColor: c.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: colors.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" },
-  doneText: { color: colors.success, fontSize: typography.sizeSm },
-  errText: { color: colors.error, fontSize: typography.sizeSm },
+  btnText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  doneText: { color: c.success, fontSize: typography.sizeSm },
+  errText: { color: c.error, fontSize: typography.sizeSm },
 });

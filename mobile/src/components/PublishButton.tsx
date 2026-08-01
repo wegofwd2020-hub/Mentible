@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { ApiError, publishBook } from "@/api/client";
 import { loadBook } from "@/storage/bookStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { demoBlocked } from "@/constants/demo";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 type State =
   | { kind: "idle" }
@@ -18,6 +19,8 @@ type State =
 // EPUB). Requires a signed-in author.
 export function PublishButton({ bookId }: { bookId: string }) {
   const { accessToken } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [state, setState] = useState<State>({ kind: "idle" });
 
   if (!accessToken) return null; // publishing is author-only (needs a session)
@@ -61,7 +64,7 @@ export function PublishButton({ bookId }: { bookId: string }) {
       >
         {publishing ? (
           <View style={styles.row}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={theme.primary} />
             <Text style={styles.btnText}> Publishing {state.fmt.toUpperCase()}… (can take a few minutes)</Text>
           </View>
         ) : (
@@ -95,28 +98,28 @@ function messageFor(err: unknown): string {
   return err instanceof Error ? err.message : "Couldn’t publish.";
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   btn: {
-    backgroundColor: colors.surfaceHigh,
-    borderColor: colors.primary,
+    backgroundColor: c.surfaceHigh,
+    borderColor: c.primary,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.sm,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: colors.primary, fontSize: typography.sizeMd, fontWeight: "700" },
-  row: { flexDirection: "row", alignItems: "center" },
-  errText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" },
+  btnText: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  row: { flexDirection: "row" as const, alignItems: "center" as const },
+  errText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   doneBox: {
     marginTop: spacing.sm,
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: colors.success + "1A",
-    borderColor: colors.success + "66",
+    backgroundColor: c.success + "1A",
+    borderColor: c.success + "66",
     borderWidth: 1,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  doneText: { color: colors.success, fontSize: typography.sizeSm, fontWeight: "700", textAlign: "center" },
+  doneText: { color: c.success, fontSize: typography.sizeSm, fontWeight: "700" as const, textAlign: "center" as const },
 });

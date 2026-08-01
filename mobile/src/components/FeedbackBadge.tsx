@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 // A prominent 💬 comment-count badge for a book that has draft-sharing feedback.
 // Overlaid on the book cover (positioned by the caller via `style`). Tapping it
@@ -15,6 +16,7 @@ export function FeedbackBadge({
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
 }): React.JSX.Element | null {
+  const styles = useThemedStyles(makeStyles);
   if (count <= 0) return null;
   return (
     <Pressable
@@ -33,17 +35,17 @@ export function FeedbackBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   badge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: 3,
     paddingVertical: 3,
     paddingHorizontal: spacing.xs,
     borderRadius: radius.sm,
-    backgroundColor: colors.growth,
+    backgroundColor: c.growth,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.growthText,
+    borderColor: c.growthText,
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 3,
@@ -51,5 +53,5 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   icon: { fontSize: typography.sizeXs },
-  count: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.growthText },
+  count: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.growthText },
 });

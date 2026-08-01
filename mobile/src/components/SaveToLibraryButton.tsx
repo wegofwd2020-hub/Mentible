@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ApiError, exportBook } from "@/api/client";
 import { trackedExport } from "@/lib/trackedExport";
 import { saveEpub } from "@/storage/epubLibrary";
 import { loadBook } from "@/storage/bookStore";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 type State =
   | { kind: "idle" }
@@ -20,6 +21,8 @@ type State =
 // reader sees — this makes the compile minutes-long for diagram-heavy books.
 export function SaveToLibraryButton({ bookId }: { bookId: string }) {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [state, setState] = useState<State>({ kind: "idle" });
 
   const save = async () => {
@@ -70,7 +73,7 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
       >
         {saving ? (
           <View style={styles.row}>
-            <ActivityIndicator color={colors.primaryText} />
+            <ActivityIndicator color={theme.primaryText} />
             <Text style={styles.btnText}> Rendering diagrams + compiling EPUB…</Text>
           </View>
         ) : (
@@ -102,28 +105,28 @@ function messageFor(err: unknown): string {
   return err instanceof Error ? err.message : "Couldn’t save to library.";
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   btn: {
-    backgroundColor: colors.primary,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.lg,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: colors.primaryText, fontSize: typography.sizeMd, fontWeight: "700" },
-  row: { flexDirection: "row", alignItems: "center" },
-  errText: { color: colors.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" },
+  btnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  row: { flexDirection: "row" as const, alignItems: "center" as const },
+  errText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   doneBox: {
     marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: colors.success + "1A",
-    borderColor: colors.success + "66",
+    backgroundColor: c.success + "1A",
+    borderColor: c.success + "66",
     borderWidth: 1,
-    alignItems: "center",
+    alignItems: "center" as const,
     gap: spacing.xs,
   },
-  doneText: { color: colors.success, fontSize: typography.sizeMd, fontWeight: "700" },
-  link: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "600" },
+  doneText: { color: c.success, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  link: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
 });
