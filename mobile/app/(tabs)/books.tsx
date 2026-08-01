@@ -399,12 +399,12 @@ const makeStyles = (c: Palette) => ({
   gridContent: { padding: spacing.md },
   gridRow: { gap: spacing.md },
   tile: { flex: 1, marginBottom: spacing.md, gap: spacing.xs },
-  tileHalf: { maxWidth: "50%" },
+  tileHalf: { maxWidth: "50%" as const },
   tileTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
   tileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
   // Wide split
-  split: { flex: 1, flexDirection: "row" as const, backgroundColor: c.background, maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" as const },
+  split: { flex: 1, flexDirection: "row" as const, backgroundColor: c.background, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   leftPane: { flex: 4, borderRightColor: c.border, borderRightWidth: 1 },
   leftContent: { padding: spacing.md },
   rowSep: { height: spacing.sm },
@@ -450,5 +450,5 @@ const makeStyles = (c: Palette) => ({
   actionPrimaryText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
   actionSecondary: { borderColor: c.primary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   actionSecondaryText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
-  actionDelete: { marginLeft: "auto", padding: spacing.sm },
+  actionDelete: { marginLeft: "auto" as const, padding: spacing.sm },
 });

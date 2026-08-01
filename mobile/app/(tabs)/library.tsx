@@ -467,7 +467,7 @@ function EpubLibrary() {
 const makeStyles = (c: Palette) => ({
   // Demo Library (bundled-books shelf) — small, left-packed cover thumbnails.
   demoShelf: { flex: 1, backgroundColor: c.background },
-  demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" as const },
+  demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   demoHeader: {
     fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text,
     marginBottom: spacing.md,
@@ -479,7 +479,7 @@ const makeStyles = (c: Palette) => ({
 
   list: { flex: 1, backgroundColor: c.background },
   gridContent: { padding: spacing.md },
-  gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%", alignSelf: "center" as const },
+  gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   screen: { flex: 1 },
   // Import sits left so it clears the floating profile chip (top-right).
   header: { flexDirection: "row" as const, justifyContent: "flex-start" as const, marginBottom: spacing.md },
