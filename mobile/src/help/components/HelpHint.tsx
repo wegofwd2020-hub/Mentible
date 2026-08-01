@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { Pressable, Text, View } from "react-native";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 // A small "?" affordance for non-obvious or destructive controls (SBQ-UI-003):
 // tap (or hover on web) to reveal a one-line, plain-language explanation; tap
@@ -17,6 +18,7 @@ export interface HelpHintProps {
 const SIZE = 22;
 
 export function HelpHint({ text, label }: HelpHintProps) {
+  const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   return (
     <View style={styles.wrap}>
@@ -40,41 +42,40 @@ export function HelpHint({ text, label }: HelpHintProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { position: "relative", justifyContent: "center" },
+const makeStyles = (c: Palette) => ({
+  wrap: { position: "relative" as const, justifyContent: "center" as const },
   badge: {
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1 as const,
+    borderColor: c.border,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
   q: {
-    color: colors.textSecondary,
+    color: c.textSecondary,
     fontSize: typography.sizeSm,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     lineHeight: typography.sizeSm + 2,
   },
-  // Floats above the "?" and aligns to the right edge so it stays on-screen.
   bubble: {
-    position: "absolute",
+    position: "absolute" as const,
     bottom: SIZE + 6,
-    right: 0,
-    width: 240,
-    backgroundColor: colors.surfaceHigh,
+    right: 0 as const,
+    width: 240 as const,
+    backgroundColor: c.surfaceHigh,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1 as const,
+    borderColor: c.border,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-    zIndex: 10,
+    shadowOpacity: 0.3 as const,
+    shadowRadius: 12 as const,
+    shadowOffset: { width: 0 as const, height: 4 as const },
+    elevation: 8 as const,
+    zIndex: 10 as const,
   },
-  bubbleText: { color: colors.text, fontSize: typography.sizeXs, lineHeight: 18 },
+  bubbleText: { color: c.text, fontSize: typography.sizeXs, lineHeight: 18 as const },
 });

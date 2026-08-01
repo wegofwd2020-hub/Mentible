@@ -1,9 +1,10 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { HelpBlock, HelpTopic } from "@/help";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
-function Step({ n, text }: { n: number; text: string }) {
+function Step({ n, text, styles }: { n: number; text: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.step}>
       <View style={styles.stepNum}>
@@ -18,10 +19,12 @@ function Block({
   block,
   onLink,
   onAction,
+  styles,
 }: {
   block: HelpBlock;
   onLink: (href: string) => void;
   onAction: (step: string) => void;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   switch (block.kind) {
     case "text":
@@ -30,7 +33,7 @@ function Block({
       return (
         <>
           {block.steps.map((s, i) => (
-            <Step key={i} n={i + 1} text={s} />
+            <Step key={i} n={i + 1} text={s} styles={styles} />
           ))}
         </>
       );
@@ -82,39 +85,40 @@ export function HelpTopicView({
   onLink: (href: string) => void;
   onAction: (step: string) => void;
 }): React.JSX.Element {
+  const styles = useThemedStyles(makeStyles);
   return (
     <>
       {topic.blocks.map((b, i) => (
-        <Block key={i} block={b} onLink={onLink} onAction={onAction} />
+        <Block key={i} block={b} onLink={onLink} onAction={onAction} styles={styles} />
       ))}
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  body: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 21 },
-  step: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+const makeStyles = (c: Palette) => ({
+  body: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 as const },
+  step: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: spacing.sm },
   stepNum: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary + "33",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 22 as const,
+    height: 22 as const,
+    borderRadius: 11 as const,
+    backgroundColor: c.primary + "33",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
-  stepNumText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeXs },
-  stepText: { flex: 1, fontSize: typography.sizeSm, color: colors.text, lineHeight: 21 },
-  linkBtn: { alignSelf: "flex-start" },
-  linkBtnText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeSm },
+  stepNumText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeXs },
+  stepText: { flex: 1 as const, fontSize: typography.sizeSm, color: c.text, lineHeight: 21 as const },
+  linkBtn: { alignSelf: "flex-start" as const },
+  linkBtnText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
   actionBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.primary,
+    alignSelf: "flex-start" as const,
+    backgroundColor: c.primary,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  actionBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: typography.sizeSm },
-  def: { gap: 2 },
-  defTerm: { fontSize: typography.sizeSm, fontWeight: "700", color: colors.text },
-  defText: { fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  actionBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  def: { gap: 2 as const },
+  defTerm: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
+  defText: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 20 as const },
 });

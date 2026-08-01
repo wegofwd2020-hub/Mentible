@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
 import { DEFAULT_PROVIDER_ID, PROVIDERS, providerInfo } from "@/constants/providers";
 import { COST_LABEL, providerGuide, type ProviderGuide } from "@/constants/providerGuides";
 import { loadApiKey } from "@/secure/keyStore";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { WizardScaffold } from "../WizardScaffold";
 import type { WizardStepProps } from "./types";
 
@@ -13,6 +14,8 @@ import type { WizardStepProps } from "./types";
 // a key, and paste it. Continue unlocks once at least one provider has a saved
 // key (pre-existing keys count, so a returning user isn't blocked).
 export function KeyStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [provider, setProvider] = useState(DEFAULT_PROVIDER_ID);
   const [savedProviders, setSavedProviders] = useState<Set<string>>(() => new Set());
 
@@ -70,12 +73,12 @@ export function KeyStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProp
         onSaved={markSaved}
         onCleared={markCleared}
       />
-      {guide ? <ProviderGuideCard guide={guide} keyHint={hint} /> : null}
+      {guide ? <ProviderGuideCard guide={guide} keyHint={hint} styles={styles} theme={theme} /> : null}
     </WizardScaffold>
   );
 }
 
-function ProviderGuideCard({ guide, keyHint }: { guide: ProviderGuide; keyHint: string }) {
+function ProviderGuideCard({ guide, keyHint, styles, theme }: { guide: ProviderGuide; keyHint: string; styles: ReturnType<typeof makeStyles>; theme: ReturnType<typeof useTheme> }) {
   const free = guide.cost !== "paid";
   return (
     <View style={styles.card}>
@@ -106,7 +109,7 @@ function ProviderGuideCard({ guide, keyHint }: { guide: ProviderGuide; keyHint: 
         accessibilityRole="link"
         accessibilityLabel={`Open ${guide.consoleLabel} to get a key`}
       >
-        <Ionicons name="open-outline" size={16} color={colors.primary} />
+        <Ionicons name="open-outline" size={16} color={theme.primary} />
         <Text style={styles.openBtnText}>Open {guide.consoleLabel}</Text>
       </Pressable>
 
@@ -115,56 +118,56 @@ function ProviderGuideCard({ guide, keyHint }: { guide: ProviderGuide; keyHint: 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   card: {
-    backgroundColor: colors.surfaceHigh,
-    borderColor: colors.border,
-    borderWidth: 1,
+    backgroundColor: c.surfaceHigh,
+    borderColor: c.border,
+    borderWidth: 1 as const,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  badgeRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  badgeRow: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: spacing.sm },
   badge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 2 as const,
     borderRadius: radius.sm,
-    borderWidth: 1,
+    borderWidth: 1 as const,
   },
-  badgeFree: { backgroundColor: colors.growth + "22", borderColor: colors.growth },
-  badgePaid: { backgroundColor: colors.warning + "22", borderColor: colors.warning },
-  badgeText: { fontSize: typography.sizeXs, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  badgeTextFree: { color: colors.growth },
-  badgeTextPaid: { color: colors.warning },
-  costNote: { flex: 1, fontSize: typography.sizeXs, color: colors.textSecondary, lineHeight: 17 },
+  badgeFree: { backgroundColor: c.growth + "22", borderColor: c.growth },
+  badgePaid: { backgroundColor: c.warning + "22", borderColor: c.warning },
+  badgeText: { fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const, letterSpacing: 0.5 as const },
+  badgeTextFree: { color: c.growth },
+  badgeTextPaid: { color: c.warning },
+  costNote: { flex: 1 as const, fontSize: typography.sizeXs, color: c.textSecondary, lineHeight: 17 as const },
   howTitle: {
     fontSize: typography.sizeXs,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    fontWeight: "600" as const,
+    color: c.textSecondary,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.8 as const,
     marginTop: spacing.xs,
   },
   steps: { gap: spacing.xs },
-  step: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  step: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: spacing.sm },
   stepNum: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary + "33",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 20 as const,
+    height: 20 as const,
+    borderRadius: 10 as const,
+    backgroundColor: c.primary + "33",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
-  stepNumText: { color: colors.primary, fontWeight: "700", fontSize: typography.sizeXs },
-  stepText: { flex: 1, fontSize: typography.sizeSm, color: colors.text, lineHeight: 20 },
+  stepNumText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeXs },
+  stepText: { flex: 1 as const, fontSize: typography.sizeSm, color: c.text, lineHeight: 20 as const },
   openBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
-    alignSelf: "flex-start",
+    alignSelf: "flex-start" as const,
     paddingVertical: spacing.xs,
   },
-  openBtnText: { color: colors.primary, fontSize: typography.sizeSm, fontWeight: "600" },
-  hint: { fontSize: typography.sizeXs, color: colors.textMuted, fontFamily: "monospace" },
+  openBtnText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  hint: { fontSize: typography.sizeXs, color: c.textMuted, fontFamily: "monospace" as const },
 });

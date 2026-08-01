@@ -1,8 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet } from "react-native";
+import { Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/theme";
 
 // A small contextual "?" affordance. Tapping it opens Help deep-linked to a
 // specific topic (Help scrolls to + highlights it). Place one near the feature
@@ -14,6 +14,7 @@ export function HelpButton({
   topic: string;
   label?: string;
 }) {
+  const theme = useTheme();
   const router = useRouter();
   return (
     <Pressable
@@ -23,11 +24,11 @@ export function HelpButton({
       accessibilityLabel={`${label} — open help`}
       style={styles.btn}
     >
-      <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
+      <Ionicons name="help-circle-outline" size={22} color={theme.textSecondary} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  btn: { padding: 2 },
-});
+const styles = {
+  btn: { padding: 2 as const },
+};

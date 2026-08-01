@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 // A proactive, dismissible discovery callout (F3) — unlike HelpHint (passive
 // tap-to-reveal), this advertises an action the user may not know exists. It
@@ -12,9 +13,11 @@ export interface DiscoveryNudgeProps {
 }
 
 export function DiscoveryNudge({ text, onDismiss, testID }: DiscoveryNudgeProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.wrap} testID={testID}>
-      <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+      <Ionicons name="sparkles-outline" size={18} color={theme.primary} />
       <Text style={styles.text}>{text}</Text>
       <Pressable
         onPress={onDismiss}
@@ -29,16 +32,16 @@ export function DiscoveryNudge({ text, onDismiss, testID }: DiscoveryNudgeProps)
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => ({
   wrap: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.sm,
     padding: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.primary + "1A", // translucent primary tint (cf. TourStep's +"33")
+    backgroundColor: c.primary + "1A",
     marginVertical: spacing.sm,
   },
-  text: { flex: 1, color: colors.text, fontSize: typography.sizeSm },
-  dismiss: { color: colors.textSecondary, fontSize: typography.sizeMd, fontWeight: "700", paddingHorizontal: spacing.xs },
+  text: { flex: 1 as const, color: c.text, fontSize: typography.sizeSm },
+  dismiss: { color: c.textSecondary, fontSize: typography.sizeMd, fontWeight: "700" as const, paddingHorizontal: spacing.xs },
 });
