@@ -19,6 +19,7 @@ export const FEATURES = [
   { key: "make-a-post", label: "Make a post" },
   { key: "appearance", label: "Appearance & themes" },
   { key: "sources", label: "Sources (Capture)" },
+  { key: "draft-viewer", label: "Reading, editing & regenerating a draft" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
