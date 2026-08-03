@@ -150,6 +150,7 @@ class DraftGenerateIn(BaseModel):
     api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
     provider_id: str = "anthropic"
     model: str | None = None
+    guidance: str | None = Field(default=None, max_length=500)
 
     @field_validator("provider_id")
     @classmethod

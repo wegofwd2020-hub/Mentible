@@ -267,6 +267,7 @@ async def generate_version(
             provider_id=body.provider_id,
             api_key=api_key,
             model=model,
+            guidance=body.guidance,
         )
     except LLMSchemaError:
         log.warning("draft_generation_failed", reason="schema", artifact_id=str(artifact_id))
@@ -314,6 +315,7 @@ async def generate_version(
             "model": model,
             "provider_id": body.provider_id,
             "source_input_ids": cited,
+            **({"guidance": body.guidance} if body.guidance else {}),
         },
     )
     return schemas.VersionOut(

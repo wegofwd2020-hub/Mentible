@@ -65,6 +65,16 @@ def test_generate_draft_returns_sections(monkeypatch):
     assert out.sections[0].heading == "Design storm"
 
 
+def test_prompt_includes_guidance_when_present():
+    p = build_draft_prompt(_SOURCES, "guide", "stormwater", "engineers", "size pipes", "focus on cost")
+    assert "focus on cost" in p
+
+
+def test_prompt_omits_guidance_when_absent():
+    base = build_draft_prompt(_SOURCES, "guide", "stormwater", "engineers", "size pipes")
+    assert "Additional guidance" not in base
+
+
 def test_request_validation():
     DraftGenerateIn(provider_id="anthropic")  # ok, managed (no key)
     DraftGenerateIn(api_key="sk-ant-" + "x" * 20)  # ok, BYOK
