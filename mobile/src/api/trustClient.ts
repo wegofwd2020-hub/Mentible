@@ -10,6 +10,13 @@ export interface ArtifactView {
   id: string; project_id: string; role: string; format: string; title: string | null; created_at: string | null;
 }
 export interface VersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean; recorded_via: string | null }
+export interface DraftSection { heading: string; body: string; source_ids: string[] }
+export interface VersionDetailView {
+  id: string; artifact_id: string; version_no: number;
+  content: { sections: DraftSection[] };
+  generation_meta: Record<string, unknown> | null;
+  is_validated: boolean; recorded_via: string | null; created_at: string | null;
+}
 export interface ArtifactDetailView { artifact: ArtifactView; versions: VersionSummaryView[] }
 export interface ProjectInputView {
   id: string; kind: string; title: string | null;
@@ -48,6 +55,10 @@ export async function getProject(projectId: string, token: string): Promise<Proj
   return (await trustFetch<ProjectDetailView>(`/projects/${projectId}`, token, { method: "GET" })) as ProjectDetailView;
 }
 
+export async function getVersion(versionId: string, token: string): Promise<VersionDetailView> {
+  return (await trustFetch<VersionDetailView>(`/versions/${versionId}`, token, { method: "GET" })) as VersionDetailView;
+}
+
 export async function approveVersion(
   versionId: string, body: { approved_at: string; note?: string }, token: string,
 ): Promise<ApprovalView> {
@@ -79,7 +90,7 @@ export async function createVersion(
 }
 
 export async function generateVersion(
-  artifactId: string, body: { api_key: string; provider_id?: string; model?: string }, token: string,
+  artifactId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
 ): Promise<VersionCreatedView> {
   return (await trustFetch<VersionCreatedView>(
     `/artifacts/${artifactId}/versions/generate`, token, { method: "POST", body: JSON.stringify(body) },
