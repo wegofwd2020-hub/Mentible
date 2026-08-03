@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
@@ -146,6 +146,7 @@ function DraftsPanel({
   onGenerateDraft,
   addArtifactBusy,
   onAddArtifact,
+  onOpenVersion,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -155,6 +156,7 @@ function DraftsPanel({
   onGenerateDraft: (artifactId: string) => void;
   addArtifactBusy: boolean;
   onAddArtifact: () => void;
+  onOpenVersion: (artifactId: string, versionId: string) => void;
 }) {
   if (artifacts.length === 0) {
     return (
@@ -184,7 +186,13 @@ function DraftsPanel({
             <Text style={styles.emptyText}>No drafts yet.</Text>
           ) : (
             versions.map((v) => (
-              <View key={v.id} style={styles.versionRow}>
+              <Pressable
+                key={v.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open version ${v.version_no}`}
+                style={styles.versionRow}
+                onPress={() => onOpenVersion(artifact.id, v.id)}
+              >
                 <Text style={styles.versionLabel}>v{v.version_no}</Text>
                 {v.is_validated ? (
                   <View style={styles.validatedRow}>
@@ -198,7 +206,7 @@ function DraftsPanel({
                 ) : (
                   <Text style={styles.versionLabel}>Awaiting review</Text>
                 )}
-              </View>
+              </Pressable>
             ))
           )}
           {isOwner ? (
@@ -236,6 +244,7 @@ function FeedbackPanel({
   setInviteEmail,
   inviteBusy,
   onInvite,
+  onOpenVersion,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -248,6 +257,7 @@ function FeedbackPanel({
   setInviteEmail: (v: string) => void;
   inviteBusy: boolean;
   onInvite: () => void;
+  onOpenVersion: (artifactId: string, versionId: string) => void;
 }) {
   if (!anyVersion) {
     return <Text style={styles.emptyText}>Finish Drafts first — generate a draft before it can be reviewed.</Text>;
@@ -259,7 +269,13 @@ function FeedbackPanel({
           <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
           {versions.map((v) => (
             <View key={v.id} style={styles.versionRow}>
-              <Text style={styles.versionLabel}>v{v.version_no}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open version ${v.version_no}`}
+                onPress={() => onOpenVersion(artifact.id, v.id)}
+              >
+                <Text style={styles.versionLabel}>v{v.version_no}</Text>
+              </Pressable>
               {v.is_validated ? (
                 <View style={styles.validatedRow}>
                   <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
@@ -324,6 +340,7 @@ function PublishPanel({ styles }: { styles: Styles }) {
 
 function TrustProjectDetailInner() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
+  const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
@@ -418,6 +435,9 @@ function TrustProjectDetailInner() {
     }
   };
 
+  const onOpenVersion = (artifactId: string, versionId: string) =>
+    router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
+
   const onAddSource = async () => {
     const content = sourceContent.trim();
     if (!content) return;
@@ -473,6 +493,7 @@ function TrustProjectDetailInner() {
             onGenerateDraft={onGenerateDraft}
             addArtifactBusy={addArtifactBusy}
             onAddArtifact={onAddArtifact}
+            onOpenVersion={onOpenVersion}
           />
         ) : null}
         {active === "validate" ? (
@@ -488,6 +509,7 @@ function TrustProjectDetailInner() {
             setInviteEmail={setInviteEmail}
             inviteBusy={inviteBusy}
             onInvite={onInvite}
+            onOpenVersion={onOpenVersion}
           />
         ) : null}
         {active === "share" ? <PublishPanel styles={styles} /> : null}

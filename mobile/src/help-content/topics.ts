@@ -556,4 +556,20 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "draft-viewer",
+    title: "Read, edit & regenerate a draft",
+    featureKey: "draft-viewer",
+    keywords: ["draft", "content", "read", "view", "edit", "revise", "regenerate", "version", "approve", "guidance"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Open a project, go to Drafts (or Feedback), and tap a version to read the full drafted content. Reviewers read here before approving; owners can also edit or regenerate it.",
+      },
+      {
+        kind: "text",
+        text: "Editing lets the owner adjust each section's heading and body; saving creates a new version. Regenerate re-drafts from the sources — you can add optional guidance (for example, \"focus on 2026 costs\"). Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval.",
+      },
+    ],
+  },
 ];

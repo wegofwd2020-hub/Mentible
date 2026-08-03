@@ -401,3 +401,42 @@ def test_generate_bad_model_output_502():
                 json={"api_key": "sk-ant-" + "z" * 20},
             )
         assert r.status_code == 502
+
+
+def test_get_version_owner_reviewer_read_stranger_403_and_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        owner_email = f"{owner}@x.z"
+        _as(owner, owner_email)
+        pid = c.post("/api/v1/trust/projects", json={"title": "Guide", "topic": "t"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(
+            f"/api/v1/trust/artifacts/{art['id']}/versions",
+            json={"content": {"sections": [{"heading": "H", "body": "B", "source_ids": []}]}},
+        ).json()["id"]
+
+        # owner reads content
+        r = c.get(f"/api/v1/trust/versions/{vid}")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["content"]["sections"][0]["heading"] == "H"
+        assert body["is_validated"] is False
+
+        # invite a reviewer, redeem membership, reviewer can read
+        reviewer = f"r-{uuid.uuid4()}"
+        reviewer_email = f"{reviewer}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": reviewer_email})
+        _as(reviewer, reviewer_email)
+        c.post("/api/v1/trust/session/sync")  # redeem invite → membership
+        assert c.get(f"/api/v1/trust/versions/{vid}").status_code == 200
+
+        # a stranger is 403
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.get(f"/api/v1/trust/versions/{vid}").status_code == 403
+
+        # unknown version is 404
+        _as(owner, owner_email)
+        assert c.get(f"/api/v1/trust/versions/{uuid.uuid4()}").status_code == 404

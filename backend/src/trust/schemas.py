@@ -77,6 +77,17 @@ class VersionSummaryOut(BaseModel):
     recorded_via: str | None = None
 
 
+class VersionDetailOut(BaseModel):
+    id: str
+    artifact_id: str
+    version_no: int
+    content: dict
+    generation_meta: dict | None = None
+    is_validated: bool
+    recorded_via: str | None = None
+    created_at: datetime | None
+
+
 class ArtifactDetailOut(BaseModel):
     artifact: ArtifactOut
     versions: list[VersionSummaryOut]
@@ -139,6 +150,7 @@ class DraftGenerateIn(BaseModel):
     api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
     provider_id: str = "anthropic"
     model: str | None = None
+    guidance: str | None = Field(default=None, max_length=500)
 
     @field_validator("provider_id")
     @classmethod

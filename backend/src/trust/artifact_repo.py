@@ -90,6 +90,11 @@ async def list_versions(conn, *, artifact_id) -> list[ArtifactVersion]:
     return [_version(r) for r in rows]
 
 
+async def get_version(conn, *, version_id) -> ArtifactVersion | None:
+    r = await conn.fetchrow(f"SELECT {_V} FROM artifact_version WHERE id = $1", version_id)
+    return _version(r) if r else None
+
+
 async def add_version_sources(conn, *, version_id, input_ids) -> None:
     for input_id in input_ids:
         await conn.execute(

@@ -33,9 +33,9 @@ class _DraftOutput(BaseModel):
 
 
 def generate_draft(
-    *, sources, artifact_format, topic, audience, goal, provider_id, api_key, model
+    *, sources, artifact_format, topic, audience, goal, provider_id, api_key, model, guidance=None
 ) -> _DraftOutput:
-    prompt = build_draft_prompt(sources, artifact_format, topic, audience, goal)
+    prompt = build_draft_prompt(sources, artifact_format, topic, audience, goal, guidance)
     provider = build_provider(provider_id, api_key=api_key, model=model)
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
 

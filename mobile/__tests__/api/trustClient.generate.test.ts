@@ -20,3 +20,11 @@ it("POSTs a generate request with the JWT and returns the created version", asyn
   expect(init.headers.Authorization).toBe("Bearer tok");
   expect(JSON.parse(init.body)).toMatchObject({ api_key: "sk-ant-test", provider_id: "anthropic" });
 });
+
+it("includes guidance in the request body when provided", async () => {
+  const created = { id: "v2", artifact_id: "a1", version_no: 2, created_at: null };
+  mockFetchOnce(200, created);
+  await generateVersion("a1", { api_key: "sk-ant-test", provider_id: "anthropic", guidance: "focus on cost" }, "tok");
+  const [, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
+  expect(JSON.parse(init.body).guidance).toBe("focus on cost");
+});
