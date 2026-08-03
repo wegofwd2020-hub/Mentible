@@ -77,6 +77,17 @@ class VersionSummaryOut(BaseModel):
     recorded_via: str | None = None
 
 
+class VersionDetailOut(BaseModel):
+    id: str
+    artifact_id: str
+    version_no: int
+    content: dict
+    generation_meta: dict | None = None
+    is_validated: bool
+    recorded_via: str | None = None
+    created_at: datetime | None
+
+
 class ArtifactDetailOut(BaseModel):
     artifact: ArtifactOut
     versions: list[VersionSummaryOut]

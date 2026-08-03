@@ -189,6 +189,33 @@ async def create_version(
     )
 
 
+@router.get("/versions/{version_id}", response_model=schemas.VersionDetailOut)
+async def get_version(
+    version_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.VersionDetailOut:
+    project_id = await project_id_for_version(conn, version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    v = await artifact_repo.get_version(conn, version_id=version_id)
+    if v is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    ap = await approval_repo.get_approval(conn, version_id=version_id)
+    return schemas.VersionDetailOut(
+        id=str(v.id),
+        artifact_id=str(v.artifact_id),
+        version_no=v.version_no,
+        content=v.content or {"sections": []},
+        generation_meta=v.generation_meta,
+        is_validated=ap is not None,
+        recorded_via=ap.recorded_via if ap else None,
+        created_at=v.created_at,
+    )
+
+
 @router.post(
     "/artifacts/{artifact_id}/versions/generate",
     response_model=schemas.VersionOut,
