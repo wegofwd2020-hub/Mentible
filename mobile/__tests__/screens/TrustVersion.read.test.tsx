@@ -35,3 +35,23 @@ it("renders recorded_via provenance on a validated version", async () => {
   const { getByText } = render(<TrustVersion />);
   await waitFor(() => expect(getByText("operator-recorded")).toBeTruthy());
 });
+
+it("does not crash on a malformed version whose content has no sections", async () => {
+  (getVersion as jest.Mock).mockResolvedValueOnce({
+    id: "v1", artifact_id: "a1", version_no: 3,
+    content: {}, generation_meta: null, is_validated: false, recorded_via: null, created_at: null,
+  });
+  const { getByText } = render(<TrustVersion />);
+  await waitFor(() => expect(getByText("v3")).toBeTruthy());
+});
+
+it("does not crash on a section missing source_ids", async () => {
+  (getVersion as jest.Mock).mockResolvedValueOnce({
+    id: "v1", artifact_id: "a1", version_no: 4,
+    content: { sections: [{ heading: "No sources", body: "Body text." }] },
+    generation_meta: null, is_validated: false, recorded_via: null, created_at: null,
+  });
+  const { getByText } = render(<TrustVersion />);
+  await waitFor(() => expect(getByText("No sources")).toBeTruthy());
+  expect(getByText("Body text.")).toBeTruthy();
+});

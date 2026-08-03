@@ -54,7 +54,10 @@ function TrustVersionInner() {
   }, [project]);
 
   const startEdit = () => {
-    const go = () => { setDraft(version!.content.sections.map((s) => ({ ...s }))); setEditing(true); };
+    const go = () => {
+      setDraft((version!.content?.sections ?? []).map((s) => ({ ...s, source_ids: [...(s.source_ids ?? [])] })));
+      setEditing(true);
+    };
     if (version!.is_validated) {
       Alert.alert(
         "Edit a validated draft?",
@@ -93,7 +96,7 @@ function TrustVersionInner() {
       router.push({ pathname: "/trust/version/[versionId]", params: { versionId: v.id, artifactId: String(artifactId), projectId: String(projectId) } });
       setRegen(false); setGuidance("");
     } catch (e) {
-      Alert.alert("Couldn't regenerate", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't regenerate", e instanceof ApiError ? e.userMessage() : "Try again.");
     } finally { setGenBusy(false); }
   };
 
@@ -197,20 +200,20 @@ function TrustVersionInner() {
               accessibilityRole="button"
               accessibilityLabel="Save as new version"
               style={styles.saveBtn}
-              disabled={saving}
+              disabled={saving || draft.length === 0}
               onPress={save}
             >
               <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save as new version"}</Text>
             </Pressable>
           </>
         ) : (
-          version.content.sections.map((s, i) => (
+          (version.content?.sections ?? []).map((s, i) => (
             <View key={i} style={styles.section}>
               <Text style={styles.heading}>{s.heading}</Text>
               <Text style={styles.bodyText}>{s.body}</Text>
-              {s.source_ids.length > 0 ? (
+              {(s.source_ids ?? []).length > 0 ? (
                 <View style={styles.citeRow}>
-                  {s.source_ids.map((id) => (
+                  {(s.source_ids ?? []).map((id) => (
                     <Text key={id} style={styles.cite}>{labelFor.get(id) ?? "cited"}</Text>
                   ))}
                 </View>
