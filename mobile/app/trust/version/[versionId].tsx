@@ -21,12 +21,15 @@ function TrustVersionInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, addVersion } = useTrustProject(String(projectId));
+  const { project, addVersion, generateVersion } = useTrustProject(String(projectId));
   const [version, setVersion] = useState<VersionDetailView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [regen, setRegen] = useState(false);
+  const [guidance, setGuidance] = useState("");
+  const [genBusy, setGenBusy] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   useEffect(() => {
@@ -72,6 +75,28 @@ function TrustVersionInner() {
     } finally { setSaving(false); }
   };
 
+  const openRegen = () => {
+    const go = () => setRegen(true);
+    if (version!.is_validated) {
+      Alert.alert(
+        "Regenerate a validated draft?",
+        `This creates a new version. The approval on v${version!.version_no} stays; the new version will need re-approval.`,
+        [{ text: "Cancel", style: "cancel" }, { text: "Regenerate", onPress: go }],
+      );
+    } else { go(); }
+  };
+
+  const doRegen = async () => {
+    setGenBusy(true);
+    try {
+      const v = await generateVersion(String(artifactId), { guidance: guidance.trim() || undefined });
+      router.push({ pathname: "/trust/version/[versionId]", params: { versionId: v.id, artifactId: String(artifactId), projectId: String(projectId) } });
+      setRegen(false); setGuidance("");
+    } catch (e) {
+      Alert.alert("Couldn't regenerate", e instanceof Error ? e.message : "Try again.");
+    } finally { setGenBusy(false); }
+  };
+
   const updateSection = (i: number, field: "heading" | "body", value: string) => {
     setDraft((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
   };
@@ -103,7 +128,34 @@ function TrustVersionInner() {
               <Text style={styles.editBtnText}>Edit</Text>
             </Pressable>
           ) : null}
+          {!editing && isOwner ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Regenerate draft" style={styles.editBtn} onPress={openRegen}>
+              <Text style={styles.editBtnText}>Regenerate</Text>
+            </Pressable>
+          ) : null}
         </View>
+        {!editing && regen ? (
+          <View style={styles.editRow}>
+            <TextInput
+              style={[styles.input, styles.bodyInput]}
+              value={guidance}
+              onChangeText={setGuidance}
+              accessibilityLabel="Regeneration guidance"
+              placeholder="Optional: focus on…"
+              maxLength={500}
+              multiline
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Generate new version"
+              style={styles.saveBtn}
+              disabled={genBusy}
+              onPress={doRegen}
+            >
+              <Text style={styles.saveBtnText}>{genBusy ? "Generating…" : "Generate new version"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {editing ? (
           <>
             {draft.map((s, i) => (
