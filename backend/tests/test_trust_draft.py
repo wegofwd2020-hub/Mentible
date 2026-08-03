@@ -66,7 +66,9 @@ def test_generate_draft_returns_sections(monkeypatch):
 
 
 def test_prompt_includes_guidance_when_present():
-    p = build_draft_prompt(_SOURCES, "guide", "stormwater", "engineers", "size pipes", "focus on cost")
+    p = build_draft_prompt(
+        _SOURCES, "guide", "stormwater", "engineers", "size pipes", "focus on cost"
+    )
     assert "focus on cost" in p
 
 
