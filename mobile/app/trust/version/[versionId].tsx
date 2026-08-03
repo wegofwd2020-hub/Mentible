@@ -53,7 +53,16 @@ function TrustVersionInner() {
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>v{version.version_no}</Text>
-          {version.is_validated ? <Text style={styles.chip}>Validated ✓</Text> : null}
+          {version.is_validated ? (
+            <View style={styles.badgeRow}>
+              <Text accessibilityLabel={`Version ${version.version_no} validated`} style={styles.chip}>Validated ✓</Text>
+              {version.recorded_via === "expert_self" ? (
+                <Text style={styles.provChip}>expert-validated</Text>
+              ) : version.recorded_via === "operator" ? (
+                <Text style={styles.provChip}>operator-recorded</Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
         {version.content.sections.map((s, i) => (
           <View key={i} style={styles.section}>
@@ -96,6 +105,8 @@ const makeStyles = (c: Palette) => ({
   citeRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs },
   cite: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
+  badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   error: { color: c.error, fontSize: typography.sizeMd },
   backBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.sm },
   backText: { color: c.primary, fontSize: typography.sizeMd },
