@@ -8,6 +8,7 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
+import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
@@ -134,97 +135,90 @@ function SourcesPanel({
   );
 }
 
-// Drafts (create phase): artifacts → versions, read-only-ish (validated/recorded_via
-// state only — Approve lives in FeedbackPanel). Owner generates a draft here, or —
-// when there's no artifact yet — creates the artifact that will hold one.
+// Drafts (create phase): a GENERATE picker (owner) of the 6 format cards, each
+// creating its own artifact + first version via generateFormat, followed by
+// the DRAFTS list — artifacts → versions, read-only-ish (validated/recorded_via
+// state only — Approve lives in FeedbackPanel).
 function DraftsPanel({
   styles,
   isOwner,
   artifacts,
   inputs,
-  genBusy,
-  onGenerateDraft,
-  addArtifactBusy,
-  onAddArtifact,
+  genBusyFormat,
+  onGenerateFormat,
   onOpenVersion,
 }: {
   styles: Styles;
   isOwner: boolean;
   artifacts: ArtifactDetailView[];
   inputs: ProjectInputView[];
-  genBusy: string | null;
-  onGenerateDraft: (artifactId: string) => void;
-  addArtifactBusy: boolean;
-  onAddArtifact: () => void;
+  genBusyFormat: string | null;
+  onGenerateFormat: (fmt: DraftFormat) => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
 }) {
-  if (artifacts.length === 0) {
-    return (
-      <View style={styles.artifactsWrap}>
-        {isOwner ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add an artifact"
-            disabled={addArtifactBusy}
-            style={styles.approveBtn}
-            onPress={onAddArtifact}
-          >
-            <Text style={styles.approveText}>{addArtifactBusy ? "…" : "Add an artifact"}</Text>
-          </Pressable>
-        ) : (
-          <Text style={styles.emptyText}>Waiting for the owner to create a draft.</Text>
-        )}
-      </View>
-    );
-  }
   return (
     <View style={styles.artifactsWrap}>
-      {artifacts.map(({ artifact, versions }) => (
-        <View key={artifact.id} style={styles.artifact}>
-          <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-          {versions.length === 0 ? (
-            <Text style={styles.emptyText}>No drafts yet.</Text>
-          ) : (
-            versions.map((v) => (
-              <Pressable
-                key={v.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Open version ${v.version_no}`}
-                style={styles.versionRow}
-                onPress={() => onOpenVersion(artifact.id, v.id)}
-              >
-                <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                {v.is_validated ? (
-                  <View style={styles.validatedRow}>
-                    <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                    {v.recorded_via === "expert_self" ? (
-                      <Text style={styles.chip}>expert-validated</Text>
-                    ) : v.recorded_via === "operator" ? (
-                      <Text style={styles.chip}>operator-recorded</Text>
-                    ) : null}
-                  </View>
-                ) : (
-                  <Text style={styles.versionLabel}>Awaiting review</Text>
-                )}
-              </Pressable>
-            ))
-          )}
-          {isOwner ? (
-            <View style={styles.draftRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Generate a draft"
-                disabled={genBusy === artifact.id || inputs.length === 0}
-                style={[styles.addVersionBtn, inputs.length === 0 ? styles.disabledBtn : null]}
-                onPress={() => onGenerateDraft(artifact.id)}
-              >
-                <Text style={styles.addVersionText}>{genBusy === artifact.id ? "…" : "Generate a draft"}</Text>
-              </Pressable>
-              {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
-            </View>
-          ) : null}
+      {isOwner ? (
+        <View style={styles.genBlock}>
+          <Text style={styles.artifactTitle}>Generate</Text>
+          <View style={styles.genGrid}>
+            {DRAFT_FORMATS.map((f) => {
+              const disabled = genBusyFormat !== null || inputs.length === 0;
+              return (
+                <Pressable
+                  key={f.format}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Generate ${f.label}`}
+                  disabled={disabled}
+                  style={[styles.genCard, disabled ? styles.disabledBtn : null]}
+                  onPress={() => onGenerateFormat(f)}
+                >
+                  <Text style={styles.genCardLabel}>{f.label}</Text>
+                  <Text style={styles.genHint}>{f.hint}</Text>
+                  <Text style={styles.genPlus}>{genBusyFormat === f.format ? "…" : "+"}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
         </View>
-      ))}
+      ) : null}
+      {artifacts.length === 0 ? (
+        !isOwner ? <Text style={styles.emptyText}>Waiting for the owner to create a draft.</Text> : null
+      ) : (
+        artifacts.map(({ artifact, versions }) => (
+          <View key={artifact.id} style={styles.artifact}>
+            <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+            {versions.length === 0 ? (
+              <Text style={styles.emptyText}>No drafts yet.</Text>
+            ) : (
+              versions.map((v) => (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open version ${v.version_no}`}
+                  style={styles.versionRow}
+                  onPress={() => onOpenVersion(artifact.id, v.id)}
+                >
+                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                  {v.is_validated ? (
+                    <View style={styles.validatedRow}>
+                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                      {v.recorded_via === "expert_self" ? (
+                        <Text style={styles.chip}>expert-validated</Text>
+                      ) : v.recorded_via === "operator" ? (
+                        <Text style={styles.chip}>operator-recorded</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.versionLabel}>Awaiting review</Text>
+                  )}
+                </Pressable>
+              ))
+            )}
+          </View>
+        ))
+      )}
     </View>
   );
 }
@@ -343,13 +337,12 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, approve, addArtifact, generateVersion, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, approve, generateFormat, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
-  const [addArtifactBusy, setAddArtifactBusy] = useState(false);
-  const [genBusy, setGenBusy] = useState<string | null>(null);
+  const [genBusyFormat, setGenBusyFormat] = useState<string | null>(null);
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -413,25 +406,14 @@ function TrustProjectDetailInner() {
     }
   };
 
-  const onAddArtifact = async () => {
-    setAddArtifactBusy(true);
+  const onGenerateFormat = async (fmt: DraftFormat) => {
+    setGenBusyFormat(fmt.format);
     try {
-      await addArtifact("cornerstone", "book");
+      await generateFormat(fmt);
     } catch (e) {
-      Alert.alert("Couldn't add artifact", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
-      setAddArtifactBusy(false);
-    }
-  };
-
-  const onGenerateDraft = async (artifactId: string) => {
-    setGenBusy(artifactId);
-    try {
-      await generateVersion(artifactId);
-    } catch (e) {
-      Alert.alert("Couldn't generate", e instanceof Error ? e.message : "Try again.");
-    } finally {
-      setGenBusy(null);
+      setGenBusyFormat(null);
     }
   };
 
@@ -489,10 +471,8 @@ function TrustProjectDetailInner() {
             isOwner={isOwner}
             artifacts={project.artifacts}
             inputs={inputs}
-            genBusy={genBusy}
-            onGenerateDraft={onGenerateDraft}
-            addArtifactBusy={addArtifactBusy}
-            onAddArtifact={onAddArtifact}
+            genBusyFormat={genBusyFormat}
+            onGenerateFormat={onGenerateFormat}
             onOpenVersion={onOpenVersion}
           />
         ) : null}
@@ -555,15 +535,28 @@ const makeStyles = (c: Palette) => ({
   },
   approveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
   approveText: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "700" as const },
-  addVersionBtn: {
-    alignSelf: "flex-start" as const,
+  genBlock: {
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  genGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm },
+  genCard: {
+    minWidth: 140,
+    flexGrow: 1,
     backgroundColor: c.surfaceHigh,
     borderRadius: radius.sm,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.sm,
+    gap: 2,
   },
-  addVersionText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
-  draftRow: { gap: spacing.xs },
+  genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontFamily: FRAUNCES.semibold },
+  genHint: { color: c.textMuted, fontSize: typography.sizeXs },
+  genPlus: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const, alignSelf: "flex-end" as const },
   ownerBlock: {
     backgroundColor: c.surface,
     borderRadius: radius.md,

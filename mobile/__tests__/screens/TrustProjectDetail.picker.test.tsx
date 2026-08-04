@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn() }) }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
@@ -14,7 +14,7 @@ const proj = (hasInputs: boolean) => ({
   project: {
     project: { id: "p1", title: "P", topic: null },
     my_role: "owner",
-    artifacts: [{ artifact: { id: "art", title: "Guide", role: "cornerstone", format: "book" }, versions: [] }],
+    artifacts: [],
     inputs: hasInputs ? sourceInputs : [],
   },
   loading: false,
@@ -22,7 +22,7 @@ const proj = (hasInputs: boolean) => ({
   refresh: jest.fn(),
   approve: jest.fn(),
   addArtifact: jest.fn(),
-  generateVersion: jest.fn().mockResolvedValue({ id: "v9" }),
+  generateVersion: jest.fn(),
   generateFormat: jest.fn().mockResolvedValue({ id: "v9" }),
   invite: jest.fn(),
   addInput: jest.fn(),
@@ -31,20 +31,17 @@ const proj = (hasInputs: boolean) => ({
 
 beforeEach(() => jest.clearAllMocks());
 
-// Updated for the GENERATE picker (was: single "Generate a draft" button per
-// artifact, calling generateVersion). Now: 6 format cards, each calling
-// generateFormat with the tapped DraftFormat.
-it("owner with a source sees the format picker and pressing a card calls generateFormat", async () => {
+it("owner with a source sees the format picker and generating a format calls generateFormat", async () => {
   const mock = proj(true);
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
-  const btn = await screen.findByLabelText("Generate LinkedIn post");
-  fireEvent.press(btn);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  expect(screen.getByText("LinkedIn post")).toBeTruthy();
+  expect(screen.getByText("Long-form essay")).toBeTruthy();
 
-  await waitFor(() => {
-    expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
-  });
+  fireEvent.press(screen.getByLabelText("Generate LinkedIn post"));
+  expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
 });
 
 it("disables the format cards and shows a hint when there are no sources yet", async () => {
