@@ -82,3 +82,25 @@ def test_request_validation():
     DraftGenerateIn(api_key="sk-ant-" + "x" * 20)  # ok, BYOK
     with pytest.raises(Exception):  # noqa: B017 — any validation error is acceptable here
         DraftGenerateIn(provider_id="bogus")
+
+
+def test_prompt_linkedin_uses_linkedin_rules():
+    p = build_draft_prompt(_SOURCES, "linkedin", None, None, None)
+    assert "LinkedIn post" in p or "180-260" in p  # per-format length rule present
+    assert "3 to 6 sections" not in p              # not the book default
+
+
+def test_prompt_essay_uses_essay_rules():
+    p = build_draft_prompt(_SOURCES, "essay", None, None, None)
+    assert "800-1200" in p
+    assert "3 to 6 sections" not in p
+
+
+def test_prompt_book_unchanged_default():
+    p = build_draft_prompt(_SOURCES, "book", None, None, None)
+    assert "3 to 6 sections" in p
+
+
+def test_prompt_unknown_format_falls_back_to_book():
+    p = build_draft_prompt(_SOURCES, "totally_unknown", None, None, None)
+    assert "3 to 6 sections" in p  # DEFAULT_SPEC == book
