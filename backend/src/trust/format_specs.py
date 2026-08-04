@@ -12,7 +12,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class FormatSpec:
     section_rule: str  # the "write N sections" framing injected into the prompt
-    rules: str         # length + style rules for this format
+    rules: str  # length + style rules for this format
 
 
 FORMAT_SPECS: dict[str, FormatSpec] = {

@@ -87,7 +87,7 @@ def test_request_validation():
 def test_prompt_linkedin_uses_linkedin_rules():
     p = build_draft_prompt(_SOURCES, "linkedin", None, None, None)
     assert "LinkedIn post" in p or "180-260" in p  # per-format length rule present
-    assert "3 to 6 sections" not in p              # not the book default
+    assert "3 to 6 sections" not in p  # not the book default
 
 
 def test_prompt_essay_uses_essay_rules():
