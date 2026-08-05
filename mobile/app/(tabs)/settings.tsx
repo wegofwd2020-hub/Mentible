@@ -71,7 +71,9 @@ export default function SettingsScreen() {
         Pick a colour theme. It applies instantly across the app and is saved on
         this device. Your book exports are not affected.
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatchRow}>
+      {/* Wrap (not horizontal-scroll) so every theme — including the last ones
+          like Navy Trust — is visible without scrolling. */}
+      <View style={styles.swatchRow}>
         {THEME_NAMES.map((name) => {
           const p = themes[name];
           const active = name === themeName;
@@ -91,7 +93,7 @@ export default function SettingsScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
       <View style={styles.divider} />
 
       {!IS_DEMO && (
@@ -257,7 +259,7 @@ function makeStyles(c: Palette) {
       fontSize: typography.sizeMd,
       color: c.primary,
     },
-    swatchRow: { gap: spacing.sm, paddingVertical: spacing.sm },
+    swatchRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.sm },
     swatch: { width: 92, borderRadius: radius.md, borderWidth: 2, padding: spacing.sm, alignItems: "center" as const, gap: 4 },
     swatchSample: { fontSize: typography.sizeLg, fontWeight: "700" as const },
     swatchDot: { width: 14, height: 14, borderRadius: 7 },
