@@ -9,7 +9,7 @@ const artifact = (id: string, is_validated: boolean | null) => ({
 });
 
 it("labels map phases to content nouns", () => {
-  expect(PHASE_LABELS).toEqual({ capture: "Sources", create: "Drafts", validate: "Feedback", share: "Publish" });
+  expect(PHASE_LABELS).toEqual({ capture: "Input", create: "Drafts", validate: "Feedback", share: "Publish" });
 });
 
 it("no inputs → capture current", () => {

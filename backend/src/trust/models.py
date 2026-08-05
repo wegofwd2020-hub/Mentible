@@ -21,6 +21,10 @@ FEEDBACK_AUTHOR_KINDS = ("expert", "operator")
 MEMBERSHIP_ROLES = ("owner", "reviewer")
 INVITE_ROLES = ("reviewer",)
 APPROVAL_VIA = ("operator", "expert_self")
+# Append-only toggle: 'approve' records validation, 'withdraw' revokes it. A
+# version is validated IFF its latest approval row is an 'approve' (ADR-037 —
+# trust evidence stays immutable; withdrawing appends, never deletes).
+APPROVAL_ACTION = ("approve", "withdraw")
 
 
 @dataclass(frozen=True)
@@ -94,6 +98,7 @@ class Approval:
     recorded_at: datetime | None
     note: str | None
     recorded_via: str
+    action: str
 
 
 @dataclass(frozen=True)

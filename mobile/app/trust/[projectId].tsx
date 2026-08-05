@@ -75,7 +75,7 @@ function SourcesPanel({
 }) {
   return (
     <View style={styles.sourcesBlock}>
-      <Text style={styles.artifactTitle}>Sources</Text>
+      <Text style={styles.artifactTitle}>Input</Text>
       <Text style={styles.sourcesHelper}>The expert&apos;s raw knowledge. Paste a transcript, note, or link.</Text>
       {isOwner ? (
         <View style={styles.sourceForm}>
@@ -223,17 +223,17 @@ function DraftsPanel({
   );
 }
 
-// Feedback (validate phase): the Approve flow for unvalidated versions + the
-// validated/recorded_via display, plus (owner) the Invite-an-expert control.
-// Nothing to review until a draft exists, so this stays gated on anyVersion.
+// Feedback (validate phase): a list of versions that opens each one full-screen
+// to review — Approve / Unapprove now lives ON the draft view itself (slice 2,
+// matching the Lovable IA), not inline here — plus (owner) the Invite-an-expert
+// control. Nothing to review until a draft exists, so this stays gated on
+// anyVersion.
 function FeedbackPanel({
   styles,
   theme,
   isOwner,
   artifacts,
   anyVersion,
-  busy,
-  onApprove,
   inviteEmail,
   setInviteEmail,
   inviteBusy,
@@ -245,8 +245,6 @@ function FeedbackPanel({
   isOwner: boolean;
   artifacts: ArtifactDetailView[];
   anyVersion: boolean;
-  busy: string | null;
-  onApprove: (versionId: string, versionNo: number) => void;
   inviteEmail: string;
   setInviteEmail: (v: string) => void;
   inviteBusy: boolean;
@@ -262,14 +260,14 @@ function FeedbackPanel({
         <View key={artifact.id} style={styles.artifact}>
           <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
           {versions.map((v) => (
-            <View key={v.id} style={styles.versionRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Open version ${v.version_no}`}
-                onPress={() => onOpenVersion(artifact.id, v.id)}
-              >
-                <Text style={styles.versionLabel}>v{v.version_no}</Text>
-              </Pressable>
+            <Pressable
+              key={v.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open version ${v.version_no}`}
+              style={styles.versionRow}
+              onPress={() => onOpenVersion(artifact.id, v.id)}
+            >
+              <Text style={styles.versionLabel}>v{v.version_no}</Text>
               {v.is_validated ? (
                 <View style={styles.validatedRow}>
                   <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
@@ -280,17 +278,9 @@ function FeedbackPanel({
                   ) : null}
                 </View>
               ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Approve version ${v.version_no}`}
-                  disabled={busy === v.id}
-                  style={styles.approveBtn}
-                  onPress={() => onApprove(v.id, v.version_no)}
-                >
-                  <Text style={styles.approveText}>{busy === v.id ? "…" : "Approve"}</Text>
-                </Pressable>
+                <Text style={styles.versionLabel}>Review →</Text>
               )}
-            </View>
+            </Pressable>
           ))}
         </View>
       ))}
@@ -337,9 +327,8 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, approve, generateFormat, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, generateFormat, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
-  const [busy, setBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [genBusyFormat, setGenBusyFormat] = useState<string | null>(null);
@@ -366,30 +355,6 @@ function TrustProjectDetailInner() {
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!project) return null;
-
-  const onApprove = (versionId: string, versionNo: number) => {
-    Alert.alert(
-      "Record approval",
-      `Record your approval of v${versionNo}? It is logged as expert-validated by you.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          onPress: async () => {
-            setBusy(versionId);
-            try {
-              const ap = await approve(versionId);
-              Alert.alert("Approved", ap.recorded_via === "expert_self" ? "Recorded as expert-validated." : "Approval recorded.");
-            } catch (e) {
-              Alert.alert("Couldn't approve", e instanceof ApiError ? e.userMessage() : "Please try again.");
-            } finally {
-              setBusy(null);
-            }
-          },
-        },
-      ],
-    );
-  };
 
   const onInvite = async () => {
     const email = inviteEmail.trim();
@@ -483,8 +448,6 @@ function TrustProjectDetailInner() {
             isOwner={isOwner}
             artifacts={project.artifacts}
             anyVersion={anyVersion}
-            busy={busy}
-            onApprove={onApprove}
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
             inviteBusy={inviteBusy}

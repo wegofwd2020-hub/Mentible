@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, invite as inviteApi, type ApprovalView, type ProjectDetailView, type ProjectInputView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, invite as inviteApi, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -24,9 +24,23 @@ export function useTrustProject(projectId: string) {
   }, [accessToken, projectId]);
 
   const approve = useCallback(
+    async (versionId: string, opts?: { note?: string; expertName?: string }): Promise<ApprovalView> => {
+      if (!accessToken) throw new Error("Not signed in");
+      const ap = await approveVersion(
+        versionId,
+        { approved_at: new Date().toISOString(), note: opts?.note, expert_name: opts?.expertName },
+        accessToken,
+      );
+      await refresh();
+      return ap;
+    },
+    [accessToken, refresh],
+  );
+
+  const unapprove = useCallback(
     async (versionId: string, note?: string): Promise<ApprovalView> => {
       if (!accessToken) throw new Error("Not signed in");
-      const ap = await approveVersion(versionId, { approved_at: new Date().toISOString(), note }, accessToken);
+      const ap = await withdrawApproval(versionId, { note }, accessToken);
       await refresh();
       return ap;
     },
@@ -82,5 +96,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
+  return { project, loading, error, refresh, approve, unapprove, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
 }

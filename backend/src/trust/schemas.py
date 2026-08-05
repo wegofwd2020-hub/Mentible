@@ -138,12 +138,17 @@ class ApprovalIn(BaseModel):
     expert_role: str | None = None
 
 
+class WithdrawIn(BaseModel):
+    note: str | None = None
+
+
 class ApprovalOut(BaseModel):
     id: str
     version_id: str
     expert_name: str
     approved_at: datetime
     recorded_via: str
+    action: str = "approve"
 
 
 class DraftGenerateIn(BaseModel):

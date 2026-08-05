@@ -25,6 +25,7 @@ export interface ProjectInputView {
 export interface ProjectDetailView { project: ProjectView; artifacts: ArtifactDetailView[]; inputs: ProjectInputView[]; my_role: string }
 export interface ApprovalView {
   id: string; version_id: string; expert_name: string; approved_at: string; recorded_via: string;
+  action?: string; // "approve" | "withdraw" — present since the approve/unapprove toggle
 }
 export interface ProjectSummaryView { id: string; title: string; status: string; created_at: string | null }
 export interface InvitationView { project_id: string; invited_email: string; role: string; revoked_at: string | null }
@@ -60,10 +61,18 @@ export async function getVersion(versionId: string, token: string): Promise<Vers
 }
 
 export async function approveVersion(
-  versionId: string, body: { approved_at: string; note?: string }, token: string,
+  versionId: string, body: { approved_at: string; note?: string; expert_name?: string }, token: string,
 ): Promise<ApprovalView> {
   return (await trustFetch<ApprovalView>(
     `/versions/${versionId}/approvals`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as ApprovalView;
+}
+
+export async function withdrawApproval(
+  versionId: string, body: { note?: string }, token: string,
+): Promise<ApprovalView> {
+  return (await trustFetch<ApprovalView>(
+    `/versions/${versionId}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
   )) as ApprovalView;
 }
 

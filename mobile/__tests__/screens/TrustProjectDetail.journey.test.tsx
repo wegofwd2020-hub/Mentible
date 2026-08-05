@@ -33,11 +33,11 @@ beforeEach(() => {
   mockPush.mockClear();
 });
 
-it("auto-selects the current phase on load (no sources → Sources)", async () => {
+it("auto-selects the current phase on load (no input → Input)", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("owner"));
   render(<TrustProjectDetail />);
-  // Sources tab is selected, and its add-source control is visible.
-  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  // Input tab is selected, and its add-source control is visible.
+  expect((await screen.findByLabelText(/Input:/)).props.accessibilityState.selected).toBe(true);
   expect(screen.getByLabelText("Add source")).toBeTruthy();
 });
 
@@ -48,13 +48,17 @@ it("tapping the Drafts tab switches to the drafts panel", async () => {
   expect(screen.getByLabelText("Generate LinkedIn post")).toBeTruthy();
 });
 
-it("a reviewer auto-lands on Feedback with an Approve control", async () => {
+it("a reviewer auto-lands on Feedback and can open a version to review", async () => {
+  // Approve now lives ON the draft view (slice 2) — Feedback lists versions and
+  // opens each one, rather than approving inline.
   (useTrustProject as jest.Mock).mockReturnValue(
     proj("reviewer", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: false, recorded_via: null }]),
   );
   render(<TrustProjectDetail />);
   expect((await screen.findByLabelText(/Feedback:/)).props.accessibilityState.selected).toBe(true);
-  expect(screen.getByLabelText(/Approve version 1/)).toBeTruthy();
+  expect(screen.queryByLabelText(/Approve version 1/)).toBeNull();
+  fireEvent.press(screen.getByLabelText("Open version 1"));
+  expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ versionId: "v1" }) }));
 });
 
 it("keeps the recorded_via chip on a validated version (Feedback)", async () => {
@@ -75,22 +79,22 @@ it("the Publish tab shows a placeholder with no CTA", async () => {
   expect(screen.getByText(/Sharing & export are coming soon\./)).toBeTruthy();
 });
 
-it("does not yank the owner off Sources after adding the first source", async () => {
+it("does not yank the owner off Input after adding the first source", async () => {
   const initial = proj("owner", []);
   (useTrustProject as jest.Mock).mockReturnValue(initial);
   const { rerender } = render(<TrustProjectDetail />);
-  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  expect((await screen.findByLabelText(/Input:/)).props.accessibilityState.selected).toBe(true);
   expect(screen.getByLabelText("Add source")).toBeTruthy();
 
   // Simulate the refresh a first addInput triggers: the hook now returns a
-  // project with one input, which advances the derived phase past Sources
-  // into Drafts. The selected tab must stay on Sources regardless.
+  // project with one input, which advances the derived phase past Input
+  // into Drafts. The selected tab must stay on Input regardless.
   (useTrustProject as jest.Mock).mockReturnValue(
     proj("owner", [{ id: "i1", kind: "note", title: "Kickoff notes", content: "We discussed scope.", source_ref: null, created_at: null }]),
   );
   rerender(<TrustProjectDetail />);
 
-  expect((await screen.findByLabelText(/Sources:/)).props.accessibilityState.selected).toBe(true);
+  expect((await screen.findByLabelText(/Input:/)).props.accessibilityState.selected).toBe(true);
   expect(screen.getByLabelText("Add source")).toBeTruthy();
 });
 

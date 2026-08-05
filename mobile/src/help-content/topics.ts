@@ -461,7 +461,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Every project moves through four phases: capture your sources, create a draft from them, have an expert validate it, then share it once it's ready. The project screen has a tab for each phase — Sources, Drafts, Feedback, Publish — and opens on whichever one you're currently in, so you always know where a project stands. Tap any tab to jump to a different phase.",
+        text: "Every project moves through four phases: capture your input, create a draft from it, have an expert validate it, then share it once it's ready. The project screen has a tab for each phase — Input, Drafts, Feedback, Publish — and opens on whichever one you're currently in, so you always know where a project stands. Tap any tab to jump to a different phase.",
       },
       {
         kind: "steps",
@@ -548,7 +548,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Sources are the raw material a project is built from — an interview transcript, a note, or a link to something the expert wrote. Open a project and, as its owner, paste a source under Sources. Everyone invited to the project can see the sources behind the work. Adding sources is the first step; a later step turns them into a drafted, expert-reviewed asset.",
+        text: "Sources are the raw material a project is built from — an interview transcript, a note, or a link to something the expert wrote. Open a project and, as its owner, paste a source under the Input tab. Everyone invited to the project can see the sources behind the work. Adding sources is the first step; a later step turns them into a drafted, expert-reviewed asset.",
       },
       {
         kind: "text",
@@ -558,17 +558,21 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "draft-viewer",
-    title: "Read, edit & regenerate a draft",
+    title: "Read, copy, approve, edit & regenerate a draft",
     featureKey: "draft-viewer",
-    keywords: ["draft", "content", "read", "view", "edit", "revise", "regenerate", "version", "approve", "guidance"],
+    keywords: ["draft", "content", "read", "view", "copy", "clipboard", "approve", "unapprove", "withdraw", "edit", "revise", "regenerate", "version", "guidance"],
     blocks: [
       {
         kind: "text",
-        text: "Open a project, go to Drafts (or Feedback), and tap a version to read the full drafted content. Reviewers read here before approving; owners can also edit or regenerate it.",
+        text: "Open a project, go to Drafts (or Feedback), and tap a version to read the full drafted content. From here you can Copy the whole draft to your clipboard, and Approve it (or Unapprove it) — the actions sit right on the draft you're reading.",
       },
       {
         kind: "text",
-        text: "Editing lets the owner adjust each section's heading and body; saving creates a new version. Regenerate re-drafts from the sources — you can add optional guidance (for example, \"focus on 2026 costs\"). Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval.",
+        text: "Approving records that the version is validated; Unapprove withdraws that approval and returns the version to \"awaiting review\". Both are kept as a record — unapproving doesn't erase the earlier approval, it appends a withdrawal — so a version's trust history stays intact.",
+      },
+      {
+        kind: "text",
+        text: "Owners can also edit or regenerate. Editing adjusts each section's heading and body; saving creates a new version. Regenerate re-drafts from the sources — you can add optional guidance (for example, \"focus on 2026 costs\"). Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval.",
       },
     ],
   },

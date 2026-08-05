@@ -9,15 +9,15 @@ const detail = (over: any = {}) => ({ project: { id: "p", title: "P", topic: nul
 it("renders a tab per phase with its content-noun label", () => {
   const phase = deriveProjectPhase(detail(), true);
   const { getByText } = render(<PhaseTabBar phase={phase} selected="capture" onSelect={() => {}} />);
-  for (const label of ["Sources", "Drafts", "Feedback", "Publish"]) expect(getByText(label)).toBeTruthy();
+  for (const label of ["Input", "Drafts", "Feedback", "Publish"]) expect(getByText(label)).toBeTruthy();
 });
 
 it("marks the selected tab selected and reports taps", () => {
   const phase = deriveProjectPhase(detail({ inputs: [input] }), true);
   const onSelect = jest.fn();
   const { getByLabelText } = render(<PhaseTabBar phase={phase} selected="capture" onSelect={onSelect} />);
-  // The selected Sources tab carries selected state.
-  expect(getByLabelText(/Sources:/).props.accessibilityState.selected).toBe(true);
+  // The selected Input tab carries selected state.
+  expect(getByLabelText(/Input:/).props.accessibilityState.selected).toBe(true);
   // Tapping Drafts reports it.
   fireEvent.press(getByLabelText(/Drafts:/));
   expect(onSelect).toHaveBeenCalledWith("create");
@@ -26,7 +26,7 @@ it("marks the selected tab selected and reports taps", () => {
 it("shows done/current/upcoming state in the tab label", () => {
   const phase = deriveProjectPhase(detail({ inputs: [input] }), true); // capture done, create current
   const { getByLabelText } = render(<PhaseTabBar phase={phase} selected="create" onSelect={() => {}} />);
-  expect(getByLabelText(/Sources: done/)).toBeTruthy();
+  expect(getByLabelText(/Input: done/)).toBeTruthy();
   expect(getByLabelText(/Drafts: current/)).toBeTruthy();
   expect(getByLabelText(/Feedback: upcoming/)).toBeTruthy();
 });
