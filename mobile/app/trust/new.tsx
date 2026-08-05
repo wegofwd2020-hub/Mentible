@@ -7,7 +7,7 @@ import { Alert } from "@/lib/alert";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { ApiError } from "@/api/client";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function NewProjectInner() {
   const router = useRouter();
@@ -44,16 +44,15 @@ function NewProjectInner() {
 }
 
 export default function NewProjectScreen() {
-  // SME surface → always Navy Trust (ADR-038). Scope wraps the content so
-  // NewProjectInner's useThemedStyles resolves navy-trust.
+  // Follows the user's selected theme (ADR-038 O1 reversed).
   return (
     <RequireSignIn action="start a project">
-      <SmeThemeScope><NewProjectInner /></SmeThemeScope>
+      <NewProjectInner />
     </RequireSignIn>
   );
 }
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 }, body: { padding: spacing.md, gap: spacing.md },
+  scroll: { flex: 1, backgroundColor: c.background }, body: { padding: spacing.md, gap: spacing.md },
   field: { gap: spacing.xs }, label: { color: c.textSecondary, fontSize: typography.sizeSm },
   input: { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, color: c.text, fontSize: typography.sizeMd, backgroundColor: c.surface },
   submit: { backgroundColor: c.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const, marginTop: spacing.sm },

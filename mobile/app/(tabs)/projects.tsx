@@ -7,7 +7,7 @@ import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
-import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function ProjectsInner() {
   const router = useRouter();
@@ -34,15 +34,13 @@ function ProjectsInner() {
   );
 }
 export default function ProjectsScreen() {
-  // SME surface → always the Navy Trust brand (ADR-038). Scope wraps the content
-  // (not the sign-in gate) so ProjectsInner's useThemedStyles resolves navy-trust.
+  // Follows the user's selected theme (ADR-038 O1 reversed — trust surfaces no
+  // longer force the Navy Trust brand).
   return (
     <RequireSignIn action="manage projects">
-      <SmeThemeScope>
-        {/* flex:1 so the FlatList/centered-empty (flex:1) has a bounded parent —
-            without it the content collapses to 0 height on native (New Arch). */}
-        <PageContainer style={{ flex: 1 }}><ProjectsInner /></PageContainer>
-      </SmeThemeScope>
+      {/* flex:1 so the FlatList/centered-empty (flex:1) has a bounded parent —
+          without it the content collapses to 0 height on native (New Arch). */}
+      <PageContainer style={{ flex: 1 }}><ProjectsInner /></PageContainer>
     </RequireSignIn>
   );
 }

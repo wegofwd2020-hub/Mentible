@@ -11,7 +11,7 @@ import { sectionsToPlainText } from "@/lib/draftExport";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
-import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -408,15 +408,12 @@ function TrustVersionInner() {
 }
 
 export default function TrustVersion() {
-  return (
-    <SmeThemeScope>
-      <TrustVersionInner />
-    </SmeThemeScope>
-  );
+  // Follows the user's selected theme (ADR-038 O1 reversed).
+  return <TrustVersionInner />;
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const },
+  scroll: { flex: 1 as const, backgroundColor: c.background },
   body: { padding: spacing.md, gap: spacing.md },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },

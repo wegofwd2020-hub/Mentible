@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { TopNavBar } from "@/components/TopNavBar";
 import { SideNav } from "@/components/SideNav";
 import { useResponsive } from "@/hooks/useResponsive";
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/theme";
 
 // Navigation swaps by width: a custom TOP, center-aligned bar (TopNavBar) with
 // square icon+label tiles and a leading Mentible mark on narrow/tablet widths,
@@ -11,21 +11,24 @@ import { colors } from "@/constants/theme";
 // order here doesn't drive the visual order; TopNavBar/SideNav render an
 // explicit sequence.
 //
-// `sceneStyle` paints the app's dark background on the tab scene container.
-// Without it, the bottom-tab scene falls back to React Navigation's default
-// scene background — which follows the DEVICE colour scheme (white on a
-// light-mode device). The app palette is always dark (near-white `colors.text`),
-// so any tab screen that doesn't paint its own background would render invisible
-// text on a light-mode device. Setting it here fixes every tab at the source.
+// `sceneStyle` paints the SELECTED THEME's background on the tab scene container.
+// Without it, the bottom-tab scene falls back to React Navigation's default scene
+// background (which follows the device colour scheme), and — because a tab screen
+// that paints no background of its own would show through — the page would ignore
+// the user's chosen theme. Sourcing it from `useTheme()` (not the static `colors`)
+// makes every tab follow the selected theme at the source; previously it was
+// pinned to the Study palette, so themed pages that set their own background
+// changed but plain ones (e.g. Posts) stayed dark.
 export default function TabLayout() {
   const { isDesktop } = useResponsive();
+  const theme = useTheme();
   return (
     <Tabs
       tabBar={(props) => (isDesktop ? <SideNav {...props} /> : <TopNavBar {...props} />)}
       screenOptions={{
         headerShown: false,
         tabBarPosition: isDesktop ? "left" : "top",
-        sceneStyle: { backgroundColor: colors.background },
+        sceneStyle: { backgroundColor: theme.background },
       }}
     >
       <Tabs.Screen name="index" />
