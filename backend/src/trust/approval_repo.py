@@ -101,8 +101,9 @@ async def withdraw_approval(
 
 async def get_approval(conn, *, version_id) -> Approval | None:
     r = await conn.fetchrow(
-        f"SELECT {_AP} FROM approval WHERE version_id = $1 "
-        f"ORDER BY recorded_at DESC, id DESC LIMIT 1",
+        # `seq` (bigserial) is the only strictly-monotonic insertion order —
+        # recorded_at ties within a transaction and id is a random uuid.
+        f"SELECT {_AP} FROM approval WHERE version_id = $1 ORDER BY seq DESC LIMIT 1",
         version_id,
     )
     return _approval(r) if r else None
