@@ -81,6 +81,63 @@ async def test_recorded_via_default_and_expert_self(conn):
     assert (await approval_repo.get_approval(conn, version_id=v2.id)).recorded_via == "expert_self"
 
 
+async def test_withdraw_flips_validation_back_and_is_append_only(conn):
+    v = await _version(conn)
+    ap = await approval_repo.record_approval(
+        conn,
+        version_id=v.id,
+        expert_name="Dr X",
+        approved_at=datetime.now(UTC),
+        recorded_by_sub="expert-sub",
+        expert_email="x@example.com",
+        expert_role="civil engineer",
+        recorded_via="expert_self",
+    )
+    assert await approval_repo.is_validated(conn, version_id=v.id) is True
+
+    wd = await approval_repo.withdraw_approval(
+        conn, version_id=v.id, recorded_by_sub="expert-sub", recorded_via="expert_self"
+    )
+    # A withdraw APPENDS (new row, original approval untouched) and copies identity.
+    assert wd is not None
+    assert wd.action == "withdraw"
+    assert wd.id != ap.id
+    assert wd.expert_name == "Dr X"
+    assert wd.expert_email == "x@example.com"
+    assert await approval_repo.is_validated(conn, version_id=v.id) is False
+    assert (await approval_repo.get_approval(conn, version_id=v.id)).id == wd.id
+
+    # Re-approving flips validation on again.
+    await approval_repo.record_approval(
+        conn,
+        version_id=v.id,
+        expert_name="Dr X",
+        approved_at=datetime.now(UTC),
+        recorded_by_sub="expert-sub",
+        recorded_via="expert_self",
+    )
+    assert await approval_repo.is_validated(conn, version_id=v.id) is True
+
+
+async def test_withdraw_is_noop_when_not_approved(conn):
+    v = await _version(conn)
+    assert (
+        await approval_repo.withdraw_approval(conn, version_id=v.id, recorded_by_sub="op") is None
+    )
+    # Withdrawing an already-withdrawn version is also a no-op.
+    await approval_repo.record_approval(
+        conn,
+        version_id=v.id,
+        expert_name="Dr X",
+        approved_at=datetime.now(UTC),
+        recorded_by_sub="op",
+    )
+    await approval_repo.withdraw_approval(conn, version_id=v.id, recorded_by_sub="op")
+    assert (
+        await approval_repo.withdraw_approval(conn, version_id=v.id, recorded_by_sub="op") is None
+    )
+
+
 async def test_recorded_via_invalid(conn):
     v = await _version(conn)
     with pytest.raises(ValueError):

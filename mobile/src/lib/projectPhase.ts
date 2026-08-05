@@ -3,7 +3,7 @@ import type { ProjectDetailView } from "@/api/trustClient";
 export type PhaseKey = "capture" | "create" | "validate" | "share";
 export const PHASE_ORDER: PhaseKey[] = ["capture", "create", "validate", "share"];
 export const PHASE_LABELS: Record<PhaseKey, string> = {
-  capture: "Sources",
+  capture: "Input",
   create: "Drafts",
   validate: "Feedback",
   share: "Publish",

@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { getVersion, type VersionDetailView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
+import { copyText } from "@/lib/clipboard";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -21,7 +22,7 @@ function TrustVersionInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, addVersion, generateVersion } = useTrustProject(String(projectId));
+  const { project, addVersion, generateVersion, approve, unapprove } = useTrustProject(String(projectId));
   const [version, setVersion] = useState<VersionDetailView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -30,7 +31,18 @@ function TrustVersionInner() {
   const [regen, setRegen] = useState(false);
   const [guidance, setGuidance] = useState("");
   const [genBusy, setGenBusy] = useState(false);
+  const [apBusy, setApBusy] = useState(false);
+  const [askName, setAskName] = useState(false);
+  const [expertName, setExpertName] = useState("");
   const isOwner = project?.my_role === "owner";
+
+  // Re-fetch just this version (used after approve/unapprove so the header's
+  // validated state reflects the append-only toggle without a full reload).
+  const reloadVersion = useCallback(async () => {
+    if (!accessToken) return;
+    const v = await getVersion(String(versionId), accessToken);
+    setVersion(v);
+  }, [accessToken, versionId]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -100,6 +112,81 @@ function TrustVersionInner() {
     } finally { setGenBusy(false); }
   };
 
+  const onCopy = async () => {
+    const text = (version!.content?.sections ?? [])
+      .map((s) => [s.heading, s.body].map((t) => (t ?? "").trim()).filter(Boolean).join("\n\n"))
+      .filter(Boolean)
+      .join("\n\n");
+    try {
+      await copyText(text);
+      Alert.alert("Copied", "Draft content copied to the clipboard.");
+    } catch {
+      Alert.alert("Couldn't copy", "Please try again.");
+    }
+  };
+
+  // Reviewers self-approve in one tap (expert_self). An owner records on a named
+  // expert's behalf (operator) — tapping Approve reveals a name field first.
+  const runApprove = (opts?: { expertName: string }) => {
+    setApBusy(true);
+    void (async () => {
+      try {
+        const ap = opts ? await approve(String(versionId), opts) : await approve(String(versionId));
+        setAskName(false);
+        setExpertName("");
+        // Approval is committed; a failed header refresh must not read as a
+        // failed approval, so the reload is best-effort.
+        await reloadVersion().catch(() => {});
+        Alert.alert(
+          "Approved",
+          ap.recorded_via === "expert_self" ? "Recorded as expert-validated." : `Recorded as validated by ${ap.expert_name}.`,
+        );
+      } catch (e) {
+        Alert.alert("Couldn't approve", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setApBusy(false);
+      }
+    })();
+  };
+
+  const onApprove = () => {
+    if (isOwner) { setAskName(true); return; }
+    runApprove();
+  };
+
+  const submitOwnerApprove = () => {
+    const name = expertName.trim();
+    if (name) runApprove({ expertName: name });
+  };
+
+  const onUnapprove = () => {
+    Alert.alert(
+      "Withdraw approval",
+      `Withdraw the approval on v${version!.version_no}? This is recorded; the version returns to awaiting review.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Withdraw",
+          style: "destructive",
+          onPress: () => {
+            setApBusy(true);
+            void (async () => {
+              try {
+                await unapprove(String(versionId));
+                // Withdrawal is committed; the reload is best-effort (see runApprove).
+                await reloadVersion().catch(() => {});
+              } catch (e) {
+                Alert.alert("Couldn't withdraw", e instanceof ApiError ? e.userMessage() : "Please try again.");
+              } finally {
+                setApBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   const updateSection = (i: number, field: "heading" | "body", value: string) => {
     setDraft((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
   };
@@ -126,17 +213,55 @@ function TrustVersionInner() {
               ) : null}
             </View>
           ) : null}
-          {!editing && isOwner ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
-              <Text style={styles.editBtnText}>Edit</Text>
-            </Pressable>
-          ) : null}
-          {!editing && isOwner ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Regenerate draft" style={styles.editBtn} onPress={openRegen}>
-              <Text style={styles.editBtnText}>Regenerate</Text>
-            </Pressable>
-          ) : null}
         </View>
+        {!editing ? (
+          <View style={styles.actionsRow}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>
+              <Text style={styles.editBtnText}>Copy</Text>
+            </Pressable>
+            {isOwner ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
+                <Text style={styles.editBtnText}>Edit</Text>
+              </Pressable>
+            ) : null}
+            {isOwner ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Regenerate draft" style={styles.editBtn} onPress={openRegen}>
+                <Text style={styles.editBtnText}>Regenerate</Text>
+              </Pressable>
+            ) : null}
+            {version.is_validated ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={`Withdraw approval of version ${version.version_no}`} disabled={apBusy} style={styles.unapproveBtn} onPress={onUnapprove}>
+                <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
+              </Pressable>
+            ) : (
+              <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
+                <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
+        {!editing && askName ? (
+          <View style={styles.editRow}>
+            <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
+            <TextInput
+              style={styles.input}
+              value={expertName}
+              onChangeText={setExpertName}
+              accessibilityLabel="Expert name"
+              placeholder="Expert's name"
+              autoCapitalize="words"
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Record approval"
+              style={[styles.saveBtn, !expertName.trim() ? styles.disabledBtn : null]}
+              disabled={apBusy || !expertName.trim()}
+              onPress={submitOwnerApprove}
+            >
+              <Text style={styles.saveBtnText}>{apBusy ? "Recording…" : "Record approval"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {!editing && regen ? (
           <View style={styles.editRow}>
             <TextInput
@@ -254,8 +379,13 @@ const makeStyles = (c: Palette) => ({
   error: { color: c.error, fontSize: typography.sizeMd },
   backBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.sm },
   backText: { color: c.primary, fontSize: typography.sizeMd },
+  actionsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: spacing.sm },
   editBtn: { borderWidth: 1, borderColor: c.primary, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   editBtnText: { color: c.primary, fontSize: typography.sizeSm },
+  approveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  approveText: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "700" as const },
+  unapproveBtn: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  unapproveText: { color: c.textSecondary, fontSize: typography.sizeSm },
   editRow: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   input: { color: c.text, fontSize: typography.sizeMd, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
   bodyInput: { minHeight: 80 as const, textAlignVertical: "top" as const },
@@ -265,4 +395,5 @@ const makeStyles = (c: Palette) => ({
   addBtnText: { color: c.text, fontSize: typography.sizeSm },
   saveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: "center" as const },
   saveBtnText: { color: c.primaryText, fontSize: typography.sizeMd },
+  disabledBtn: { opacity: 0.5 },
 });

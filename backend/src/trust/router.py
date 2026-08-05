@@ -210,8 +210,8 @@ async def get_version(
         version_no=v.version_no,
         content=v.content or {"sections": []},
         generation_meta=v.generation_meta,
-        is_validated=ap is not None,
-        recorded_via=ap.recorded_via if ap else None,
+        is_validated=ap is not None and ap.action == "approve",
+        recorded_via=ap.recorded_via if ap and ap.action == "approve" else None,
         created_at=v.created_at,
     )
 
@@ -388,8 +388,8 @@ async def get_project(
                     id=str(v.id),
                     version_no=v.version_no,
                     created_at=v.created_at,
-                    is_validated=ap is not None,
-                    recorded_via=ap.recorded_via if ap else None,
+                    is_validated=ap is not None and ap.action == "approve",
+                    recorded_via=ap.recorded_via if ap and ap.action == "approve" else None,
                 )
             )
         artifacts.append(
@@ -476,4 +476,39 @@ async def record_version_approval(
         expert_name=ap.expert_name,
         approved_at=ap.approved_at,
         recorded_via=ap.recorded_via,
+        action=ap.action,
+    )
+
+
+@router.post("/versions/{version_id}/approvals/withdraw", response_model=schemas.ApprovalOut)
+async def withdraw_version_approval(
+    version_id: uuid.UUID,
+    body: schemas.WithdrawIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ApprovalOut:
+    """Revoke the current approval on a version (append-only 'withdraw' record).
+    Owner OR reviewer, mirroring who may approve. 409 if not currently approved."""
+    project_id = await project_id_for_version(conn, version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    recorded_via = "expert_self" if role == "reviewer" else "operator"
+    ap = await approval_repo.withdraw_approval(
+        conn,
+        version_id=version_id,
+        recorded_by_sub=principal.sub,
+        recorded_via=recorded_via,
+        note=body.note,
+    )
+    if ap is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "version is not currently approved")
+    return schemas.ApprovalOut(
+        id=str(ap.id),
+        version_id=str(ap.version_id),
+        expert_name=ap.expert_name,
+        approved_at=ap.approved_at,
+        recorded_via=ap.recorded_via,
+        action=ap.action,
     )

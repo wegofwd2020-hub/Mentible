@@ -1,4 +1,4 @@
-import { syncSession, getProject, approveVersion } from "@/api/trustClient";
+import { syncSession, getProject, approveVersion, withdrawApproval } from "@/api/trustClient";
 
 const okJson = (body: unknown) =>
   Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
@@ -25,6 +25,17 @@ it("approveVersion POSTs the body and returns the approval", async () => {
   expect(String(url)).toContain("/api/v1/trust/versions/v1/approvals");
   expect((init as RequestInit).method).toBe("POST");
   expect((init as RequestInit).body).toBe(JSON.stringify({ approved_at: "t" }));
+});
+
+it("withdrawApproval POSTs to the withdraw endpoint and returns the record", async () => {
+  const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+    okJson({ id: "ap2", version_id: "v1", expert_name: "e@x.z", approved_at: "t", recorded_via: "expert_self", action: "withdraw" }));
+  const out = await withdrawApproval("v1", { note: "changed my mind" }, "tok");
+  expect(out.action).toBe("withdraw");
+  const [url, init] = spy.mock.calls[0];
+  expect(String(url)).toContain("/api/v1/trust/versions/v1/approvals/withdraw");
+  expect((init as RequestInit).method).toBe("POST");
+  expect((init as RequestInit).body).toBe(JSON.stringify({ note: "changed my mind" }));
 });
 
 it("throws ApiError on a non-ok response", async () => {

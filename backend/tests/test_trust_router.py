@@ -175,6 +175,34 @@ def test_approval_unknown_version_404():
         assert r.status_code == 404
 
 
+def test_owner_can_withdraw_approval_flips_validation_back():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
+            "id"
+        ]
+        # withdrawing before any approval → 409
+        assert (
+            c.post(f"/api/v1/trust/versions/{vid}/approvals/withdraw", json={}).status_code == 409
+        )
+        c.post(
+            f"/api/v1/trust/versions/{vid}/approvals",
+            json={"approved_at": "2026-07-27T00:00:00Z", "expert_name": "Dr X"},
+        )
+        assert c.get(f"/api/v1/trust/versions/{vid}").json()["is_validated"] is True
+        wd = c.post(f"/api/v1/trust/versions/{vid}/approvals/withdraw", json={})
+        assert wd.status_code == 200
+        assert wd.json()["action"] == "withdraw" and wd.json()["expert_name"] == "Dr X"
+        detail = c.get(f"/api/v1/trust/versions/{vid}").json()
+        assert detail["is_validated"] is False and detail["recorded_via"] is None
+
+
 def test_reviewer_cannot_create_artifact_403():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
