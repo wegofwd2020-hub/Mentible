@@ -13,7 +13,7 @@ import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
-import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
@@ -544,17 +544,12 @@ function TrustProjectDetailInner() {
 }
 
 export default function TrustProjectDetail() {
-  // SME surface → always Navy Trust (ADR-038). Scope wraps the content so
-  // TrustProjectDetailInner's useThemedStyles resolves navy-trust.
-  return (
-    <SmeThemeScope>
-      <TrustProjectDetailInner />
-    </SmeThemeScope>
-  );
+  // Follows the user's selected theme (ADR-038 O1 reversed).
+  return <TrustProjectDetailInner />;
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
   // Fraunces bakes the weight into the family name, so no fontWeight here (a

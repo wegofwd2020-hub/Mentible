@@ -7,7 +7,7 @@ import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useReviews } from "@/hooks/useReviews";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
-import { SmeThemeScope, useTheme, useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 
 function ReviewsInner() {
   const router = useRouter();
@@ -51,17 +51,15 @@ function ReviewsInner() {
 }
 
 export default function ReviewsScreen() {
-  // SME surface → always the Navy Trust brand (ADR-038). Scope wraps the content
-  // (not the sign-in gate) so ReviewsInner's useThemedStyles resolves navy-trust.
+  // Follows the user's selected theme (ADR-038 O1 reversed — trust surfaces no
+  // longer force the Navy Trust brand).
   return (
     <RequireSignIn action="review projects">
-      <SmeThemeScope>
-        {/* flex:1 so the FlatList/centered-empty (flex:1) has a bounded parent —
-            without it the content collapses to 0 height on native (New Arch). */}
-        <PageContainer style={{ flex: 1 }}>
-          <ReviewsInner />
-        </PageContainer>
-      </SmeThemeScope>
+      {/* flex:1 so the FlatList/centered-empty (flex:1) has a bounded parent —
+          without it the content collapses to 0 height on native (New Arch). */}
+      <PageContainer style={{ flex: 1 }}>
+        <ReviewsInner />
+      </PageContainer>
     </RequireSignIn>
   );
 }
