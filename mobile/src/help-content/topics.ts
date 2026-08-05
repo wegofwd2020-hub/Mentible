@@ -453,7 +453,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "projects",
     title: "Create & set up a project",
     featureKey: "projects",
-    keywords: ["project", "expert", "knowledge", "version", "invite", "capture", "create", "validate", "share", "journey"],
+    keywords: ["project", "expert", "knowledge", "version", "invite", "capture", "create", "validate", "share", "journey", "publish", "export", "markdown"],
     blocks: [
       {
         kind: "text",
@@ -462,6 +462,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "text",
         text: "Every project moves through four phases: capture your input, create a draft from it, have an expert validate it, then share it once it's ready. The project screen has a tab for each phase — Input, Drafts, Feedback, Publish — and opens on whichever one you're currently in, so you always know where a project stands. Tap any tab to jump to a different phase.",
+      },
+      {
+        kind: "text",
+        text: "Publish is the last phase: it lists each asset that has an expert-validated version and lets you Copy it as plain text or as Markdown, ready to paste wherever you need it. Only validated versions appear — so what you publish is the version an expert stood behind. PDF and Word export are coming as a Pro option.",
       },
       {
         kind: "steps",

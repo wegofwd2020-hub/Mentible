@@ -70,13 +70,14 @@ it("keeps the recorded_via chip on a validated version (Feedback)", async () => 
   expect(screen.getByText("expert-validated")).toBeTruthy();
 });
 
-it("the Publish tab shows a placeholder with no CTA", async () => {
+it("the Publish tab lists an approved asset with export actions", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(
     proj("owner", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: true, recorded_via: "operator" }]),
   );
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Publish:/));
-  expect(screen.getByText(/Sharing & export are coming soon\./)).toBeTruthy();
+  expect(screen.getByLabelText("Copy Guide as Markdown")).toBeTruthy();
+  expect(screen.getByText(/Pro \(coming soon\)/)).toBeTruthy();
 });
 
 it("does not yank the owner off Input after adding the first source", async () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, invite as inviteApi, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -45,6 +45,14 @@ export function useTrustProject(projectId: string) {
       return ap;
     },
     [accessToken, refresh],
+  );
+
+  const loadVersionContent = useCallback(
+    async (versionId: string): Promise<VersionDetailView> => {
+      if (!accessToken) throw new Error("Not signed in");
+      return getVersion(versionId, accessToken);
+    },
+    [accessToken],
   );
 
   const addArtifact = useCallback(async (role: string, format: string, title?: string) => {
@@ -96,5 +104,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
 }

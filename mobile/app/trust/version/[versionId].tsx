@@ -7,6 +7,7 @@ import { addFeedback, getVersion, type VersionDetailView } from "@/api/trustClie
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
+import { sectionsToPlainText } from "@/lib/draftExport";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -115,10 +116,7 @@ function TrustVersionInner() {
   };
 
   const onCopy = async () => {
-    const text = (version!.content?.sections ?? [])
-      .map((s) => [s.heading, s.body].map((t) => (t ?? "").trim()).filter(Boolean).join("\n\n"))
-      .filter(Boolean)
-      .join("\n\n");
+    const text = sectionsToPlainText(version!.content?.sections);
     try {
       await copyText(text);
       Alert.alert("Copied", "Draft content copied to the clipboard.");

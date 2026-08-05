@@ -6,6 +6,8 @@ import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
+import { copyText } from "@/lib/clipboard";
+import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
 import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
@@ -313,11 +315,70 @@ function FeedbackPanel({
   );
 }
 
-// Publish (share phase): deferred (user decision) — placeholder only, no CTA.
-function PublishPanel({ styles }: { styles: Styles }) {
+// Publish (share phase): export each APPROVED asset's validated version as plain
+// text or Markdown (client-side; content fetched on demand). PDF/Word are an
+// honest, disabled "Pro — coming soon" row (billing is dormant — ADR-005/paywall).
+function PublishPanel({
+  styles,
+  artifacts,
+  pubBusy,
+  onCopyAsset,
+}: {
+  styles: Styles;
+  artifacts: ArtifactDetailView[];
+  pubBusy: string | null;
+  onCopyAsset: (versionId: string, fmt: "text" | "markdown", title: string) => void;
+}) {
+  const publishable = artifacts
+    .map(({ artifact, versions }) => {
+      const validated = versions.filter((v) => v.is_validated);
+      const latest = validated[validated.length - 1];
+      return latest ? { artifact, version: latest } : null;
+    })
+    .filter((x): x is { artifact: ArtifactDetailView["artifact"]; version: ArtifactDetailView["versions"][number] } => x !== null);
+  if (publishable.length === 0) {
+    return (
+      <View style={styles.artifactsWrap}>
+        <Text style={styles.emptyText}>Nothing to publish yet — approve a version under Feedback, then export it here.</Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.artifactsWrap}>
-      <Text style={styles.emptyText}>Sharing & export are coming soon.</Text>
+      <Text style={styles.sourcesHelper}>Export the expert-validated version of each asset.</Text>
+      {publishable.map(({ artifact, version }) => {
+        const title = artifact.title ?? artifact.format;
+        return (
+          <View key={artifact.id} style={styles.artifact}>
+            <Text style={styles.artifactTitle}>{title}</Text>
+            <View style={styles.validatedRow}>
+              <Text style={styles.validated}>Validated ✓</Text>
+              <Text style={styles.versionLabel}>v{version.version_no}</Text>
+            </View>
+            <View style={styles.pubActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Copy ${title} as text`}
+                disabled={pubBusy !== null}
+                style={styles.approveBtn}
+                onPress={() => onCopyAsset(version.id, "text", title)}
+              >
+                <Text style={styles.approveText}>{pubBusy === `${version.id}:text` ? "…" : "Copy"}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Copy ${title} as Markdown`}
+                disabled={pubBusy !== null}
+                style={styles.approveBtn}
+                onPress={() => onCopyAsset(version.id, "markdown", title)}
+              >
+                <Text style={styles.approveText}>{pubBusy === `${version.id}:markdown` ? "…" : "Copy as Markdown"}</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.proText}>PDF & Word — Pro (coming soon)</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -327,9 +388,10 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, generateFormat, invite, addInput, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, generateFormat, invite, addInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
+  const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
   const [genBusyFormat, setGenBusyFormat] = useState<string | null>(null);
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
@@ -384,6 +446,24 @@ function TrustProjectDetailInner() {
 
   const onOpenVersion = (artifactId: string, versionId: string) =>
     router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
+
+  const onCopyAsset = (versionId: string, fmt: "text" | "markdown", title: string) => {
+    setPubBusy(`${versionId}:${fmt}`);
+    void (async () => {
+      try {
+        const v = await loadVersionContent(versionId);
+        const text = fmt === "markdown"
+          ? sectionsToMarkdown(v.content?.sections, title)
+          : sectionsToPlainText(v.content?.sections, title);
+        await copyText(text);
+        Alert.alert("Copied", fmt === "markdown" ? "Markdown copied to the clipboard." : "Text copied to the clipboard.");
+      } catch (e) {
+        Alert.alert("Couldn't copy", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setPubBusy(null);
+      }
+    })();
+  };
 
   const onAddSource = async () => {
     const content = sourceContent.trim();
@@ -455,7 +535,9 @@ function TrustProjectDetailInner() {
             onOpenVersion={onOpenVersion}
           />
         ) : null}
-        {active === "share" ? <PublishPanel styles={styles} /> : null}
+        {active === "share" ? (
+          <PublishPanel styles={styles} artifacts={project.artifacts} pubBusy={pubBusy} onCopyAsset={onCopyAsset} />
+        ) : null}
       </PageContainer>
     </ScrollView>
   );
@@ -498,6 +580,8 @@ const makeStyles = (c: Palette) => ({
   },
   approveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
   approveText: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "700" as const },
+  pubActions: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm },
+  proText: { color: c.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" as const },
   genBlock: {
     backgroundColor: c.surface,
     borderRadius: radius.md,
