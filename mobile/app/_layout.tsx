@@ -144,6 +144,10 @@ export default function RootLayout() {
             name="trust/[projectId]"
             options={{ title: "Project", headerBackTitle: "Reviews" }}
           />
+          <Stack.Screen
+            name="trust/version/[versionId]"
+            options={{ title: "Draft", headerBackTitle: "Project" }}
+          />
         </Stack>
         {/* First-run onboarding (sign up → add a key → reading tour). The wizard
             self-manages which steps apply per build (demo / unconfigured auth), so
