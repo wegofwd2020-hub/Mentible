@@ -77,6 +77,19 @@ class VersionSummaryOut(BaseModel):
     recorded_via: str | None = None
 
 
+class FeedbackIn(BaseModel):
+    body: str
+
+
+class FeedbackOut(BaseModel):
+    id: str
+    version_id: str
+    author_kind: str  # "expert" | "operator"
+    author_name: str | None
+    body: str
+    created_at: datetime | None
+
+
 class VersionDetailOut(BaseModel):
     id: str
     artifact_id: str
@@ -86,6 +99,7 @@ class VersionDetailOut(BaseModel):
     is_validated: bool
     recorded_via: str | None = None
     created_at: datetime | None
+    feedback: list[FeedbackOut] = []
 
 
 class ArtifactDetailOut(BaseModel):

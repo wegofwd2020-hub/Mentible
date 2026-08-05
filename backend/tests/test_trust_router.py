@@ -203,6 +203,46 @@ def test_owner_can_withdraw_approval_flips_validation_back():
         assert detail["is_validated"] is False and detail["recorded_via"] is None
 
 
+def test_feedback_records_revision_note_and_appears_in_version_detail():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
+            "id"
+        ]
+        # empty body → 422
+        assert (
+            c.post(f"/api/v1/trust/versions/{vid}/feedback", json={"body": "  "}).status_code == 422
+        )
+        # owner note → operator
+        of = c.post(
+            f"/api/v1/trust/versions/{vid}/feedback", json={"body": "tighten the intro"}
+        ).json()
+        assert of["author_kind"] == "operator"
+        # reviewer note → expert
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        rf = c.post(f"/api/v1/trust/versions/{vid}/feedback", json={"body": "add a source"}).json()
+        assert rf["author_kind"] == "expert" and rf["author_name"] == expert_email
+        # both notes surface on the version detail, in order
+        detail = c.get(f"/api/v1/trust/versions/{vid}").json()
+        assert [f["body"] for f in detail["feedback"]] == ["tighten the intro", "add a source"]
+
+
+def test_feedback_unknown_version_404():
+    with TestClient(app) as c:
+        _as(f"u-{uuid.uuid4()}", f"u-{uuid.uuid4()}@x.z")
+        r = c.post(f"/api/v1/trust/versions/{uuid.uuid4()}/feedback", json={"body": "hi"})
+        assert r.status_code == 404
+
+
 def test_reviewer_cannot_create_artifact_403():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"

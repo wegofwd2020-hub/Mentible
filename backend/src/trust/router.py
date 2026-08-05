@@ -23,7 +23,14 @@ from ..billing.vault import get_managed_key
 from ..core.log_redaction import get_logger
 from ..core.rate_limit import enforce_rate_limit
 from ..db.deps import get_conn
-from . import approval_repo, artifact_repo, membership_repo, project_repo, schemas
+from . import (
+    approval_repo,
+    artifact_repo,
+    feedback_repo,
+    membership_repo,
+    project_repo,
+    schemas,
+)
 from .access import (
     ProjectAccessError,
     project_id_for_artifact,
@@ -204,6 +211,7 @@ async def get_version(
     if v is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     ap = await approval_repo.get_approval(conn, version_id=version_id)
+    fb = await feedback_repo.list_feedback(conn, version_id=version_id)
     return schemas.VersionDetailOut(
         id=str(v.id),
         artifact_id=str(v.artifact_id),
@@ -213,6 +221,17 @@ async def get_version(
         is_validated=ap is not None and ap.action == "approve",
         recorded_via=ap.recorded_via if ap and ap.action == "approve" else None,
         created_at=v.created_at,
+        feedback=[
+            schemas.FeedbackOut(
+                id=str(f.id),
+                version_id=str(f.version_id),
+                author_kind=f.author_kind,
+                author_name=f.author_name,
+                body=f.body,
+                created_at=f.created_at,
+            )
+            for f in fb
+        ],
     )
 
 
@@ -511,4 +530,40 @@ async def withdraw_version_approval(
         approved_at=ap.approved_at,
         recorded_via=ap.recorded_via,
         action=ap.action,
+    )
+
+
+@router.post("/versions/{version_id}/feedback", response_model=schemas.FeedbackOut)
+async def add_version_feedback(
+    version_id: uuid.UUID,
+    body: schemas.FeedbackIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.FeedbackOut:
+    """Record a revision note on a version. Owner OR reviewer; author_kind is
+    derived from role (reviewer → expert, owner → operator)."""
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "feedback body is required")
+    project_id = await project_id_for_version(conn, version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    author_kind = "expert" if role == "reviewer" else "operator"
+    f = await feedback_repo.add_feedback(
+        conn,
+        version_id=version_id,
+        author_kind=author_kind,
+        author_name=account.email or principal.sub,
+        body=text,
+        recorded_by_sub=principal.sub,
+    )
+    return schemas.FeedbackOut(
+        id=str(f.id),
+        version_id=str(f.version_id),
+        author_kind=f.author_kind,
+        author_name=f.author_name,
+        body=f.body,
+        created_at=f.created_at,
     )

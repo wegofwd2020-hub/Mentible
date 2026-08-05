@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { getVersion, type VersionDetailView } from "@/api/trustClient";
+import { addFeedback, getVersion, type VersionDetailView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
@@ -34,6 +34,8 @@ function TrustVersionInner() {
   const [apBusy, setApBusy] = useState(false);
   const [askName, setAskName] = useState(false);
   const [expertName, setExpertName] = useState("");
+  const [noteBody, setNoteBody] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Re-fetch just this version (used after approve/unapprove so the header's
@@ -185,6 +187,23 @@ function TrustVersionInner() {
         },
       ],
     );
+  };
+
+  const onAddFeedback = () => {
+    const text = noteBody.trim();
+    if (!text || !accessToken) return;
+    setNoteBusy(true);
+    void (async () => {
+      try {
+        await addFeedback(String(versionId), { body: text }, accessToken);
+        setNoteBody("");
+        await reloadVersion().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't send", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setNoteBusy(false);
+      }
+    })();
   };
 
   const updateSection = (i: number, field: "heading" | "body", value: string) => {
@@ -346,6 +365,42 @@ function TrustVersionInner() {
             </View>
           ))
         )}
+        {!editing ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Revision notes</Text>
+            {(version.feedback ?? []).length === 0 ? (
+              <Text style={styles.notesEmpty}>No revision notes yet. Ask for a change below.</Text>
+            ) : (
+              (version.feedback ?? []).map((f) => (
+                <View key={f.id} style={styles.noteRow}>
+                  <Text style={styles.noteMeta}>
+                    {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
+                    {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
+                  </Text>
+                  <Text style={styles.noteBody}>{f.body}</Text>
+                </View>
+              ))
+            )}
+            <TextInput
+              style={[styles.input, styles.bodyInput]}
+              value={noteBody}
+              onChangeText={setNoteBody}
+              accessibilityLabel="Revision note"
+              placeholder="Request a revision…"
+              maxLength={1000}
+              multiline
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send revision request"
+              style={[styles.saveBtn, !noteBody.trim() ? styles.disabledBtn : null]}
+              disabled={noteBusy || !noteBody.trim()}
+              onPress={onAddFeedback}
+            >
+              <Text style={styles.saveBtnText}>{noteBusy ? "Sending…" : "Request a revision"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </Pressable>
@@ -396,4 +451,10 @@ const makeStyles = (c: Palette) => ({
   saveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: "center" as const },
   saveBtnText: { color: c.primaryText, fontSize: typography.sizeMd },
   disabledBtn: { opacity: 0.5 },
+  notesBlock: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
+  notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
+  noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
+  noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
 });

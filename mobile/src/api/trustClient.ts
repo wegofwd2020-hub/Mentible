@@ -11,11 +11,16 @@ export interface ArtifactView {
 }
 export interface VersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean; recorded_via: string | null }
 export interface DraftSection { heading: string; body: string; source_ids: string[] }
+export interface FeedbackView {
+  id: string; version_id: string; author_kind: string; author_name: string | null;
+  body: string; created_at: string | null;
+}
 export interface VersionDetailView {
   id: string; artifact_id: string; version_no: number;
   content: { sections: DraftSection[] };
   generation_meta: Record<string, unknown> | null;
   is_validated: boolean; recorded_via: string | null; created_at: string | null;
+  feedback: FeedbackView[];
 }
 export interface ArtifactDetailView { artifact: ArtifactView; versions: VersionSummaryView[] }
 export interface ProjectInputView {
@@ -74,6 +79,14 @@ export async function withdrawApproval(
   return (await trustFetch<ApprovalView>(
     `/versions/${versionId}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
   )) as ApprovalView;
+}
+
+export async function addFeedback(
+  versionId: string, body: { body: string }, token: string,
+): Promise<FeedbackView> {
+  return (await trustFetch<FeedbackView>(
+    `/versions/${versionId}/feedback`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as FeedbackView;
 }
 
 export async function listOwnedProjects(token: string): Promise<ProjectSummaryView[]> {
