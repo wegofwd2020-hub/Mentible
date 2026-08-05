@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, invite as inviteApi, type ApprovalView, type ProjectDetailView, type ProjectInputView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
+import type { DraftFormat } from "@/constants/draftFormats";
 
 export function useTrustProject(projectId: string) {
   const { accessToken, status } = useAuth();
@@ -52,6 +53,16 @@ export function useTrustProject(projectId: string) {
     await refresh(); return v;
   }, [accessToken, refresh]);
 
+  const generateFormat = useCallback(async (fmt: DraftFormat) => {
+    const key = await loadApiKey("anthropic");
+    if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
+    if (!accessToken) throw new Error("Not signed in");
+    const a = await createArtifact(projectId, { role: fmt.role, format: fmt.format, title: fmt.label }, accessToken);
+    const v = await generateVersionApi(a.id, { api_key: key, provider_id: "anthropic" }, accessToken);
+    await refresh();
+    return v;
+  }, [accessToken, projectId, refresh]);
+
   const invite = useCallback(async (email: string) => {
     if (!accessToken) throw new Error("Not signed in");
     const inv = await inviteApi(projectId, email, accessToken);
@@ -71,5 +82,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, addArtifact, addVersion, generateVersion, invite, addInput, inputs };
+  return { project, loading, error, refresh, approve, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
 }

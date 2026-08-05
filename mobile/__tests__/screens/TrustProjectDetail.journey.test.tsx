@@ -45,7 +45,7 @@ it("tapping the Drafts tab switches to the drafts panel", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("owner", [{ id: "i" }]));
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  expect(screen.getByLabelText("Generate a draft")).toBeTruthy();
+  expect(screen.getByLabelText("Generate LinkedIn post")).toBeTruthy();
 });
 
 it("a reviewer auto-lands on Feedback with an Approve control", async () => {

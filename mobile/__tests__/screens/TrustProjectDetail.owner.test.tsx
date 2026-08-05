@@ -23,7 +23,7 @@ it("owner sees the Invite action on Feedback; reviewer does not", async () => {
   fireEvent.press(await screen.findByLabelText(/Feedback:/));
   expect(screen.queryByLabelText("Invite an expert")).toBeNull();
 });
-it("owner sees Add-artifact on Drafts when there are no artifacts yet", async () => {
+it("owner sees the generate picker on Drafts when there are no artifacts yet", async () => {
   const noArtifacts = proj("owner");
   (useTrustProject as jest.Mock).mockReturnValue({
     ...noArtifacts,
@@ -31,7 +31,9 @@ it("owner sees Add-artifact on Drafts when there are no artifacts yet", async ()
   });
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  expect(screen.getByLabelText("Add an artifact")).toBeTruthy();
+  expect(screen.getByText("LinkedIn post")).toBeTruthy();
+  // No sources on this fixture, so the picker is disabled with its hint.
+  expect(screen.getByText(/add a source first/i)).toBeTruthy();
 });
 it("shows the recorded_via chip on a validated version (Feedback)", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer", true, "expert_self"));

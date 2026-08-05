@@ -15,6 +15,7 @@ ARTIFACT_FORMATS = (
     "reel",
     "linkedin",
     "x_thread",
+    "essay",
 )
 FEEDBACK_AUTHOR_KINDS = ("expert", "operator")
 MEMBERSHIP_ROLES = ("owner", "reviewer")

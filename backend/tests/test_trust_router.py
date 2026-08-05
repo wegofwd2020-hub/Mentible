@@ -440,3 +440,16 @@ def test_get_version_owner_reviewer_read_stranger_403_and_404():
         # unknown version is 404
         _as(owner, owner_email)
         assert c.get(f"/api/v1/trust/versions/{uuid.uuid4()}").status_code == 404
+
+
+def test_create_essay_artifact_accepted():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "essay"},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["format"] == "essay"
