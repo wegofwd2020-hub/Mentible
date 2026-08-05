@@ -1,7 +1,27 @@
 # ADR-038 — Navy Trust design language for the SME studio
 
-**Status:** Accepted — direction (2026-07-31); palette build (D1) deferred as a fast-follow, O3/O4 as noted below
+**Status:** Accepted — direction (2026-07-31); **O1's "forced navy on SME surfaces" half REVERSED 2026-08-05 (see amendment)**; palette build (D1) deferred as a fast-follow, O3/O4 as noted below
 **Relates to:** ADR-037 (SME expert-validation reposition — the product this brand dresses), [[project_multi_theme_engine]] (the ThemeProvider this would extend)
+
+> **★ AMENDED 2026-08-05 — O1's forced-navy half is REVERSED; the SME/trust
+> surfaces now FOLLOW the user's selected theme.** In practice the forced navy
+> read as a bug: a user who picked (say) Forest & Moss still saw navy on Projects,
+> Reviews, the project detail, and the draft viewer. So `SmeThemeScope` was
+> **removed** from all five SME screens (`projects`, `reviews`, `trust/new`,
+> `trust/[projectId]`, `trust/version/[versionId]`) and they now resolve the global
+> `ThemeProvider` like every other screen (PR #375). A separate root cause — the
+> tabs navigator's `sceneStyle` was pinned to the static Study palette, leaving
+> plain pages like Posts dark on any theme — was fixed by sourcing it from
+> `useTheme()`.
+>
+> **The *other* half of O1 stands:** `navy-trust` remains a **user-selectable**
+> palette everywhere, and PR #376 made it discoverable (the Settings swatch row now
+> wraps so all six themes show). `SmeThemeScope` + `navyTrustColors` are kept in the
+> codebase (now unused by app screens) so Navy Trust stays available as a *choice*.
+>
+> **Net:** Navy Trust is the brand's *recommended* look, offered as a selectable
+> theme — no longer force-applied. Every "the SME surfaces **always** render Navy
+> Trust regardless of the global theme" statement below is superseded by this.
 **Source:** `mentible-design-export.md` (external design export — the Lovable prototype's design system), companion `mentible-direction.md` (product/IA — not yet reviewed here)
 
 ## Context
@@ -76,10 +96,11 @@ the design language for *new* SME surfaces. Concretely:
 
 ## Resolved (2026-07-31)
 
-- **O1 — Default theme → DECIDED: SME-surfaces default, selectable elsewhere.**
-  `navy-trust` is the default palette **within the SME/trust surfaces**; the
-  learner mode keeps `study` as its default; the palette is user-selectable
-  everywhere. Matches ADR-037's SME-primary / learner-secondary split without a
+- **O1 — Default theme → DECIDED, then PARTLY REVERSED (2026-08-05, see amendment
+  banner).** ~~`navy-trust` is the default palette **within the SME/trust
+  surfaces**~~ — the forced-on-SME half was reversed; SME surfaces now follow the
+  selected theme. The learner mode keeps `study` as its default; the palette is
+  user-selectable everywhere (this half stands). Matches ADR-037's SME-primary / learner-secondary split without a
   disruptive global reskin, and avoids a big-bang change to the purple default.
 - **O2 — Fraunces → DECIDED: palette first, Fraunces as a fast-follow.** Ship
   the `navy-trust` palette (D1) first; adopt Fraunces serif headings as a
@@ -101,12 +122,14 @@ the design language for *new* SME surfaces. Concretely:
    - *Slice 1:* `navyTrustColors` in `constants/theme.ts` + `THEME_META`
      (`mode: "dark"`); contrast-gated in `__tests__/theme/palettes.test.ts`;
      auto-listed in the Settings Appearance switcher.
-   - *Slice 2 (O1 = forced):* `SmeThemeScope` (a `ThemeContext` override forcing
-     navy-trust, no persistence, no-op `setTheme`) + migrated the 4 SME screens
-     (`projects`, `reviews`, `trust/new`, `trust/[projectId]`) **and** the
-     `TrustJourney` stepper from static `colors` → `useThemedStyles`. The SME
-     surfaces always render Navy Trust regardless of the global theme. Scope
-     limited to those surfaces; the ~76-file global migration stays deferred.
+   - *Slice 2 (O1 = forced) — ⚠️ REVERSED 2026-08-05 (PR #375):* `SmeThemeScope`
+     (a `ThemeContext` override forcing navy-trust, no persistence, no-op
+     `setTheme`) + migrated the SME screens (`projects`, `reviews`, `trust/new`,
+     `trust/[projectId]`, `trust/version/[versionId]`) from static `colors` →
+     `useThemedStyles`. **The scope has since been removed** — the `useThemedStyles`
+     migration of these screens stays (that's what lets them follow the theme), but
+     they no longer force navy; they resolve the global `ThemeProvider`. The
+     ~76-file global migration of the *rest* of the app stays deferred.
    - Whole-slice adversarial review: APPROVE after fixing the `TrustJourney`
      seam. Full mobile suite 1201/1201, tsc 0, eslint 0.
 2. **Fraunces (O2) — ✅ BUILT** (branch `next/2026-07-31`, brand=B / SME-scoped).
