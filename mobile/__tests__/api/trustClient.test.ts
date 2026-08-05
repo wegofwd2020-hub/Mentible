@@ -1,4 +1,4 @@
-import { syncSession, getProject, approveVersion, withdrawApproval } from "@/api/trustClient";
+import { syncSession, getProject, approveVersion, withdrawApproval, addFeedback } from "@/api/trustClient";
 
 const okJson = (body: unknown) =>
   Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
@@ -36,6 +36,17 @@ it("withdrawApproval POSTs to the withdraw endpoint and returns the record", asy
   expect(String(url)).toContain("/api/v1/trust/versions/v1/approvals/withdraw");
   expect((init as RequestInit).method).toBe("POST");
   expect((init as RequestInit).body).toBe(JSON.stringify({ note: "changed my mind" }));
+});
+
+it("addFeedback POSTs the note to the feedback endpoint", async () => {
+  const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+    okJson({ id: "f1", version_id: "v1", author_kind: "expert", author_name: "Dr X", body: "tighten intro", created_at: null }));
+  const out = await addFeedback("v1", { body: "tighten intro" }, "tok");
+  expect(out.author_kind).toBe("expert");
+  const [url, init] = spy.mock.calls[0];
+  expect(String(url)).toContain("/api/v1/trust/versions/v1/feedback");
+  expect((init as RequestInit).method).toBe("POST");
+  expect((init as RequestInit).body).toBe(JSON.stringify({ body: "tighten intro" }));
 });
 
 it("throws ApiError on a non-ok response", async () => {

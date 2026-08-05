@@ -41,7 +41,9 @@ async def add_feedback(
 
 async def list_feedback(conn, *, version_id) -> list[Feedback]:
     rows = await conn.fetch(
-        f"SELECT {_F} FROM feedback WHERE version_id = $1 ORDER BY created_at, id",
+        # `seq` (bigserial) is the strict insertion order — created_at ties within
+        # a transaction and id is a random uuid (see migration 0013).
+        f"SELECT {_F} FROM feedback WHERE version_id = $1 ORDER BY seq",
         version_id,
     )
     return [_feedback(r) for r in rows]

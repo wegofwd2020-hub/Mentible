@@ -558,9 +558,9 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "draft-viewer",
-    title: "Read, copy, approve, edit & regenerate a draft",
+    title: "Read, copy, approve, request revisions, edit & regenerate a draft",
     featureKey: "draft-viewer",
-    keywords: ["draft", "content", "read", "view", "copy", "clipboard", "approve", "unapprove", "withdraw", "edit", "revise", "regenerate", "version", "guidance"],
+    keywords: ["draft", "content", "read", "view", "copy", "clipboard", "approve", "unapprove", "withdraw", "feedback", "revision", "request", "note", "edit", "revise", "regenerate", "version", "guidance"],
     blocks: [
       {
         kind: "text",
@@ -569,6 +569,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "text",
         text: "Approving records that the version is validated; Unapprove withdraws that approval and returns the version to \"awaiting review\". Both are kept as a record — unapproving doesn't erase the earlier approval, it appends a withdrawal — so a version's trust history stays intact.",
+      },
+      {
+        kind: "text",
+        text: "Under the draft, Revision notes is a running log for that version: a reviewer (or the owner) can Request a revision — a short note asking for a change — and every note stays attached to the version it was about. The owner then edits or regenerates to produce the next version in response.",
       },
       {
         kind: "text",
