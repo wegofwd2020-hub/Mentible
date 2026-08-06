@@ -5,7 +5,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ versionId: "vA", b: "vB", artifactId: "a1", projectId: "p1" }),
   useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
 }));
-jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
+const mockUseAuth = jest.fn((): { accessToken: string | null; status: string } => ({ accessToken: "tok", status: "signed_in" }));
+jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => mockUseAuth() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: () => ({ project: { inputs: [] } }) }));
 const mockGetVersion = jest.fn(async (id: string) =>
   id === "vA"
@@ -22,4 +23,17 @@ it("renders both versions and marks changed + added sections", async () => {
   expect(getByText("new body")).toBeTruthy();
   expect(getByTestId("section-0-changed")).toBeTruthy();  // H body differs
   expect(getByTestId("section-1-added")).toBeTruthy();     // Extra only in B
+});
+
+it("shows a sign-in error instead of spinning forever when signed out", async () => {
+  mockUseAuth.mockReturnValue({ accessToken: null, status: "signed_out" });
+  const callsBefore = mockGetVersion.mock.calls.length;
+  try {
+    const { getByText, queryByText } = render(<TrustCompare />);
+    await waitFor(() => expect(getByText("Please sign in to compare versions.")).toBeTruthy());
+    expect(mockGetVersion.mock.calls.length).toBe(callsBefore);
+    expect(queryByText("Back")).toBeTruthy();
+  } finally {
+    mockUseAuth.mockReturnValue({ accessToken: "tok", status: "signed_in" });
+  }
 });

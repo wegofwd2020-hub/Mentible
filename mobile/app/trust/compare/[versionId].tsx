@@ -29,7 +29,10 @@ function TrustCompareInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      setError("Please sign in to compare versions.");
+      return;
+    }
     let live = true;
     void (async () => {
       try {
@@ -137,19 +140,12 @@ function TrustCompareInner() {
             </Pressable>
           </View>
         </View>
-        {rows.map((row) =>
-          wide ? (
-            <View key={row.i} testID={`section-${row.i}-${row.status}`} style={styles.rowWide}>
-              {renderCell(row.a, row.status)}
-              {renderCell(row.b, row.status)}
-            </View>
-          ) : (
-            <View key={row.i} testID={`section-${row.i}-${row.status}`} style={styles.rowStacked}>
-              {renderCell(row.a, row.status)}
-              {renderCell(row.b, row.status)}
-            </View>
-          ),
-        )}
+        {rows.map((row) => (
+          <View key={row.i} testID={`section-${row.i}-${row.status}`} style={wide ? styles.rowWide : styles.rowStacked}>
+            {renderCell(row.a, row.status)}
+            {renderCell(row.b, row.status)}
+          </View>
+        ))}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </Pressable>

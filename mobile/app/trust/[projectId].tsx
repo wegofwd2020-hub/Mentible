@@ -249,7 +249,10 @@ function DraftsPanel({
                         accessibilityRole="button"
                         accessibilityLabel={`View version ${v.version_no}`}
                         style={styles.viewBtn}
-                        onPress={() => onOpenVersion(artifact.id, v.id)}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          onOpenVersion(artifact.id, v.id);
+                        }}
                       >
                         <Text style={styles.viewBtnText}>View</Text>
                       </Pressable>
@@ -264,6 +267,7 @@ function DraftsPanel({
                       accessibilityRole="button"
                       accessibilityLabel="Compare selected versions"
                       disabled={compareSel.length !== 2}
+                      accessibilityState={{ disabled: compareSel.length !== 2 }}
                       style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
                       onPress={() => onCompare(artifact.id)}
                     >
@@ -387,7 +391,10 @@ function FeedbackPanel({
                     accessibilityRole="button"
                     accessibilityLabel={`View version ${v.version_no}`}
                     style={styles.viewBtn}
-                    onPress={() => onOpenVersion(artifact.id, v.id)}
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onOpenVersion(artifact.id, v.id);
+                    }}
                   >
                     <Text style={styles.viewBtnText}>View</Text>
                   </Pressable>
@@ -401,6 +408,7 @@ function FeedbackPanel({
                     accessibilityRole="button"
                     accessibilityLabel="Compare selected versions"
                     disabled={compareSel.length !== 2}
+                    accessibilityState={{ disabled: compareSel.length !== 2 }}
                     style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
                     onPress={() => onCompare(artifact.id)}
                   >
