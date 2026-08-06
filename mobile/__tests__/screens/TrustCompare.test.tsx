@@ -54,3 +54,16 @@ it("keeps spinning (no error) while auth is still loading — cold deep-link, re
     mockUseAuth.mockReturnValue({ accessToken: "tok", status: "signed_in" });
   }
 });
+
+it("shows the sign-in error (not a permanent spinner) when auth is unavailable", async () => {
+  mockUseAuth.mockReturnValue({ accessToken: null, status: "unavailable" });
+  const callsBefore = mockGetVersion.mock.calls.length;
+  try {
+    const { getByText, queryByText } = render(<TrustCompare />);
+    await waitFor(() => expect(getByText("Please sign in to compare versions.")).toBeTruthy());
+    expect(mockGetVersion.mock.calls.length).toBe(callsBefore);
+    expect(queryByText("Back")).toBeTruthy();
+  } finally {
+    mockUseAuth.mockReturnValue({ accessToken: "tok", status: "signed_in" });
+  }
+});

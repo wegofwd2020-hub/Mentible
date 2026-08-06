@@ -31,10 +31,14 @@ function TrustCompareInner() {
   useEffect(() => {
     if (!accessToken) {
       // Auth is still resolving (cold deep-link) — keep spinning, the effect
-      // re-runs once `status`/`accessToken` settle. Only a confirmed
-      // signed-out session is an actual error; don't stick the user on a
-      // permanent sign-in error while a real session is still loading.
-      if (status === "signed_out") setError("Please sign in to compare versions.");
+      // re-runs once `status`/`accessToken` settle. Only a terminal,
+      // token-less status (confirmed signed-out, or auth unavailable — e.g.
+      // Supabase unconfigured / demo builds, which never transitions) is an
+      // actual error; don't stick the user on a permanent sign-in error
+      // while a real session is still loading.
+      if (status === "signed_out" || status === "unavailable") {
+        setError("Please sign in to compare versions.");
+      }
       return;
     }
     let live = true;
