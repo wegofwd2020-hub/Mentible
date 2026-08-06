@@ -11,6 +11,7 @@ import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
 import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
+import { versionTimestamp } from "@/lib/versionTimestamp";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -149,6 +150,11 @@ function DraftsPanel({
   genBusyFormat,
   onGenerateFormat,
   onOpenVersion,
+  compareArtifactId,
+  compareSel,
+  toggleCompareMode,
+  toggleCompareSel,
+  onCompare,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -157,6 +163,11 @@ function DraftsPanel({
   genBusyFormat: string | null;
   onGenerateFormat: (fmt: DraftFormat) => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
+  compareArtifactId: string | null;
+  compareSel: string[];
+  toggleCompareMode: (artifactId: string) => void;
+  toggleCompareSel: (versionId: string) => void;
+  onCompare: (artifactId: string) => void;
 }) {
   return (
     <View style={styles.artifactsWrap}>
@@ -188,38 +199,103 @@ function DraftsPanel({
       {artifacts.length === 0 ? (
         !isOwner ? <Text style={styles.emptyText}>Waiting for the owner to create a draft.</Text> : null
       ) : (
-        artifacts.map(({ artifact, versions }) => (
-          <View key={artifact.id} style={styles.artifact}>
-            <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-            {versions.length === 0 ? (
-              <Text style={styles.emptyText}>No drafts yet.</Text>
-            ) : (
-              versions.map((v) => (
-                <Pressable
-                  key={v.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open version ${v.version_no}`}
-                  style={styles.versionRow}
-                  onPress={() => onOpenVersion(artifact.id, v.id)}
-                >
-                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                  {v.is_validated ? (
-                    <View style={styles.validatedRow}>
-                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                      {v.recorded_via === "expert_self" ? (
-                        <Text style={styles.chip}>expert-validated</Text>
-                      ) : v.recorded_via === "operator" ? (
-                        <Text style={styles.chip}>operator-recorded</Text>
+        artifacts.map(({ artifact, versions }) => {
+          const inCompareMode = compareArtifactId === artifact.id;
+          return (
+            <View key={artifact.id} style={styles.artifact}>
+              <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+              {versions.length === 0 ? (
+                <Text style={styles.emptyText}>No drafts yet.</Text>
+              ) : (
+                versions.map((v) => {
+                  const ts = versionTimestamp(v.created_at);
+                  return (
+                    <Pressable
+                      key={v.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open version ${v.version_no}`}
+                      style={styles.versionRow}
+                      onPress={() => onOpenVersion(artifact.id, v.id)}
+                    >
+                      <View style={styles.versionRowLeft}>
+                        <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                        {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
+                      </View>
+                      {v.is_validated ? (
+                        <View style={styles.validatedRow}>
+                          <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                          {v.recorded_via === "expert_self" ? (
+                            <Text style={styles.chip}>expert-validated</Text>
+                          ) : v.recorded_via === "operator" ? (
+                            <Text style={styles.chip}>operator-recorded</Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <Text style={styles.versionLabel}>Awaiting review</Text>
+                      )}
+                      {inCompareMode ? (
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={`Select version ${v.version_no}`}
+                          accessibilityState={{ checked: compareSel.includes(v.id) }}
+                          style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            toggleCompareSel(v.id);
+                          }}
+                        />
                       ) : null}
-                    </View>
-                  ) : (
-                    <Text style={styles.versionLabel}>Awaiting review</Text>
-                  )}
-                </Pressable>
-              ))
-            )}
-          </View>
-        ))
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`View version ${v.version_no}`}
+                        style={styles.viewBtn}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          onOpenVersion(artifact.id, v.id);
+                        }}
+                      >
+                        <Text style={styles.viewBtnText}>View</Text>
+                      </Pressable>
+                    </Pressable>
+                  );
+                })
+              )}
+              {versions.length >= 2 ? (
+                inCompareMode ? (
+                  <View style={styles.compareRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Compare selected versions"
+                      disabled={compareSel.length !== 2}
+                      accessibilityState={{ disabled: compareSel.length !== 2 }}
+                      style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
+                      onPress={() => onCompare(artifact.id)}
+                    >
+                      <Text style={styles.approveText}>Compare selected versions</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel"
+                      style={styles.compareBtn}
+                      onPress={() => toggleCompareMode(artifact.id)}
+                    >
+                      <Text style={styles.viewBtnText}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Compare versions"
+                    style={styles.compareBtn}
+                    onPress={() => toggleCompareMode(artifact.id)}
+                  >
+                    <Text style={styles.viewBtnText}>Compare…</Text>
+                  </Pressable>
+                )
+              ) : null}
+            </View>
+          );
+        })
       )}
     </View>
   );
@@ -241,6 +317,11 @@ function FeedbackPanel({
   inviteBusy,
   onInvite,
   onOpenVersion,
+  compareArtifactId,
+  compareSel,
+  toggleCompareMode,
+  toggleCompareSel,
+  onCompare,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -252,40 +333,110 @@ function FeedbackPanel({
   inviteBusy: boolean;
   onInvite: () => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
+  compareArtifactId: string | null;
+  compareSel: string[];
+  toggleCompareMode: (artifactId: string) => void;
+  toggleCompareSel: (versionId: string) => void;
+  onCompare: (artifactId: string) => void;
 }) {
   if (!anyVersion) {
     return <Text style={styles.emptyText}>Finish Drafts first — generate a draft before it can be reviewed.</Text>;
   }
   return (
     <View style={styles.artifactsWrap}>
-      {artifacts.map(({ artifact, versions }) => (
-        <View key={artifact.id} style={styles.artifact}>
-          <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-          {versions.map((v) => (
-            <Pressable
-              key={v.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open version ${v.version_no}`}
-              style={styles.versionRow}
-              onPress={() => onOpenVersion(artifact.id, v.id)}
-            >
-              <Text style={styles.versionLabel}>v{v.version_no}</Text>
-              {v.is_validated ? (
-                <View style={styles.validatedRow}>
-                  <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                  {v.recorded_via === "expert_self" ? (
-                    <Text style={styles.chip}>expert-validated</Text>
-                  ) : v.recorded_via === "operator" ? (
-                    <Text style={styles.chip}>operator-recorded</Text>
+      {artifacts.map(({ artifact, versions }) => {
+        const inCompareMode = compareArtifactId === artifact.id;
+        return (
+          <View key={artifact.id} style={styles.artifact}>
+            <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+            {versions.map((v) => {
+              const ts = versionTimestamp(v.created_at);
+              return (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open version ${v.version_no}`}
+                  style={styles.versionRow}
+                  onPress={() => onOpenVersion(artifact.id, v.id)}
+                >
+                  <View style={styles.versionRowLeft}>
+                    <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                    {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
+                  </View>
+                  {v.is_validated ? (
+                    <View style={styles.validatedRow}>
+                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                      {v.recorded_via === "expert_self" ? (
+                        <Text style={styles.chip}>expert-validated</Text>
+                      ) : v.recorded_via === "operator" ? (
+                        <Text style={styles.chip}>operator-recorded</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.versionLabel}>Review →</Text>
+                  )}
+                  {inCompareMode ? (
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`Select version ${v.version_no}`}
+                      accessibilityState={{ checked: compareSel.includes(v.id) }}
+                      style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        toggleCompareSel(v.id);
+                      }}
+                    />
                   ) : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`View version ${v.version_no}`}
+                    style={styles.viewBtn}
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onOpenVersion(artifact.id, v.id);
+                    }}
+                  >
+                    <Text style={styles.viewBtnText}>View</Text>
+                  </Pressable>
+                </Pressable>
+              );
+            })}
+            {versions.length >= 2 ? (
+              inCompareMode ? (
+                <View style={styles.compareRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Compare selected versions"
+                    disabled={compareSel.length !== 2}
+                    accessibilityState={{ disabled: compareSel.length !== 2 }}
+                    style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
+                    onPress={() => onCompare(artifact.id)}
+                  >
+                    <Text style={styles.approveText}>Compare selected versions</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel"
+                    style={styles.compareBtn}
+                    onPress={() => toggleCompareMode(artifact.id)}
+                  >
+                    <Text style={styles.viewBtnText}>Cancel</Text>
+                  </Pressable>
                 </View>
               ) : (
-                <Text style={styles.versionLabel}>Review →</Text>
-              )}
-            </Pressable>
-          ))}
-        </View>
-      ))}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Compare versions"
+                  style={styles.compareBtn}
+                  onPress={() => toggleCompareMode(artifact.id)}
+                >
+                  <Text style={styles.viewBtnText}>Compare…</Text>
+                </Pressable>
+              )
+            ) : null}
+          </View>
+        );
+      })}
       {isOwner ? (
         <View style={styles.ownerBlock}>
           <Text style={styles.artifactTitle}>Invite an expert</Text>
@@ -399,6 +550,17 @@ function TrustProjectDetailInner() {
   const [sourceContent, setSourceContent] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
   const [selected, setSelected] = useState<PhaseKey | null>(null);
+  const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
+  const [compareSel, setCompareSel] = useState<string[]>([]);
+
+  const toggleCompareMode = (artifactId: string) => {
+    setCompareArtifactId((cur) => (cur === artifactId ? null : artifactId));
+    setCompareSel([]);
+  };
+  const toggleCompareSel = (versionId: string) =>
+    setCompareSel((cur) =>
+      cur.includes(versionId) ? cur.filter((x) => x !== versionId) : cur.length < 2 ? [...cur, versionId] : cur,
+    );
 
   // Seed the selected tab ONCE, from the phase the project is in when it
   // first loads. Later data changes (e.g. adding a source advances the
@@ -446,6 +608,14 @@ function TrustProjectDetailInner() {
 
   const onOpenVersion = (artifactId: string, versionId: string) =>
     router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
+
+  const onCompare = (artifactId: string) => {
+    if (compareSel.length !== 2) return;
+    router.push({
+      pathname: "/trust/compare/[versionId]",
+      params: { versionId: compareSel[0], b: compareSel[1], artifactId, projectId: String(projectId) },
+    });
+  };
 
   const onCopyAsset = (versionId: string, fmt: "text" | "markdown", title: string) => {
     setPubBusy(`${versionId}:${fmt}`);
@@ -519,6 +689,11 @@ function TrustProjectDetailInner() {
             genBusyFormat={genBusyFormat}
             onGenerateFormat={onGenerateFormat}
             onOpenVersion={onOpenVersion}
+            compareArtifactId={compareArtifactId}
+            compareSel={compareSel}
+            toggleCompareMode={toggleCompareMode}
+            toggleCompareSel={toggleCompareSel}
+            onCompare={onCompare}
           />
         ) : null}
         {active === "validate" ? (
@@ -533,6 +708,11 @@ function TrustProjectDetailInner() {
             inviteBusy={inviteBusy}
             onInvite={onInvite}
             onOpenVersion={onOpenVersion}
+            compareArtifactId={compareArtifactId}
+            compareSel={compareSel}
+            toggleCompareMode={toggleCompareMode}
+            toggleCompareSel={toggleCompareSel}
+            onCompare={onCompare}
           />
         ) : null}
         {active === "share" ? (
@@ -559,9 +739,19 @@ const makeStyles = (c: Palette) => ({
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
-  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
+  versionRowLeft: { flexShrink: 1 as const },
+  versionRowTs: { color: c.textMuted, fontSize: typography.sizeXs },
   versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
   validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  viewBtn: {
+    borderWidth: 1 as const,
+    borderColor: c.border,
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  viewBtnText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "700" as const },
   validated: { color: c.growth, fontSize: typography.sizeSm, fontWeight: "700" as const },
   chip: {
     color: c.textSecondary,
@@ -664,4 +854,22 @@ const makeStyles = (c: Palette) => ({
   sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
   artifactsWrap: { gap: spacing.md },
+  compareRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  compareBtn: {
+    alignSelf: "flex-start" as const,
+    borderWidth: 1 as const,
+    borderColor: c.border,
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.sm,
+    borderWidth: 2 as const,
+    borderColor: c.border,
+    backgroundColor: c.surfaceHigh,
+  },
+  checkboxOn: { backgroundColor: c.primary, borderColor: c.primary },
 });
