@@ -11,6 +11,7 @@ import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
 import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
+import { versionTimestamp } from "@/lib/versionTimestamp";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -194,29 +195,43 @@ function DraftsPanel({
             {versions.length === 0 ? (
               <Text style={styles.emptyText}>No drafts yet.</Text>
             ) : (
-              versions.map((v) => (
-                <Pressable
-                  key={v.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open version ${v.version_no}`}
-                  style={styles.versionRow}
-                  onPress={() => onOpenVersion(artifact.id, v.id)}
-                >
-                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                  {v.is_validated ? (
-                    <View style={styles.validatedRow}>
-                      <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                      {v.recorded_via === "expert_self" ? (
-                        <Text style={styles.chip}>expert-validated</Text>
-                      ) : v.recorded_via === "operator" ? (
-                        <Text style={styles.chip}>operator-recorded</Text>
-                      ) : null}
+              versions.map((v) => {
+                const ts = versionTimestamp(v.created_at);
+                return (
+                  <Pressable
+                    key={v.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open version ${v.version_no}`}
+                    style={styles.versionRow}
+                    onPress={() => onOpenVersion(artifact.id, v.id)}
+                  >
+                    <View style={styles.versionRowLeft}>
+                      <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                      {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
                     </View>
-                  ) : (
-                    <Text style={styles.versionLabel}>Awaiting review</Text>
-                  )}
-                </Pressable>
-              ))
+                    {v.is_validated ? (
+                      <View style={styles.validatedRow}>
+                        <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                        {v.recorded_via === "expert_self" ? (
+                          <Text style={styles.chip}>expert-validated</Text>
+                        ) : v.recorded_via === "operator" ? (
+                          <Text style={styles.chip}>operator-recorded</Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text style={styles.versionLabel}>Awaiting review</Text>
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`View version ${v.version_no}`}
+                      style={styles.viewBtn}
+                      onPress={() => onOpenVersion(artifact.id, v.id)}
+                    >
+                      <Text style={styles.viewBtnText}>View</Text>
+                    </Pressable>
+                  </Pressable>
+                );
+              })
             )}
           </View>
         ))
@@ -261,29 +276,43 @@ function FeedbackPanel({
       {artifacts.map(({ artifact, versions }) => (
         <View key={artifact.id} style={styles.artifact}>
           <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-          {versions.map((v) => (
-            <Pressable
-              key={v.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open version ${v.version_no}`}
-              style={styles.versionRow}
-              onPress={() => onOpenVersion(artifact.id, v.id)}
-            >
-              <Text style={styles.versionLabel}>v{v.version_no}</Text>
-              {v.is_validated ? (
-                <View style={styles.validatedRow}>
-                  <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                  {v.recorded_via === "expert_self" ? (
-                    <Text style={styles.chip}>expert-validated</Text>
-                  ) : v.recorded_via === "operator" ? (
-                    <Text style={styles.chip}>operator-recorded</Text>
-                  ) : null}
+          {versions.map((v) => {
+            const ts = versionTimestamp(v.created_at);
+            return (
+              <Pressable
+                key={v.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open version ${v.version_no}`}
+                style={styles.versionRow}
+                onPress={() => onOpenVersion(artifact.id, v.id)}
+              >
+                <View style={styles.versionRowLeft}>
+                  <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                  {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
                 </View>
-              ) : (
-                <Text style={styles.versionLabel}>Review →</Text>
-              )}
-            </Pressable>
-          ))}
+                {v.is_validated ? (
+                  <View style={styles.validatedRow}>
+                    <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                    {v.recorded_via === "expert_self" ? (
+                      <Text style={styles.chip}>expert-validated</Text>
+                    ) : v.recorded_via === "operator" ? (
+                      <Text style={styles.chip}>operator-recorded</Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.versionLabel}>Review →</Text>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`View version ${v.version_no}`}
+                  style={styles.viewBtn}
+                  onPress={() => onOpenVersion(artifact.id, v.id)}
+                >
+                  <Text style={styles.viewBtnText}>View</Text>
+                </Pressable>
+              </Pressable>
+            );
+          })}
         </View>
       ))}
       {isOwner ? (
@@ -559,9 +588,19 @@ const makeStyles = (c: Palette) => ({
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
-  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
+  versionRowLeft: { flexShrink: 1 as const },
+  versionRowTs: { color: c.textMuted, fontSize: typography.sizeXs },
   versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
   validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  viewBtn: {
+    borderWidth: 1 as const,
+    borderColor: c.border,
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  viewBtnText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "700" as const },
   validated: { color: c.growth, fontSize: typography.sizeSm, fontWeight: "700" as const },
   chip: {
     color: c.textSecondary,
