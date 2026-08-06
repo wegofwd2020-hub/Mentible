@@ -37,3 +37,20 @@ it("shows a sign-in error instead of spinning forever when signed out", async ()
     mockUseAuth.mockReturnValue({ accessToken: "tok", status: "signed_in" });
   }
 });
+
+it("keeps spinning (no error) while auth is still loading — cold deep-link, real session pending", async () => {
+  mockUseAuth.mockReturnValue({ accessToken: null, status: "loading" });
+  const callsBefore = mockGetVersion.mock.calls.length;
+  try {
+    const { queryByText } = render(<TrustCompare />);
+    // Let any pending effects/microtasks flush, then assert we're still
+    // spinning — no error text, no Back button (that only renders in the
+    // error branch), and no fetch attempted without a real token.
+    await Promise.resolve();
+    expect(queryByText("Please sign in to compare versions.")).toBeNull();
+    expect(queryByText("Back")).toBeNull();
+    expect(mockGetVersion.mock.calls.length).toBe(callsBefore);
+  } finally {
+    mockUseAuth.mockReturnValue({ accessToken: "tok", status: "signed_in" });
+  }
+});

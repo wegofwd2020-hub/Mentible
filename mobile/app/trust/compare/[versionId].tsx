@@ -20,7 +20,7 @@ function TrustCompareInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { accessToken } = useAuth();
+  const { accessToken, status } = useAuth();
   const { project } = useTrustProject(String(projectId));
   const wide = useWindowDimensions().width >= 700;
 
@@ -30,7 +30,11 @@ function TrustCompareInner() {
 
   useEffect(() => {
     if (!accessToken) {
-      setError("Please sign in to compare versions.");
+      // Auth is still resolving (cold deep-link) — keep spinning, the effect
+      // re-runs once `status`/`accessToken` settle. Only a confirmed
+      // signed-out session is an actual error; don't stick the user on a
+      // permanent sign-in error while a real session is still loading.
+      if (status === "signed_out") setError("Please sign in to compare versions.");
       return;
     }
     let live = true;
@@ -40,13 +44,17 @@ function TrustCompareInner() {
           getVersion(String(versionId), accessToken),
           getVersion(String(b), accessToken),
         ]);
-        if (live) { setA(av); setBVersion(bv); }
+        if (live) {
+          setError(null);
+          setA(av);
+          setBVersion(bv);
+        }
       } catch (e) {
         if (live) setError(e instanceof ApiError ? e.userMessage() : "Couldn't load one of the versions.");
       }
     })();
     return () => { live = false; };
-  }, [accessToken, versionId, b]);
+  }, [accessToken, status, versionId, b]);
 
   // input id -> "S1".."Sn", mirroring the #370 viewer's labelFor.
   const labelFor = useMemo(() => {
