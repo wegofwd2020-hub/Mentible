@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
@@ -603,12 +603,10 @@ function TrustProjectDetailInner() {
 
   const onCompare = (artifactId: string) => {
     if (compareSel.length !== 2) return;
-    // Cast: /trust/compare/[versionId] is the Task-3 screen, not yet created,
-    // so typed-routes can't see it in ExpoRouter.__routes yet.
     router.push({
       pathname: "/trust/compare/[versionId]",
       params: { versionId: compareSel[0], b: compareSel[1], artifactId, projectId: String(projectId) },
-    } as unknown as Href);
+    });
   };
 
   const onCopyAsset = (versionId: string, fmt: "text" | "markdown", title: string) => {
