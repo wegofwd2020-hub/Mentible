@@ -15,12 +15,15 @@ const loadVersionContent = jest.fn(async () => ({
   generation_meta: null, is_validated: true, recorded_via: "expert_self", created_at: null, feedback: [],
 }));
 
+// format "linkedin" (social, not long-form) — Publish keeps Copy/Copy-as-Markdown
+// for it; long-form (book/essay/guide) actions are covered by
+// TrustProjectDetail.publishbook.test.tsx.
 const base = (versions: unknown[]) => ({
   project: {
     project: { id: "p1", title: "Medicare", topic: null },
     my_role: "owner",
     inputs: [{ id: "i" }],
-    artifacts: [{ artifact: { id: "art", title: "Guide", role: "cornerstone", format: "book" }, versions }],
+    artifacts: [{ artifact: { id: "art", title: "Guide", role: "derivative", format: "linkedin" }, versions }],
   },
   loading: false, error: null, refresh: jest.fn(), loadVersionContent, inputs: [{ id: "i" }],
 });
