@@ -49,3 +49,19 @@ it("selects exactly 2 versions of an artifact and pushes the compare route", asy
     params: expect.objectContaining({ versionId: "v2", b: "v3", artifactId: expect.any(String), projectId: expect.any(String) }),
   }));
 });
+
+it("checking a compare checkbox does not also navigate to the version viewer", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(base);
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+
+  fireEvent.press(screen.getByLabelText("Compare versions"));
+  fireEvent.press(screen.getByLabelText("Select version 2"));
+
+  // Guards the react-native-web bubbling defect: the checkbox is nested
+  // inside the version-row Pressable, whose onPress opens the version
+  // viewer. Checking a box must never also trigger onOpenVersion.
+  expect(mockPush).not.toHaveBeenCalledWith(expect.objectContaining({
+    pathname: "/trust/version/[versionId]",
+  }));
+});

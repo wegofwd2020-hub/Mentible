@@ -239,7 +239,10 @@ function DraftsPanel({
                           accessibilityLabel={`Select version ${v.version_no}`}
                           accessibilityState={{ checked: compareSel.includes(v.id) }}
                           style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
-                          onPress={() => toggleCompareSel(v.id)}
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            toggleCompareSel(v.id);
+                          }}
                         />
                       ) : null}
                       <Pressable
@@ -374,7 +377,10 @@ function FeedbackPanel({
                       accessibilityLabel={`Select version ${v.version_no}`}
                       accessibilityState={{ checked: compareSel.includes(v.id) }}
                       style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
-                      onPress={() => toggleCompareSel(v.id)}
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        toggleCompareSel(v.id);
+                      }}
                     />
                   ) : null}
                   <Pressable
