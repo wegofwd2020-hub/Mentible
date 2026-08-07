@@ -402,6 +402,10 @@ def test_edit_and_delete_uncited_input():
 
 
 def test_cited_input_guards_content_edit_and_delete_but_allows_title():
+    # Reconciled for the "block only on a validated citing version" rule (see
+    # test_source_cited_only_by_unvalidated_draft_is_editable_and_deletable
+    # for the unapproved-citation case, which now succeeds instead of 409-ing):
+    # this test now approves the citing version so it still exercises the block.
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         pid, iid = _seed_project_with_input(c, owner)
@@ -410,9 +414,14 @@ def test_cited_input_guards_content_edit_and_delete_but_allows_title():
             f"/api/v1/trust/projects/{pid}/artifacts",
             json={"role": "cornerstone", "format": "book"},
         ).json()
-        c.post(
+        vid = c.post(
             f"/api/v1/trust/artifacts/{art['id']}/versions",
             json={"content": {"sections": [{"heading": "H", "body": "B", "source_ids": [iid]}]}},
+        ).json()["id"]
+        # approve the citing version so it's validated (and thus a guard-worthy citation)
+        c.post(
+            f"/api/v1/trust/versions/{vid}/approvals",
+            json={"approved_at": "2026-07-27T00:00:00Z", "expert_name": "Dr X"},
         )
         # content edit blocked
         assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"content": "x"}).status_code == 409
@@ -422,6 +431,50 @@ def test_cited_input_guards_content_edit_and_delete_but_allows_title():
         assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "renamed"}).status_code == 200
         # still present
         assert any(i["id"] == iid for i in c.get(f"/api/v1/trust/projects/{pid}").json()["inputs"])
+
+
+def _cite_input_in_new_version(c, artifact_id, input_id):
+    return c.post(
+        f"/api/v1/trust/artifacts/{artifact_id}/versions",
+        json={"content": {"sections": [{"heading": "H", "body": "B", "source_ids": [input_id]}]}},
+    ).json()["id"]
+
+
+def test_source_cited_only_by_unvalidated_draft_is_editable_and_deletable():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        _cite_input_in_new_version(c, art["id"], iid)  # cited, but NOT approved
+        # content edit + delete now SUCCEED (only an unvalidated draft cites it)
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"content": "new"}).status_code == 200
+        assert c.delete(f"/api/v1/trust/inputs/{iid}").status_code == 204
+
+
+def test_source_cited_by_validated_version_is_blocked_then_unlocks_after_withdraw():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "book"},
+        ).json()
+        vid = _cite_input_in_new_version(c, art["id"], iid)
+        # approve the citing version (owner records on a named expert's behalf)
+        c.post(
+            f"/api/v1/trust/versions/{vid}/approvals",
+            json={"approved_at": "2026-08-07T00:00:00Z", "expert_name": "Dr. X"},
+        )
+        # now content edit + delete are BLOCKED; title still allowed
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"content": "x"}).status_code == 409
+        assert c.delete(f"/api/v1/trust/inputs/{iid}").status_code == 409
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "t"}).status_code == 200
+        # WITHDRAW the approval → the source unlocks
+        c.post(f"/api/v1/trust/versions/{vid}/approvals/withdraw", json={})
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"content": "ok"}).status_code == 200
 
 
 def test_input_edit_delete_owner_only_and_404():
