@@ -24,7 +24,7 @@ export function deriveProjectPhase(detail: ProjectDetailView, isOwner: boolean):
   const structured = !!(detail.project?.toc?.subjects?.length);
   const done: Record<PhaseKey, boolean> = {
     capture: captured,
-    structure: structured,
+    structure: structured || anyVersion,
     create: anyVersion,
     validate: allValidated,
     share: false,

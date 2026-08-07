@@ -35,3 +35,20 @@ it("empty toc subjects → structure not done", () => {
   );
   expect(p.phases.find((x) => x.key === "structure")!.done).toBe(false);
 });
+
+it("no toc but a version already exists → structure skip-satisfied (done), pointer past structure", () => {
+  const p = deriveProjectPhase(
+    detail({
+      inputs: [input],
+      artifacts: [
+        {
+          artifact: { id: "a", title: "A", role: "cornerstone", format: "guide" },
+          versions: [{ id: "v1", version_no: 1, created_at: null, is_validated: false, recorded_via: null }],
+        },
+      ],
+    }),
+    true,
+  );
+  expect(p.phases.find((x) => x.key === "structure")!.done).toBe(true);
+  expect(p.currentKey).not.toBe("structure");
+});

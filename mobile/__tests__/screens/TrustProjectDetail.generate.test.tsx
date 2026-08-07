@@ -39,6 +39,10 @@ it("owner with a source sees the format picker and pressing a card calls generat
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
+  // No toc/version yet, so the derived current phase is now Structure
+  // (skip-satisfied only by a toc or an existing version) — navigate to
+  // Drafts explicitly, same as the sibling test below.
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
   const btn = await screen.findByLabelText("Generate LinkedIn post");
   fireEvent.press(btn);
 
