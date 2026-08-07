@@ -584,6 +584,80 @@ def test_generate_bad_model_output_502():
         assert r.status_code == 502
 
 
+_TOC_JSON = _json.dumps(
+    {
+        "subjects": [
+            {
+                "subject_label": "Design basics",
+                "topics": [
+                    {"title": "Sizing for the storm", "sources": ["S1"]},
+                    {"title": "Unattributed idea", "sources": []},
+                ],
+            }
+        ]
+    }
+)
+
+
+def test_owner_suggests_toc_from_sources():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _aid = _artifact_with_source(c)
+        key = "sk-ant-" + "x" * 20
+        with patch(
+            "backend.src.trust.toc_suggest.build_provider",
+            return_value=fake_provider(text=_TOC_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/suggest-toc",
+                json={"api_key": key},
+            )
+        assert r.status_code == 200
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        toc = r.json()["toc"]
+        subjects = toc["subjects"]
+        assert len(subjects) == 1
+        units = subjects[0]["units"]
+        assert len(units) == 2
+        # first unit cites the real input id (not the S1 label)
+        assert units[0]["source_ids"] != []
+        assert all(len(sid) == 36 for sid in units[0]["source_ids"])  # real uuids
+        assert units[1]["source_ids"] == []  # unattributed topic → no source_ids
+        for u in units:
+            assert u["subtopics"] == []
+            assert u["prerequisites"] == []
+            assert "id" in u
+
+
+def test_suggest_toc_requires_a_source_422():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/suggest-toc",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 422  # no sources
+
+
+def test_suggest_toc_reviewer_forbidden():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _aid = _artifact_with_source(c)
+        expert = f"e-{uuid.uuid4()}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
+        _as(f"e-{uuid.uuid4()}", expert)
+        c.post("/api/v1/trust/session/sync")
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/suggest-toc",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 403
+
+
 def test_get_version_owner_reviewer_read_stranger_403_and_404():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
@@ -621,6 +695,35 @@ def test_get_version_owner_reviewer_read_stranger_403_and_404():
         # unknown version is 404
         _as(owner, owner_email)
         assert c.get(f"/api/v1/trust/versions/{uuid.uuid4()}").status_code == 404
+
+
+def test_put_and_get_project_toc():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        toc = {
+            "subjects": [
+                {
+                    "subject_label": "S",
+                    "units": [
+                        {
+                            "id": "t1",
+                            "title": "Topic 1",
+                            "subtopics": [],
+                            "prerequisites": [],
+                            "source_ids": [],
+                        }
+                    ],
+                }
+            ]
+        }
+        assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+        got = c.get(f"/api/v1/trust/projects/{pid}").json()["project"]["toc"]
+        assert got["subjects"][0]["units"][0]["title"] == "Topic 1"
+        # reviewer/non-owner blocked
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 403
 
 
 def test_create_essay_artifact_accepted():

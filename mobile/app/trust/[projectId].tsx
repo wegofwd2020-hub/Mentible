@@ -1,8 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
+import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
@@ -12,7 +13,9 @@ import { artifactToBook } from "@/lib/artifactToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
-import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
+import { randomUUID } from "@/lib/uuid";
+import type { ArtifactDetailView, ProjectInputView, StructuredTocUnit, StructuredTocView } from "@/api/trustClient";
+import type { StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
@@ -57,6 +60,63 @@ function sourceDate(createdAt: string | null): string | null {
   if (!createdAt) return null;
   const d = new Date(createdAt);
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+}
+
+// True when the outline has at least one topic to lose — gates the
+// confirm-replace prompt before a Suggest result overwrites it.
+function tocHasContent(toc: StructuredTOC): boolean {
+  return toc.subjects.some((s) => s.units.length > 0);
+}
+
+// The wire TOC (`StructuredTocView`, trustClient.ts) and the editor TOC
+// (`StructuredTOC`, types/book.ts) are structurally close but NOT identical —
+// `StructuredTocUnit.id` is required, `TopicNode.id` is optional;
+// `StructuredTocUnit.subtopics` is `unknown[]`, `TopicNode.subtopics` is
+// `Subtopic[]` (a `string | {label,detail}` union); `TopicNode` also carries
+// an editor-only `enhancementInstructions` the wire type has no field for. A
+// blind `as unknown as` cast across that gap defeats tsc at exactly the spot
+// it would catch a real drift, so map field-by-field instead.
+function toSubtopics(raw: unknown[]): Subtopic[] {
+  return raw.map((s) => {
+    if (typeof s === "string") return s;
+    if (s && typeof s === "object" && typeof (s as { label?: unknown }).label === "string") {
+      const { label, detail } = s as { label: string; detail?: unknown };
+      return typeof detail === "string" ? { label, detail } : { label };
+    }
+    return String(s);
+  });
+}
+
+function tocViewToStructured(view: StructuredTocView): StructuredTOC {
+  return {
+    subjects: view.subjects.map((s) => ({
+      subject_label: s.subject_label,
+      units: (s.units ?? []).map((u) => ({
+        id: u.id,
+        title: u.title,
+        subtopics: toSubtopics(u.subtopics),
+        prerequisites: u.prerequisites,
+        source_ids: u.source_ids,
+      })),
+    })),
+  };
+}
+
+function structuredToTocView(toc: StructuredTOC): StructuredTocView {
+  return {
+    subjects: toc.subjects.map((s) => ({
+      subject_label: s.subject_label,
+      units: s.units.map(
+        (u): StructuredTocUnit => ({
+          id: u.id ?? randomUUID(),
+          title: u.title,
+          subtopics: u.subtopics,
+          prerequisites: u.prerequisites,
+          source_ids: u.source_ids,
+        }),
+      ),
+    })),
+  };
 }
 
 // Sources (capture phase): the owner's raw-knowledge intake form + the input list.
@@ -296,6 +356,70 @@ function SourcesPanel({
             </View>
           );
         })
+      )}
+    </View>
+  );
+}
+
+// Structure (structure phase): an editable topic tree (TOC) the owner shapes
+// before drafting — either by hand or by suggesting one from the sources
+// captured so far. Reviewers get the same tree rendered read-only (no
+// Suggest/Next, and edits never reach onChangeToc, so nothing can persist).
+function StructurePanel({
+  styles,
+  isOwner,
+  toc,
+  onChangeToc,
+  onSuggest,
+  suggestBusy,
+  onNext,
+  sourceLabel,
+  inputsEmpty,
+}: {
+  styles: Styles;
+  isOwner: boolean;
+  toc: StructuredTOC;
+  onChangeToc: (next: StructuredTOC) => void;
+  onSuggest: () => void;
+  suggestBusy: boolean;
+  onNext: () => void;
+  sourceLabel: (id: string) => string;
+  inputsEmpty: boolean;
+}) {
+  return (
+    <View style={styles.structureBlock}>
+      <Text style={styles.artifactTitle}>Structure</Text>
+      <Text style={styles.sourcesHelper}>
+        Shape the outline before drafting — group topics into subjects, or suggest one from your sources.
+      </Text>
+      {isOwner ? (
+        <>
+          <View style={styles.structureActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Suggest outline from sources"
+              disabled={suggestBusy || inputsEmpty}
+              style={[styles.approveBtn, suggestBusy || inputsEmpty ? styles.disabledBtn : null]}
+              onPress={onSuggest}
+            >
+              <Text style={styles.approveText}>{suggestBusy ? "…" : "Suggest from sources"}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next to Drafts"
+              style={styles.compareBtn}
+              onPress={onNext}
+            >
+              <Text style={styles.viewBtnText}>Next</Text>
+            </Pressable>
+          </View>
+          {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+          <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
+        </>
+      ) : (
+        // No onChange path to saveToc for a reviewer — edits made in this
+        // tree simply vanish on the next render (toc is owner-controlled).
+        <TopicTreeEditor toc={toc} onChange={() => {}} sourceLabel={sourceLabel} />
       )}
     </View>
   );
@@ -743,7 +867,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, invite, addInput, editInput, removeInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
@@ -756,6 +880,21 @@ function TrustProjectDetailInner() {
   const [selected, setSelected] = useState<PhaseKey | null>(null);
   const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
   const [compareSel, setCompareSel] = useState<string[]>([]);
+  const [tocDraft, setTocDraft] = useState<StructuredTOC | null>(null);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  // Debounces the network `saveToc` triggered by TOC edits — every keystroke
+  // in TopicTreeEditor calls onChangeToc, and firing a full-TOC PATCH per
+  // character both floods the network and risks an out-of-order last-write
+  // (an earlier PATCH resolving after a later one leaves the server stale).
+  // setTocDraft below stays synchronous so the UI never waits on this.
+  const saveTocTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // id -> "S1".."Sn", mirroring the draft viewer's labelFor (app/trust/version/[versionId].tsx).
+  const sourceLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    inputs.forEach((inp, i) => m.set(inp.id, `S${i + 1}`));
+    return (id: string) => m.get(id) ?? "cited";
+  }, [inputs]);
 
   const toggleCompareMode = (artifactId: string) => {
     setCompareArtifactId((cur) => (cur === artifactId ? null : artifactId));
@@ -779,6 +918,25 @@ function TrustProjectDetailInner() {
       setSelected(basePhase(deriveProjectPhase(project, isOwnerNow).currentKey));
     }
   }, [project, selected]);
+
+  // Same "seed once" shape as the `selected` effect above: pull the Structure
+  // draft from the persisted toc the first time the project is available,
+  // then leave it alone. saveToc/addInput/etc. all refetch the project on
+  // success, and we must not let that refetch stomp in-progress local edits.
+  useEffect(() => {
+    if (project && tocDraft === null) {
+      setTocDraft(project.project.toc ? tocViewToStructured(project.project.toc) : { subjects: [] });
+    }
+  }, [project, tocDraft]);
+
+  // Clear a pending debounced saveToc on unmount so navigating away mid-type
+  // never fires a late write after the screen (and its onChangeToc closure
+  // over stale project state) is gone.
+  useEffect(() => {
+    return () => {
+      if (saveTocTimer.current) clearTimeout(saveTocTimer.current);
+    };
+  }, []);
 
   // Approving/unapproving/editing a version happens on a separate screen (the
   // draft viewer, app/trust/version/[versionId].tsx). Refetch on refocus so
@@ -897,6 +1055,65 @@ function TrustProjectDetailInner() {
     }
   };
 
+  const toc: StructuredTOC = tocDraft ?? { subjects: [] };
+
+  const onSuggest = async () => {
+    // Re-entry guard: Alert.alert doesn't block, so without this a second tap
+    // while the confirm-replace prompt is still open would fire another
+    // suggestToc call and stack a second dialog.
+    if (suggestBusy) return;
+    setSuggestBusy(true);
+    try {
+      const suggested = tocViewToStructured(await suggestToc());
+      const apply = async () => {
+        // An armed keystroke-debounce timer firing after this save would
+        // clobber the just-persisted suggested outline with a stale edit —
+        // invisible until reload. Disarm it before applying/saving.
+        if (saveTocTimer.current) {
+          clearTimeout(saveTocTimer.current);
+          saveTocTimer.current = null;
+        }
+        setTocDraft(suggested);
+        try {
+          await saveToc(structuredToTocView(suggested));
+        } catch {
+          // Non-fatal: the suggested outline stays visible locally even if
+          // the persist call failed; the next edit (or another Suggest)
+          // will retry the save.
+        } finally {
+          setSuggestBusy(false);
+        }
+      };
+      if (tocHasContent(toc)) {
+        // Busy stays true across the prompt — cleared by whichever button
+        // fires (Cancel below, or `apply`'s finally on Replace).
+        Alert.alert(
+          "Replace outline?",
+          "This replaces your current outline with the suggested one.",
+          [
+            { text: "Cancel", style: "cancel", onPress: () => setSuggestBusy(false) },
+            { text: "Replace", style: "destructive", onPress: () => { void apply(); } },
+          ],
+        );
+        return;
+      }
+      await apply();
+    } catch (e) {
+      Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : "Try again.");
+      setSuggestBusy(false);
+    }
+  };
+
+  const onChangeToc = (next: StructuredTOC) => {
+    setTocDraft(next);
+    if (saveTocTimer.current) clearTimeout(saveTocTimer.current);
+    saveTocTimer.current = setTimeout(() => {
+      void saveToc(structuredToTocView(next)).catch(() => {});
+    }, 700);
+  };
+
+  const onNext = () => setSelected("create");
+
   const isOwner = project.my_role === "owner";
   const phase = deriveProjectPhase(project, isOwner);
   // Fallback for the first frame(s) before the seed effect fires; once
@@ -926,6 +1143,19 @@ function TrustProjectDetailInner() {
             onAddSource={onAddSource}
             editInput={editInput}
             removeInput={removeInput}
+          />
+        ) : null}
+        {active === "structure" ? (
+          <StructurePanel
+            styles={styles}
+            isOwner={isOwner}
+            toc={toc}
+            onChangeToc={onChangeToc}
+            onSuggest={onSuggest}
+            suggestBusy={suggestBusy}
+            onNext={onNext}
+            sourceLabel={sourceLabel}
+            inputsEmpty={inputs.length === 0}
           />
         ) : null}
         {active === "create" ? (
@@ -1075,6 +1305,15 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.sm,
   },
   sourcesHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
+  structureBlock: {
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  structureActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   sourceForm: { gap: spacing.sm },
   kindRow: { flexDirection: "row" as const, gap: spacing.sm },
   kindBtn: {

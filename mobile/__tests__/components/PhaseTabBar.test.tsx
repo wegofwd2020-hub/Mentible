@@ -24,9 +24,11 @@ it("marks the selected tab selected and reports taps", () => {
 });
 
 it("shows done/current/upcoming state in the tab label", () => {
-  const phase = deriveProjectPhase(detail({ inputs: [input] }), true); // capture done, create current
-  const { getByLabelText } = render(<PhaseTabBar phase={phase} selected="create" onSelect={() => {}} />);
+  // capture done (has inputs); structure not skip-satisfied (no toc, no
+  // version yet) → structure current; create/validate/share upcoming.
+  const phase = deriveProjectPhase(detail({ inputs: [input] }), true);
+  const { getByLabelText } = render(<PhaseTabBar phase={phase} selected="structure" onSelect={() => {}} />);
   expect(getByLabelText(/Input: done/)).toBeTruthy();
-  expect(getByLabelText(/Drafts: current/)).toBeTruthy();
-  expect(getByLabelText(/Feedback: upcoming/)).toBeTruthy();
+  expect(getByLabelText(/Structure: current/)).toBeTruthy();
+  expect(getByLabelText(/Drafts: upcoming/)).toBeTruthy();
 });

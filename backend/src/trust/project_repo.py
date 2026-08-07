@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
+
 from .models import INPUT_KINDS, PROJECT_STATUSES, Project, ProjectInput
 
-_P = "id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at"
+_P = "id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc"
 _I = "id, project_id, kind, title, content, source_ref, storage_path, content_hash, created_at"
 
 
@@ -21,7 +23,8 @@ def _project(r) -> Project:
                 "created_at",
                 "updated_at",
             )
-        }
+        },
+        toc=json.loads(r["toc"]) if r["toc"] is not None else None,
     )
 
 
@@ -79,6 +82,12 @@ async def set_status(conn, *, project_id, status) -> None:
         "UPDATE project SET status = $2, updated_at = now() WHERE id = $1",
         project_id,
         status,
+    )
+
+
+async def update_project_toc(conn, *, project_id, toc) -> None:
+    await conn.execute(
+        "UPDATE project SET toc = $2::jsonb WHERE id = $1", project_id, json.dumps(toc)
     )
 
 

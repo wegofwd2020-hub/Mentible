@@ -1,9 +1,10 @@
 import type { ProjectDetailView } from "@/api/trustClient";
 
-export type PhaseKey = "capture" | "create" | "validate" | "share";
-export const PHASE_ORDER: PhaseKey[] = ["capture", "create", "validate", "share"];
+export type PhaseKey = "capture" | "structure" | "create" | "validate" | "share";
+export const PHASE_ORDER: PhaseKey[] = ["capture", "structure", "create", "validate", "share"];
 export const PHASE_LABELS: Record<PhaseKey, string> = {
   capture: "Input",
+  structure: "Structure",
   create: "Drafts",
   validate: "Feedback",
   share: "Publish",
@@ -20,7 +21,14 @@ export function deriveProjectPhase(detail: ProjectDetailView, isOwner: boolean):
   const hasArtifact = detail.artifacts.length > 0;
   const anyVersion = detail.artifacts.some((a) => a.versions.length > 0);
   const allValidated = hasArtifact && detail.artifacts.every((a) => a.versions.some((v) => v.is_validated));
-  const done: Record<PhaseKey, boolean> = { capture: captured, create: anyVersion, validate: allValidated, share: false };
+  const structured = !!(detail.project?.toc?.subjects?.length);
+  const done: Record<PhaseKey, boolean> = {
+    capture: captured,
+    structure: structured || anyVersion,
+    create: anyVersion,
+    validate: allValidated,
+    share: false,
+  };
   const phases = PHASE_ORDER.map((key) => ({ key, done: done[key] }));
   const currentIdx = phases.findIndex((p) => !p.done);
   const base = phases[currentIdx].key;

@@ -39,6 +39,7 @@ from .access import (
     require_project_access,
 )
 from .generate import generate_draft
+from .toc_suggest import suggest_toc
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
 log = get_logger("trust")
@@ -503,11 +504,134 @@ async def get_project(
             goal=p.goal,
             status=p.status,
             created_at=p.created_at,
+            toc=p.toc,
         ),
         artifacts=artifacts,
         my_role=role,
         inputs=inputs,
     )
+
+
+@router.put("/projects/{project_id}/toc", response_model=schemas.ProjectOut)
+async def save_project_toc(
+    project_id: uuid.UUID,
+    body: schemas.TocSaveIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    if not isinstance(body.toc.get("subjects"), list):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "toc.subjects must be a list")
+    await project_repo.update_project_toc(conn, project_id=project_id, toc=body.toc)
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    return schemas.ProjectOut(
+        id=str(p.id),
+        title=p.title,
+        topic=p.topic,
+        audience=p.audience,
+        goal=p.goal,
+        status=p.status,
+        created_at=p.created_at,
+        toc=p.toc,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/suggest-toc",
+    response_model=schemas.TocSuggestOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def suggest_project_toc(
+    project_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TocSuggestOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    sources = await project_repo.list_inputs(conn, project_id=project_id)
+    if not sources:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "add at least one source before suggesting a TOC",
+        )
+
+    # key handling mirrors generate_version / /derivatives
+    managed = body.api_key is None
+    if managed:
+        if not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        api_key = get_managed_key(body.provider_id)
+    else:
+        api_key = body.api_key
+    model = body.model or settings.anthropic_default_model
+
+    try:
+        out = await asyncio.to_thread(
+            suggest_toc,
+            sources=sources,
+            topic=p.topic,
+            audience=p.audience,
+            goal=p.goal,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("toc_suggest_failed", reason="schema", project_id=str(project_id))
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "suggested TOC failed validation"
+        ) from None
+    except LLMAuthError:
+        log.warning("toc_suggest_failed", reason="auth", project_id=str(project_id))
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "The API key was rejected by the provider. Check it in Settings.",
+        ) from None
+    except LLMRateLimitError:
+        log.warning("toc_suggest_failed", reason="rate_limit", project_id=str(project_id))
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "The provider is rate-limiting requests. Try again shortly.",
+        ) from None
+    except LLMError:
+        log.warning("toc_suggest_failed", reason="llm_error", project_id=str(project_id))
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "TOC suggestion failed") from None
+    except Exception:
+        # Defense in depth: never let a raw error escape with key material.
+        log.warning("toc_suggest_failed", reason="unexpected", project_id=str(project_id))
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "TOC suggestion failed") from None
+
+    # map model labels S1..Sn -> real input ids (drop unknowns; never 500 on a bad label)
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    toc = {
+        "subjects": [
+            {
+                "subject_label": subj.subject_label,
+                "units": [
+                    {
+                        "id": str(uuid.uuid4()),
+                        "title": t.title,
+                        "subtopics": [],
+                        "prerequisites": [],
+                        "source_ids": [by_label[lbl] for lbl in t.sources if lbl in by_label],
+                    }
+                    for t in subj.topics
+                ],
+            }
+            for subj in out.subjects
+        ]
+    }
+    return schemas.TocSuggestOut(toc=toc)
 
 
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)
