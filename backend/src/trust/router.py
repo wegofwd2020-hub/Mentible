@@ -34,6 +34,7 @@ from . import (
 from .access import (
     ProjectAccessError,
     project_id_for_artifact,
+    project_id_for_input,
     project_id_for_version,
     require_project_access,
 )
@@ -167,6 +168,54 @@ async def add_project_input(
         source_ref=i.source_ref,
         created_at=i.created_at,
     )
+
+
+@router.patch("/inputs/{input_id}", response_model=schemas.ProjectInputOut)
+async def edit_project_input(
+    input_id: uuid.UUID,
+    body: schemas.ProjectInputUpdateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectInputOut:
+    project_id = await project_id_for_input(conn, input_id=input_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    cur = await project_repo.get_input(conn, input_id=input_id)
+    if cur is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
+    if body.content is not None and await project_repo.input_cited(conn, project_id=project_id, input_id=input_id):
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "This source is cited by a draft — edit the draft, or remove the citation first.")
+    i = await project_repo.update_input(
+        conn,
+        input_id=input_id,
+        title=body.title if body.title is not None else cur.title,
+        content=body.content if body.content is not None else cur.content,
+        source_ref=body.source_ref if body.source_ref is not None else cur.source_ref,
+    )
+    return schemas.ProjectInputOut(
+        id=str(i.id), kind=i.kind, title=i.title, content=i.content,
+        source_ref=i.source_ref, created_at=i.created_at,
+    )
+
+
+@router.delete("/inputs/{input_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_input(
+    input_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> None:
+    project_id = await project_id_for_input(conn, input_id=input_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    if await project_repo.input_cited(conn, project_id=project_id, input_id=input_id):
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "This source is cited by a draft — remove it from the draft first.")
+    await project_repo.delete_input(conn, input_id=input_id)
 
 
 @router.post("/artifacts/{artifact_id}/versions", response_model=schemas.VersionOut)

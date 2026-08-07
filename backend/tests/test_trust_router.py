@@ -377,6 +377,58 @@ def test_stranger_cannot_add_input():
         )
 
 
+def _seed_project_with_input(c, owner):
+    _as(owner, f"{owner}@x.z")
+    pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+    iid = c.post(f"/api/v1/trust/projects/{pid}/inputs",
+                 json={"kind": "note", "title": "T", "content": "body here"}).json()["id"]
+    return pid, iid
+
+
+def test_edit_and_delete_uncited_input():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        # edit title + content on an uncited input
+        r = c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "T2", "content": "new body"})
+        assert r.status_code == 200, r.text
+        assert r.json()["title"] == "T2" and r.json()["content"] == "new body"
+        # delete uncited → 204, gone
+        assert c.delete(f"/api/v1/trust/inputs/{iid}").status_code == 204
+        inputs = c.get(f"/api/v1/trust/projects/{pid}").json()["inputs"]
+        assert all(i["id"] != iid for i in inputs)
+
+
+def test_cited_input_guards_content_edit_and_delete_but_allows_title():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        # create an artifact + a version whose content cites this input id
+        art = c.post(f"/api/v1/trust/projects/{pid}/artifacts",
+                     json={"role": "cornerstone", "format": "book"}).json()
+        c.post(f"/api/v1/trust/artifacts/{art['id']}/versions",
+               json={"content": {"sections": [{"heading": "H", "body": "B", "source_ids": [iid]}]}})
+        # content edit blocked
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"content": "x"}).status_code == 409
+        # delete blocked
+        assert c.delete(f"/api/v1/trust/inputs/{iid}").status_code == 409
+        # title edit allowed even when cited
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "renamed"}).status_code == 200
+        # still present
+        assert any(i["id"] == iid for i in c.get(f"/api/v1/trust/projects/{pid}").json()["inputs"])
+
+
+def test_input_edit_delete_owner_only_and_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")   # non-member
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "z"}).status_code == 403
+        assert c.delete(f"/api/v1/trust/inputs/{iid}").status_code == 403
+        _as(owner, f"{owner}@x.z")
+        assert c.patch(f"/api/v1/trust/inputs/{uuid.uuid4()}", json={"title": "z"}).status_code == 404
+
+
 _DRAFT_JSON = _json.dumps(
     {
         "sections": [

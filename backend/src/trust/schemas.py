@@ -126,6 +126,12 @@ class ProjectInputOut(BaseModel):
     created_at: datetime | None
 
 
+class ProjectInputUpdateIn(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+    content: str | None = Field(default=None, min_length=1, max_length=200_000)
+    source_ref: str | None = Field(default=None, max_length=500)
+
+
 class ProjectDetailOut(BaseModel):
     project: ProjectOut
     artifacts: list[ArtifactDetailOut]
