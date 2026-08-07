@@ -60,7 +60,9 @@ function sourceDate(createdAt: string | null): string | null {
 }
 
 // Sources (capture phase): the owner's raw-knowledge intake form + the input list.
-// Reviewers see the list only — capture is an owner action.
+// Reviewers see the list only — capture is an owner action. Tapping a row opens
+// an inline detail (full content, not the truncated preview); the owner can
+// edit or delete from there, a reviewer's detail is read-only.
 function SourcesPanel({
   styles,
   theme,
@@ -74,6 +76,8 @@ function SourcesPanel({
   setSourceContent,
   addSourceBusy,
   onAddSource,
+  editInput,
+  removeInput,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -87,7 +91,74 @@ function SourcesPanel({
   setSourceContent: (v: string) => void;
   addSourceBusy: boolean;
   onAddSource: () => void;
+  editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
+  removeInput: (inputId: string) => Promise<void>;
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSourceRef, setEditSourceRef] = useState("");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const onToggleExpand = (input: ProjectInputView) => {
+    if (expandedId === input.id) {
+      setExpandedId(null);
+      setEditingId(null);
+      return;
+    }
+    setExpandedId(input.id);
+    setEditingId(null);
+  };
+
+  const onStartEdit = (input: ProjectInputView) => {
+    setEditTitle(input.title ?? "");
+    setEditContent(input.content);
+    setEditSourceRef(input.source_ref ?? "");
+    setEditingId(input.id);
+  };
+
+  const onSaveEdit = async (inputId: string) => {
+    setSaveBusy(true);
+    try {
+      await editInput(inputId, {
+        title: editTitle.trim() || undefined,
+        content: editContent,
+        source_ref: editSourceRef.trim() || undefined,
+      });
+      setEditingId(null);
+    } catch (e) {
+      Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : "Please try again.");
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const onDelete = (inputId: string) => {
+    Alert.alert("Delete source?", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setDeleteBusy(true);
+          void (async () => {
+            try {
+              await removeInput(inputId);
+              setExpandedId(null);
+              setEditingId(null);
+            } catch (e) {
+              Alert.alert("Couldn't delete", e instanceof ApiError ? e.userMessage() : "Please try again.");
+            } finally {
+              setDeleteBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.sourcesBlock}>
       <Text style={styles.artifactTitle}>Input</Text>
@@ -138,13 +209,88 @@ function SourcesPanel({
           No sources yet.{isOwner ? " Add a transcript, note, or link above to get started." : ""}
         </Text>
       ) : (
-        inputs.map((input) => (
-          <View key={input.id} style={styles.sourceRow}>
-            <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
-            <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
-            {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
-          </View>
-        ))
+        inputs.map((input) => {
+          const isExpanded = expandedId === input.id;
+          const isEditing = editingId === input.id;
+          return (
+            <View key={input.id} style={styles.sourceRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open source ${sourcePreview(input.title, input.content)}`}
+                onPress={() => onToggleExpand(input)}
+              >
+                <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
+                <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
+                {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
+              </Pressable>
+              {isExpanded ? (
+                isEditing ? (
+                  <View style={styles.sourceDetail}>
+                    <TextInput
+                      style={styles.inviteInput}
+                      accessibilityLabel="Source title"
+                      placeholder="Title (optional)"
+                      placeholderTextColor={theme.textMuted}
+                      value={editTitle}
+                      onChangeText={setEditTitle}
+                    />
+                    <TextInput
+                      style={styles.sourceContentInput}
+                      accessibilityLabel="Source content"
+                      placeholderTextColor={theme.textMuted}
+                      value={editContent}
+                      onChangeText={setEditContent}
+                      multiline
+                    />
+                    <TextInput
+                      style={styles.inviteInput}
+                      accessibilityLabel="Source ref"
+                      placeholder="Source reference (optional)"
+                      placeholderTextColor={theme.textMuted}
+                      value={editSourceRef}
+                      onChangeText={setEditSourceRef}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Save source"
+                      disabled={saveBusy}
+                      style={[styles.approveBtn, saveBusy ? styles.disabledBtn : null]}
+                      onPress={() => onSaveEdit(input.id)}
+                    >
+                      <Text style={styles.approveText}>{saveBusy ? "…" : "Save source"}</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.sourceDetail}>
+                    <Text style={styles.sourceDetailContent}>{input.content}</Text>
+                    {input.source_ref ? <Text style={styles.sourceRowDate}>{input.source_ref}</Text> : null}
+                    {isOwner ? (
+                      <View style={styles.sourceActionsRow}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Edit source"
+                          style={styles.viewBtn}
+                          onPress={() => onStartEdit(input)}
+                        >
+                          <Text style={styles.viewBtnText}>Edit</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Delete source"
+                          disabled={deleteBusy}
+                          style={[styles.viewBtn, deleteBusy ? styles.disabledBtn : null]}
+                          onPress={() => onDelete(input.id)}
+                        >
+                          <Text style={styles.viewBtnText}>{deleteBusy ? "…" : "Delete"}</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                )
+              ) : null}
+            </View>
+          );
+        })
       )}
     </View>
   );
@@ -592,7 +738,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, invite, addInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, invite, addInput, editInput, removeInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
@@ -773,6 +919,8 @@ function TrustProjectDetailInner() {
             setSourceContent={setSourceContent}
             addSourceBusy={addSourceBusy}
             onAddSource={onAddSource}
+            editInput={editInput}
+            removeInput={removeInput}
           />
         ) : null}
         {active === "create" ? (
@@ -956,6 +1104,9 @@ const makeStyles = (c: Palette) => ({
   sourceKindLabel: { color: c.textSecondary, fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const },
   sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
+  sourceDetail: { gap: spacing.sm, paddingTop: spacing.sm },
+  sourceDetailContent: { color: c.text, fontSize: typography.sizeSm },
+  sourceActionsRow: { flexDirection: "row" as const, gap: spacing.sm },
   artifactsWrap: { gap: spacing.md },
   compareRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   compareBtn: {

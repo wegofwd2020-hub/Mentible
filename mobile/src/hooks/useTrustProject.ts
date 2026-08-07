@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, updateInput, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -97,6 +97,18 @@ export function useTrustProject(projectId: string) {
     await refresh(); return i;
   }, [accessToken, projectId, refresh]);
 
+  const editInput = useCallback(async (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => {
+    if (!accessToken) throw new Error("Not signed in");
+    const i = await updateInput(inputId, body, accessToken);
+    await refresh(); return i;
+  }, [accessToken, refresh]);
+
+  const removeInput = useCallback(async (inputId: string) => {
+    if (!accessToken) throw new Error("Not signed in");
+    await deleteInput(inputId, accessToken);
+    await refresh();
+  }, [accessToken, refresh]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
@@ -104,5 +116,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, inputs };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, editInput, removeInput, inputs };
 }
