@@ -132,3 +132,13 @@ export async function addProjectInput(
     `/projects/${projectId}/inputs`, token, { method: "POST", body: JSON.stringify(body) },
   )) as ProjectInputView;
 }
+
+export async function updateInput(
+  inputId: string, body: { title?: string; content?: string; source_ref?: string }, token: string,
+): Promise<ProjectInputView> {
+  return (await trustFetch<ProjectInputView>(`/inputs/${inputId}`, token, { method: "PATCH", body: JSON.stringify(body) })) as ProjectInputView;
+}
+
+export async function deleteInput(inputId: string, token: string): Promise<void> {
+  await trustFetch<null>(`/inputs/${inputId}`, token, { method: "DELETE" });
+}

@@ -48,3 +48,9 @@ async def project_id_for_version(
         "JOIN artifact a ON a.id = v.artifact_id WHERE v.id = $1",
         version_id,
     )
+
+
+async def project_id_for_input(
+    conn: asyncpg.Connection, *, input_id: uuid.UUID
+) -> uuid.UUID | None:
+    return await conn.fetchval("SELECT project_id FROM project_input WHERE id = $1", input_id)
