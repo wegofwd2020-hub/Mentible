@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
@@ -13,8 +13,9 @@ import { artifactToBook } from "@/lib/artifactToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
-import type { ArtifactDetailView, ProjectInputView, StructuredTocView } from "@/api/trustClient";
-import type { StructuredTOC } from "@/types/book";
+import { randomUUID } from "@/lib/uuid";
+import type { ArtifactDetailView, ProjectInputView, StructuredTocUnit, StructuredTocView } from "@/api/trustClient";
+import type { StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
@@ -65,6 +66,57 @@ function sourceDate(createdAt: string | null): string | null {
 // confirm-replace prompt before a Suggest result overwrites it.
 function tocHasContent(toc: StructuredTOC): boolean {
   return toc.subjects.some((s) => s.units.length > 0);
+}
+
+// The wire TOC (`StructuredTocView`, trustClient.ts) and the editor TOC
+// (`StructuredTOC`, types/book.ts) are structurally close but NOT identical —
+// `StructuredTocUnit.id` is required, `TopicNode.id` is optional;
+// `StructuredTocUnit.subtopics` is `unknown[]`, `TopicNode.subtopics` is
+// `Subtopic[]` (a `string | {label,detail}` union); `TopicNode` also carries
+// an editor-only `enhancementInstructions` the wire type has no field for. A
+// blind `as unknown as` cast across that gap defeats tsc at exactly the spot
+// it would catch a real drift, so map field-by-field instead.
+function toSubtopics(raw: unknown[]): Subtopic[] {
+  return raw.map((s) => {
+    if (typeof s === "string") return s;
+    if (s && typeof s === "object" && typeof (s as { label?: unknown }).label === "string") {
+      const { label, detail } = s as { label: string; detail?: unknown };
+      return typeof detail === "string" ? { label, detail } : { label };
+    }
+    return String(s);
+  });
+}
+
+function tocViewToStructured(view: StructuredTocView): StructuredTOC {
+  return {
+    subjects: view.subjects.map((s) => ({
+      subject_label: s.subject_label,
+      units: s.units.map((u) => ({
+        id: u.id,
+        title: u.title,
+        subtopics: toSubtopics(u.subtopics),
+        prerequisites: u.prerequisites,
+        source_ids: u.source_ids,
+      })),
+    })),
+  };
+}
+
+function structuredToTocView(toc: StructuredTOC): StructuredTocView {
+  return {
+    subjects: toc.subjects.map((s) => ({
+      subject_label: s.subject_label,
+      units: s.units.map(
+        (u): StructuredTocUnit => ({
+          id: u.id ?? randomUUID(),
+          title: u.title,
+          subtopics: u.subtopics,
+          prerequisites: u.prerequisites,
+          source_ids: u.source_ids,
+        }),
+      ),
+    })),
+  };
 }
 
 // Sources (capture phase): the owner's raw-knowledge intake form + the input list.
@@ -830,6 +882,12 @@ function TrustProjectDetailInner() {
   const [compareSel, setCompareSel] = useState<string[]>([]);
   const [tocDraft, setTocDraft] = useState<StructuredTOC | null>(null);
   const [suggestBusy, setSuggestBusy] = useState(false);
+  // Debounces the network `saveToc` triggered by TOC edits — every keystroke
+  // in TopicTreeEditor calls onChangeToc, and firing a full-TOC PATCH per
+  // character both floods the network and risks an out-of-order last-write
+  // (an earlier PATCH resolving after a later one leaves the server stale).
+  // setTocDraft below stays synchronous so the UI never waits on this.
+  const saveTocTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // id -> "S1".."Sn", mirroring the draft viewer's labelFor (app/trust/version/[versionId].tsx).
   const sourceLabel = useMemo(() => {
@@ -867,9 +925,18 @@ function TrustProjectDetailInner() {
   // success, and we must not let that refetch stomp in-progress local edits.
   useEffect(() => {
     if (project && tocDraft === null) {
-      setTocDraft((project.project.toc as unknown as StructuredTOC | undefined) ?? { subjects: [] });
+      setTocDraft(project.project.toc ? tocViewToStructured(project.project.toc) : { subjects: [] });
     }
   }, [project, tocDraft]);
+
+  // Clear a pending debounced saveToc on unmount so navigating away mid-type
+  // never fires a late write after the screen (and its onChangeToc closure
+  // over stale project state) is gone.
+  useEffect(() => {
+    return () => {
+      if (saveTocTimer.current) clearTimeout(saveTocTimer.current);
+    };
+  }, []);
 
   // Approving/unapproving/editing a version happens on a separate screen (the
   // draft viewer, app/trust/version/[versionId].tsx). Refetch on refocus so
@@ -991,41 +1058,51 @@ function TrustProjectDetailInner() {
   const toc: StructuredTOC = tocDraft ?? { subjects: [] };
 
   const onSuggest = async () => {
+    // Re-entry guard: Alert.alert doesn't block, so without this a second tap
+    // while the confirm-replace prompt is still open would fire another
+    // suggestToc call and stack a second dialog.
+    if (suggestBusy) return;
     setSuggestBusy(true);
     try {
-      const suggested = (await suggestToc()) as unknown as StructuredTOC;
+      const suggested = tocViewToStructured(await suggestToc());
       const apply = async () => {
         setTocDraft(suggested);
         try {
-          await saveToc(suggested as unknown as StructuredTocView);
+          await saveToc(structuredToTocView(suggested));
         } catch {
           // Non-fatal: the suggested outline stays visible locally even if
           // the persist call failed; the next edit (or another Suggest)
           // will retry the save.
+        } finally {
+          setSuggestBusy(false);
         }
       };
       if (tocHasContent(toc)) {
+        // Busy stays true across the prompt — cleared by whichever button
+        // fires (Cancel below, or `apply`'s finally on Replace).
         Alert.alert(
           "Replace outline?",
           "This replaces your current outline with the suggested one.",
           [
-            { text: "Cancel", style: "cancel" },
+            { text: "Cancel", style: "cancel", onPress: () => setSuggestBusy(false) },
             { text: "Replace", style: "destructive", onPress: () => { void apply(); } },
           ],
         );
-      } else {
-        await apply();
+        return;
       }
+      await apply();
     } catch (e) {
       Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : "Try again.");
-    } finally {
       setSuggestBusy(false);
     }
   };
 
   const onChangeToc = (next: StructuredTOC) => {
     setTocDraft(next);
-    void saveToc(next as unknown as StructuredTocView).catch(() => {});
+    if (saveTocTimer.current) clearTimeout(saveTocTimer.current);
+    saveTocTimer.current = setTimeout(() => {
+      void saveToc(structuredToTocView(next)).catch(() => {});
+    }, 700);
   };
 
   const onNext = () => setSelected("create");

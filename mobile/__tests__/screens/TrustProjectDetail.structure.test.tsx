@@ -1,10 +1,15 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn() }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
-jest.mock("@/lib/alert", () => ({ Alert: { alert: (_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => { btns?.find((b) => b.style !== "cancel")?.onPress?.(); } } }));
+// Not auto-confirming (unlike the sibling TrustProjectDetail.*.test.tsx files)
+// — the confirm-replace tests below need to drive Cancel vs Replace
+// themselves, so `Alert.alert` is a bare spy here and each button's onPress
+// is invoked explicitly from the captured call.
+jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 import { useTrustProject } from "@/hooks/useTrustProject";
+import { Alert } from "@/lib/alert";
 
 const sourceInputs = [
   { id: "i1", kind: "note", title: "Kickoff notes", content: "We discussed scope.", source_ref: null, created_at: null },
@@ -46,6 +51,7 @@ const proj = (my_role: string, opts?: { toc?: object; inputs?: typeof sourceInpu
 };
 
 beforeEach(() => jest.clearAllMocks());
+afterEach(() => jest.useRealTimers());
 
 it("owner: pressing Suggest calls suggestToc, renders the result, and persists via saveToc", async () => {
   const mock = proj("owner"); // no seeded toc -> empty draft, no confirm prompt in the way
@@ -59,17 +65,80 @@ it("owner: pressing Suggest calls suggestToc, renders the result, and persists v
   await waitFor(() => expect(mock.suggestToc).toHaveBeenCalled());
   expect(await screen.findByDisplayValue("Bonds")).toBeTruthy();
   await waitFor(() => expect(mock.saveToc).toHaveBeenCalledWith(expect.objectContaining({ subjects: expect.any(Array) })));
+  // No existing content to lose, so no confirm prompt was needed.
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 
-it("owner: editing the tree calls saveToc", async () => {
+it("owner with an existing outline: Suggest shows a confirm-replace prompt before overwriting, and Cancel keeps the current outline", async () => {
   const mock = proj("owner", { toc: seededToc });
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
   fireEvent.press(await screen.findByLabelText(/Structure:/));
-  fireEvent.changeText(await screen.findByLabelText("Topic 1.1 title"), "Motion");
+  expect(await screen.findByDisplayValue("Kinematics")).toBeTruthy();
 
-  await waitFor(() => expect(mock.saveToc).toHaveBeenCalled());
+  fireEvent.press(screen.getByLabelText("Suggest outline from sources"));
+  await waitFor(() => expect(mock.suggestToc).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(Alert.alert).toHaveBeenCalledWith("Replace outline?", expect.any(String), expect.any(Array)),
+  );
+
+  // The prompt fired BEFORE anything was applied or persisted.
+  expect(screen.queryByDisplayValue("Bonds")).toBeNull();
+  expect(mock.saveToc).not.toHaveBeenCalled();
+
+  const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { style?: string; onPress?: () => void }[];
+  act(() => buttons.find((b) => b.style === "cancel")?.onPress?.());
+
+  // Cancel: the current outline is untouched and nothing was ever saved.
+  expect(screen.getByDisplayValue("Kinematics")).toBeTruthy();
+  expect(screen.queryByDisplayValue("Bonds")).toBeNull();
+  expect(mock.saveToc).not.toHaveBeenCalled();
+});
+
+it("owner with an existing outline: confirming Replace applies and persists the suggested outline", async () => {
+  const mock = proj("owner", { toc: seededToc });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  await screen.findByDisplayValue("Kinematics");
+  fireEvent.press(screen.getByLabelText("Suggest outline from sources"));
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+
+  const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { style?: string; onPress?: () => void }[];
+  act(() => buttons.find((b) => b.style !== "cancel")?.onPress?.());
+
+  expect(await screen.findByDisplayValue("Bonds")).toBeTruthy();
+  await waitFor(() => expect(mock.saveToc).toHaveBeenCalledWith(expect.objectContaining({ subjects: expect.any(Array) })));
+});
+
+it("owner: editing the tree debounces the persisted saveToc (not one PATCH per keystroke)", async () => {
+  const mock = proj("owner", { toc: seededToc });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  const titleInput = await screen.findByLabelText("Topic 1.1 title");
+
+  jest.useFakeTimers();
+  fireEvent.changeText(titleInput, "M");
+  fireEvent.changeText(titleInput, "Mo");
+  fireEvent.changeText(titleInput, "Mot");
+  fireEvent.changeText(titleInput, "Motion");
+
+  // Nothing persisted yet — still within the debounce window.
+  act(() => jest.advanceTimersByTime(400));
+  expect(mock.saveToc).not.toHaveBeenCalled();
+
+  // Past the debounce window: exactly one save, carrying the LATEST value.
+  act(() => jest.advanceTimersByTime(500));
+  expect(mock.saveToc).toHaveBeenCalledTimes(1);
+  expect(mock.saveToc).toHaveBeenCalledWith(
+    expect.objectContaining({
+      subjects: [expect.objectContaining({ units: [expect.objectContaining({ title: "Motion" })] })],
+    }),
+  );
 });
 
 it("owner: Next advances to the Drafts tab", async () => {
