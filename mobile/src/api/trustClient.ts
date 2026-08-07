@@ -2,9 +2,15 @@ import { ApiError, resolveBaseUrl } from "./client";
 
 export interface MembershipView { project_id: string; role: string }
 export interface SessionSyncView { account_id: string; email: string | null; memberships: MembershipView[] }
+export interface StructuredTocUnit {
+  id: string; title: string; subtopics: unknown[]; prerequisites: string[]; source_ids?: string[];
+}
+export interface StructuredTocSubject { subject_label: string; units: StructuredTocUnit[] }
+export interface StructuredTocView { subjects: StructuredTocSubject[] }
 export interface ProjectView {
   id: string; title: string; topic: string | null; audience: string | null;
   goal: string | null; status: string; created_at: string | null;
+  toc?: StructuredTocView;
 }
 export interface ArtifactView {
   id: string; project_id: string; role: string; format: string; title: string | null; created_at: string | null;
@@ -141,4 +147,17 @@ export async function updateInput(
 
 export async function deleteInput(inputId: string, token: string): Promise<void> {
   await trustFetch<null>(`/inputs/${inputId}`, token, { method: "DELETE" });
+}
+
+export async function suggestToc(
+  projectId: string, body: { api_key: string; provider_id?: string }, token: string,
+): Promise<StructuredTocView> {
+  const r = (await trustFetch<{ toc: StructuredTocView }>(
+    `/projects/${projectId}/suggest-toc`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as { toc: StructuredTocView };
+  return r.toc;
+}
+
+export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
+  await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, updateInput, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -85,6 +85,19 @@ export function useTrustProject(projectId: string) {
     return v;
   }, [accessToken, projectId, refresh]);
 
+  const suggestToc = useCallback(async (): Promise<StructuredTocView> => {
+    const key = await loadApiKey("anthropic");
+    if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to suggest an outline.");
+    if (!accessToken) throw new Error("Not signed in");
+    return suggestTocApi(projectId, { api_key: key, provider_id: "anthropic" }, accessToken);
+  }, [accessToken, projectId]);
+
+  const saveToc = useCallback(async (toc: StructuredTocView) => {
+    if (!accessToken) throw new Error("Not signed in");
+    await saveTocApi(projectId, toc, accessToken);
+    await refresh();
+  }, [accessToken, projectId, refresh]);
+
   const invite = useCallback(async (email: string) => {
     if (!accessToken) throw new Error("Not signed in");
     const inv = await inviteApi(projectId, email, accessToken);
@@ -116,5 +129,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, invite, addInput, editInput, removeInput, inputs };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs };
 }
