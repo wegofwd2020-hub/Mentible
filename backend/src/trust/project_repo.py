@@ -115,7 +115,10 @@ async def get_input(conn, *, input_id) -> ProjectInput | None:
 async def update_input(conn, *, input_id, title, content, source_ref) -> ProjectInput:
     r = await conn.fetchrow(
         f"UPDATE project_input SET title=$2, content=$3, source_ref=$4 WHERE id=$1 RETURNING {_I}",
-        input_id, title, content, source_ref,
+        input_id,
+        title,
+        content,
+        source_ref,
     )
     return _input(r)
 
@@ -125,8 +128,9 @@ async def delete_input(conn, *, input_id) -> None:
 
 
 async def input_cited(conn, *, project_id, input_id) -> bool:
-    return bool(await conn.fetchval(
-        """
+    return bool(
+        await conn.fetchval(
+            """
         SELECT EXISTS (
           SELECT 1 FROM artifact_version v JOIN artifact a ON a.id = v.artifact_id
           WHERE a.project_id = $1 AND v.content IS NOT NULL
@@ -134,5 +138,7 @@ async def input_cited(conn, *, project_id, input_id) -> bool:
                   jsonb_build_object('source_ids', jsonb_build_array($2::text)))
         )
         """,
-        project_id, str(input_id),
-    ))
+            project_id,
+            str(input_id),
+        )
+    )

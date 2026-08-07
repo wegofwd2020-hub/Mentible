@@ -185,9 +185,13 @@ async def edit_project_input(
     cur = await project_repo.get_input(conn, input_id=input_id)
     if cur is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
-    if body.content is not None and await project_repo.input_cited(conn, project_id=project_id, input_id=input_id):
-        raise HTTPException(status.HTTP_409_CONFLICT,
-                            "This source is cited by a draft — edit the draft, or remove the citation first.")
+    if body.content is not None and await project_repo.input_cited(
+        conn, project_id=project_id, input_id=input_id
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This source is cited by a draft — edit the draft, or remove the citation first.",
+        )
     i = await project_repo.update_input(
         conn,
         input_id=input_id,
@@ -196,8 +200,12 @@ async def edit_project_input(
         source_ref=body.source_ref if body.source_ref is not None else cur.source_ref,
     )
     return schemas.ProjectInputOut(
-        id=str(i.id), kind=i.kind, title=i.title, content=i.content,
-        source_ref=i.source_ref, created_at=i.created_at,
+        id=str(i.id),
+        kind=i.kind,
+        title=i.title,
+        content=i.content,
+        source_ref=i.source_ref,
+        created_at=i.created_at,
     )
 
 
@@ -213,8 +221,10 @@ async def delete_project_input(
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
     if await project_repo.input_cited(conn, project_id=project_id, input_id=input_id):
-        raise HTTPException(status.HTTP_409_CONFLICT,
-                            "This source is cited by a draft — remove it from the draft first.")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This source is cited by a draft — remove it from the draft first.",
+        )
     await project_repo.delete_input(conn, input_id=input_id)
 
 
