@@ -6,6 +6,7 @@ const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ projectId: "p1" }),
   useRouter: () => ({ push: mockPush, back: jest.fn() }),
+  useFocusEffect: (cb: () => void) => cb(),
 }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: (_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => { btns?.find((b) => b.style !== "cancel")?.onPress?.(); } } }));

@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
@@ -592,7 +592,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, generateFormat, invite, addInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, invite, addInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
@@ -628,6 +628,16 @@ function TrustProjectDetailInner() {
       setSelected(basePhase(deriveProjectPhase(project, isOwnerNow).currentKey));
     }
   }, [project, selected]);
+
+  // Approving/unapproving/editing a version happens on a separate screen (the
+  // draft viewer, app/trust/version/[versionId].tsx). Refetch on refocus so
+  // returning here after that pulls fresh data instead of showing stale
+  // is_validated / recorded_via state until a full reload.
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
