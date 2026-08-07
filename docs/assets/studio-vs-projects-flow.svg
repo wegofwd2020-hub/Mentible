@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 600" role="img" aria-label="Two parallel authoring pipelines. Studio: topic and scope, structure a table of contents, topic tree, generate from LLM world knowledge, book, export. Projects: input sources, draft only from those sources inventing nothing, expert feedback recorded append-only, publish. Both converge into a shared Library and Reader that exports EPUB and PDF; the Projects side reaches it through the artifactToBook bridge." font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8b8880"/>
+    </marker>
+  </defs>
+
+  <!-- card background (keeps it legible on any host theme) -->
+  <rect x="0.5" y="0.5" width="879" height="599" rx="16" fill="#faf9f6" stroke="#dbd8d0"/>
+
+  <!-- column headers -->
+  <text x="210" y="30" text-anchor="middle" font-size="15" font-weight="700" fill="#a2620a" letter-spacing="0.4">STUDIO — Books</text>
+  <text x="670" y="30" text-anchor="middle" font-size="15" font-weight="700" fill="#3346a0" letter-spacing="0.4">PROJECTS — Trust</text>
+
+  <!-- ===== STUDIO column (center x=210) ===== -->
+  <g fill="#fbf1df" stroke="#a2620a" stroke-width="1.6">
+    <rect x="100" y="46"  width="220" height="44" rx="8"/>
+    <rect x="100" y="122" width="220" height="44" rx="8"/>
+    <rect x="100" y="198" width="220" height="44" rx="8"/>
+    <rect x="100" y="274" width="220" height="44" rx="8"/>
+    <rect x="100" y="350" width="220" height="44" rx="8"/>
+  </g>
+  <g fill="#a2620a"><rect x="100" y="46" width="4" height="44"/><rect x="100" y="122" width="4" height="44"/><rect x="100" y="198" width="4" height="44"/><rect x="100" y="274" width="4" height="44"/><rect x="100" y="350" width="4" height="44"/></g>
+  <g fill="#1e1c19" font-size="13" font-weight="600" text-anchor="middle">
+    <text x="214" y="66">Topic &amp; scope</text>
+    <text x="214" y="149">Structure — TOC</text>
+    <text x="214" y="225">Topic tree</text>
+    <text x="214" y="294">Generate</text>
+    <text x="214" y="377">Book</text>
+  </g>
+  <g fill="#6d6a63" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="middle">
+    <text x="214" y="82">6 scope dimensions</text>
+    <text x="214" y="310">LLM world knowledge</text>
+  </g>
+  <!-- studio vertical arrows -->
+  <g stroke="#b0ada4" stroke-width="1.6">
+    <line x1="210" y1="90"  x2="210" y2="120" marker-end="url(#arw)"/>
+    <line x1="210" y1="166" x2="210" y2="196" marker-end="url(#arw)"/>
+    <line x1="210" y1="242" x2="210" y2="272" marker-end="url(#arw)"/>
+    <line x1="210" y1="318" x2="210" y2="348" marker-end="url(#arw)"/>
+  </g>
+  <g fill="#6d6a63" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="end">
+    <text x="92" y="298">invents from</text>
+    <text x="92" y="312">world knowledge</text>
+  </g>
+
+  <!-- ===== PROJECTS column (center x=670) ===== -->
+  <g fill="#ebeefb" stroke="#3346a0" stroke-width="1.6">
+    <rect x="560" y="46"  width="220" height="44" rx="8"/>
+    <rect x="560" y="122" width="220" height="44" rx="8"/>
+    <rect x="560" y="198" width="220" height="44" rx="8"/>
+    <rect x="560" y="274" width="220" height="44" rx="8"/>
+  </g>
+  <g fill="#3346a0"><rect x="560" y="46" width="4" height="44"/><rect x="560" y="122" width="4" height="44"/><rect x="560" y="198" width="4" height="44"/><rect x="560" y="274" width="4" height="44"/></g>
+  <g fill="#1e1c19" font-size="13" font-weight="600" text-anchor="middle">
+    <text x="674" y="66">Input — sources</text>
+    <text x="674" y="142">Draft</text>
+    <text x="674" y="218">Feedback — validate</text>
+    <text x="674" y="301">Publish</text>
+  </g>
+  <g fill="#6d6a63" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="middle">
+    <text x="674" y="82">transcript / note / link</text>
+    <text x="674" y="158">multi-format</text>
+    <text x="674" y="234">expert approves</text>
+  </g>
+  <g stroke="#b0ada4" stroke-width="1.6">
+    <line x1="670" y1="90"  x2="670" y2="120" marker-end="url(#arw)"/>
+    <line x1="670" y1="166" x2="670" y2="196" marker-end="url(#arw)"/>
+    <line x1="670" y1="242" x2="670" y2="272" marker-end="url(#arw)"/>
+  </g>
+  <!-- crux label + feedback label -->
+  <g font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="start">
+    <text x="788" y="142" fill="#3346a0" font-weight="700">ONLY the sources</text>
+    <text x="788" y="156" fill="#3346a0" font-weight="700">invents nothing</text>
+    <text x="788" y="214" fill="#6d6a63">append-only</text>
+    <text x="788" y="228" fill="#6d6a63">recorded_via</text>
+  </g>
+
+  <!-- ===== converge to Library ===== -->
+  <rect x="320" y="476" width="240" height="52" rx="10" fill="#e5f2eb" stroke="#2b7a57" stroke-width="2"/>
+  <text x="440" y="500" text-anchor="middle" font-size="15" font-weight="700" fill="#1e1c19">Library / Reader</text>
+  <text x="440" y="517" text-anchor="middle" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#6d6a63">EPUB · PDF</text>
+
+  <path d="M210,394 C210,446 300,476 386,476" fill="none" stroke="#b0ada4" stroke-width="1.6" marker-end="url(#arw)"/>
+  <text x="250" y="438" text-anchor="middle" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#6d6a63">export</text>
+  <path d="M670,318 C670,436 560,476 494,476" fill="none" stroke="#b0ada4" stroke-width="1.6" marker-end="url(#arw)"/>
+  <text x="648" y="410" text-anchor="middle" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#2b7a57" font-weight="700">artifactToBook · #379</text>
+</svg>

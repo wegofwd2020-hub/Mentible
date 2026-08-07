@@ -12,6 +12,11 @@ only at the Library.
 
 ## The two flows
 
+![Studio and Projects — two parallel authoring pipelines converging at the Library. Studio: topic &amp; scope → structure TOC → topic tree → generate (from LLM world knowledge) → book → export. Projects: input sources → draft (ONLY the sources, invents nothing) → feedback/validate (append-only, recorded_via) → publish. Both feed a shared Library / Reader that exports EPUB · PDF; Projects reaches it via the artifactToBook bridge (#379).](assets/studio-vs-projects-flow.svg)
+
+<details>
+<summary>Mermaid source (editable)</summary>
+
 ```mermaid
 flowchart TB
   subgraph STUDIO["STUDIO — Books · ADR-003 / ADR-004"]
@@ -29,6 +34,8 @@ flowchart TB
   S5 -->|"export"| LIB[("Library / Reader<br/>EPUB · PDF")]
   P4 -->|"artifactToBook · #379"| LIB
 ```
+
+</details>
 
 The single edge that separates the products is the one into **Generate** vs **Draft**: Studio
 invents from the model's world knowledge (scoped by six dimensions); Projects drafts **only** from
