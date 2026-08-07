@@ -43,6 +43,22 @@ it("owner can open a source, see the full content, edit it, and delete it", asyn
   await waitFor(() => expect(mockRemoveInput).toHaveBeenCalledWith("i1"));
 });
 
+it("title-only edit omits content from the PATCH body (so a cited source's title can be renamed without tripping the backend content-guard)", async () => {
+  const mock = proj("owner");
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  fireEvent.press(screen.getByLabelText("Open source T"));
+  fireEvent.press(screen.getByLabelText("Edit source"));
+  fireEvent.changeText(screen.getByLabelText("Source title"), "Renamed title");
+  fireEvent.press(screen.getByLabelText("Save source"));
+
+  await waitFor(() =>
+    expect(mockEditInput).toHaveBeenCalledWith("i1", expect.objectContaining({ title: "Renamed title", content: undefined })),
+  );
+});
+
 it("reviewer can open a source and see full content, but has no Edit/Delete controls", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer"));
   render(<TrustProjectDetail />);

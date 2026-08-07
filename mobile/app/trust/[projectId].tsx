@@ -122,9 +122,14 @@ function SourcesPanel({
   const onSaveEdit = async (inputId: string) => {
     setSaveBusy(true);
     try {
+      // Only send `content` when it actually changed — the backend's cited-guard
+      // blocks any PATCH that carries `content` on a source cited by a draft, but
+      // title/source_ref-only edits are allowed even when cited. Sending an
+      // unchanged `content` would needlessly trip that guard.
+      const original = inputs.find((i) => i.id === inputId);
       await editInput(inputId, {
         title: editTitle.trim() || undefined,
-        content: editContent,
+        content: original && editContent === original.content ? undefined : editContent,
         source_ref: editSourceRef.trim() || undefined,
       });
       setEditingId(null);
