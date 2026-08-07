@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 
 const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }) }));
+jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
 import { useTrustProject } from "@/hooks/useTrustProject";
 
