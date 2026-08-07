@@ -1,8 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
+import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
@@ -12,7 +13,8 @@ import { artifactToBook } from "@/lib/artifactToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
-import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
+import type { ArtifactDetailView, ProjectInputView, StructuredTocView } from "@/api/trustClient";
+import type { StructuredTOC } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
@@ -57,6 +59,12 @@ function sourceDate(createdAt: string | null): string | null {
   if (!createdAt) return null;
   const d = new Date(createdAt);
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+}
+
+// True when the outline has at least one topic to lose — gates the
+// confirm-replace prompt before a Suggest result overwrites it.
+function tocHasContent(toc: StructuredTOC): boolean {
+  return toc.subjects.some((s) => s.units.length > 0);
 }
 
 // Sources (capture phase): the owner's raw-knowledge intake form + the input list.
@@ -296,6 +304,70 @@ function SourcesPanel({
             </View>
           );
         })
+      )}
+    </View>
+  );
+}
+
+// Structure (structure phase): an editable topic tree (TOC) the owner shapes
+// before drafting — either by hand or by suggesting one from the sources
+// captured so far. Reviewers get the same tree rendered read-only (no
+// Suggest/Next, and edits never reach onChangeToc, so nothing can persist).
+function StructurePanel({
+  styles,
+  isOwner,
+  toc,
+  onChangeToc,
+  onSuggest,
+  suggestBusy,
+  onNext,
+  sourceLabel,
+  inputsEmpty,
+}: {
+  styles: Styles;
+  isOwner: boolean;
+  toc: StructuredTOC;
+  onChangeToc: (next: StructuredTOC) => void;
+  onSuggest: () => void;
+  suggestBusy: boolean;
+  onNext: () => void;
+  sourceLabel: (id: string) => string;
+  inputsEmpty: boolean;
+}) {
+  return (
+    <View style={styles.structureBlock}>
+      <Text style={styles.artifactTitle}>Structure</Text>
+      <Text style={styles.sourcesHelper}>
+        Shape the outline before drafting — group topics into subjects, or suggest one from your sources.
+      </Text>
+      {isOwner ? (
+        <>
+          <View style={styles.structureActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Suggest outline from sources"
+              disabled={suggestBusy || inputsEmpty}
+              style={[styles.approveBtn, suggestBusy || inputsEmpty ? styles.disabledBtn : null]}
+              onPress={onSuggest}
+            >
+              <Text style={styles.approveText}>{suggestBusy ? "…" : "Suggest from sources"}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next to Drafts"
+              style={styles.compareBtn}
+              onPress={onNext}
+            >
+              <Text style={styles.viewBtnText}>Next</Text>
+            </Pressable>
+          </View>
+          {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+          <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
+        </>
+      ) : (
+        // No onChange path to saveToc for a reviewer — edits made in this
+        // tree simply vanish on the next render (toc is owner-controlled).
+        <TopicTreeEditor toc={toc} onChange={() => {}} sourceLabel={sourceLabel} />
       )}
     </View>
   );
@@ -743,7 +815,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, invite, addInput, editInput, removeInput, loadVersionContent, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
@@ -756,6 +828,15 @@ function TrustProjectDetailInner() {
   const [selected, setSelected] = useState<PhaseKey | null>(null);
   const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
   const [compareSel, setCompareSel] = useState<string[]>([]);
+  const [tocDraft, setTocDraft] = useState<StructuredTOC | null>(null);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+
+  // id -> "S1".."Sn", mirroring the draft viewer's labelFor (app/trust/version/[versionId].tsx).
+  const sourceLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    inputs.forEach((inp, i) => m.set(inp.id, `S${i + 1}`));
+    return (id: string) => m.get(id) ?? "cited";
+  }, [inputs]);
 
   const toggleCompareMode = (artifactId: string) => {
     setCompareArtifactId((cur) => (cur === artifactId ? null : artifactId));
@@ -779,6 +860,16 @@ function TrustProjectDetailInner() {
       setSelected(basePhase(deriveProjectPhase(project, isOwnerNow).currentKey));
     }
   }, [project, selected]);
+
+  // Same "seed once" shape as the `selected` effect above: pull the Structure
+  // draft from the persisted toc the first time the project is available,
+  // then leave it alone. saveToc/addInput/etc. all refetch the project on
+  // success, and we must not let that refetch stomp in-progress local edits.
+  useEffect(() => {
+    if (project && tocDraft === null) {
+      setTocDraft((project.project.toc as unknown as StructuredTOC | undefined) ?? { subjects: [] });
+    }
+  }, [project, tocDraft]);
 
   // Approving/unapproving/editing a version happens on a separate screen (the
   // draft viewer, app/trust/version/[versionId].tsx). Refetch on refocus so
@@ -897,6 +988,48 @@ function TrustProjectDetailInner() {
     }
   };
 
+  const toc: StructuredTOC = tocDraft ?? { subjects: [] };
+
+  const onSuggest = async () => {
+    setSuggestBusy(true);
+    try {
+      const suggested = (await suggestToc()) as unknown as StructuredTOC;
+      const apply = async () => {
+        setTocDraft(suggested);
+        try {
+          await saveToc(suggested as unknown as StructuredTocView);
+        } catch {
+          // Non-fatal: the suggested outline stays visible locally even if
+          // the persist call failed; the next edit (or another Suggest)
+          // will retry the save.
+        }
+      };
+      if (tocHasContent(toc)) {
+        Alert.alert(
+          "Replace outline?",
+          "This replaces your current outline with the suggested one.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Replace", style: "destructive", onPress: () => { void apply(); } },
+          ],
+        );
+      } else {
+        await apply();
+      }
+    } catch (e) {
+      Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : "Try again.");
+    } finally {
+      setSuggestBusy(false);
+    }
+  };
+
+  const onChangeToc = (next: StructuredTOC) => {
+    setTocDraft(next);
+    void saveToc(next as unknown as StructuredTocView).catch(() => {});
+  };
+
+  const onNext = () => setSelected("create");
+
   const isOwner = project.my_role === "owner";
   const phase = deriveProjectPhase(project, isOwner);
   // Fallback for the first frame(s) before the seed effect fires; once
@@ -926,6 +1059,19 @@ function TrustProjectDetailInner() {
             onAddSource={onAddSource}
             editInput={editInput}
             removeInput={removeInput}
+          />
+        ) : null}
+        {active === "structure" ? (
+          <StructurePanel
+            styles={styles}
+            isOwner={isOwner}
+            toc={toc}
+            onChangeToc={onChangeToc}
+            onSuggest={onSuggest}
+            suggestBusy={suggestBusy}
+            onNext={onNext}
+            sourceLabel={sourceLabel}
+            inputsEmpty={inputs.length === 0}
           />
         ) : null}
         {active === "create" ? (
@@ -1075,6 +1221,15 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.sm,
   },
   sourcesHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
+  structureBlock: {
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  structureActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   sourceForm: { gap: spacing.sm },
   kindRow: { flexDirection: "row" as const, gap: spacing.sm },
   kindBtn: {
