@@ -604,15 +604,17 @@ def test_owner_suggests_toc_from_sources():
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
         pid, _aid = _artifact_with_source(c)
+        key = "sk-ant-" + "x" * 20
         with patch(
             "backend.src.trust.toc_suggest.build_provider",
             return_value=fake_provider(text=_TOC_JSON),
         ):
             r = c.post(
                 f"/api/v1/trust/projects/{pid}/suggest-toc",
-                json={"api_key": "sk-ant-" + "x" * 20},
+                json={"api_key": key},
             )
         assert r.status_code == 200
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
         toc = r.json()["toc"]
         subjects = toc["subjects"]
         assert len(subjects) == 1
