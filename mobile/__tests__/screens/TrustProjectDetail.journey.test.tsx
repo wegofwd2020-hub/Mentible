@@ -70,14 +70,17 @@ it("keeps the recorded_via chip on a validated version (Feedback)", async () => 
   expect(screen.getByText("expert-validated")).toBeTruthy();
 });
 
-it("the Publish tab lists an approved asset with export actions", async () => {
+it("the Publish tab lists an approved long-form asset with library/export actions", async () => {
+  // "Guide" is format "book" (long-form) — Publish now offers Add to Library +
+  // Download EPUB/PDF for it, not Copy (Copy stays for social formats).
   (useTrustProject as jest.Mock).mockReturnValue(
     proj("owner", [{ id: "i" }], [{ id: "v1", version_no: 1, is_validated: true, recorded_via: "operator" }]),
   );
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Publish:/));
-  expect(screen.getByLabelText("Copy Guide as Markdown")).toBeTruthy();
-  expect(screen.getByText(/Pro \(coming soon\)/)).toBeTruthy();
+  expect(screen.getByLabelText("Add Guide to Library")).toBeTruthy();
+  expect(screen.getByLabelText("Download Guide as EPUB")).toBeTruthy();
+  expect(screen.getByLabelText("Download Guide as PDF")).toBeTruthy();
 });
 
 it("does not yank the owner off Input after adding the first source", async () => {

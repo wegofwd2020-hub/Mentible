@@ -8,6 +8,10 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
+import { artifactToBook } from "@/lib/artifactToBook";
+import { saveBook } from "@/storage/bookStore";
+import { trackedExport } from "@/lib/trackedExport";
+import { downloadArtifact } from "@/storage/epubLibrary";
 import type { ArtifactDetailView, ProjectInputView } from "@/api/trustClient";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
@@ -24,6 +28,14 @@ const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] =
   { value: "note", label: "Note" },
   { value: "link", label: "Link" },
 ];
+
+// Long-form assets get real Add-to-Library + EPUB/PDF export in Publish
+// (they reuse the same book/compiler machinery as authored Books); social
+// assets (linkedin/x_thread/reel/podcast) stay Copy-only.
+const LONG_FORM = new Set(["book", "essay", "guide"]);
+
+const slug = (t: string) =>
+  t.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "asset";
 
 // Collapses the synthetic "create_artifact" sub-state (Drafts, no artifact
 // yet) into the "create" tab key. Module-level so both the seed effect
@@ -472,13 +484,19 @@ function FeedbackPanel({
 function PublishPanel({
   styles,
   artifacts,
+  inputs,
   pubBusy,
   onCopyAsset,
+  onAddToLibrary,
+  onDownloadAsset,
 }: {
   styles: Styles;
   artifacts: ArtifactDetailView[];
+  inputs: ProjectInputView[];
   pubBusy: string | null;
   onCopyAsset: (versionId: string, fmt: "text" | "markdown", title: string) => void;
+  onAddToLibrary: (versionId: string, title: string, format: string) => void;
+  onDownloadAsset: (versionId: string, title: string, fmt: "epub" | "pdf") => void;
 }) {
   const publishable = artifacts
     .map(({ artifact, versions }) => {
@@ -499,6 +517,7 @@ function PublishPanel({
       <Text style={styles.sourcesHelper}>Export the expert-validated version of each asset.</Text>
       {publishable.map(({ artifact, version }) => {
         const title = artifact.title ?? artifact.format;
+        const isLongForm = LONG_FORM.has(artifact.format);
         return (
           <View key={artifact.id} style={styles.artifact}>
             <Text style={styles.artifactTitle}>{title}</Text>
@@ -506,27 +525,61 @@ function PublishPanel({
               <Text style={styles.validated}>Validated ✓</Text>
               <Text style={styles.versionLabel}>v{version.version_no}</Text>
             </View>
-            <View style={styles.pubActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Copy ${title} as text`}
-                disabled={pubBusy !== null}
-                style={styles.approveBtn}
-                onPress={() => onCopyAsset(version.id, "text", title)}
-              >
-                <Text style={styles.approveText}>{pubBusy === `${version.id}:text` ? "…" : "Copy"}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Copy ${title} as Markdown`}
-                disabled={pubBusy !== null}
-                style={styles.approveBtn}
-                onPress={() => onCopyAsset(version.id, "markdown", title)}
-              >
-                <Text style={styles.approveText}>{pubBusy === `${version.id}:markdown` ? "…" : "Copy as Markdown"}</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.proText}>PDF & Word — Pro (coming soon)</Text>
+            {isLongForm ? (
+              <View style={styles.pubActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${title} to Library`}
+                  disabled={pubBusy !== null}
+                  style={styles.approveBtn}
+                  onPress={() => onAddToLibrary(version.id, title, artifact.format)}
+                >
+                  <Text style={styles.approveText}>{pubBusy === `${version.id}:lib` ? "…" : "Add to Library"}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Download ${title} as EPUB`}
+                  disabled={pubBusy !== null}
+                  style={styles.approveBtn}
+                  onPress={() => onDownloadAsset(version.id, title, "epub")}
+                >
+                  <Text style={styles.approveText}>{pubBusy === `${version.id}:epub` ? "…" : "Download EPUB"}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Download ${title} as PDF`}
+                  disabled={pubBusy !== null}
+                  style={styles.approveBtn}
+                  onPress={() => onDownloadAsset(version.id, title, "pdf")}
+                >
+                  <Text style={styles.approveText}>{pubBusy === `${version.id}:pdf` ? "…" : "Download PDF"}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <View style={styles.pubActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy ${title} as text`}
+                    disabled={pubBusy !== null}
+                    style={styles.approveBtn}
+                    onPress={() => onCopyAsset(version.id, "text", title)}
+                  >
+                    <Text style={styles.approveText}>{pubBusy === `${version.id}:text` ? "…" : "Copy"}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy ${title} as Markdown`}
+                    disabled={pubBusy !== null}
+                    style={styles.approveBtn}
+                    onPress={() => onCopyAsset(version.id, "markdown", title)}
+                  >
+                    <Text style={styles.approveText}>{pubBusy === `${version.id}:markdown` ? "…" : "Copy as Markdown"}</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.proText}>PDF & Word — Pro (coming soon)</Text>
+              </>
+            )}
           </View>
         );
       })}
@@ -635,6 +688,38 @@ function TrustProjectDetailInner() {
     })();
   };
 
+  const onAddToLibrary = (versionId: string, title: string, _format: string) => {
+    setPubBusy(`${versionId}:lib`);
+    void (async () => {
+      try {
+        const v = await loadVersionContent(versionId);
+        const book = artifactToBook(v.content?.sections ?? [], title, inputs);
+        await saveBook(book);
+        Alert.alert("Added", "Added to your Library.");
+      } catch (e) {
+        Alert.alert("Couldn't add", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setPubBusy(null);
+      }
+    })();
+  };
+
+  const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf") => {
+    setPubBusy(`${versionId}:${fmt}`);
+    void (async () => {
+      try {
+        const v = await loadVersionContent(versionId);
+        const book = artifactToBook(v.content?.sections ?? [], title, inputs);
+        const res = await trackedExport(book, fmt, { diagrams: true });
+        await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, fmt === "epub" ? "application/epub+zip" : "application/pdf");
+      } catch (e) {
+        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setPubBusy(null);
+      }
+    })();
+  };
+
   const onAddSource = async () => {
     const content = sourceContent.trim();
     if (!content) return;
@@ -716,7 +801,15 @@ function TrustProjectDetailInner() {
           />
         ) : null}
         {active === "share" ? (
-          <PublishPanel styles={styles} artifacts={project.artifacts} pubBusy={pubBusy} onCopyAsset={onCopyAsset} />
+          <PublishPanel
+            styles={styles}
+            artifacts={project.artifacts}
+            inputs={inputs}
+            pubBusy={pubBusy}
+            onCopyAsset={onCopyAsset}
+            onAddToLibrary={onAddToLibrary}
+            onDownloadAsset={onDownloadAsset}
+          />
         ) : null}
       </PageContainer>
     </ScrollView>
