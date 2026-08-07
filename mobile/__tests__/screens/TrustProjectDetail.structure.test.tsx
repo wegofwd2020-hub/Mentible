@@ -180,3 +180,15 @@ it("reviewer sees the TOC read-only: no Suggest/Next controls, and edits never p
   if (titleInput) fireEvent.changeText(titleInput, "Hacked");
   expect(mock.saveToc).not.toHaveBeenCalled();
 });
+
+it("tolerates a persisted subject missing `units` (defensive backend payload) without crashing", async () => {
+  // PUT /toc only validates that `subjects` is a list, not that every
+  // subject has a `units` array — a hand-crafted payload could omit it.
+  const noUnits = { subjects: [{ subject_label: "Physics" }] };
+  const mock = proj("owner", { toc: noUnits });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  expect(await screen.findByDisplayValue("Physics")).toBeTruthy();
+});

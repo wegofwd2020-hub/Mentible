@@ -91,7 +91,7 @@ function tocViewToStructured(view: StructuredTocView): StructuredTOC {
   return {
     subjects: view.subjects.map((s) => ({
       subject_label: s.subject_label,
-      units: s.units.map((u) => ({
+      units: (s.units ?? []).map((u) => ({
         id: u.id,
         title: u.title,
         subtopics: toSubtopics(u.subtopics),
@@ -1066,6 +1066,13 @@ function TrustProjectDetailInner() {
     try {
       const suggested = tocViewToStructured(await suggestToc());
       const apply = async () => {
+        // An armed keystroke-debounce timer firing after this save would
+        // clobber the just-persisted suggested outline with a stale edit —
+        // invisible until reload. Disarm it before applying/saving.
+        if (saveTocTimer.current) {
+          clearTimeout(saveTocTimer.current);
+          saveTocTimer.current = null;
+        }
         setTocDraft(suggested);
         try {
           await saveToc(structuredToTocView(suggested));
