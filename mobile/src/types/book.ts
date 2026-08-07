@@ -33,6 +33,10 @@ export interface TopicNode {
   // Free-text author guidance re-applied on every (re)generation of this topic
   // (e.g. "add a diagram for the T-shape"). Persisted so refinements stick.
   enhancementInstructions?: string;
+  // Trust-project input source ids this topic draws from (read-only coverage
+  // display — Slice B Structure/TOC). Client-only, like `id`: not part of the
+  // backend StructuredTOC contract. Absent on Studio-authored books.
+  source_ids?: string[];
 }
 
 export interface SubjectNode {

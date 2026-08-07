@@ -14,6 +14,11 @@ import {
 interface Props {
   toc: StructuredTOC;
   onChange: (next: StructuredTOC) => void;
+  // When provided, each unit's `source_ids` (if any) render as read-only
+  // "source coverage" chips resolved through this label lookup — parallel to
+  // the prerequisites chips below. Omitted on the Studio book-authoring path,
+  // where nothing new renders (unchanged behavior).
+  sourceLabel?: (id: string) => string;
 }
 
 // The TOC is plain JSON data, so a structural clone is the simplest safe way to
@@ -64,7 +69,7 @@ function MiniButton({
   );
 }
 
-export function TopicTreeEditor({ toc, onChange }: Props) {
+export function TopicTreeEditor({ toc, onChange, sourceLabel }: Props) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const mutate = useCallback(
@@ -210,6 +215,21 @@ export function TopicTreeEditor({ toc, onChange }: Props) {
                   {unit.prerequisites.map((p, pi) => (
                     <Text key={pi} style={styles.prereqChip}>
                       {p}
+                    </Text>
+                  ))}
+                </View>
+              )}
+
+              {/* Source coverage — read-only chips, Slice B Structure/TOC. Only
+                  rendered when the caller opts in via sourceLabel (trust
+                  workspace); the Studio book-authoring path never passes it,
+                  so this stays invisible there. */}
+              {sourceLabel && unit.source_ids && unit.source_ids.length > 0 && (
+                <View style={styles.prereqRow}>
+                  <Text style={styles.prereqLabel}>Sources:</Text>
+                  {unit.source_ids.map((id, sidx) => (
+                    <Text key={sidx} style={styles.prereqChip}>
+                      {sourceLabel(id)}
                     </Text>
                   ))}
                 </View>
