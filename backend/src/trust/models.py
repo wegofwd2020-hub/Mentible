@@ -38,6 +38,7 @@ class Project:
     status: str
     created_at: datetime | None
     updated_at: datetime | None
+    toc: dict | None = None
 
 
 @dataclass(frozen=True)

@@ -503,10 +503,38 @@ async def get_project(
             goal=p.goal,
             status=p.status,
             created_at=p.created_at,
+            toc=p.toc,
         ),
         artifacts=artifacts,
         my_role=role,
         inputs=inputs,
+    )
+
+
+@router.put("/projects/{project_id}/toc", response_model=schemas.ProjectOut)
+async def save_project_toc(
+    project_id: uuid.UUID,
+    body: schemas.TocSaveIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    if not isinstance(body.toc.get("subjects"), list):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "toc.subjects must be a list")
+    await project_repo.update_project_toc(conn, project_id=project_id, toc=body.toc)
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    return schemas.ProjectOut(
+        id=str(p.id),
+        title=p.title,
+        topic=p.topic,
+        audience=p.audience,
+        goal=p.goal,
+        status=p.status,
+        created_at=p.created_at,
+        toc=p.toc,
     )
 
 

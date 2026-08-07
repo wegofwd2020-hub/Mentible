@@ -33,6 +33,11 @@ class ProjectOut(BaseModel):
     goal: str | None
     status: str
     created_at: datetime | None
+    toc: dict | None = None
+
+
+class TocSaveIn(BaseModel):
+    toc: dict
 
 
 class ProjectSummaryOut(BaseModel):

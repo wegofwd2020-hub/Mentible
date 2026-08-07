@@ -623,6 +623,35 @@ def test_get_version_owner_reviewer_read_stranger_403_and_404():
         assert c.get(f"/api/v1/trust/versions/{uuid.uuid4()}").status_code == 404
 
 
+def test_put_and_get_project_toc():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        toc = {
+            "subjects": [
+                {
+                    "subject_label": "S",
+                    "units": [
+                        {
+                            "id": "t1",
+                            "title": "Topic 1",
+                            "subtopics": [],
+                            "prerequisites": [],
+                            "source_ids": [],
+                        }
+                    ],
+                }
+            ]
+        }
+        assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+        got = c.get(f"/api/v1/trust/projects/{pid}").json()["project"]["toc"]
+        assert got["subjects"][0]["units"][0]["title"] == "Topic 1"
+        # reviewer/non-owner blocked
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 403
+
+
 def test_create_essay_artifact_accepted():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
