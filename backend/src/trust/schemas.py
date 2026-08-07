@@ -40,6 +40,10 @@ class TocSaveIn(BaseModel):
     toc: dict
 
 
+class TocSuggestOut(BaseModel):
+    toc: dict
+
+
 class ProjectSummaryOut(BaseModel):
     id: str
     title: str
