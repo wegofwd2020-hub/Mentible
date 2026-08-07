@@ -127,7 +127,7 @@ async def delete_input(conn, *, input_id) -> None:
     await conn.execute("DELETE FROM project_input WHERE id = $1", input_id)
 
 
-async def input_cited(conn, *, project_id, input_id) -> bool:
+async def input_cited_by_validated(conn, *, project_id, input_id) -> bool:
     return bool(
         await conn.fetchval(
             """
@@ -136,6 +136,8 @@ async def input_cited(conn, *, project_id, input_id) -> bool:
           WHERE a.project_id = $1 AND v.content IS NOT NULL
             AND v.content -> 'sections' @> jsonb_build_array(
                   jsonb_build_object('source_ids', jsonb_build_array($2::text)))
+            AND (SELECT ap.action FROM approval ap WHERE ap.version_id = v.id
+                 ORDER BY ap.seq DESC LIMIT 1) = 'approve'
         )
         """,
             project_id,
