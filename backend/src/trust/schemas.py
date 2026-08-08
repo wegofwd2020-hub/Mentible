@@ -147,6 +147,8 @@ TopicStatus = Literal["not_generated", "drafted", "validated"]
 class TopicStatusOut(BaseModel):
     topic_id: str
     status: TopicStatus
+    latest_version_id: str | None = None
+    version_no: int | None = None
 
 
 class ProjectDetailOut(BaseModel):

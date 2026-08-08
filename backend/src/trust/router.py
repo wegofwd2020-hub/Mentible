@@ -682,7 +682,14 @@ async def _topic_status_rollup(
             status_value = "validated"
         else:
             status_value = "drafted"
-        statuses.append(schemas.TopicStatusOut(topic_id=topic_id, status=status_value))
+        statuses.append(
+            schemas.TopicStatusOut(
+                topic_id=topic_id,
+                status=status_value,
+                latest_version_id=str(latest.id) if latest is not None else None,
+                version_no=latest.version_no if latest is not None else None,
+            )
+        )
 
     book_validated = bool(topic_ids) and all(s.status == "validated" for s in statuses)
     return statuses, book_validated
