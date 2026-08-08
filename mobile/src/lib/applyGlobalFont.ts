@@ -35,6 +35,11 @@ const SERIF_RE = /serif|georgia/i;
 // dyslexic mode still overrides it (a11y) instead of leaving it untouched.
 const FRAUNCES_RE = /fraunces/i;
 
+// Playfair Display is the app-wide heading face (Studio reskin P0). A literal
+// PlayfairDisplay_* family is heading-intent: keep the exact instance the style
+// chose, but still honour dyslexic mode (a11y wins over the brand face).
+const PLAYFAIR_RE = /playfair/i;
+
 // The concrete Fraunces family already bakes its weight (e.g. "Fraunces_700Bold"),
 // so we read the weight from the NAME rather than the style's fontWeight. That lets
 // SME heading styles omit fontWeight entirely — which they must, so web (where this
@@ -66,6 +71,12 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
     // a11y font wins over the accent slant).
     if (FRAUNCES_RE.test(flat.fontFamily)) {
       if (dyslexic) return resolveFamily("heading", weightFromFraunces(flat.fontFamily), true, "fraunces");
+      return flat.fontFamily;
+    }
+    // A literal Playfair family (the app-wide heading face): keep the exact
+    // instance the style chose, but dyslexic mode still overrides it (a11y).
+    if (PLAYFAIR_RE.test(flat.fontFamily)) {
+      if (dyslexic) return resolveFamily("heading", flat.fontWeight, true);
       return flat.fontFamily;
     }
     // Only our serif text-intent gets remapped; every other explicit family

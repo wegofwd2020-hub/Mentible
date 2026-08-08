@@ -20,9 +20,9 @@ describe("resolveFamilyForStyle", () => {
     expect(resolveFamilyForStyle({ fontWeight: "700" }, false)).toBe("Inter_700Bold");
   });
 
-  it("treats large + bold text as a serif heading", () => {
+  it("treats large + bold text as a Playfair heading", () => {
     expect(resolveFamilyForStyle({ fontSize: 28, fontWeight: "700" }, false)).toBe(
-      "SourceSerif4_700Bold",
+      "PlayfairDisplay_600SemiBold",
     );
     // large but not bold → still body
     expect(resolveFamilyForStyle({ fontSize: 28, fontWeight: "400" }, false)).toBe(
@@ -30,11 +30,11 @@ describe("resolveFamilyForStyle", () => {
     );
   });
 
-  it("remaps explicit serif intent to the bundled serif", () => {
+  it("remaps explicit serif intent to Playfair (the heading resolver, not the bundled serif)", () => {
     expect(resolveFamilyForStyle({ fontFamily: "serif", fontWeight: "600" }, false)).toBe(
-      "SourceSerif4_600SemiBold",
+      "PlayfairDisplay_600SemiBold",
     );
-    expect(resolveFamilyForStyle({ fontFamily: "Georgia" }, false)).toBe("SourceSerif4_400Regular");
+    expect(resolveFamilyForStyle({ fontFamily: "Georgia" }, false)).toBe("PlayfairDisplay_400Regular");
   });
 
   it("swaps text families to OpenDyslexic in dyslexic mode", () => {
@@ -65,5 +65,28 @@ describe("resolveFamilyForStyle", () => {
     expect(resolveFamilyForStyle({ fontFamily: "Fraunces_600SemiBold_Italic" }, true)).toBe(
       "OpenDyslexic_700Bold",
     );
+  });
+
+  // Studio reskin P0: Playfair Display is the app-wide heading face. A literal
+  // PlayfairDisplay_* family is heading-intent, mirroring the Fraunces branch.
+  it("keeps the exact Playfair instance untouched when not dyslexic", () => {
+    expect(resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_600SemiBold" }, false)).toBe(
+      "PlayfairDisplay_600SemiBold",
+    );
+    expect(resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_400Regular" }, false)).toBe(
+      "PlayfairDisplay_400Regular",
+    );
+  });
+
+  it("swaps a Playfair heading to OpenDyslexic in dyslexic mode (a11y)", () => {
+    // Unlike the Fraunces branch, the Playfair branch reads weight from the
+    // style's fontWeight (not the family name) — no fontWeight here means the
+    // regular bucket.
+    expect(resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_600SemiBold" }, true)).toBe(
+      "OpenDyslexic_400Regular",
+    );
+    expect(
+      resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_600SemiBold", fontWeight: "600" }, true),
+    ).toBe("OpenDyslexic_700Bold");
   });
 });

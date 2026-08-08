@@ -7,12 +7,15 @@
 // app, the interceptor reads the requested weight and picks the matching family.
 //
 // Three roles:
-//   • body    → Inter            (clean, light sans; fixes the heavy Roboto look)
-//   • heading → Source Serif 4    (serif; restores sans/serif hierarchy)
-//   • dyslexic→ OpenDyslexic      (accessibility toggle; overrides everything)
+//   • body    → Inter             (clean, light sans; fixes the heavy Roboto look)
+//   • heading → Playfair Display  (Studio reskin P0 — see ADR pending; was Source
+//                                  Serif 4, still bundled/defined for any literal
+//                                  references until they're migrated)
+//   • dyslexic→ OpenDyslexic       (accessibility toggle; overrides everything)
 //
-// Inter + Source Serif 4 come from @expo-google-fonts/*; OpenDyslexic ttf is
-// vendored in assets/fonts (see assets/fonts/OpenDyslexic-*.ttf).
+// Inter, Source Serif 4, Fraunces + Playfair Display come from
+// @expo-google-fonts/*; OpenDyslexic ttf is vendored in assets/fonts (see
+// assets/fonts/OpenDyslexic-*.ttf).
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -31,6 +34,11 @@ import {
   Fraunces_400Regular_Italic,
   Fraunces_600SemiBold_Italic,
 } from "@expo-google-fonts/fraunces";
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_600SemiBold,
+} from "@expo-google-fonts/playfair-display";
 
 // The map passed to useFonts(). Keys are the family names referenced everywhere else.
 export const FONT_ASSETS = {
@@ -49,6 +57,10 @@ export const FONT_ASSETS = {
   Fraunces_700Bold,
   Fraunces_400Regular_Italic,
   Fraunces_600SemiBold_Italic,
+  // Playfair Display: the app-wide heading face (Studio reskin P0).
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_600SemiBold,
   OpenDyslexic_400Regular: require("../../assets/fonts/OpenDyslexic-Regular.ttf"),
   OpenDyslexic_700Bold: require("../../assets/fonts/OpenDyslexic-Bold.ttf"),
 } as const;
@@ -76,8 +88,11 @@ const INTER = {
   bold: "Inter_700Bold",
 } as const;
 
-// Source Serif 4 ships no medium here; medium maps to regular.
-const SERIF = {
+// Source Serif 4 ships no medium here; medium maps to regular. No longer
+// referenced by resolveFamily (heading now always resolves to Playfair —
+// Studio reskin P0); exported (not deleted) for any literal references until
+// they migrate.
+export const SERIF = {
   regular: "SourceSerif4_400Regular",
   medium: "SourceSerif4_400Regular",
   semibold: "SourceSerif4_600SemiBold",
@@ -105,7 +120,20 @@ export const FRAUNCES_ITALIC = {
   semibold: "Fraunces_600SemiBold_Italic",
 } as const;
 
-// Heading brand: the default serif (Source Serif 4, app-wide) or Fraunces (SME).
+// Playfair Display — the app-wide heading face (Studio reskin P0). Ships no
+// bundled 700 weight here; bold rounds down to 600SemiBold like the other
+// heading maps round unavailable weights to their nearest loaded face.
+export const PLAYFAIR = {
+  regular: "PlayfairDisplay_400Regular",
+  medium: "PlayfairDisplay_500Medium",
+  semibold: "PlayfairDisplay_600SemiBold",
+  bold: "PlayfairDisplay_600SemiBold",
+} as const;
+
+// Heading brand: historical serif/fraunces selector. Retired as of the Studio
+// reskin P0 — resolveFamily's heading branch now always returns Playfair
+// regardless of `brand` (kept below only for call-site signature stability).
+// SERIF/FRAUNCES stay defined for literal references until they migrate.
 export type HeadingBrand = "serif" | "fraunces";
 
 // OpenDyslexic ships only Regular + Bold; semibold/medium round to the nearest.
@@ -117,9 +145,9 @@ const DYSLEXIC = {
 } as const;
 
 // Resolve the concrete family name for a (role, weight), honouring dyslexic mode
-// which overrides both roles so ALL text uses OpenDyslexic. `brand` selects the
-// heading family (default serif; "fraunces" for the SME surfaces) and never
-// affects body text; dyslexic still wins over the brand (a11y).
+// which overrides both roles so ALL text uses OpenDyslexic. Heading always
+// resolves to Playfair Display (Studio reskin P0) regardless of `brand` — the
+// param is retained only for call-site signature stability (see HeadingBrand).
 export function resolveFamily(
   role: FontRole,
   weight: Weight | undefined,
@@ -128,6 +156,6 @@ export function resolveFamily(
 ): string {
   const b = bucket(weight);
   if (dyslexic) return DYSLEXIC[b];
-  if (role === "heading") return brand === "fraunces" ? FRAUNCES[b] : SERIF[b];
+  if (role === "heading") return PLAYFAIR[b];
   return INTER[b];
 }

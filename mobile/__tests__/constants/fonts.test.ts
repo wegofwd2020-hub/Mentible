@@ -1,4 +1,4 @@
-import { resolveFamily, FRAUNCES } from "@/constants/fonts";
+import { resolveFamily } from "@/constants/fonts";
 
 describe("resolveFamily", () => {
   describe("body (Inter)", () => {
@@ -16,12 +16,12 @@ describe("resolveFamily", () => {
     });
   });
 
-  describe("heading (Source Serif 4)", () => {
-    it("maps weights to serif, rounding medium down to regular", () => {
-      expect(resolveFamily("heading", "400", false)).toBe("SourceSerif4_400Regular");
-      expect(resolveFamily("heading", "500", false)).toBe("SourceSerif4_400Regular");
-      expect(resolveFamily("heading", "600", false)).toBe("SourceSerif4_600SemiBold");
-      expect(resolveFamily("heading", "700", false)).toBe("SourceSerif4_700Bold");
+  describe("heading (Playfair Display)", () => {
+    it("maps weights to Playfair, rounding bold down to 600SemiBold (no bundled 700)", () => {
+      expect(resolveFamily("heading", "400", false)).toBe("PlayfairDisplay_400Regular");
+      expect(resolveFamily("heading", "500", false)).toBe("PlayfairDisplay_500Medium");
+      expect(resolveFamily("heading", "600", false)).toBe("PlayfairDisplay_600SemiBold");
+      expect(resolveFamily("heading", "700", false)).toBe("PlayfairDisplay_600SemiBold");
     });
   });
 
@@ -34,22 +34,21 @@ describe("resolveFamily", () => {
     });
   });
 
-  // ADR-038 O2: the SME surfaces render headings in Fraunces. A `brand` arg
-  // selects the heading family; it defaults to the serif so every existing
-  // 3-arg caller is unchanged.
-  describe("heading brand (Fraunces vs default serif)", () => {
-    it("defaults to Source Serif 4 when no brand is given", () => {
-      expect(resolveFamily("heading", "700", false)).toBe("SourceSerif4_700Bold");
+  // ADR-038 O2 originally added a `brand` arg to pick Fraunces vs the default
+  // serif for headings. Studio reskin P0 retires that split: heading always
+  // resolves to Playfair now, regardless of `brand` — the param stays only for
+  // call-site signature stability. FRAUNCES itself stays defined (fonts.ts) for
+  // any literal references until they migrate.
+  describe("heading brand (retired — heading always resolves to Playfair)", () => {
+    it("ignores a `brand` arg entirely — heading is always Playfair", () => {
+      expect(resolveFamily("heading", "400", false, "fraunces")).toBe("PlayfairDisplay_400Regular");
+      expect(resolveFamily("heading", "600", false, "fraunces")).toBe("PlayfairDisplay_600SemiBold");
+      expect(resolveFamily("heading", "700", false, "fraunces")).toBe("PlayfairDisplay_600SemiBold");
     });
-    it("maps heading weights to Fraunces when brand is fraunces", () => {
-      expect(resolveFamily("heading", "400", false, "fraunces")).toBe(FRAUNCES.regular);
-      expect(resolveFamily("heading", "600", false, "fraunces")).toBe(FRAUNCES.semibold);
-      expect(resolveFamily("heading", "700", false, "fraunces")).toBe(FRAUNCES.bold);
-    });
-    it("brand only affects heading, never body", () => {
+    it("brand only ever affected heading, never body", () => {
       expect(resolveFamily("body", "700", false, "fraunces")).toBe("Inter_700Bold");
     });
-    it("dyslexic still overrides Fraunces headings (a11y preserved)", () => {
+    it("dyslexic still overrides heading regardless of brand", () => {
       expect(resolveFamily("heading", "700", true, "fraunces")).toBe("OpenDyslexic_700Bold");
     });
   });
