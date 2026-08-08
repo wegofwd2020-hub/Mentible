@@ -180,6 +180,15 @@ class ApprovalOut(BaseModel):
     action: str = "approve"
 
 
+class TopicApprovalOut(BaseModel):
+    id: str
+    topic_version_id: str
+    expert_name: str
+    approved_at: datetime
+    recorded_via: str
+    action: str = "approve"
+
+
 class TopicVersionOut(BaseModel):
     id: str
     topic_id: str

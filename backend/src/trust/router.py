@@ -30,6 +30,7 @@ from . import (
     membership_repo,
     project_repo,
     schemas,
+    topic_approval_repo,
     topic_repo,
 )
 from .access import (
@@ -837,6 +838,97 @@ async def withdraw_version_approval(
     return schemas.ApprovalOut(
         id=str(ap.id),
         version_id=str(ap.version_id),
+        expert_name=ap.expert_name,
+        approved_at=ap.approved_at,
+        recorded_via=ap.recorded_via,
+        action=ap.action,
+    )
+
+
+@router.post(
+    "/topic-versions/{topic_version_id}/approvals", response_model=schemas.TopicApprovalOut
+)
+async def record_topic_version_approval(
+    topic_version_id: uuid.UUID,
+    body: schemas.ApprovalIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicApprovalOut:
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    if role == "reviewer":
+        recorded_via = "expert_self"
+        expert_name = account.email or principal.sub
+        expert_email = account.email
+        expert_role = body.expert_role
+    else:  # owner records on a named expert's behalf
+        recorded_via = "operator"
+        if not body.expert_name:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "expert_name is required when an owner records an approval",
+            )
+        expert_name = body.expert_name
+        expert_email = body.expert_email
+        expert_role = body.expert_role
+    ap = await topic_approval_repo.record_topic_approval(
+        conn,
+        topic_version_id=topic_version_id,
+        expert_name=expert_name,
+        approved_at=body.approved_at,
+        recorded_by_sub=principal.sub,
+        expert_email=expert_email,
+        expert_role=expert_role,
+        note=body.note,
+        recorded_via=recorded_via,
+    )
+    return schemas.TopicApprovalOut(
+        id=str(ap.id),
+        topic_version_id=str(ap.topic_version_id),
+        expert_name=ap.expert_name,
+        approved_at=ap.approved_at,
+        recorded_via=ap.recorded_via,
+        action=ap.action,
+    )
+
+
+@router.post(
+    "/topic-versions/{topic_version_id}/approvals/withdraw",
+    response_model=schemas.TopicApprovalOut,
+)
+async def withdraw_topic_version_approval(
+    topic_version_id: uuid.UUID,
+    body: schemas.WithdrawIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicApprovalOut:
+    """Revoke the current approval on a topic version (append-only 'withdraw' record).
+    Owner OR reviewer, mirroring who may approve. 409 if not currently approved."""
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    recorded_via = "expert_self" if role == "reviewer" else "operator"
+    ap = await topic_approval_repo.withdraw_topic_approval(
+        conn,
+        topic_version_id=topic_version_id,
+        recorded_by_sub=principal.sub,
+        recorded_via=recorded_via,
+        note=body.note,
+    )
+    if ap is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "topic version is not currently approved")
+    return schemas.TopicApprovalOut(
+        id=str(ap.id),
+        topic_version_id=str(ap.topic_version_id),
         expert_name=ap.expert_name,
         approved_at=ap.approved_at,
         recorded_via=ap.recorded_via,

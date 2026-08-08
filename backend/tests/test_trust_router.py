@@ -861,3 +861,104 @@ def test_generate_topic_bad_model_output_502():
                 json={"api_key": "sk-ant-" + "z" * 20},
             )
         assert r.status_code == 502
+
+
+def _topic_version_id(c, pid, topic_id="t1"):
+    """Owner-perspective helper: generate a topic_version and return its id.
+    Assumes `_as(owner, ...)` is already the active principal."""
+    with patch(
+        "backend.src.trust.generate_topic.build_provider",
+        return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+    ):
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+def test_reviewer_topic_approval_is_expert_self():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        ).json()
+        assert ap["recorded_via"] == "expert_self"
+        assert ap["expert_name"] == expert_email
+        assert ap["topic_version_id"] == tvid
+
+
+def test_owner_topic_approval_requires_expert_name():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        )
+        assert r.status_code == 422
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        ).json()
+        assert ap["recorded_via"] == "operator" and ap["expert_name"] == "Dr X"
+
+
+def test_topic_approval_unknown_topic_version_404():
+    with TestClient(app) as c:
+        _as(f"u-{uuid.uuid4()}", f"u-{uuid.uuid4()}@x.z")
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{uuid.uuid4()}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        )
+        assert r.status_code == 404
+
+
+def test_topic_approval_non_member_403():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        assert r.status_code == 403
+
+
+def test_owner_can_withdraw_topic_approval_flips_validation_back():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        # withdrawing before any approval -> 409
+        assert (
+            c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={}).status_code
+            == 409
+        )
+        c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        wd = c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={})
+        assert wd.status_code == 200
+        assert wd.json()["action"] == "withdraw" and wd.json()["expert_name"] == "Dr X"
+        # withdrawing again (already withdrawn) -> 409
+        assert (
+            c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={}).status_code
+            == 409
+        )
