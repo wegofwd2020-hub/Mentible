@@ -166,19 +166,23 @@ it("Suggest is disabled with a hint when there are no sources yet", async () => 
   expect(mock.suggestToc).not.toHaveBeenCalled();
 });
 
-it("reviewer sees the TOC read-only: no Suggest/Next controls, and edits never persist", async () => {
+it("reviewer sees the TOC read-only: no Suggest and edits never persist (phase nav still allowed)", async () => {
   const mock = proj("reviewer", { toc: seededToc });
   (useTrustProject as jest.Mock).mockReturnValue(mock);
   render(<TrustProjectDetail />);
 
   fireEvent.press(await screen.findByLabelText(/Structure:/));
   expect(await screen.findByDisplayValue("Kinematics")).toBeTruthy();
+  // No editing affordance for a reviewer...
   expect(screen.queryByLabelText("Suggest outline from sources")).toBeNull();
-  expect(screen.queryByLabelText("Next to Drafts")).toBeNull();
-
   const titleInput = screen.queryByLabelText("Topic 1.1 title");
   if (titleInput) fireEvent.changeText(titleInput, "Hacked");
   expect(mock.saveToc).not.toHaveBeenCalled();
+
+  // ...but the wizard Back/Next is pure navigation, available to everyone.
+  expect(screen.getByLabelText("Next to Drafts")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText("Next to Drafts"));
+  expect((await screen.findByLabelText(/Drafts:/)).props.accessibilityState.selected).toBe(true);
 });
 
 it("tolerates a persisted subject missing `units` (defensive backend payload) without crashing", async () => {
