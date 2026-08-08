@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -5,6 +6,9 @@ from datetime import UTC, datetime
 import asyncpg
 import pytest
 
+from backend.src.trust.generate_topic import _TopicDraft, generate_topic_draft
+from backend.src.trust.topic_prompt import build_topic_prompt
+from backend.tests.helpers import fake_provider
 from src.trust import project_repo, topic_approval_repo, topic_repo
 
 DSN = os.environ.get("DATABASE_URL", "")
@@ -148,3 +152,59 @@ async def test_record_topic_approval_invalid_enums(conn):
             recorded_by_sub="sub-1",
             recorded_via="bogus",
         )
+
+
+# --- per-topic generator (Slice C1 Task 2) -------------------------------------
+
+
+class _Src:
+    def __init__(self, id, kind, title, content):
+        self.id, self.kind, self.title, self.content = id, kind, title, content
+
+
+_SOURCES = [
+    _Src(
+        "11111111-1111-1111-1111-111111111111",
+        "transcript",
+        "Interview",
+        "The staff has five lines; the clef fixes pitch.",
+    )
+]
+
+_GOOD = json.dumps(
+    {
+        "sections": [
+            {"heading": "Staff & clef", "body": "The staff has five lines.", "sources": ["S1"]},
+        ]
+    }
+)
+
+
+def test_topic_prompt_scopes_to_topic_sources_and_sections_per_subtopic():
+    p = build_topic_prompt(
+        _SOURCES, "Reading music", ["Staff & clef", "Note values"], "beginners", "read music"
+    )
+    assert "Reading music" in p
+    assert "Staff & clef" in p and "Note values" in p  # subtopics drive the sections
+    assert "invent nothing" in p.lower()
+    assert "S1" in p
+
+
+def test_generate_topic_draft_returns_sections(monkeypatch):
+    monkeypatch.setattr(
+        "backend.src.trust.generate_topic.build_provider",
+        lambda *a, **k: fake_provider(text=_GOOD),
+    )
+    out = generate_topic_draft(
+        sources=_SOURCES,
+        topic_title="Reading music",
+        subtopics=["Staff & clef"],
+        audience="beginners",
+        goal="read music",
+        provider_id="anthropic",
+        api_key="sk-ant-" + "x" * 20,
+        model="m",
+    )
+    assert isinstance(out, _TopicDraft)
+    assert out.sections[0].heading == "Staff & clef"
+    assert out.sections[0].sources == ["S1"]

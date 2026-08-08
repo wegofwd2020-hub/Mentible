@@ -30,6 +30,7 @@ from . import (
     membership_repo,
     project_repo,
     schemas,
+    topic_repo,
 )
 from .access import (
     ProjectAccessError,
@@ -39,6 +40,7 @@ from .access import (
     require_project_access,
 )
 from .generate import generate_draft
+from .generate_topic import generate_topic_draft
 from .toc_suggest import suggest_toc
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -635,6 +637,129 @@ async def suggest_project_toc(
         ]
     }
     return schemas.TocSuggestOut(toc=toc)
+
+
+def _find_toc_topic(toc: dict | None, topic_id: str) -> dict | None:
+    for subj in (toc or {}).get("subjects", []):
+        for unit in subj.get("units", []):
+            if str(unit.get("id")) == topic_id:
+                return unit
+    return None
+
+
+@router.post(
+    "/projects/{project_id}/topics/{topic_id}/generate",
+    response_model=schemas.TopicVersionOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def generate_topic_version(
+    project_id: uuid.UUID,
+    topic_id: str,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicVersionOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    topic = _find_toc_topic(p.toc, topic_id)
+    if topic is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
+
+    topic_title = topic.get("title") or ""
+    subtopics = [
+        st.get("label") if isinstance(st, dict) else st for st in topic.get("subtopics", [])
+    ]
+    topic_source_ids = topic.get("source_ids") or []
+    all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
+    inputs_by_id = {str(i.id): i for i in all_inputs}
+    sources = [inputs_by_id[sid] for sid in topic_source_ids if sid in inputs_by_id]
+    if not sources:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "add at least one source to this topic before generating",
+        )
+
+    # key handling mirrors generate_version / suggest_project_toc
+    managed = body.api_key is None
+    if managed:
+        if not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        api_key = get_managed_key(body.provider_id)
+    else:
+        api_key = body.api_key
+    model = body.model or settings.anthropic_default_model
+
+    try:
+        out = await asyncio.to_thread(
+            generate_topic_draft,
+            sources=sources,
+            topic_title=topic_title,
+            subtopics=subtopics,
+            audience=p.audience,
+            goal=p.goal,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("topic_generation_failed", reason="schema", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "generated topic draft failed validation"
+        ) from None
+    except LLMAuthError:
+        log.warning("topic_generation_failed", reason="auth", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "The API key was rejected by the provider. Check it in Settings.",
+        ) from None
+    except LLMRateLimitError:
+        log.warning("topic_generation_failed", reason="rate_limit", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "The provider is rate-limiting requests. Try again shortly.",
+        ) from None
+    except LLMError:
+        log.warning("topic_generation_failed", reason="llm_error", topic_id=topic_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
+    except Exception:
+        # Defense in depth: never let a raw error escape with key material.
+        log.warning("topic_generation_failed", reason="unexpected", topic_id=topic_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
+
+    # map model labels S1..Sn -> real input ids, scoped to THIS topic's sources
+    # (drop unknowns; never 500 on a bad label)
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    sections = [
+        {
+            "heading": sec.heading,
+            "body": sec.body,
+            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
+        }
+        for sec in out.sections
+    ]
+    v = await topic_repo.create_topic_version(
+        conn,
+        project_id=project_id,
+        topic_id=topic_id,
+        title=topic_title,
+        source_ids=topic_source_ids,
+        content={"sections": sections},
+        created_by_sub=principal.sub,
+    )
+    return schemas.TopicVersionOut(
+        id=str(v.id),
+        topic_id=v.topic_id,
+        title=v.title,
+        content=v.content,
+        version_no=v.version_no,
+        created_at=v.created_at,
+    )
 
 
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)

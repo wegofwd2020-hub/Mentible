@@ -746,3 +746,118 @@ def test_create_essay_artifact_accepted():
         )
         assert r.status_code == 200, r.text
         assert r.json()["format"] == "essay"
+
+
+_TOPIC_DRAFT_JSON = _json.dumps(
+    {
+        "sections": [
+            {"heading": "Staff", "body": "The staff has five lines.", "sources": ["S1"]},
+        ]
+    }
+)
+
+
+def _project_with_toc_topic(c, topic_id="t1", source_ids=None):
+    pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+    iid = c.post(
+        f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+    ).json()["id"]
+    sids = source_ids if source_ids is not None else [iid]
+    toc = {
+        "subjects": [
+            {
+                "subject_label": "S",
+                "units": [
+                    {
+                        "id": topic_id,
+                        "title": "Reading music",
+                        "subtopics": ["Staff & clef"],
+                        "prerequisites": [],
+                        "source_ids": sids,
+                    }
+                ],
+            }
+        ]
+    }
+    assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+    return pid, iid
+
+
+def test_owner_generates_topic_version():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, iid = _project_with_toc_topic(c)
+        key = "sk-ant-" + "x" * 20
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": key},
+            )
+        assert r.status_code == 200, r.text
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        body = r.json()
+        assert body["topic_id"] == "t1"
+        assert body["title"] == "Reading music"
+        assert body["version_no"] == 1
+        assert body["content"]["sections"][0]["heading"] == "Staff"
+        assert body["content"]["sections"][0]["source_ids"] == [iid]
+
+
+def test_generate_topic_unknown_topic_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/does-not-exist/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 404
+
+
+def test_generate_topic_no_sources_422():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c, source_ids=[])
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 422
+
+
+def test_generate_topic_reviewer_forbidden():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        expert = f"e-{uuid.uuid4()}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
+        _as(f"e-{uuid.uuid4()}", expert)
+        c.post("/api/v1/trust/session/sync")
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 403
+
+
+def test_generate_topic_bad_model_output_502():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text="not json"),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": "sk-ant-" + "z" * 20},
+            )
+        assert r.status_code == 502

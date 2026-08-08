@@ -180,6 +180,15 @@ class ApprovalOut(BaseModel):
     action: str = "approve"
 
 
+class TopicVersionOut(BaseModel):
+    id: str
+    topic_id: str
+    title: str
+    content: dict
+    version_no: int
+    created_at: datetime | None
+
+
 class DraftGenerateIn(BaseModel):
     api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
     provider_id: str = "anthropic"
