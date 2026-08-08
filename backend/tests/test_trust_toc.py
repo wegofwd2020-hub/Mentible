@@ -41,6 +41,15 @@ def test_toc_prompt_grounded_and_labels_sources():
     assert "json" in p.lower()
 
 
+def test_toc_prompt_asks_for_subtopics_and_drops_sparse_hedge():
+    p = build_toc_prompt(_SOURCES, "stormwater", "engineers", "size pipes")
+    assert "subtopic" in p.lower()
+    assert "invent nothing" in p.lower()  # grounding kept
+    assert "propose few" not in p.lower()  # hedge removed
+    assert "detail" in p.lower()  # optional-detail guidance present
+    assert "subtopics" in p  # schema example updated
+
+
 def test_suggest_toc_returns_subjects(monkeypatch):
     monkeypatch.setattr(
         "backend.src.trust.toc_suggest.build_provider",

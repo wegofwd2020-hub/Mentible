@@ -23,7 +23,17 @@ const seededToc = {
 
 const suggestedToc = {
   subjects: [
-    { subject_label: "Chemistry", units: [{ id: "u9", title: "Bonds", subtopics: [], prerequisites: [] }] },
+    {
+      subject_label: "Chemistry",
+      units: [
+        {
+          id: "u9",
+          title: "Bonds",
+          subtopics: ["Note values", { label: "Key signatures", detail: "sharps/flats at the clef" }],
+          prerequisites: [],
+        },
+      ],
+    },
   ],
 };
 
@@ -64,6 +74,11 @@ it("owner: pressing Suggest calls suggestToc, renders the result, and persists v
 
   await waitFor(() => expect(mock.suggestToc).toHaveBeenCalled());
   expect(await screen.findByDisplayValue("Bonds")).toBeTruthy();
+  // Deeper Suggest-TOC payload: both a bare-string subtopic and a
+  // {label,detail} subtopic render as editable rows in the tree editor.
+  expect(screen.getByDisplayValue("Note values")).toBeTruthy();
+  expect(screen.getByDisplayValue("Key signatures")).toBeTruthy();
+  expect(screen.getByDisplayValue("sharps/flats at the clef")).toBeTruthy();
   await waitFor(() => expect(mock.saveToc).toHaveBeenCalledWith(expect.objectContaining({ subjects: expect.any(Array) })));
   // No existing content to lose, so no confirm prompt was needed.
   expect(Alert.alert).not.toHaveBeenCalled();

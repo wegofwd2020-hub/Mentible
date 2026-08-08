@@ -590,7 +590,14 @@ _TOC_JSON = _json.dumps(
             {
                 "subject_label": "Design basics",
                 "topics": [
-                    {"title": "Sizing for the storm", "sources": ["S1"]},
+                    {
+                        "title": "Sizing for the storm",
+                        "subtopics": [
+                            {"label": "A", "detail": "d"},
+                            {"label": "B"},
+                        ],
+                        "sources": ["S1"],
+                    },
                     {"title": "Unattributed idea", "sources": []},
                 ],
             }
@@ -624,8 +631,10 @@ def test_owner_suggests_toc_from_sources():
         assert units[0]["source_ids"] != []
         assert all(len(sid) == 36 for sid in units[0]["source_ids"])  # real uuids
         assert units[1]["source_ids"] == []  # unattributed topic → no source_ids
+        # first unit's subtopics: object when the model gave a detail, bare string otherwise
+        assert units[0]["subtopics"] == [{"label": "A", "detail": "d"}, "B"]
+        assert units[1]["subtopics"] == []
         for u in units:
-            assert u["subtopics"] == []
             assert u["prerequisites"] == []
             assert "id" in u
 
