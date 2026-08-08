@@ -35,21 +35,23 @@ it("getTopicVersion GETs the topic version and returns its content", async () =>
   expect(init.method).toBe("GET");
 });
 
-it("recordTopicApproval POSTs to the per-topic approvals route", async () => {
-  const approval = { id: "ap1", version_id: "tv1", expert_name: "e", approved_at: "t", recorded_via: "expert_self" };
+it("recordTopicApproval POSTs to the per-topic approvals route and returns topic_version_id", async () => {
+  const approval = { id: "ap1", topic_version_id: "tv1", expert_name: "e", approved_at: "t", recorded_via: "expert_self" };
   mockFetchOnce(200, approval);
   const out = await recordTopicApproval("tv1", { approved_at: "t", expert_name: "e" }, "tok");
   expect(out.id).toBe("ap1");
+  expect(out.topic_version_id).toBe("tv1");
   const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
   expect(url).toMatch(/\/trust\/topic-versions\/tv1\/approvals$/);
   expect(init.method).toBe("POST");
   expect(JSON.parse(init.body)).toMatchObject({ approved_at: "t", expert_name: "e" });
 });
 
-it("withdrawTopicApproval POSTs to the per-topic approvals/withdraw route", async () => {
-  const approval = { id: "ap1", version_id: "tv1", expert_name: "e", approved_at: "t", recorded_via: "expert_self", action: "withdraw" };
+it("withdrawTopicApproval POSTs to the per-topic approvals/withdraw route and returns topic_version_id", async () => {
+  const approval = { id: "ap1", topic_version_id: "tv1", expert_name: "e", approved_at: "t", recorded_via: "expert_self", action: "withdraw" };
   mockFetchOnce(200, approval);
-  await withdrawTopicApproval("tv1", {}, "tok");
+  const out = await withdrawTopicApproval("tv1", {}, "tok");
+  expect(out.topic_version_id).toBe("tv1");
   const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
   expect(url).toMatch(/\/trust\/topic-versions\/tv1\/approvals\/withdraw$/);
   expect(init.method).toBe("POST");

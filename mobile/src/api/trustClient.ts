@@ -42,6 +42,10 @@ export interface ApprovalView {
   id: string; version_id: string; expert_name: string; approved_at: string; recorded_via: string;
   action?: string; // "approve" | "withdraw" — present since the approve/unapprove toggle
 }
+export interface TopicApprovalView {
+  id: string; topic_version_id: string; expert_name: string; approved_at: string; recorded_via: string | null;
+  action?: string; // "approve" | "withdraw"
+}
 export interface ProjectSummaryView { id: string; title: string; status: string; created_at: string | null }
 export interface InvitationView { project_id: string; invited_email: string; role: string; revoked_at: string | null }
 export interface VersionCreatedView { id: string; artifact_id: string; version_no: number; created_at: string | null }
@@ -187,16 +191,16 @@ export async function getTopicVersion(id: string, token: string): Promise<TopicV
 
 export async function recordTopicApproval(
   id: string, body: { approved_at: string; note?: string; expert_name?: string }, token: string,
-): Promise<ApprovalView> {
-  return (await trustFetch<ApprovalView>(
+): Promise<TopicApprovalView> {
+  return (await trustFetch<TopicApprovalView>(
     `/topic-versions/${id}/approvals`, token, { method: "POST", body: JSON.stringify(body) },
-  )) as ApprovalView;
+  )) as TopicApprovalView;
 }
 
 export async function withdrawTopicApproval(
   id: string, body: { note?: string }, token: string,
-): Promise<ApprovalView> {
-  return (await trustFetch<ApprovalView>(
+): Promise<TopicApprovalView> {
+  return (await trustFetch<TopicApprovalView>(
     `/topic-versions/${id}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
-  )) as ApprovalView;
+  )) as TopicApprovalView;
 }
