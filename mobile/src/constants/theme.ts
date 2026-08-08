@@ -249,6 +249,38 @@ export const navyTrustColors: Palette = {
   white: "#ffffff",
 };
 
+// "Studio" — the Studio re-skin's new navy identity (dark) and its light
+// counterpart. Same shape as `colors`; dark leans on the navy/cream/gold family
+// used elsewhere in the SME studio surfaces, light inverts to a warm paper
+// background with a darker gold/green for AA contrast on white.
+export const studioDarkColors: Palette = {
+  background: "#0A0E1A", surface: "#131E36", surfaceHigh: "#1B2842",
+  border: "#323846", borderLight: "#4E5565",
+  text: "#F4F7FC", textSecondary: "#C6D4EC", textMuted: "#93A6C6",
+  primary: "#F0DCAC", primaryText: "#0A0E1A",
+  brand: "#F0DCAC", brandText: "#0A0E1A",
+  growth: "#F0DCAC", growthText: "#0A0E1A",
+  tileOffFace: "#131E36", tileOffGlyph: "#F0DCAC", tileOffShadow: "#05070E",
+  tileOnFace: "#F0DCAC", tileOnGlyph: "#0A0E1A", tileOnHi: "#F7E9C6", tileOnLo: "#B79A5E",
+  tileSubGlyph: "#93A6C6",
+  success: "#8FCBAD", error: "#E29B9B", warning: "#E7C98A",
+  white: "#ffffff",
+};
+
+export const studioLightColors: Palette = {
+  background: "#F7F5F0", surface: "#FFFFFF", surfaceHigh: "#FAF8F2",
+  border: "#CDCDCA", borderLight: "#B2B2B1",
+  text: "#0C111B", textSecondary: "#3C495D", textMuted: "#6C7A8F",
+  primary: "#8A6A22", primaryText: "#FFFFFF",
+  brand: "#8A6A22", brandText: "#FFFFFF",
+  growth: "#356E56", growthText: "#FFFFFF",
+  tileOffFace: "#FFFFFF", tileOffGlyph: "#8A6A22", tileOffShadow: "#D8D3C7",
+  tileOnFace: "#8A6A22", tileOnGlyph: "#FFFFFF", tileOnHi: "#A98A3E", tileOnLo: "#6A4F16",
+  tileSubGlyph: "#6C7A8F",
+  success: "#356E56", error: "#9C4A48", warning: "#8A6A22",
+  white: "#ffffff",
+};
+
 export const themes = {
   study: colors as unknown as Palette,
   manuscript: manuscriptColors,
@@ -256,6 +288,8 @@ export const themes = {
   "gilded-noir": gildedNoirColors,
   "forest-moss": forestMossColors,
   "navy-trust": navyTrustColors,
+  "studio-dark": studioDarkColors,
+  "studio-light": studioLightColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
@@ -267,4 +301,6 @@ export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "ligh
   "gilded-noir": { label: "Gilded Noir", mode: "dark" },
   "forest-moss": { label: "Forest & Moss", mode: "dark" },
   "navy-trust": { label: "Navy Trust", mode: "dark" },
+  "studio-dark": { label: "Studio", mode: "dark" },
+  "studio-light": { label: "Studio Light", mode: "light" },
 };
