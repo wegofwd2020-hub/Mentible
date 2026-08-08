@@ -5,9 +5,10 @@ import { PageContainer } from "@/components/PageContainer";
 import { AccentText } from "@/components/AccentText";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
-import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { FRAUNCES } from "@/constants/fonts";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
+import { Button, Card, Label } from "@/components/ui";
 
 function ProjectsInner() {
   const router = useRouter();
@@ -17,17 +18,26 @@ function ProjectsInner() {
   useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
   return (
     <View style={styles.wrap}>
-      <Pressable accessibilityRole="button" accessibilityLabel="New project" style={styles.newBtn} onPress={() => router.push("/trust/new")}>
-        <Text style={styles.newBtnText}>+ New project</Text>
-      </Pressable>
+      <Button
+        variant="primary"
+        label="+ New project"
+        onPress={() => router.push("/trust/new")}
+        accessibilityLabel="New project"
+        style={styles.newBtn}
+      />
       {loading ? <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>
         : error ? <View style={styles.center}><Text style={styles.error}>{error}</Text></View>
         : projects.length === 0 ? <View style={styles.center}><Text style={styles.empty}>No <AccentText>projects</AccentText> yet.</Text><Text style={styles.emptySub}>Create one to capture and validate expert knowledge.</Text></View>
         : <FlatList data={projects} keyExtractor={(p) => p.id} contentContainerStyle={styles.list}
             renderItem={({ item }) => (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Open project: ${item.title}`} style={styles.row} onPress={() => router.push(`/trust/${item.id}`)}>
-                <View style={{ flex: 1 }}><Text style={styles.rowTitle}>{item.title}</Text><Text style={styles.rowMeta}>{item.status}</Text></View>
-                <Text style={styles.chevron}>›</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Open project: ${item.title}`} onPress={() => router.push(`/trust/${item.id}`)}>
+                <Card style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>{item.title}</Text>
+                    <Label tone="secondary" style={styles.rowMeta}>{item.status}</Label>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </Card>
               </Pressable>
             )} />}
     </View>
@@ -46,15 +56,16 @@ export default function ProjectsScreen() {
 }
 const makeStyles = (c: Palette) => ({
   wrap: { flex: 1 },
-  newBtn: { margin: spacing.md, backgroundColor: c.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const },
-  newBtnText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
+  newBtn: { margin: spacing.md },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
-  row: { flexDirection: "row" as const, alignItems: "center" as const, backgroundColor: c.surface, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border },
-  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
-  rowMeta: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: 2 },
+  // Layout only — the surface, border, and padding now come from <Card>,
+  // which this style overrides onto (Studio re-skin P1).
+  row: { flexDirection: "row" as const, alignItems: "center" as const },
+  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  rowMeta: { marginTop: 2 },
   chevron: { color: c.textMuted, fontSize: typography.sizeXl },
-  empty: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  empty: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   emptySub: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   error: { color: c.error, fontSize: typography.sizeMd, textAlign: "center" as const },
 });
