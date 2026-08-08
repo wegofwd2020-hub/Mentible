@@ -192,3 +192,35 @@ it("tolerates a persisted subject missing `units` (defensive backend payload) wi
   fireEvent.press(await screen.findByLabelText(/Structure:/));
   expect(await screen.findByDisplayValue("Physics")).toBeTruthy();
 });
+
+it("owner: Input phase shows a Next control that advances to Structure", async () => {
+  const mock = proj("owner");
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  // Go to the Input (capture) tab, which has sources.
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  const next = await screen.findByLabelText("Next to Structure");
+  fireEvent.press(next);
+
+  // Advancing lands on Structure — its Suggest control is now present.
+  expect(await screen.findByLabelText("Suggest outline from sources")).toBeTruthy();
+});
+
+it("owner: Input Next is hidden when there are no sources yet", async () => {
+  const mock = proj("owner", { inputs: [] });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  expect(screen.queryByLabelText("Next to Structure")).toBeNull();
+});
+
+it("reviewer: Input phase shows no Next-to-Structure control", async () => {
+  const mock = proj("reviewer");
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  expect(screen.queryByLabelText("Next to Structure")).toBeNull();
+});

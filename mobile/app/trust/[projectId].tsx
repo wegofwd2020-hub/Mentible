@@ -138,6 +138,7 @@ function SourcesPanel({
   onAddSource,
   editInput,
   removeInput,
+  onNextToStructure,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -153,6 +154,7 @@ function SourcesPanel({
   onAddSource: () => void;
   editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
   removeInput: (inputId: string) => Promise<void>;
+  onNextToStructure: () => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -357,6 +359,18 @@ function SourcesPanel({
           );
         })
       )}
+      {isOwner && inputs.length > 0 ? (
+        <View style={styles.structureActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next to Structure"
+            style={styles.compareBtn}
+            onPress={onNextToStructure}
+          >
+            <Text style={styles.viewBtnText}>Next</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1143,6 +1157,7 @@ function TrustProjectDetailInner() {
             onAddSource={onAddSource}
             editInput={editInput}
             removeInput={removeInput}
+            onNextToStructure={() => setSelected("structure")}
           />
         ) : null}
         {active === "structure" ? (
