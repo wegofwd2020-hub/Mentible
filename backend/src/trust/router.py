@@ -621,7 +621,10 @@ async def suggest_project_toc(
                     {
                         "id": str(uuid.uuid4()),
                         "title": t.title,
-                        "subtopics": [],
+                        "subtopics": [
+                            ({"label": st.label, "detail": st.detail} if st.detail else st.label)
+                            for st in t.subtopics
+                        ],
                         "prerequisites": [],
                         "source_ids": [by_label[lbl] for lbl in t.sources if lbl in by_label],
                     }

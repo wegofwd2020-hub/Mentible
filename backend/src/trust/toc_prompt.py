@@ -24,10 +24,13 @@ def build_toc_prompt(sources, topic, audience, goal) -> str:
     return (
         f"You are outlining a long-form work{ctx_line}. Using ONLY the sources below, propose an "
         f"outline of what the sources actually cover: 1 to 6 subjects, each with 1 to 8 topics. "
-        f"Attribute each topic to the source label(s) it draws from. Invent nothing beyond the "
-        f"sources — if the sources do not cover something, omit it. If the sources are thin, propose "
-        f"few topics.\n\n"
+        f"For each topic, break it into the concrete subtopics the sources actually discuss — be "
+        f"thorough; do not collapse a topic to a bare title. Give a subtopic a short one-line "
+        f"'detail' when the sources support a concrete gloss; otherwise leave detail empty (label "
+        f"only). Attribute each topic to the source label(s) it draws from. Invent nothing beyond "
+        f"the sources — if the sources do not cover something, omit it.\n\n"
         f"SOURCES:\n{labelled}\n\n"
         f"Respond with ONLY valid JSON, no prose, exactly matching this schema:\n"
-        f'{{"subjects": [{{"subject_label": "string", "topics": [{{"title": "string", "sources": ["S1"]}}]}}]}}'
+        f'{{"subjects": [{{"subject_label": "string", "topics": [{{"title": "string", '
+        f'"subtopics": [{{"label": "string", "detail": "string or null"}}], "sources": ["S1"]}}]}}]}}'
     )

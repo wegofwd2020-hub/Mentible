@@ -19,11 +19,17 @@ from backend.src.generate.anthropic_caller import parse_json_response
 from .toc_prompt import build_toc_prompt
 
 _MAX_REPAIRS = 2
-_MAX_TOKENS = 2048
+_MAX_TOKENS = 4096
+
+
+class _TocSubtopic(BaseModel):
+    label: str
+    detail: str | None = None
 
 
 class _TocTopic(BaseModel):
     title: str
+    subtopics: list[_TocSubtopic] = Field(default_factory=list, max_length=12)
     sources: list[str] = []
 
 
