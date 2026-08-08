@@ -456,6 +456,7 @@ function DraftsPanel({
                   accessibilityRole="button"
                   accessibilityLabel={`Generate ${f.label}`}
                   disabled={disabled}
+                  style={styles.genCardPressable}
                   onPress={() => onGenerateFormat(f)}
                 >
                   <Card style={[styles.genCard, disabled ? styles.disabledBtn : null]}>
@@ -1236,9 +1237,16 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.sm,
   },
   genGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm },
-  // Bespoke sizing/gap only — the surface, border, and padding now come from
-  // <Card>, which this style overrides onto (Studio re-skin P1).
-  genCard: { minWidth: 140, flexGrow: 1, gap: 2 },
+  // flexGrow/minWidth belong on the Pressable — it's the actual flex ITEM
+  // inside genGrid's row/wrap; flexGrow only distributes among a flex
+  // container's immediate children, so putting it on the nested <Card>
+  // (a grandchild) doesn't stretch the tile to fill wrapped rows.
+  genCardPressable: { minWidth: 140, flexGrow: 1 },
+  // Bespoke gap only — the surface, border, and padding now come from
+  // <Card>, which this style overrides onto (Studio re-skin P1). alignSelf:
+  // stretch so the Card fills the Pressable's full (grown) width rather than
+  // shrink-wrapping its content.
+  genCard: { alignSelf: "stretch" as const, gap: 2 },
   genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontFamily: PLAYFAIR.semibold },
   genHint: { color: c.textMuted, fontSize: typography.sizeXs },
   genPlus: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const, alignSelf: "flex-end" as const },
