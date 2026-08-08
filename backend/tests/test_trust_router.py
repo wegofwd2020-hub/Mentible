@@ -1009,6 +1009,11 @@ def test_project_detail_topic_status_and_book_validated():
         statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
         assert statuses == {"t1": "not_generated", "t2": "not_generated"}
         assert detail["book_validated"] is False
+        by_topic = {s["topic_id"]: s for s in detail["topic_status"]}
+        assert by_topic["t1"]["latest_version_id"] is None
+        assert by_topic["t1"]["version_no"] is None
+        assert by_topic["t2"]["latest_version_id"] is None
+        assert by_topic["t2"]["version_no"] is None
 
         # generate t1, generate (not validate) t2
         tv1 = _topic_version_id(c, pid, topic_id="t1")
@@ -1018,6 +1023,9 @@ def test_project_detail_topic_status_and_book_validated():
         statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
         assert statuses == {"t1": "drafted", "t2": "drafted"}
         assert detail["book_validated"] is False
+        by_topic = {s["topic_id"]: s for s in detail["topic_status"]}
+        assert by_topic["t1"]["latest_version_id"] == tv1
+        assert by_topic["t1"]["version_no"] == 1
 
         # validate t1 only
         c.post(

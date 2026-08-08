@@ -33,7 +33,10 @@ export interface ProjectInputView {
   id: string; kind: string; title: string | null;
   content: string; source_ref: string | null; created_at: string | null;
 }
-export interface TopicStatusView { topic_id: string; status: "not_generated" | "drafted" | "validated" }
+export interface TopicStatusView {
+  topic_id: string; status: "not_generated" | "drafted" | "validated";
+  latest_version_id?: string | null; version_no?: number | null;
+}
 export interface ProjectDetailView {
   project: ProjectView; artifacts: ArtifactDetailView[]; inputs: ProjectInputView[]; my_role: string;
   topic_status?: TopicStatusView[]; book_validated?: boolean;
