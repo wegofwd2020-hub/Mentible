@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
+import { PhaseNav } from "@/components/PhaseNav";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
@@ -366,7 +367,6 @@ function StructurePanel({
   onChangeToc,
   onSuggest,
   suggestBusy,
-  onNext,
   sourceLabel,
   inputsEmpty,
 }: {
@@ -376,7 +376,6 @@ function StructurePanel({
   onChangeToc: (next: StructuredTOC) => void;
   onSuggest: () => void;
   suggestBusy: boolean;
-  onNext: () => void;
   sourceLabel: (id: string) => string;
   inputsEmpty: boolean;
 }) {
@@ -397,7 +396,6 @@ function StructurePanel({
               disabled={inputsEmpty}
               accessibilityLabel="Suggest outline from sources"
             />
-            <Button variant="ghost" label="Next" onPress={onNext} accessibilityLabel="Next to Drafts" />
           </View>
           {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
           <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
@@ -1089,8 +1087,6 @@ function TrustProjectDetailInner() {
     }, 700);
   };
 
-  const onNext = () => setSelected("create");
-
   const isOwner = project.my_role === "owner";
   const phase = deriveProjectPhase(project, isOwner);
   // Fallback for the first frame(s) before the seed effect fires; once
@@ -1130,7 +1126,6 @@ function TrustProjectDetailInner() {
             onChangeToc={onChangeToc}
             onSuggest={onSuggest}
             suggestBusy={suggestBusy}
-            onNext={onNext}
             sourceLabel={sourceLabel}
             inputsEmpty={inputs.length === 0}
           />
@@ -1181,6 +1176,7 @@ function TrustProjectDetailInner() {
             onDownloadAsset={onDownloadAsset}
           />
         ) : null}
+        <PhaseNav phaseKey={active} onSelect={setSelected} />
       </PageContainer>
     </ScrollView>
   );
