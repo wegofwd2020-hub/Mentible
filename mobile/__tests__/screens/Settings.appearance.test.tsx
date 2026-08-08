@@ -23,25 +23,29 @@ function flatColor(style: unknown): string | undefined {
 
 beforeEach(() => jest.clearAllMocks());
 
-it("shows a tile for every theme and applies one on tap", async () => {
+it("shows a tile for only the two switchable Studio themes and applies one on tap", async () => {
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
-  // all five tiles present
-  for (const label of ["Study", "Manuscript", "Reading", "Gilded Noir", "Forest & Moss"]) {
-    expect(await screen.findByLabelText(new RegExp(`Theme: ${label}`))).toBeTruthy();
+  // switcher is trimmed to the two Studio themes (P0 studio re-skin)
+  for (const label of ["Studio", "Studio Light"]) {
+    expect(await screen.findByLabelText(new RegExp(`^Theme: ${label}( \\(selected\\))?$`))).toBeTruthy();
   }
-  fireEvent.press(screen.getByLabelText(/Theme: Forest & Moss/));
-  await waitFor(() => expect(saveThemeName).toHaveBeenCalledWith("forest-moss"));
+  // old exotic palettes stay defined but are no longer offered in the switcher
+  for (const label of ["Manuscript", "Reading", "Gilded Noir", "Forest & Moss", "Navy Trust"]) {
+    expect(screen.queryByLabelText(new RegExp(`^Theme: ${label}`))).toBeNull();
+  }
+  fireEvent.press(screen.getByLabelText(/^Theme: Studio Light$/));
+  await waitFor(() => expect(saveThemeName).toHaveBeenCalledWith("studio-light"));
 });
 
 it("colours each tile's caption from that tile's OWN palette, not the active theme", async () => {
-  // Active theme = study (default). A light tile (Manuscript) must render its
-  // caption in its own textSecondary, else the label collapses to near-invisible
-  // on the light tile background.
+  // Active theme = studio-dark (default). The light tile (Studio Light) must
+  // render its caption in its own textSecondary, else the label collapses to
+  // near-invisible on the light tile background.
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
-  const manuscript = await screen.findByText("Manuscript");
-  expect(flatColor(manuscript.props.style)).toBe(themes.manuscript.textSecondary);
-  const noir = screen.getByText("Gilded Noir");
-  expect(flatColor(noir.props.style)).toBe(themes["gilded-noir"].textSecondary);
-  // sanity: they differ from the active (study) theme's textSecondary
-  expect(themes.manuscript.textSecondary).not.toBe(themes.study.textSecondary);
+  const studioLight = await screen.findByText("Studio Light");
+  expect(flatColor(studioLight.props.style)).toBe(themes["studio-light"].textSecondary);
+  const studio = screen.getByText("Studio");
+  expect(flatColor(studio.props.style)).toBe(themes["studio-dark"].textSecondary);
+  // sanity: they differ from each other
+  expect(themes["studio-light"].textSecondary).not.toBe(themes["studio-dark"].textSecondary);
 });

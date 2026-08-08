@@ -294,6 +294,11 @@ export const themes = {
 
 export type ThemeName = keyof typeof themes;
 
+// Studio re-skin (P0): the theme switcher shows only the two Studio palettes.
+// Every other palette above stays DEFINED (a not-yet-migrated surface, e.g.
+// the reader, may still reference one) — only the switcher's LIST is trimmed.
+export const SWITCHABLE_THEMES: ThemeName[] = ["studio-dark", "studio-light"];
+
 export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "light" | "sepia" }> = {
   study: { label: "Study", mode: "dark" },
   manuscript: { label: "Manuscript", mode: "light" },
