@@ -78,15 +78,26 @@ describe("resolveFamilyForStyle", () => {
     );
   });
 
-  it("swaps a Playfair heading to OpenDyslexic in dyslexic mode (a11y)", () => {
-    // Unlike the Fraunces branch, the Playfair branch reads weight from the
-    // style's fontWeight (not the family name) — no fontWeight here means the
-    // regular bucket.
+  it("swaps a Playfair heading to OpenDyslexic in dyslexic mode (a11y), reading weight from the family name", () => {
+    // Like the Fraunces branch, the Playfair branch reads weight from the
+    // FAMILY NAME (not the style's fontWeight) — migrated heading styles set
+    // fontFamily: PLAYFAIR.* with no fontWeight (the weight is baked into the
+    // family), so falling back to flat.fontWeight would always see undefined
+    // and collapse every heading to the regular bucket. 600SemiBold → semibold
+    // bucket → OpenDyslexic_700Bold (OpenDyslexic ships only Regular + Bold;
+    // semibold rounds up to Bold — see DYSLEXIC in constants/fonts.ts).
     expect(resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_600SemiBold" }, true)).toBe(
+      "OpenDyslexic_700Bold",
+    );
+    // A 400-weight Playfair family still maps to the regular OpenDyslexic face,
+    // proving both buckets are covered.
+    expect(resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_400Regular" }, true)).toBe(
       "OpenDyslexic_400Regular",
     );
+    // An explicit fontWeight on the style is still honoured when the family
+    // name itself carries no weight suffix.
     expect(
-      resolveFamilyForStyle({ fontFamily: "PlayfairDisplay_600SemiBold", fontWeight: "600" }, true),
+      resolveFamilyForStyle({ fontFamily: "PlayfairDisplay", fontWeight: "600" }, true),
     ).toBe("OpenDyslexic_700Bold");
   });
 });

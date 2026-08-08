@@ -40,12 +40,14 @@ const FRAUNCES_RE = /fraunces/i;
 // chose, but still honour dyslexic mode (a11y wins over the brand face).
 const PLAYFAIR_RE = /playfair/i;
 
-// The concrete Fraunces family already bakes its weight (e.g. "Fraunces_700Bold"),
-// so we read the weight from the NAME rather than the style's fontWeight. That lets
-// SME heading styles omit fontWeight entirely — which they must, so web (where this
-// interceptor doesn't run) doesn't synthesise faux-bold from a redundant fontWeight
-// on a weight-400-registered @font-face.
-function weightFromFraunces(family: string): string | undefined {
+// A concrete Fraunces/Playfair family already bakes its weight into the name
+// (e.g. "Fraunces_700Bold", "PlayfairDisplay_600SemiBold"), so we read the
+// weight from the NAME rather than the style's fontWeight. That lets migrated
+// heading styles omit fontWeight entirely — which they must, so web (where this
+// interceptor doesn't run) doesn't synthesise faux-bold from a redundant
+// fontWeight on a weight-400-registered @font-face. Shared by both branches
+// below (pure family-name → weight extractor; not Fraunces-specific).
+function weightFromFamily(family: string): string | undefined {
   return /_(\d{3})/.exec(family)?.[1];
 }
 
@@ -70,13 +72,19 @@ export function resolveFamilyForStyle(style: unknown, dyslexic: boolean): string
     // (OpenDyslexic by the weight baked into the family — it has no italic, so the
     // a11y font wins over the accent slant).
     if (FRAUNCES_RE.test(flat.fontFamily)) {
-      if (dyslexic) return resolveFamily("heading", weightFromFraunces(flat.fontFamily), true, "fraunces");
+      if (dyslexic) return resolveFamily("heading", weightFromFamily(flat.fontFamily), true, "fraunces");
       return flat.fontFamily;
     }
     // A literal Playfair family (the app-wide heading face): keep the exact
     // instance the style chose, but dyslexic mode still overrides it (a11y).
+    // Like Fraunces, the concrete Playfair family bakes its weight into the name
+    // (e.g. "PlayfairDisplay_600SemiBold") and migrated heading styles set NO
+    // fontWeight — so read the weight from the family name first, falling back to
+    // flat.fontWeight only if the name doesn't carry one.
     if (PLAYFAIR_RE.test(flat.fontFamily)) {
-      if (dyslexic) return resolveFamily("heading", flat.fontWeight, true);
+      if (dyslexic) {
+        return resolveFamily("heading", weightFromFamily(flat.fontFamily) ?? flat.fontWeight, true);
+      }
       return flat.fontFamily;
     }
     // Only our serif text-intent gets remapped; every other explicit family

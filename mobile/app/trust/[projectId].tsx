@@ -1247,7 +1247,10 @@ const makeStyles = (c: Palette) => ({
   // stretch so the Card fills the Pressable's full (grown) width rather than
   // shrink-wrapping its content.
   genCard: { alignSelf: "stretch" as const, gap: 2 },
-  genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontFamily: PLAYFAIR.semibold },
+  // Inter (body), not Playfair — sizeSm (14px) is below the "Playfair only
+  // >=16px" legibility floor (final-review finding). fontWeight carries the
+  // emphasis instead, matching the kindText tile-label treatment below.
+  genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
   genHint: { color: c.textMuted, fontSize: typography.sizeXs },
   genPlus: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const, alignSelf: "flex-end" as const },
   ownerBlock: {
