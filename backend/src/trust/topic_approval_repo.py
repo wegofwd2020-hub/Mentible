@@ -12,7 +12,7 @@ from .models import APPROVAL_ACTION, APPROVAL_VIA, TopicApproval
 
 _TAP = (
     "id, topic_version_id, seq, action, expert_name, expert_email, expert_role, "
-    "approved_at, recorded_by_sub, note, recorded_via, created_at"
+    "approved_at, recorded_by_sub, note, recorded_via, recorded_at"
 )
 
 
@@ -32,7 +32,7 @@ def _topic_approval(r) -> TopicApproval:
                 "recorded_by_sub",
                 "note",
                 "recorded_via",
-                "created_at",
+                "recorded_at",
             )
         }
     )
@@ -103,7 +103,7 @@ async def withdraw_topic_approval(
 async def get_latest_topic_approval(conn, *, topic_version_id) -> TopicApproval | None:
     r = await conn.fetchrow(
         # `seq` (bigserial) is the only strictly-monotonic insertion order —
-        # created_at ties within a transaction and id is a random uuid.
+        # recorded_at ties within a transaction and id is a random uuid.
         f"SELECT {_TAP} FROM topic_approval WHERE topic_version_id = $1 ORDER BY seq DESC LIMIT 1",
         topic_version_id,
     )

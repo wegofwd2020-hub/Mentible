@@ -43,7 +43,7 @@ def upgrade() -> None:
             recorded_by_sub   text NOT NULL,
             note              text,
             recorded_via      text NOT NULL CHECK (recorded_via IN ('operator','expert_self')),
-            created_at        timestamptz NOT NULL DEFAULT now()
+            recorded_at       timestamptz NOT NULL DEFAULT now()
         )
         """
     )

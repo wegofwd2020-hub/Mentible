@@ -128,7 +128,7 @@ class TopicApproval:
     recorded_by_sub: str
     note: str | None
     recorded_via: str
-    created_at: datetime | None
+    recorded_at: datetime | None
 
 
 @dataclass(frozen=True)
