@@ -24,10 +24,10 @@ function Probe() {
 
 beforeEach(() => jest.clearAllMocks());
 
-it("defaults to study when nothing is persisted", async () => {
+it("defaults to studio-dark when nothing is persisted", async () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
-  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("study"));
-  expect(screen.getByTestId("bg").props.children).toBe(themes.study.background);
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
+  expect(screen.getByTestId("bg").props.children).toBe(themes["studio-dark"].background);
 });
 
 it("loads a persisted theme on mount", async () => {
@@ -39,13 +39,13 @@ it("loads a persisted theme on mount", async () => {
 
 it("setTheme updates the palette and persists", async () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
-  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("study"));
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
   act(() => { screen.getByTestId("switch").props.onPress(); });
   await waitFor(() => expect(screen.getByTestId("bg").props.children).toBe(themes["forest-moss"].background));
   expect(saveThemeName).toHaveBeenCalledWith("forest-moss");
 });
 
-it("useTheme falls back to Study with no provider (compat shim)", () => {
+it("useTheme falls back to Studio (dark) with no provider (compat shim)", () => {
   render(<Probe />);
-  expect(screen.getByTestId("bg").props.children).toBe(themes.study.background);
+  expect(screen.getByTestId("bg").props.children).toBe(themes["studio-dark"].background);
 });

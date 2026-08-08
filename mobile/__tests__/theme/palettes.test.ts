@@ -9,6 +9,8 @@ const EXPECTED: ThemeName[] = [
   "gilded-noir",
   "forest-moss",
   "navy-trust",
+  "studio-dark",
+  "studio-light",
 ];
 const KEYS = Object.keys(manuscriptColors); // the full Palette key set
 

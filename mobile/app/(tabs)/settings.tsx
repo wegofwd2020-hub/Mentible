@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { radius, spacing, typography, THEME_META, themes, type ThemeName, type Palette } from "@/constants/theme";
+import { radius, spacing, typography, THEME_META, themes, SWITCHABLE_THEMES, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles, useThemeControls } from "@/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/help";
@@ -22,7 +22,7 @@ export default function SettingsScreen() {
   const c = useTheme();
   const { themeName, setTheme } = useThemeControls();
   const styles = useThemedStyles(makeStyles);
-  const THEME_NAMES = Object.keys(THEME_META) as ThemeName[];
+  const THEME_NAMES = SWITCHABLE_THEMES;
 
   useEffect(() => {
     loadDefaultParams().then(setParams);

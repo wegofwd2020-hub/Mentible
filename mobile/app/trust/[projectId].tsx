@@ -20,8 +20,9 @@ import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { FRAUNCES } from "@/constants/fonts";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
+import { Button, Card, Label } from "@/components/ui";
 
 type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
@@ -258,15 +259,14 @@ function SourcesPanel({
             onChangeText={setSourceContent}
             multiline
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add source"
-            disabled={addSourceBusy || !sourceContent.trim()}
-            style={[styles.approveBtn, !sourceContent.trim() ? styles.disabledBtn : null]}
+          <Button
+            variant="primary"
+            label="Add source"
             onPress={onAddSource}
-          >
-            <Text style={styles.approveText}>{addSourceBusy ? "…" : "Add source"}</Text>
-          </Pressable>
+            busy={addSourceBusy}
+            disabled={!sourceContent.trim()}
+            accessibilityLabel="Add source"
+          />
         </View>
       ) : null}
       {inputs.length === 0 ? (
@@ -278,13 +278,13 @@ function SourcesPanel({
           const isExpanded = expandedId === input.id;
           const isEditing = editingId === input.id;
           return (
-            <View key={input.id} style={styles.sourceRow}>
+            <Card key={input.id} style={styles.sourceRow}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Open source ${sourcePreview(input.title, input.content)}`}
                 onPress={() => onToggleExpand(input)}
               >
-                <Text style={styles.sourceKindLabel}>{sourceKindLabel(input.kind)}</Text>
+                <Label tone="secondary">{sourceKindLabel(input.kind)}</Label>
                 <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
                 {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
               </Pressable>
@@ -315,15 +315,13 @@ function SourcesPanel({
                       value={editSourceRef}
                       onChangeText={setEditSourceRef}
                     />
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Save source"
-                      disabled={saveBusy}
-                      style={[styles.approveBtn, saveBusy ? styles.disabledBtn : null]}
+                    <Button
+                      variant="primary"
+                      label="Save source"
                       onPress={() => onSaveEdit(input.id)}
-                    >
-                      <Text style={styles.approveText}>{saveBusy ? "…" : "Save source"}</Text>
-                    </Pressable>
+                      busy={saveBusy}
+                      accessibilityLabel="Save source"
+                    />
                   </View>
                 ) : (
                   <View style={styles.sourceDetail}>
@@ -331,29 +329,25 @@ function SourcesPanel({
                     {input.source_ref ? <Text style={styles.sourceRowDate}>{input.source_ref}</Text> : null}
                     {isOwner ? (
                       <View style={styles.sourceActionsRow}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Edit source"
-                          style={styles.viewBtn}
+                        <Button
+                          variant="ghost"
+                          label="Edit"
                           onPress={() => onStartEdit(input)}
-                        >
-                          <Text style={styles.viewBtnText}>Edit</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Delete source"
-                          disabled={deleteBusy}
-                          style={[styles.viewBtn, deleteBusy ? styles.disabledBtn : null]}
+                          accessibilityLabel="Edit source"
+                        />
+                        <Button
+                          variant="ghost"
+                          label="Delete"
                           onPress={() => onDelete(input.id)}
-                        >
-                          <Text style={styles.viewBtnText}>{deleteBusy ? "…" : "Delete"}</Text>
-                        </Pressable>
+                          busy={deleteBusy}
+                          accessibilityLabel="Delete source"
+                        />
                       </View>
                     ) : null}
                   </View>
                 )
               ) : null}
-            </View>
+            </Card>
           );
         })
       )}
@@ -395,23 +389,15 @@ function StructurePanel({
       {isOwner ? (
         <>
           <View style={styles.structureActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Suggest outline from sources"
-              disabled={suggestBusy || inputsEmpty}
-              style={[styles.approveBtn, suggestBusy || inputsEmpty ? styles.disabledBtn : null]}
+            <Button
+              variant="primary"
+              label="Suggest from sources"
               onPress={onSuggest}
-            >
-              <Text style={styles.approveText}>{suggestBusy ? "…" : "Suggest from sources"}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Next to Drafts"
-              style={styles.compareBtn}
-              onPress={onNext}
-            >
-              <Text style={styles.viewBtnText}>Next</Text>
-            </Pressable>
+              busy={suggestBusy}
+              disabled={inputsEmpty}
+              accessibilityLabel="Suggest outline from sources"
+            />
+            <Button variant="ghost" label="Next" onPress={onNext} accessibilityLabel="Next to Drafts" />
           </View>
           {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
           <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
@@ -470,12 +456,14 @@ function DraftsPanel({
                   accessibilityRole="button"
                   accessibilityLabel={`Generate ${f.label}`}
                   disabled={disabled}
-                  style={[styles.genCard, disabled ? styles.disabledBtn : null]}
+                  style={styles.genCardPressable}
                   onPress={() => onGenerateFormat(f)}
                 >
-                  <Text style={styles.genCardLabel}>{f.label}</Text>
-                  <Text style={styles.genHint}>{f.hint}</Text>
-                  <Text style={styles.genPlus}>{genBusyFormat === f.format ? "…" : "+"}</Text>
+                  <Card style={[styles.genCard, disabled ? styles.disabledBtn : null]}>
+                    <Text style={styles.genCardLabel}>{f.label}</Text>
+                    <Text style={styles.genHint}>{f.hint}</Text>
+                    <Text style={styles.genPlus}>{genBusyFormat === f.format ? "…" : "+"}</Text>
+                  </Card>
                 </Pressable>
               );
             })}
@@ -532,6 +520,10 @@ function DraftsPanel({
                           }}
                         />
                       ) : null}
+                      {/* Raw Pressable (not <Button>) — nested inside this row's own
+                          onPress, so it needs the real event to stopPropagation and
+                          avoid double-firing onOpenVersion on web; Button's onPress
+                          is () => void and can't receive it. */}
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`View version ${v.version_no}`}
@@ -550,34 +542,28 @@ function DraftsPanel({
               {versions.length >= 2 ? (
                 inCompareMode ? (
                   <View style={styles.compareRow}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Compare selected versions"
-                      disabled={compareSel.length !== 2}
-                      accessibilityState={{ disabled: compareSel.length !== 2 }}
-                      style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
+                    <Button
+                      variant="primary"
+                      label="Compare selected versions"
                       onPress={() => onCompare(artifact.id)}
-                    >
-                      <Text style={styles.approveText}>Compare selected versions</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Cancel"
-                      style={styles.compareBtn}
+                      disabled={compareSel.length !== 2}
+                      accessibilityLabel="Compare selected versions"
+                    />
+                    <Button
+                      variant="ghost"
+                      label="Cancel"
                       onPress={() => toggleCompareMode(artifact.id)}
-                    >
-                      <Text style={styles.viewBtnText}>Cancel</Text>
-                    </Pressable>
+                      accessibilityLabel="Cancel"
+                    />
                   </View>
                 ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Compare versions"
-                    style={styles.compareBtn}
+                  <Button
+                    variant="ghost"
+                    label="Compare…"
                     onPress={() => toggleCompareMode(artifact.id)}
-                  >
-                    <Text style={styles.viewBtnText}>Compare…</Text>
-                  </Pressable>
+                    accessibilityLabel="Compare versions"
+                    style={styles.compareBtnAlign}
+                  />
                 )
               ) : null}
             </View>
@@ -674,6 +660,10 @@ function FeedbackPanel({
                       }}
                     />
                   ) : null}
+                  {/* Raw Pressable (not <Button>) — nested inside this row's own
+                      onPress, so it needs the real event to stopPropagation and
+                      avoid double-firing onOpenVersion on web; Button's onPress
+                      is () => void and can't receive it. */}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`View version ${v.version_no}`}
@@ -691,34 +681,28 @@ function FeedbackPanel({
             {versions.length >= 2 ? (
               inCompareMode ? (
                 <View style={styles.compareRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Compare selected versions"
-                    disabled={compareSel.length !== 2}
-                    accessibilityState={{ disabled: compareSel.length !== 2 }}
-                    style={[styles.approveBtn, compareSel.length !== 2 ? styles.disabledBtn : null]}
+                  <Button
+                    variant="primary"
+                    label="Compare selected versions"
                     onPress={() => onCompare(artifact.id)}
-                  >
-                    <Text style={styles.approveText}>Compare selected versions</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel"
-                    style={styles.compareBtn}
+                    disabled={compareSel.length !== 2}
+                    accessibilityLabel="Compare selected versions"
+                  />
+                  <Button
+                    variant="ghost"
+                    label="Cancel"
                     onPress={() => toggleCompareMode(artifact.id)}
-                  >
-                    <Text style={styles.viewBtnText}>Cancel</Text>
-                  </Pressable>
+                    accessibilityLabel="Cancel"
+                  />
                 </View>
               ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Compare versions"
-                  style={styles.compareBtn}
+                <Button
+                  variant="ghost"
+                  label="Compare…"
                   onPress={() => toggleCompareMode(artifact.id)}
-                >
-                  <Text style={styles.viewBtnText}>Compare…</Text>
-                </Pressable>
+                  accessibilityLabel="Compare versions"
+                  style={styles.compareBtnAlign}
+                />
               )
             ) : null}
           </View>
@@ -737,15 +721,13 @@ function FeedbackPanel({
               autoCapitalize="none"
               keyboardType="email-address"
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Invite an expert"
-              disabled={inviteBusy}
-              style={styles.approveBtn}
+            <Button
+              variant="primary"
+              label="Invite"
               onPress={onInvite}
-            >
-              <Text style={styles.approveText}>{inviteBusy ? "…" : "Invite"}</Text>
-            </Pressable>
+              busy={inviteBusy}
+              accessibilityLabel="Invite an expert"
+            />
           </View>
         </View>
       ) : null}
@@ -802,55 +784,50 @@ function PublishPanel({
             </View>
             {isLongForm ? (
               <View style={styles.pubActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Add ${title} to Library`}
-                  disabled={pubBusy !== null}
-                  style={styles.approveBtn}
+                <Button
+                  variant="primary"
+                  label="Add to Library"
                   onPress={() => onAddToLibrary(version.id, title, artifact.format)}
-                >
-                  <Text style={styles.approveText}>{pubBusy === `${version.id}:lib` ? "…" : "Add to Library"}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Download ${title} as EPUB`}
+                  busy={pubBusy === `${version.id}:lib`}
                   disabled={pubBusy !== null}
-                  style={styles.approveBtn}
+                  accessibilityLabel={`Add ${title} to Library`}
+                />
+                <Button
+                  variant="primary"
+                  label="Download EPUB"
                   onPress={() => onDownloadAsset(version.id, title, "epub")}
-                >
-                  <Text style={styles.approveText}>{pubBusy === `${version.id}:epub` ? "…" : "Download EPUB"}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Download ${title} as PDF`}
+                  busy={pubBusy === `${version.id}:epub`}
                   disabled={pubBusy !== null}
-                  style={styles.approveBtn}
+                  accessibilityLabel={`Download ${title} as EPUB`}
+                />
+                <Button
+                  variant="primary"
+                  label="Download PDF"
                   onPress={() => onDownloadAsset(version.id, title, "pdf")}
-                >
-                  <Text style={styles.approveText}>{pubBusy === `${version.id}:pdf` ? "…" : "Download PDF"}</Text>
-                </Pressable>
+                  busy={pubBusy === `${version.id}:pdf`}
+                  disabled={pubBusy !== null}
+                  accessibilityLabel={`Download ${title} as PDF`}
+                />
               </View>
             ) : (
               <>
                 <View style={styles.pubActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Copy ${title} as text`}
-                    disabled={pubBusy !== null}
-                    style={styles.approveBtn}
+                  <Button
+                    variant="primary"
+                    label="Copy"
                     onPress={() => onCopyAsset(version.id, "text", title)}
-                  >
-                    <Text style={styles.approveText}>{pubBusy === `${version.id}:text` ? "…" : "Copy"}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Copy ${title} as Markdown`}
+                    busy={pubBusy === `${version.id}:text`}
                     disabled={pubBusy !== null}
-                    style={styles.approveBtn}
+                    accessibilityLabel={`Copy ${title} as text`}
+                  />
+                  <Button
+                    variant="primary"
+                    label="Copy as Markdown"
                     onPress={() => onCopyAsset(version.id, "markdown", title)}
-                  >
-                    <Text style={styles.approveText}>{pubBusy === `${version.id}:markdown` ? "…" : "Copy as Markdown"}</Text>
-                  </Pressable>
+                    busy={pubBusy === `${version.id}:markdown`}
+                    disabled={pubBusy !== null}
+                    accessibilityLabel={`Copy ${title} as Markdown`}
+                  />
                 </View>
                 <Text style={styles.proText}>PDF & Word — Pro (coming soon)</Text>
               </>
@@ -1218,13 +1195,13 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
-  // Fraunces bakes the weight into the family name, so no fontWeight here (a
+  // Playfair bakes the weight into the family name, so no fontWeight here (a
   // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
-  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   versionRowLeft: { flexShrink: 1 as const },
   versionRowTs: { color: c.textMuted, fontSize: typography.sizeXs },
@@ -1249,8 +1226,6 @@ const makeStyles = (c: Palette) => ({
     paddingHorizontal: spacing.sm,
     overflow: "hidden" as const,
   },
-  approveBtn: { backgroundColor: c.primary, borderRadius: radius.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
-  approveText: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "700" as const },
   pubActions: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm },
   proText: { color: c.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" as const },
   genBlock: {
@@ -1262,17 +1237,20 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.sm,
   },
   genGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm },
-  genCard: {
-    minWidth: 140,
-    flexGrow: 1,
-    backgroundColor: c.surfaceHigh,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: c.border,
-    padding: spacing.sm,
-    gap: 2,
-  },
-  genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontFamily: FRAUNCES.semibold },
+  // flexGrow/minWidth belong on the Pressable — it's the actual flex ITEM
+  // inside genGrid's row/wrap; flexGrow only distributes among a flex
+  // container's immediate children, so putting it on the nested <Card>
+  // (a grandchild) doesn't stretch the tile to fill wrapped rows.
+  genCardPressable: { minWidth: 140, flexGrow: 1 },
+  // Bespoke gap only — the surface, border, and padding now come from
+  // <Card>, which this style overrides onto (Studio re-skin P1). alignSelf:
+  // stretch so the Card fills the Pressable's full (grown) width rather than
+  // shrink-wrapping its content.
+  genCard: { alignSelf: "stretch" as const, gap: 2 },
+  // Inter (body), not Playfair — sizeSm (14px) is below the "Playfair only
+  // >=16px" legibility floor (final-review finding). fontWeight carries the
+  // emphasis instead, matching the kindText tile-label treatment below.
+  genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
   genHint: { color: c.textMuted, fontSize: typography.sizeXs },
   genPlus: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const, alignSelf: "flex-end" as const },
   ownerBlock: {
@@ -1339,13 +1317,10 @@ const makeStyles = (c: Palette) => ({
   },
   disabledBtn: { opacity: 0.5 },
   emptyText: { color: c.textMuted, fontSize: typography.sizeSm },
-  sourceRow: {
-    borderTopWidth: 1,
-    borderTopColor: c.border,
-    paddingTop: spacing.sm,
-    gap: 2,
-  },
-  sourceKindLabel: { color: c.textSecondary, fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const },
+  // Bespoke spacing only — the surface, border, and padding now come from
+  // <Card>, which this style overrides onto (Studio re-skin P1); the eyebrow
+  // kind label moved to <Label>.
+  sourceRow: { marginTop: spacing.sm, gap: 2 },
   sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
   sourceDetail: { gap: spacing.sm, paddingTop: spacing.sm },
@@ -1353,14 +1328,9 @@ const makeStyles = (c: Palette) => ({
   sourceActionsRow: { flexDirection: "row" as const, gap: spacing.sm },
   artifactsWrap: { gap: spacing.md },
   compareRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
-  compareBtn: {
-    alignSelf: "flex-start" as const,
-    borderWidth: 1 as const,
-    borderColor: c.border,
-    borderRadius: radius.full,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
+  // The standalone "Compare versions…" <Button> sits in a column (`.artifact`)
+  // whose default cross-axis is stretch — this keeps it from growing full-width.
+  compareBtnAlign: { alignSelf: "flex-start" as const },
   checkbox: {
     width: 20,
     height: 20,

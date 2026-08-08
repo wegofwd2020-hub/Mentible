@@ -35,11 +35,11 @@ export function PhaseTabBar({
 
 const makeStyles = (c: Palette) => ({
   bar: { flexDirection: "row" as const, backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.xs, marginBottom: spacing.md },
-  tab: { flex: 1, alignItems: "center" as const, paddingVertical: spacing.sm, borderRadius: radius.sm, gap: 2 },
-  tabActive: { backgroundColor: c.surfaceHigh },
+  tab: { flex: 1, alignItems: "center" as const, paddingVertical: spacing.sm, borderRadius: radius.sm, gap: 2, borderBottomWidth: 1.5, borderBottomColor: "transparent" },
+  tabActive: { borderBottomColor: c.primary },
   glyph: { fontSize: typography.sizeMd, color: c.textMuted },
-  glyphCurrent: { color: c.primary, fontWeight: "700" as const },
+  glyphCurrent: { color: c.primary, fontWeight: "500" as const },
   glyphDone: { color: c.growth },
-  label: { fontSize: typography.sizeXs, color: c.textSecondary },
-  labelActive: { color: c.text, fontWeight: "700" as const },
+  label: { fontSize: typography.sizeXs, color: c.textMuted },
+  labelActive: { color: c.text, fontWeight: "500" as const },
 });

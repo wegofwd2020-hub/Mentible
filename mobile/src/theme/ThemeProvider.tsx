@@ -9,21 +9,22 @@ interface ThemeContextValue {
   setTheme: (name: ThemeName) => void;
 }
 
-// Default = Study, so useTheme() outside a provider returns the current look
-// (the compat shim: un-migrated screens/tests never crash and never change).
-// Exported so a scoped provider (e.g. SmeThemeScope) can force a fixed theme
-// over a subtree without going through the persisted global ThemeProvider.
+// Default = Studio (dark), so useTheme() outside a provider returns the
+// current look (the compat shim: un-migrated screens/tests never crash and
+// never change). Exported so a scoped provider (e.g. SmeThemeScope) can force
+// a fixed theme over a subtree without going through the persisted global
+// ThemeProvider.
 export const ThemeContext = createContext<ThemeContextValue>({
-  theme: themes.study,
-  themeName: "study",
+  theme: themes["studio-dark"],
+  themeName: "studio-dark",
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [themeName, setThemeName] = useState<ThemeName>("study");
+  const [themeName, setThemeName] = useState<ThemeName>("studio-dark");
 
   // Apply the persisted choice once resolved. No render gate — a one-frame
-  // Study default before the stored value lands is acceptable.
+  // Studio default before the stored value lands is acceptable.
   useEffect(() => {
     let alive = true;
     void loadThemeName().then((n) => {

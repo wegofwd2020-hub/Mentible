@@ -1,6 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react-native";
-import { colors } from "@/constants/theme";
+import { themes } from "@/constants/theme";
 
 // Capture the screenOptions the Tabs navigator is configured with. The bottom-tab
 // scene container has NO background of its own — without an explicit dark
@@ -60,7 +60,7 @@ beforeEach(() => {
 it("paints the dark app background on the tab scene container", () => {
   render(<TabLayout />);
   const sceneStyle = capturedScreenOptions?.["sceneStyle"] as { backgroundColor?: string } | undefined;
-  expect(sceneStyle?.backgroundColor).toBe(colors.background);
+  expect(sceneStyle?.backgroundColor).toBe(themes["studio-dark"].background);
 });
 
 it("uses a left SideNav on desktop widths", () => {
