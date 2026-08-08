@@ -498,6 +498,9 @@ async def get_project(
         )
         for i in await project_repo.list_inputs(conn, project_id=project_id)
     ]
+    topic_status, book_validated = await _topic_status_rollup(
+        conn, project_id=project_id, toc=p.toc
+    )
     return schemas.ProjectDetailOut(
         project=schemas.ProjectOut(
             id=str(p.id),
@@ -512,6 +515,8 @@ async def get_project(
         artifacts=artifacts,
         my_role=role,
         inputs=inputs,
+        topic_status=topic_status,
+        book_validated=book_validated,
     )
 
 
@@ -646,6 +651,41 @@ def _find_toc_topic(toc: dict | None, topic_id: str) -> dict | None:
             if str(unit.get("id")) == topic_id:
                 return unit
     return None
+
+
+def _toc_topic_ids(toc: dict | None) -> list[str]:
+    ids: list[str] = []
+    for subj in (toc or {}).get("subjects", []):
+        for unit in subj.get("units") or []:
+            ids.append(str(unit.get("id")))
+    return ids
+
+
+async def _topic_status_rollup(
+    conn: asyncpg.Connection, *, project_id: uuid.UUID, toc: dict | None
+) -> tuple[list[schemas.TopicStatusOut], bool]:
+    topic_ids = _toc_topic_ids(toc)
+    latest_by_topic: dict[str, object] = {}
+    for v in await topic_repo.list_topic_versions(conn, project_id=project_id):
+        if v.topic_id not in topic_ids:
+            continue  # orphaned version — not a current toc topic; excluded
+        current = latest_by_topic.get(v.topic_id)
+        if current is None or v.version_no > current.version_no:
+            latest_by_topic[v.topic_id] = v
+
+    statuses: list[schemas.TopicStatusOut] = []
+    for topic_id in topic_ids:
+        latest = latest_by_topic.get(topic_id)
+        if latest is None:
+            status_value = "not_generated"
+        elif await topic_approval_repo.is_topic_validated(conn, topic_version_id=latest.id):
+            status_value = "validated"
+        else:
+            status_value = "drafted"
+        statuses.append(schemas.TopicStatusOut(topic_id=topic_id, status=status_value))
+
+    book_validated = bool(topic_ids) and all(s.status == "validated" for s in statuses)
+    return statuses, book_validated
 
 
 @router.post(

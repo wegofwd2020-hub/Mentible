@@ -1,8 +1,10 @@
+import asyncio
 import json as _json
 import os
 import uuid
 from unittest.mock import patch
 
+import asyncpg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,6 +12,7 @@ from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
 from backend.tests.helpers import fake_provider
+from src.trust import topic_repo
 
 DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set")
@@ -962,3 +965,115 @@ def test_owner_can_withdraw_topic_approval_flips_validation_back():
             c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={}).status_code
             == 409
         )
+
+
+def _toc_two_topics(c, pid, iid):
+    toc = {
+        "subjects": [
+            {
+                "subject_label": "S",
+                "units": [
+                    {
+                        "id": "t1",
+                        "title": "Topic 1",
+                        "subtopics": ["A"],
+                        "prerequisites": [],
+                        "source_ids": [iid],
+                    },
+                    {
+                        "id": "t2",
+                        "title": "Topic 2",
+                        "subtopics": ["B"],
+                        "prerequisites": [],
+                        "source_ids": [iid],
+                    },
+                ],
+            }
+        ]
+    }
+    assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+
+
+def test_project_detail_topic_status_and_book_validated():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        iid = c.post(
+            f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+        ).json()["id"]
+        _toc_two_topics(c, pid, iid)
+
+        # nothing generated yet -> both not_generated, book not validated
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "not_generated", "t2": "not_generated"}
+        assert detail["book_validated"] is False
+
+        # generate t1, generate (not validate) t2
+        tv1 = _topic_version_id(c, pid, topic_id="t1")
+        _topic_version_id(c, pid, topic_id="t2")
+
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "drafted", "t2": "drafted"}
+        assert detail["book_validated"] is False
+
+        # validate t1 only
+        c.post(
+            f"/api/v1/trust/topic-versions/{tv1}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "validated", "t2": "drafted"}
+        assert detail["book_validated"] is False
+
+        # validate t2 too -> book_validated flips true
+        tv2 = _topic_version_id(c, pid, topic_id="t2")
+        c.post(
+            f"/api/v1/trust/topic-versions/{tv2}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr Y"},
+        )
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "validated", "t2": "validated"}
+        assert detail["book_validated"] is True
+
+
+def test_project_detail_topic_status_excludes_orphan_versions():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        iid = c.post(
+            f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+        ).json()["id"]
+        _toc_two_topics(c, pid, iid)
+        _topic_version_id(c, pid, topic_id="t1")
+        _topic_version_id(c, pid, topic_id="t2")
+
+        # a topic_version for a topic id NOT in the current toc — inserted directly,
+        # since /topics/{id}/generate 404s for a topic not present in the toc.
+        async def _insert_orphan():
+            conn = await asyncpg.connect(DSN)
+            try:
+                await topic_repo.create_topic_version(
+                    conn,
+                    project_id=uuid.UUID(pid),
+                    topic_id="tX",
+                    title="Orphan",
+                    source_ids=[],
+                    content={"sections": []},
+                    created_by_sub=owner,
+                )
+            finally:
+                await conn.close()
+
+        asyncio.run(_insert_orphan())
+
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "drafted", "t2": "drafted"}
+        assert "tX" not in statuses
+        assert detail["book_validated"] is False
