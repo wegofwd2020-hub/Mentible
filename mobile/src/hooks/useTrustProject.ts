@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -122,6 +122,26 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, refresh]);
 
+  const generateTopic = useCallback(async (topicId: string) => {
+    const key = await loadApiKey("anthropic");
+    if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
+    if (!accessToken) throw new Error("Not signed in");
+    const v = await generateTopicApi(projectId, topicId, { api_key: key, provider_id: "anthropic" }, accessToken);
+    await refresh(); return v;
+  }, [accessToken, projectId, refresh]);
+
+  const approveTopic = useCallback(async (id: string, opts?: { note?: string; expertName?: string }) => {
+    if (!accessToken) throw new Error("Not signed in");
+    const ap = await recordTopicApproval(id, { approved_at: new Date().toISOString(), note: opts?.note, expert_name: opts?.expertName }, accessToken);
+    await refresh(); return ap;
+  }, [accessToken, refresh]);
+
+  const withdrawTopic = useCallback(async (id: string) => {
+    if (!accessToken) throw new Error("Not signed in");
+    await withdrawTopicApproval(id, {}, accessToken);
+    await refresh();
+  }, [accessToken, refresh]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
@@ -129,5 +149,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic };
 }
