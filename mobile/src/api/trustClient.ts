@@ -33,14 +33,29 @@ export interface ProjectInputView {
   id: string; kind: string; title: string | null;
   content: string; source_ref: string | null; created_at: string | null;
 }
-export interface ProjectDetailView { project: ProjectView; artifacts: ArtifactDetailView[]; inputs: ProjectInputView[]; my_role: string }
+export interface TopicStatusView { topic_id: string; status: "not_generated" | "drafted" | "validated" }
+export interface ProjectDetailView {
+  project: ProjectView; artifacts: ArtifactDetailView[]; inputs: ProjectInputView[]; my_role: string;
+  topic_status?: TopicStatusView[]; book_validated?: boolean;
+}
 export interface ApprovalView {
   id: string; version_id: string; expert_name: string; approved_at: string; recorded_via: string;
   action?: string; // "approve" | "withdraw" — present since the approve/unapprove toggle
 }
+export interface TopicApprovalView {
+  id: string; topic_version_id: string; expert_name: string; approved_at: string; recorded_via: string | null;
+  action?: string; // "approve" | "withdraw"
+}
 export interface ProjectSummaryView { id: string; title: string; status: string; created_at: string | null }
 export interface InvitationView { project_id: string; invited_email: string; role: string; revoked_at: string | null }
 export interface VersionCreatedView { id: string; artifact_id: string; version_no: number; created_at: string | null }
+export interface TopicVersionCreatedView { id: string; topic_id: string; version_no: number; created_at: string | null }
+export interface TopicVersionDetailView {
+  id: string; topic_id: string; title: string;
+  content: { sections: DraftSection[] };
+  version_no: number; created_at: string | null;
+  is_validated: boolean; recorded_via: string | null;
+}
 
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/trust${path}`, {
@@ -160,4 +175,32 @@ export async function suggestToc(
 
 export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
   await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
+}
+
+export async function generateTopic(
+  projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string }, token: string,
+): Promise<TopicVersionCreatedView> {
+  return (await trustFetch<TopicVersionCreatedView>(
+    `/projects/${projectId}/topics/${topicId}/generate`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as TopicVersionCreatedView;
+}
+
+export async function getTopicVersion(id: string, token: string): Promise<TopicVersionDetailView> {
+  return (await trustFetch<TopicVersionDetailView>(`/topic-versions/${id}`, token, { method: "GET" })) as TopicVersionDetailView;
+}
+
+export async function recordTopicApproval(
+  id: string, body: { approved_at: string; note?: string; expert_name?: string }, token: string,
+): Promise<TopicApprovalView> {
+  return (await trustFetch<TopicApprovalView>(
+    `/topic-versions/${id}/approvals`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as TopicApprovalView;
+}
+
+export async function withdrawTopicApproval(
+  id: string, body: { note?: string }, token: string,
+): Promise<TopicApprovalView> {
+  return (await trustFetch<TopicApprovalView>(
+    `/topic-versions/${id}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as TopicApprovalView;
 }
