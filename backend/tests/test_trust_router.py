@@ -1077,3 +1077,49 @@ def test_project_detail_topic_status_excludes_orphan_versions():
         assert statuses == {"t1": "drafted", "t2": "drafted"}
         assert "tX" not in statuses
         assert detail["book_validated"] is False
+
+
+def test_topic_version_detail_owner_reviewer_read_stranger_403_and_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        owner_email = f"{owner}@x.z"
+        _as(owner, owner_email)
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+
+        # owner reads content, not yet validated
+        r = c.get(f"/api/v1/trust/topic-versions/{tvid}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["topic_id"] == "t1"
+        assert body["content"]["sections"][0]["heading"] == "Staff"
+        assert body["is_validated"] is False
+        assert body["recorded_via"] is None
+
+        # owner approves on a named expert's behalf -> validated + recorded_via
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        assert ap.status_code == 200, ap.text
+        r = c.get(f"/api/v1/trust/topic-versions/{tvid}")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["is_validated"] is True
+        assert body["recorded_via"] == "operator"
+
+        # invite a reviewer, redeem membership, reviewer can read
+        reviewer = f"r-{uuid.uuid4()}"
+        reviewer_email = f"{reviewer}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": reviewer_email})
+        _as(reviewer, reviewer_email)
+        c.post("/api/v1/trust/session/sync")  # redeem invite -> membership
+        assert c.get(f"/api/v1/trust/topic-versions/{tvid}").status_code == 200
+
+        # a stranger is 403
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.get(f"/api/v1/trust/topic-versions/{tvid}").status_code == 403
+
+        # unknown topic version is 404
+        _as(owner, owner_email)
+        assert c.get(f"/api/v1/trust/topic-versions/{uuid.uuid4()}").status_code == 404

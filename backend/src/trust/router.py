@@ -803,6 +803,37 @@ async def generate_topic_version(
     )
 
 
+@router.get("/topic-versions/{topic_version_id}", response_model=schemas.TopicVersionDetailOut)
+async def get_topic_version(
+    topic_version_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicVersionDetailOut:
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    tv = await topic_repo.get_topic_version(conn, topic_version_id=topic_version_id)
+    if tv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    latest = await topic_approval_repo.get_latest_topic_approval(
+        conn, topic_version_id=topic_version_id
+    )
+    return schemas.TopicVersionDetailOut(
+        id=str(tv.id),
+        topic_id=tv.topic_id,
+        title=tv.title,
+        content=tv.content or {"sections": []},
+        version_no=tv.version_no,
+        created_at=tv.created_at,
+        is_validated=latest is not None and latest.action == "approve",
+        recorded_via=latest.recorded_via if latest and latest.action == "approve" else None,
+    )
+
+
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)
 async def record_version_approval(
     version_id: uuid.UUID,

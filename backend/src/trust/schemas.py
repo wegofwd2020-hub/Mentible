@@ -208,6 +208,17 @@ class TopicVersionOut(BaseModel):
     created_at: datetime | None
 
 
+class TopicVersionDetailOut(BaseModel):
+    id: str
+    topic_id: str
+    title: str
+    content: dict
+    version_no: int
+    created_at: datetime | None
+    is_validated: bool
+    recorded_via: str | None = None
+
+
 class DraftGenerateIn(BaseModel):
     api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
     provider_id: str = "anthropic"
