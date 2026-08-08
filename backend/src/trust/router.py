@@ -30,6 +30,8 @@ from . import (
     membership_repo,
     project_repo,
     schemas,
+    topic_approval_repo,
+    topic_repo,
 )
 from .access import (
     ProjectAccessError,
@@ -39,6 +41,7 @@ from .access import (
     require_project_access,
 )
 from .generate import generate_draft
+from .generate_topic import generate_topic_draft
 from .toc_suggest import suggest_toc
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -495,6 +498,9 @@ async def get_project(
         )
         for i in await project_repo.list_inputs(conn, project_id=project_id)
     ]
+    topic_status, book_validated = await _topic_status_rollup(
+        conn, project_id=project_id, toc=p.toc
+    )
     return schemas.ProjectDetailOut(
         project=schemas.ProjectOut(
             id=str(p.id),
@@ -509,6 +515,8 @@ async def get_project(
         artifacts=artifacts,
         my_role=role,
         inputs=inputs,
+        topic_status=topic_status,
+        book_validated=book_validated,
     )
 
 
@@ -637,6 +645,164 @@ async def suggest_project_toc(
     return schemas.TocSuggestOut(toc=toc)
 
 
+def _find_toc_topic(toc: dict | None, topic_id: str) -> dict | None:
+    for subj in (toc or {}).get("subjects", []):
+        for unit in subj.get("units", []):
+            if str(unit.get("id")) == topic_id:
+                return unit
+    return None
+
+
+def _toc_topic_ids(toc: dict | None) -> list[str]:
+    ids: list[str] = []
+    for subj in (toc or {}).get("subjects", []):
+        for unit in subj.get("units") or []:
+            ids.append(str(unit.get("id")))
+    return ids
+
+
+async def _topic_status_rollup(
+    conn: asyncpg.Connection, *, project_id: uuid.UUID, toc: dict | None
+) -> tuple[list[schemas.TopicStatusOut], bool]:
+    topic_ids = _toc_topic_ids(toc)
+    latest_by_topic: dict[str, object] = {}
+    for v in await topic_repo.list_topic_versions(conn, project_id=project_id):
+        if v.topic_id not in topic_ids:
+            continue  # orphaned version — not a current toc topic; excluded
+        current = latest_by_topic.get(v.topic_id)
+        if current is None or v.version_no > current.version_no:
+            latest_by_topic[v.topic_id] = v
+
+    statuses: list[schemas.TopicStatusOut] = []
+    for topic_id in topic_ids:
+        latest = latest_by_topic.get(topic_id)
+        if latest is None:
+            status_value = "not_generated"
+        elif await topic_approval_repo.is_topic_validated(conn, topic_version_id=latest.id):
+            status_value = "validated"
+        else:
+            status_value = "drafted"
+        statuses.append(schemas.TopicStatusOut(topic_id=topic_id, status=status_value))
+
+    book_validated = bool(topic_ids) and all(s.status == "validated" for s in statuses)
+    return statuses, book_validated
+
+
+@router.post(
+    "/projects/{project_id}/topics/{topic_id}/generate",
+    response_model=schemas.TopicVersionOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def generate_topic_version(
+    project_id: uuid.UUID,
+    topic_id: str,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicVersionOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    topic = _find_toc_topic(p.toc, topic_id)
+    if topic is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
+
+    topic_title = topic.get("title") or ""
+    subtopics = [
+        st.get("label") if isinstance(st, dict) else st for st in topic.get("subtopics", [])
+    ]
+    topic_source_ids = topic.get("source_ids") or []
+    all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
+    inputs_by_id = {str(i.id): i for i in all_inputs}
+    sources = [inputs_by_id[sid] for sid in topic_source_ids if sid in inputs_by_id]
+    if not sources:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "add at least one source to this topic before generating",
+        )
+
+    # key handling mirrors generate_version / suggest_project_toc
+    managed = body.api_key is None
+    if managed:
+        if not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        api_key = get_managed_key(body.provider_id)
+    else:
+        api_key = body.api_key
+    model = body.model or settings.anthropic_default_model
+
+    try:
+        out = await asyncio.to_thread(
+            generate_topic_draft,
+            sources=sources,
+            topic_title=topic_title,
+            subtopics=subtopics,
+            audience=p.audience,
+            goal=p.goal,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("topic_generation_failed", reason="schema", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "generated topic draft failed validation"
+        ) from None
+    except LLMAuthError:
+        log.warning("topic_generation_failed", reason="auth", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "The API key was rejected by the provider. Check it in Settings.",
+        ) from None
+    except LLMRateLimitError:
+        log.warning("topic_generation_failed", reason="rate_limit", topic_id=topic_id)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "The provider is rate-limiting requests. Try again shortly.",
+        ) from None
+    except LLMError:
+        log.warning("topic_generation_failed", reason="llm_error", topic_id=topic_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
+    except Exception:
+        # Defense in depth: never let a raw error escape with key material.
+        log.warning("topic_generation_failed", reason="unexpected", topic_id=topic_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
+
+    # map model labels S1..Sn -> real input ids, scoped to THIS topic's sources
+    # (drop unknowns; never 500 on a bad label)
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    sections = [
+        {
+            "heading": sec.heading,
+            "body": sec.body,
+            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
+        }
+        for sec in out.sections
+    ]
+    v = await topic_repo.create_topic_version(
+        conn,
+        project_id=project_id,
+        topic_id=topic_id,
+        title=topic_title,
+        source_ids=topic_source_ids,
+        content={"sections": sections},
+        created_by_sub=principal.sub,
+    )
+    return schemas.TopicVersionOut(
+        id=str(v.id),
+        topic_id=v.topic_id,
+        title=v.title,
+        content=v.content,
+        version_no=v.version_no,
+        created_at=v.created_at,
+    )
+
+
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)
 async def record_version_approval(
     version_id: uuid.UUID,
@@ -712,6 +878,97 @@ async def withdraw_version_approval(
     return schemas.ApprovalOut(
         id=str(ap.id),
         version_id=str(ap.version_id),
+        expert_name=ap.expert_name,
+        approved_at=ap.approved_at,
+        recorded_via=ap.recorded_via,
+        action=ap.action,
+    )
+
+
+@router.post(
+    "/topic-versions/{topic_version_id}/approvals", response_model=schemas.TopicApprovalOut
+)
+async def record_topic_version_approval(
+    topic_version_id: uuid.UUID,
+    body: schemas.ApprovalIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicApprovalOut:
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    if role == "reviewer":
+        recorded_via = "expert_self"
+        expert_name = account.email or principal.sub
+        expert_email = account.email
+        expert_role = body.expert_role
+    else:  # owner records on a named expert's behalf
+        recorded_via = "operator"
+        if not body.expert_name:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "expert_name is required when an owner records an approval",
+            )
+        expert_name = body.expert_name
+        expert_email = body.expert_email
+        expert_role = body.expert_role
+    ap = await topic_approval_repo.record_topic_approval(
+        conn,
+        topic_version_id=topic_version_id,
+        expert_name=expert_name,
+        approved_at=body.approved_at,
+        recorded_by_sub=principal.sub,
+        expert_email=expert_email,
+        expert_role=expert_role,
+        note=body.note,
+        recorded_via=recorded_via,
+    )
+    return schemas.TopicApprovalOut(
+        id=str(ap.id),
+        topic_version_id=str(ap.topic_version_id),
+        expert_name=ap.expert_name,
+        approved_at=ap.approved_at,
+        recorded_via=ap.recorded_via,
+        action=ap.action,
+    )
+
+
+@router.post(
+    "/topic-versions/{topic_version_id}/approvals/withdraw",
+    response_model=schemas.TopicApprovalOut,
+)
+async def withdraw_topic_version_approval(
+    topic_version_id: uuid.UUID,
+    body: schemas.WithdrawIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicApprovalOut:
+    """Revoke the current approval on a topic version (append-only 'withdraw' record).
+    Owner OR reviewer, mirroring who may approve. 409 if not currently approved."""
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    recorded_via = "expert_self" if role == "reviewer" else "operator"
+    ap = await topic_approval_repo.withdraw_topic_approval(
+        conn,
+        topic_version_id=topic_version_id,
+        recorded_by_sub=principal.sub,
+        recorded_via=recorded_via,
+        note=body.note,
+    )
+    if ap is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "topic version is not currently approved")
+    return schemas.TopicApprovalOut(
+        id=str(ap.id),
+        topic_version_id=str(ap.topic_version_id),
         expert_name=ap.expert_name,
         approved_at=ap.approved_at,
         recorded_via=ap.recorded_via,

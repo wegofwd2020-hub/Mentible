@@ -141,11 +141,21 @@ class ProjectInputUpdateIn(BaseModel):
     source_ref: str | None = Field(default=None, max_length=500)
 
 
+TopicStatus = Literal["not_generated", "drafted", "validated"]
+
+
+class TopicStatusOut(BaseModel):
+    topic_id: str
+    status: TopicStatus
+
+
 class ProjectDetailOut(BaseModel):
     project: ProjectOut
     artifacts: list[ArtifactDetailOut]
     my_role: str
     inputs: list[ProjectInputOut]
+    topic_status: list[TopicStatusOut] = []
+    book_validated: bool = False
 
 
 class InviteIn(BaseModel):
@@ -178,6 +188,24 @@ class ApprovalOut(BaseModel):
     approved_at: datetime
     recorded_via: str
     action: str = "approve"
+
+
+class TopicApprovalOut(BaseModel):
+    id: str
+    topic_version_id: str
+    expert_name: str
+    approved_at: datetime
+    recorded_via: str
+    action: str = "approve"
+
+
+class TopicVersionOut(BaseModel):
+    id: str
+    topic_id: str
+    title: str
+    content: dict
+    version_no: int
+    created_at: datetime | None
 
 
 class DraftGenerateIn(BaseModel):

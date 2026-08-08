@@ -1,8 +1,10 @@
+import asyncio
 import json as _json
 import os
 import uuid
 from unittest.mock import patch
 
+import asyncpg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,6 +12,7 @@ from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
 from backend.tests.helpers import fake_provider
+from src.trust import topic_repo
 
 DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set")
@@ -746,3 +749,331 @@ def test_create_essay_artifact_accepted():
         )
         assert r.status_code == 200, r.text
         assert r.json()["format"] == "essay"
+
+
+_TOPIC_DRAFT_JSON = _json.dumps(
+    {
+        "sections": [
+            {"heading": "Staff", "body": "The staff has five lines.", "sources": ["S1"]},
+        ]
+    }
+)
+
+
+def _project_with_toc_topic(c, topic_id="t1", source_ids=None):
+    pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+    iid = c.post(
+        f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+    ).json()["id"]
+    sids = source_ids if source_ids is not None else [iid]
+    toc = {
+        "subjects": [
+            {
+                "subject_label": "S",
+                "units": [
+                    {
+                        "id": topic_id,
+                        "title": "Reading music",
+                        "subtopics": ["Staff & clef"],
+                        "prerequisites": [],
+                        "source_ids": sids,
+                    }
+                ],
+            }
+        ]
+    }
+    assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+    return pid, iid
+
+
+def test_owner_generates_topic_version():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, iid = _project_with_toc_topic(c)
+        key = "sk-ant-" + "x" * 20
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": key},
+            )
+        assert r.status_code == 200, r.text
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        body = r.json()
+        assert body["topic_id"] == "t1"
+        assert body["title"] == "Reading music"
+        assert body["version_no"] == 1
+        assert body["content"]["sections"][0]["heading"] == "Staff"
+        assert body["content"]["sections"][0]["source_ids"] == [iid]
+
+
+def test_generate_topic_unknown_topic_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/does-not-exist/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 404
+
+
+def test_generate_topic_no_sources_422():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c, source_ids=[])
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 422
+
+
+def test_generate_topic_reviewer_forbidden():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        expert = f"e-{uuid.uuid4()}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
+        _as(f"e-{uuid.uuid4()}", expert)
+        c.post("/api/v1/trust/session/sync")
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 403
+
+
+def test_generate_topic_bad_model_output_502():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text="not json"),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": "sk-ant-" + "z" * 20},
+            )
+        assert r.status_code == 502
+
+
+def _topic_version_id(c, pid, topic_id="t1"):
+    """Owner-perspective helper: generate a topic_version and return its id.
+    Assumes `_as(owner, ...)` is already the active principal."""
+    with patch(
+        "backend.src.trust.generate_topic.build_provider",
+        return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+    ):
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+def test_reviewer_topic_approval_is_expert_self():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        ).json()
+        assert ap["recorded_via"] == "expert_self"
+        assert ap["expert_name"] == expert_email
+        assert ap["topic_version_id"] == tvid
+
+
+def test_owner_topic_approval_requires_expert_name():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        )
+        assert r.status_code == 422
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        ).json()
+        assert ap["recorded_via"] == "operator" and ap["expert_name"] == "Dr X"
+
+
+def test_topic_approval_unknown_topic_version_404():
+    with TestClient(app) as c:
+        _as(f"u-{uuid.uuid4()}", f"u-{uuid.uuid4()}@x.z")
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{uuid.uuid4()}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z"},
+        )
+        assert r.status_code == 404
+
+
+def test_topic_approval_non_member_403():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
+        r = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        assert r.status_code == 403
+
+
+def test_owner_can_withdraw_topic_approval_flips_validation_back():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        # withdrawing before any approval -> 409
+        assert (
+            c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={}).status_code
+            == 409
+        )
+        c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        wd = c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={})
+        assert wd.status_code == 200
+        assert wd.json()["action"] == "withdraw" and wd.json()["expert_name"] == "Dr X"
+        # withdrawing again (already withdrawn) -> 409
+        assert (
+            c.post(f"/api/v1/trust/topic-versions/{tvid}/approvals/withdraw", json={}).status_code
+            == 409
+        )
+
+
+def _toc_two_topics(c, pid, iid):
+    toc = {
+        "subjects": [
+            {
+                "subject_label": "S",
+                "units": [
+                    {
+                        "id": "t1",
+                        "title": "Topic 1",
+                        "subtopics": ["A"],
+                        "prerequisites": [],
+                        "source_ids": [iid],
+                    },
+                    {
+                        "id": "t2",
+                        "title": "Topic 2",
+                        "subtopics": ["B"],
+                        "prerequisites": [],
+                        "source_ids": [iid],
+                    },
+                ],
+            }
+        ]
+    }
+    assert c.put(f"/api/v1/trust/projects/{pid}/toc", json={"toc": toc}).status_code == 200
+
+
+def test_project_detail_topic_status_and_book_validated():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        iid = c.post(
+            f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+        ).json()["id"]
+        _toc_two_topics(c, pid, iid)
+
+        # nothing generated yet -> both not_generated, book not validated
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "not_generated", "t2": "not_generated"}
+        assert detail["book_validated"] is False
+
+        # generate t1, generate (not validate) t2
+        tv1 = _topic_version_id(c, pid, topic_id="t1")
+        _topic_version_id(c, pid, topic_id="t2")
+
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "drafted", "t2": "drafted"}
+        assert detail["book_validated"] is False
+
+        # validate t1 only
+        c.post(
+            f"/api/v1/trust/topic-versions/{tv1}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "validated", "t2": "drafted"}
+        assert detail["book_validated"] is False
+
+        # validate t2 too -> book_validated flips true
+        tv2 = _topic_version_id(c, pid, topic_id="t2")
+        c.post(
+            f"/api/v1/trust/topic-versions/{tv2}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr Y"},
+        )
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "validated", "t2": "validated"}
+        assert detail["book_validated"] is True
+
+
+def test_project_detail_topic_status_excludes_orphan_versions():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        iid = c.post(
+            f"/api/v1/trust/projects/{pid}/inputs", json={"kind": "note", "content": "a source"}
+        ).json()["id"]
+        _toc_two_topics(c, pid, iid)
+        _topic_version_id(c, pid, topic_id="t1")
+        _topic_version_id(c, pid, topic_id="t2")
+
+        # a topic_version for a topic id NOT in the current toc — inserted directly,
+        # since /topics/{id}/generate 404s for a topic not present in the toc.
+        async def _insert_orphan():
+            conn = await asyncpg.connect(DSN)
+            try:
+                await topic_repo.create_topic_version(
+                    conn,
+                    project_id=uuid.UUID(pid),
+                    topic_id="tX",
+                    title="Orphan",
+                    source_ids=[],
+                    content={"sections": []},
+                    created_by_sub=owner,
+                )
+            finally:
+                await conn.close()
+
+        asyncio.run(_insert_orphan())
+
+        detail = c.get(f"/api/v1/trust/projects/{pid}").json()
+        statuses = {s["topic_id"]: s["status"] for s in detail["topic_status"]}
+        assert statuses == {"t1": "drafted", "t2": "drafted"}
+        assert "tX" not in statuses
+        assert detail["book_validated"] is False

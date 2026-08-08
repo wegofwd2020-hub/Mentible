@@ -103,6 +103,35 @@ class Approval:
 
 
 @dataclass(frozen=True)
+class TopicVersion:
+    id: str
+    project_id: str
+    topic_id: str
+    title: str
+    source_ids: object  # parsed jsonb list
+    content: object  # parsed jsonb {sections:[...]}
+    version_no: int
+    created_by_sub: str
+    created_at: datetime | None
+
+
+@dataclass(frozen=True)
+class TopicApproval:
+    id: str
+    topic_version_id: str
+    seq: int
+    action: str
+    expert_name: str
+    expert_email: str | None
+    expert_role: str | None
+    approved_at: datetime
+    recorded_by_sub: str
+    note: str | None
+    recorded_via: str
+    recorded_at: datetime | None
+
+
+@dataclass(frozen=True)
 class Membership:
     project_id: str
     account_id: str
