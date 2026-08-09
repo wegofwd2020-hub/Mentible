@@ -1,4 +1,5 @@
 import React from "react";
+import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 // SideNav (like TopNavBar) reads useSafeAreaInsets. No test in this repo renders
@@ -40,4 +41,10 @@ it("does not navigate when tapping the already-active row", () => {
   render(<SideNav {...makeProps(0)} />);   // library active
   fireEvent.press(screen.getByLabelText("Library"));
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it("uses medium (500) weight on the row label, not the retired 600", () => {
+  render(<SideNav {...makeProps(0)} />);
+  const label = screen.getByText("Projects");
+  expect(StyleSheet.flatten(label.props.style).fontWeight).toBe("500");
 });

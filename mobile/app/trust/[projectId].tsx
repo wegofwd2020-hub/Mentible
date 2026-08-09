@@ -263,7 +263,7 @@ function SourcesPanel({
             multiline
           />
           <Button
-            variant="primary"
+            variant="ghost"
             label="Add source"
             onPress={onAddSource}
             busy={addSourceBusy}

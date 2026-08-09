@@ -66,6 +66,6 @@ const makeStyles = (c: Palette) => ({
   brandText: { color: c.text, fontSize: typography.sizeLg, fontWeight: "700" as const },
   row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md },
   rowActive: { backgroundColor: c.primary },
-  rowLabel: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  rowLabel: { color: c.text, fontSize: typography.sizeMd, fontWeight: "500" as const },
   rowLabelActive: { color: c.primaryText },
 });

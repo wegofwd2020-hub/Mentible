@@ -144,7 +144,7 @@ const makeStyles = (c: Palette) => ({
   },
   tileLabel: {
     fontSize: typography.sizeXs,
-    fontWeight: "600" as const,
+    fontWeight: "500" as const,
     color: c.tileOffGlyph,
   },
   tileLabelActive: { color: c.tileOnGlyph },
