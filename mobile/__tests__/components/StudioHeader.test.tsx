@@ -1,4 +1,5 @@
 import { render, fireEvent } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 // StudioHeader reads useSafeAreaInsets. No test in this repo renders such a
 // component outside expo-router's own SafeAreaProvider wrapper, so — like
@@ -11,6 +12,7 @@ jest.mock("react-native-safe-area-context", () => {
 });
 
 import { StudioHeader, kickerFor } from "@/components/StudioHeader";
+import { PLAYFAIR } from "@/constants/fonts";
 
 const props = (over: any = {}) => ({
   navigation: { goBack: jest.fn() } as any,
@@ -25,6 +27,14 @@ describe("StudioHeader", () => {
     const { getByText } = render(<StudioHeader {...props()} />);
     expect(getByText("MENTIBLE")).toBeTruthy();
     expect(getByText("PROJECT")).toBeTruthy(); // SECTION_KICKERS["trust/[projectId]"]
+  });
+
+  it("renders the wordmark in Playfair, never a raw bold weight", () => {
+    const { getByText } = render(<StudioHeader {...props()} />);
+    const wordmark = getByText("MENTIBLE");
+    const flat = StyleSheet.flatten(wordmark.props.style);
+    expect(flat.fontFamily).toBe(PLAYFAIR.medium);
+    expect(flat.fontWeight).not.toBe("700");
   });
 
   it("falls back to the uppercased title for an unmapped route", () => {

@@ -42,7 +42,7 @@ function NewBookButton({ onPress, styles }: { onPress: () => void; styles: Retur
     <Button variant="primary" label="+ New book" accessibilityLabel="New book" onPress={onPress} style={styles.newBtn} />
   );
 }
-function ImportButton({ onPress, styles }: { onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
+function ImportButton({ onPress }: { onPress: () => void }) {
   return (
     <Button variant="ghost" label="Import a book" onPress={onPress} />
   );
@@ -51,7 +51,7 @@ function BooksHeader({ onNew, onImport, styles }: { onNew: () => void; onImport:
   return (
     <View style={styles.header}>
       <NewBookButton onPress={onNew} styles={styles} />
-      <ImportButton onPress={onImport} styles={styles} />
+      <ImportButton onPress={onImport} />
       <HelpButton topic="formats" label="Books & formats" />
     </View>
   );
@@ -273,7 +273,7 @@ function BooksScreenInner() {
           Paste a table of contents and we’ll turn it into an editable topic tree you can build a book from.
         </Text>
         <NewBookButton onPress={() => router.push("/book/new")} styles={styles} />
-        <ImportButton onPress={() => router.push("/book/import")} styles={styles} />
+        <ImportButton onPress={() => router.push("/book/import")} />
       </View>
     );
   }
