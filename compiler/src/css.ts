@@ -10,16 +10,21 @@
 // counter support simply show no number.
 
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
-import { BRAND } from "./tokens";
+import { PLAYFAIR_FONTFACE } from "./playfairFont";
+import { BRAND, STUDIO } from "./tokens";
 
 const SANS = `"Nimbus Sans", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif`;
 // Lead with Liberation Serif (the body face used in the PDF/print target); the
 // embedded Source Serif 4 (fonts.ts) remains as a fallback for readers that lack
 // Liberation Serif, so the artifact still ships a serif it controls.
 const SERIF = `"Liberation Serif", "Source Serif 4", Georgia, "Times New Roman", serif`;
+// Studio identity (P4) — headings only. Embedded Playfair Display (playfairFont.ts)
+// with system-serif fallbacks for readers that skip the @font-face.
+const DISPLAY = "'Playfair Display', Georgia, 'Times New Roman', serif";
 
 export const STYLESHEET = `
   ${SOURCE_SERIF_FONTFACE}
+  ${PLAYFAIR_FONTFACE}
   * { box-sizing: border-box; }
   body {
     color: #1a1a1a;
@@ -30,15 +35,18 @@ export const STYLESHEET = `
     padding: 1em;
     counter-reset: figure table;
   }
-  h1, h2, h3, h4, h5, h6 { font-family: ${SANS}; }
-  h1 { font-size: 1.6em; font-weight: 700; margin: 0 0 0.3em; }
-  h2 { font-size: 1.3em; font-weight: 700; margin: 1.2em 0 0.4em; }
-  h3 { font-size: 1.1em; font-weight: 600; margin: 1em 0 0.3em; color: #333; }
-  h4 { font-size: 1em; font-weight: 600; margin: 0.8em 0 0.2em; }
+  /* Only 400 + 500 weights are embedded (playfairFont.ts) — font-synthesis:none
+     stops readers from faux-bolding Playfair against the UA's default bold,
+     which reads as ugly, distorted type (the P3 lesson). */
+  h1, h2, h3, h4, h5, h6 { font-family: ${DISPLAY}; font-weight: 500; font-synthesis: none; }
+  h1 { font-size: 1.6em; margin: 0 0 0.3em; }
+  h2 { font-size: 1.3em; margin: 1.2em 0 0.4em; }
+  h3 { font-size: 1.1em; margin: 1em 0 0.3em; color: ${STUDIO.ink}; }
+  h4 { font-size: 1em; margin: 0.8em 0 0.2em; }
   p { margin: 0.6em 0; }
   ul, ol { padding-left: 1.4em; margin: 0.5em 0; }
   li { margin: 0.25em 0; }
-  a { color: #1565c0; }
+  a { color: ${STUDIO.gold}; }
   code {
     font-family: "Courier New", monospace;
     font-size: 0.9em;
@@ -55,35 +63,35 @@ export const STYLESHEET = `
   }
   pre code { background: none; padding: 0; }
   blockquote {
-    border-left: 3px solid #1565c0;
+    border-left: 3px solid ${STUDIO.gold};
     padding: 0.4em 0.9em;
     margin: 0.8em 0;
     color: #444;
     font-style: italic;
   }
   table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
-  th { background: ${BRAND.indigo}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${BRAND.indigo}; text-align: left; }
+  th { background: ${STUDIO.gold}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${STUDIO.gold}; text-align: left; }
   td { padding: 0.45em 0.8em; border: 1px solid ${BRAND.lavenderBorder}; }
-  tbody tr:nth-child(even) td { background: #f6f5fc; }
+  tbody tr:nth-child(even) td { background: #f4f1ea; }
   caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
   hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
   .synopsis {
     color: #444; padding: 0.8em; margin: 0.8em 0 1.2em;
-    background: #f6f8fa; border-left: 3px solid #1565c0; border-radius: 4px;
+    background: #f6f8fa; border-left: 3px solid ${STUDIO.gold}; border-radius: 4px;
   }
   .objectives, .takeaways, .further, .mistakes, .examples, .materials, .safety {
     background: #f6f8fa; border-radius: 4px; padding: 0.8em 1em; margin: 1em 0;
   }
-  .objectives { border-left: 3px solid ${BRAND.indigo}; }
+  .objectives { border-left: 3px solid ${STUDIO.gold}; }
   .further    { border-left: 3px solid ${BRAND.green}; }
   .mistakes   { border-left: 3px solid #ef6c00; }
   .safety     { border-left: 3px solid #ef6c00; }
-  /* Key Takeaways: branded dark-indigo callout panel (matches the PDF). */
+  /* Key Takeaways: Studio navy callout panel (matches the PDF). */
   .takeaways {
-    background: ${BRAND.indigoDark}; color: #eceaf6; border: none;
+    background: ${STUDIO.navy}; color: #eceaf6; border: none;
     border-radius: 8px; padding: 0.9em 1.1em; margin: 1em 0;
   }
-  .takeaways h3 { color: ${BRAND.greenBright}; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82em; margin: 0 0 0.45em; }
+  .takeaways h3 { color: ${STUDIO.goldBright}; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82em; margin: 0 0 0.45em; }
   .takeaways strong { color: #fff; }
   .takeaways a { color: #9fd8ff; }
   .practice {
@@ -110,13 +118,13 @@ export const STYLESHEET = `
   .diagram svg { max-width: 100%; height: auto; }
   .diagram--placeholder { background: #f6f6f6; border-color: #e3e3e3; }
   .diagram--placeholder pre { white-space: pre-wrap; text-align: left; }
-  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: ${BRAND.indigo}; margin-top: 0.5em; }
-  .fnum { font-weight: 700; color: ${BRAND.indigo}; }
+  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.5em; }
+  .fnum { font-weight: 700; color: ${STUDIO.gold}; }
   .floatlist ol { list-style: none; padding-left: 0; }
   .floatlist li { margin: 0.4em 0; }
   .floatlist a { text-decoration: none; color: #1a1a1a; }
   .floatlist .fnum { display: inline-block; min-width: 5em; }
-  .glossary dt { font-family: ${SANS}; font-weight: 700; color: ${BRAND.indigoDark}; margin-top: 0.7em; }
+  .glossary dt { font-family: ${SANS}; font-weight: 700; color: ${STUDIO.navy}; margin-top: 0.7em; }
   .glossary dd { margin: 0.1em 0 0.5em; color: #333; }
   .colophon .draft-notice { color: #b91c1c; font-weight: 700; }
   .colophon .edition { color: ${BRAND.green}; font-weight: 700; }
