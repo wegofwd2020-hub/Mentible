@@ -103,11 +103,15 @@ function readerStyles(palette: Palette): string {
      equation image onto its own centered line. Images flowing inside a
      paragraph stay inline and scale to the text; figures live in <figure>. */
   /* Equation PNGs are black-on-white. On a DARK theme, --eq-filter is
-     invert(1), which turns them white-on-black, then mix-blend-mode: screen
-     drops the (now black) box so only the white glyphs remain. On a LIGHT
-     theme, --eq-filter is "none": the PNG's own black-on-white rendering is
-     already correct, so it is left untouched. */
-  p img { display: inline; vertical-align: middle; margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0; filter: var(--eq-filter); mix-blend-mode: screen; }
+     invert(1), which turns them white-on-black, and --eq-blend is "screen",
+     which drops the (now black) box so only the white glyphs remain. On a
+     LIGHT theme, --eq-filter is "none" AND --eq-blend is "normal": the PNG's
+     own black-on-white rendering is already correct and painted as-is.
+     "screen" on an unfiltered image would map its black glyphs onto the light
+     paper background and erase them, so --eq-blend must be gated per theme
+     exactly like --eq-filter, sharing the SAME readerVars helper as the web
+     reader (never hardcode "screen" here again). */
+  p img { display: inline; vertical-align: middle; margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0; filter: var(--eq-filter); mix-blend-mode: var(--eq-blend); }
   hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
   .synopsis {
     color: var(--text2); font-size: 0.95em;

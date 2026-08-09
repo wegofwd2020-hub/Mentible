@@ -52,7 +52,8 @@ export function readerVars(palette: Palette): string {
   --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
   --display: 'PlayfairDisplay_500Medium', 'Playfair Display', Georgia, 'Times New Roman', serif;
   --reader-scheme: ${dark ? "dark" : "light"};
-  --eq-filter: ${dark ? "invert(1)" : "none"};`;
+  --eq-filter: ${dark ? "invert(1)" : "none"};
+  --eq-blend: ${dark ? "screen" : "normal"};`;
 }
 
 // The full scoped stylesheet for the given palette.
@@ -133,13 +134,15 @@ export function readerCss(palette: Palette): string {
   display: inline; vertical-align: middle;
   margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0;
   /* Equation PNGs are black-on-white. On a DARK theme, --eq-filter is invert(1),
-     which turns them white-on-black, then mix-blend-mode: screen makes the (now
-     black) background show the page through it — so the white equation box
-     disappears and only the white glyphs remain. On a LIGHT theme, --eq-filter
-     is "none": the PNG's own black-on-white rendering is already correct, so it
-     is left untouched (screen is a no-op combined with an unfiltered image atop
-     a light background). */
-  filter: var(--eq-filter); mix-blend-mode: screen;
+     which turns them white-on-black, and --eq-blend is "screen", which makes the
+     (now black) background show the page through it — so the white equation box
+     disappears and only the white glyphs remain. On a LIGHT theme, --eq-filter is
+     "none" AND --eq-blend is "normal": the PNG's own black-on-white rendering is
+     already correct and painted as-is. "screen" on an UNFILTERED image maps its
+     black glyphs onto the light paper background — i.e. erases them — which is
+     why --eq-blend must be gated per theme exactly like --eq-filter, not left
+     hardcoded to "screen". */
+  filter: var(--eq-filter); mix-blend-mode: var(--eq-blend);
 }
 .${READER_ROOT_CLASS} hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .${READER_ROOT_CLASS} .synopsis {

@@ -35,3 +35,15 @@ it("embeds themed vars + Playfair, gating the equation filter per theme", () => 
   expect(light).toContain(`--bg: ${studioLightColors.background}`);
   expect(light).toContain("--eq-filter: none");
 });
+
+it("gates the equation mix-blend-mode per theme (screen erases black glyphs on light paper)", () => {
+  // mix-blend-mode: screen was previously hardcoded alongside the gated
+  // --eq-filter; on the light/paper theme that erases equation glyphs even
+  // though --eq-filter correctly leaves the PNG unfiltered. --eq-blend must
+  // be gated exactly like --eq-filter ("never erase math on paper").
+  const dark = buildTopicHtml(topic, undefined, studioDarkColors);
+  expect(dark).toContain("--eq-blend: screen");
+
+  const light = buildTopicHtml(topic, undefined, studioLightColors);
+  expect(light).toContain("--eq-blend: normal");
+});

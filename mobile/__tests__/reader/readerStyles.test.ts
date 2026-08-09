@@ -16,6 +16,14 @@ describe("reader theme vars", () => {
     expect(light).toContain("--eq-filter: none");
     expect(light).toContain("--reader-scheme: light");
   });
+  it("gates the equation mix-blend-mode on the theme (screen erases black glyphs on light paper)", () => {
+    // mix-blend-mode: screen was previously hardcoded alongside the gated
+    // --eq-filter; on the light/paper theme that erases equation glyphs even
+    // though --eq-filter correctly leaves the PNG unfiltered ("never erase
+    // math on paper"). --eq-blend must be gated exactly like --eq-filter.
+    expect(readerVars(studioDarkColors)).toContain("--eq-blend: screen");
+    expect(readerVars(studioLightColors)).toContain("--eq-blend: normal");
+  });
   it("web CSS uses Playfair headings, no bold weight, and the gated filter", () => {
     const css = readerCss(studioDarkColors);
     expect(css).toContain("PlayfairDisplay_500Medium");
