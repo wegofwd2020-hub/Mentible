@@ -1,5 +1,5 @@
 import { renderMarkdown } from "../src/markdown";
-import { PassthroughDiagramRenderer } from "../src/diagrams";
+import { PassthroughDiagramRenderer, type DiagramRenderer } from "../src/diagrams";
 import { XMLValidator } from "fast-xml-parser";
 
 // Regression: LLM prose frequently contains literal <br> (and sometimes <img>,
@@ -9,6 +9,36 @@ import { XMLValidator } from "fast-xml-parser";
 // self-close them.
 const D = new PassthroughDiagramRenderer();
 const r = (md: string) => renderMarkdown(md, D);
+
+describe("renderMarkdown — ```svg blocks", () => {
+  it("inlines a ```svg fence as a <figure class=\"anim-svg\"> (not <pre><code>, not escaped)", () => {
+    const out = r("```svg\n<svg><rect/></svg>\n```");
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).toContain("<svg><rect/></svg>");
+    expect(out).not.toContain("<pre><code>");
+    expect(out).not.toContain("&lt;svg&gt;");
+  });
+
+  it("strips a <script> embedded in the svg body", () => {
+    const out = r('```svg\n<svg><script>alert(1)</script><rect/></svg>\n```');
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).not.toContain("<script>");
+    expect(out).not.toContain("alert(1)");
+  });
+
+  it("still delegates ```mermaid blocks to the DiagramRenderer (unchanged)", () => {
+    const spy: DiagramRenderer = { render: jest.fn(() => "<!--DIAGRAM-->") };
+    const out = renderMarkdown("```mermaid\ngraph TD; A-->B;\n```", spy);
+    expect(spy.render).toHaveBeenCalledWith("graph TD; A-->B;");
+    expect(out).toContain("<!--DIAGRAM-->");
+  });
+
+  it("still renders a plain/unknown fence as <pre><code>, escaped (unchanged)", () => {
+    const out = r("```js\nconst x = 1 < 2;\n```");
+    expect(out).toContain("<pre><code>");
+    expect(out).toContain("1 &lt; 2");
+  });
+});
 
 describe("renderMarkdown — void-element XHTML normalisation", () => {
   it("self-closes a raw <br> the model typed as literal HTML", () => {

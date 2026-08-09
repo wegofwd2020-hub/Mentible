@@ -27,6 +27,17 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
       code({ text, lang }: Tokens.Code): string {
         const language = (lang ?? "").trim().split(/\s+/)[0];
         if (language === "mermaid") return diagrams.render(text);
+        if (language === "svg") {
+          // Inline the LLM-authored SVG so SMIL/CSS animation works — mirror the
+          // mobile reader (mobile/src/reader/markdown.ts). Strip <script>: this
+          // HTML is embedded in the EPUB and rendered by headless Chromium for
+          // the PDF, so an SVG <script> would execute. This targeted strip
+          // mirrors the reader's; it is NOT a full sanitizer (does not touch
+          // handlers/javascript: hrefs) — consistent with the reader's
+          // documented posture.
+          const noScript = text.replace(/<script[\s\S]*?<\/script\s*>/gi, "");
+          return `<figure class="anim-svg">${noScript}</figure>`;
+        }
         return `<pre><code>${escapeHtml(text)}</code></pre>`;
       },
       // Self-close void elements so output is well-formed XHTML (EPUB3 content
