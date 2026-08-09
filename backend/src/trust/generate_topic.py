@@ -8,6 +8,8 @@ subtopic, grounded only in those sources.
 
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
@@ -18,7 +20,10 @@ from backend.src.generate.anthropic_caller import parse_json_response
 from .topic_prompt import build_topic_prompt
 
 _MAX_REPAIRS = 2
-_MAX_TOKENS = 4096
+# Per-topic content is one section per subtopic — a topic with several subtopics
+# of real prose easily exceeds a few thousand tokens. 4096 truncated multi-subtopic
+# topics mid-JSON → invalid output → 502. Match the pipeline's book default.
+_MAX_TOKENS = 16384
 
 
 class _TopicSection(BaseModel):
@@ -31,6 +36,18 @@ class _TopicDraft(BaseModel):
     sections: list[_TopicSection] = Field(min_length=1, max_length=20)
 
 
+def _coerce_topic_draft(obj: object) -> _TopicDraft:
+    """Validate the model's output into a _TopicDraft, tolerating a common quirk:
+    some models double-encode the array, returning `sections` as a JSON STRING
+    instead of a list. Decode it before validating; leave anything else to pydantic."""
+    if isinstance(obj, dict) and isinstance(obj.get("sections"), str):
+        try:
+            obj = {**obj, "sections": json.loads(obj["sections"])}
+        except (json.JSONDecodeError, TypeError):
+            pass  # not a JSON array string — let pydantic raise the real error
+    return _TopicDraft.model_validate(obj)
+
+
 def generate_topic_draft(
     *, sources, topic_title, subtopics, audience, goal, provider_id, api_key, model
 ) -> _TopicDraft:
@@ -39,6 +56,6 @@ def generate_topic_draft(
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
 
     def _validate(text: str) -> _TopicDraft:
-        return _TopicDraft.model_validate(parse_json_response(text))
+        return _coerce_topic_draft(parse_json_response(text))
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed

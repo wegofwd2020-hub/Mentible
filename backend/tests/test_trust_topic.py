@@ -5,8 +5,13 @@ from datetime import UTC, datetime
 
 import asyncpg
 import pytest
+from pydantic import ValidationError
 
-from backend.src.trust.generate_topic import _TopicDraft, generate_topic_draft
+from backend.src.trust.generate_topic import (
+    _coerce_topic_draft,
+    _TopicDraft,
+    generate_topic_draft,
+)
 from backend.src.trust.topic_prompt import build_topic_prompt
 from backend.tests.helpers import fake_provider
 from src.trust import project_repo, topic_approval_repo, topic_repo
@@ -208,3 +213,22 @@ def test_generate_topic_draft_returns_sections(monkeypatch):
     assert isinstance(out, _TopicDraft)
     assert out.sections[0].heading == "Staff & clef"
     assert out.sections[0].sources == ["S1"]
+
+
+def test_coerce_topic_draft_accepts_sections_as_json_string():
+    """Some models double-encode the array — `sections` comes back as a JSON
+    string instead of a list. The coercion decodes it before validating."""
+    section = {"heading": "Staff", "body": "5 lines", "sources": ["S1"]}
+    # Normal list — unchanged.
+    d = _coerce_topic_draft({"sections": [section]})
+    assert len(d.sections) == 1 and d.sections[0].heading == "Staff"
+    # Stringified array — coerced.
+    d2 = _coerce_topic_draft({"sections": json.dumps([section])})
+    assert len(d2.sections) == 1 and d2.sections[0].body == "5 lines"
+
+
+def test_coerce_topic_draft_rejects_a_non_json_string():
+    """A truncated/garbage sections string can't be decoded — pydantic still
+    raises (repair loop then handles it), we don't silently swallow it."""
+    with pytest.raises(ValidationError):
+        _coerce_topic_draft({"sections": '[{"heading": "h", "body": "trunca'})
