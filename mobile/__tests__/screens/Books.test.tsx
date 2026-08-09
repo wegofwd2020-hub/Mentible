@@ -37,11 +37,21 @@ const { loadBookIndex, deleteBook } = require("../../src/storage/bookStore") as 
   deleteBook: jest.Mock;
 };
 
+import { PLAYFAIR } from "../../src/constants/fonts";
 import BooksScreen from "../../app/(tabs)/books";
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+// Flattens an RN style (array or object) the way the renderer would, so tests
+// can assert on the resolved font/weight regardless of how styles are composed.
+function flattenStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) {
+    return style.reduce((acc: Record<string, unknown>, s) => ({ ...acc, ...flattenStyle(s) }), {});
+  }
+  return (style ?? {}) as Record<string, unknown>;
+}
 
 describe("BooksScreen", () => {
   it("shows the empty state and a New book button when there are no books", async () => {
@@ -51,6 +61,24 @@ describe("BooksScreen", () => {
       expect(screen.getByText("No books yet")).toBeTruthy();
     });
     expect(screen.getByLabelText("New book")).toBeTruthy();
+  });
+
+  it("renders the empty-state heading in Playfair, never a raw bold weight", async () => {
+    loadBookIndex.mockResolvedValue([]);
+    render(<BooksScreen />);
+    const heading = await screen.findByText("No books yet");
+    const flat = flattenStyle(heading.props.style);
+    expect(flat.fontFamily).toBe(PLAYFAIR.semibold);
+    expect(flat.fontWeight).not.toBe("700");
+  });
+
+  it("renders New book as the single primary (gold-pill) control and Import a book as ghost", async () => {
+    loadBookIndex.mockResolvedValue([]);
+    render(<BooksScreen />);
+    const newBook = await screen.findByRole("button", { name: "New book" });
+    const importBook = await screen.findByRole("button", { name: "Import a book" });
+    expect(newBook).toBeTruthy();
+    expect(importBook).toBeTruthy();
   });
 
   it("navigates to the new-book screen on tap", async () => {

@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { AuthProvider } from "@/auth/AuthProvider";
+import { StudioHeader } from "@/components/StudioHeader";
 import { DeviceReporter } from "@/device/DeviceReporter";
 import { FirstRunWizard } from "@/onboarding/FirstRunWizard";
 import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
@@ -46,10 +47,8 @@ export default function RootLayout() {
         <Stack
           key={dyslexic ? "font-dyslexic" : "font-default"}
           screenOptions={{
-            headerStyle: { backgroundColor: "#0f172a" },
-            headerTintColor: "#f1f5f9",
-            headerTitleStyle: { fontWeight: "700" },
-            contentStyle: { backgroundColor: "#0f172a" },
+            header: (props) => <StudioHeader {...props} />,
+            contentStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

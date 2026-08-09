@@ -13,6 +13,7 @@ import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
@@ -20,6 +21,7 @@ import { myDrafts } from "@/api/client";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
 import { FeedbackBadge } from "@/components/FeedbackBadge";
 import { Alert } from "@/lib/alert";
+import { Button, Label } from "@/components/ui";
 import type { Book, BookMeta } from "@/types/book";
 
 function formatDate(iso: string): string {
@@ -31,25 +33,25 @@ function progressLabel(m: BookMeta): string | undefined {
   return m.generatedCount >= m.unitCount ? `${m.unitCount}` : `${m.generatedCount}/${m.unitCount}`;
 }
 
+// The single gold pill for this screen — creating a book is the tab's primary
+// action, in both the header (persistent) and the empty state. Per-book
+// actions in the detail panel (Open/Generate) are contextual, not the
+// screen's headline CTA, so they stay ghost (one primary max — Studio rule).
 function NewBookButton({ onPress, styles }: { onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
-    <Pressable style={styles.newBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel="New book">
-      <Text style={styles.newBtnText}>+ New book</Text>
-    </Pressable>
+    <Button variant="primary" label="+ New book" accessibilityLabel="New book" onPress={onPress} style={styles.newBtn} />
   );
 }
-function ImportButton({ onPress, styles }: { onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
+function ImportButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable style={styles.importBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel="Import a book">
-      <Text style={styles.importBtnText}>Import a book</Text>
-    </Pressable>
+    <Button variant="ghost" label="Import a book" onPress={onPress} />
   );
 }
 function BooksHeader({ onNew, onImport, styles }: { onNew: () => void; onImport: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.header}>
       <NewBookButton onPress={onNew} styles={styles} />
-      <ImportButton onPress={onImport} styles={styles} />
+      <ImportButton onPress={onImport} />
       <HelpButton topic="formats" label="Books & formats" />
     </View>
   );
@@ -169,7 +171,7 @@ function BookDetail({
         <Text style={styles.detailDescMuted}>No content generated yet.</Text>
       )}
 
-      <Text style={styles.contentsLabel}>Contents</Text>
+      <Label tone="secondary" style={styles.contentsLabel}>Contents</Label>
       {units.slice(0, 12).map((u, i) => (
         <View key={u.id ?? i} style={styles.tocRow}>
           <Text style={[styles.tocMark, u.id && hasRenderableLesson(content[u.id]) ? styles.tocDone : undefined]}>
@@ -181,12 +183,8 @@ function BookDetail({
       {units.length > 12 && <Text style={styles.tocMore}>+{units.length - 12} more</Text>}
 
       <View style={styles.actions}>
-        <Pressable style={styles.actionPrimary} onPress={() => onOpen(book.id)} accessibilityRole="button">
-          <Text style={styles.actionPrimaryText}>Open</Text>
-        </Pressable>
-        <Pressable style={styles.actionSecondary} onPress={() => onGenerate(book.id)} accessibilityRole="button">
-          <Text style={styles.actionSecondaryText}>Generate</Text>
-        </Pressable>
+        <Button variant="ghost" label="Open" onPress={() => onOpen(book.id)} />
+        <Button variant="ghost" label="Generate" onPress={() => onGenerate(book.id)} />
         <Pressable
           style={styles.actionDelete}
           onPress={() => onDelete(book.id)}
@@ -275,7 +273,7 @@ function BooksScreenInner() {
           Paste a table of contents and we’ll turn it into an editable topic tree you can build a book from.
         </Text>
         <NewBookButton onPress={() => router.push("/book/new")} styles={styles} />
-        <ImportButton onPress={() => router.push("/book/import")} styles={styles} />
+        <ImportButton onPress={() => router.push("/book/import")} />
       </View>
     );
   }
@@ -388,19 +386,16 @@ const makeStyles = (c: Palette) => ({
     alignItems: "center" as const, padding: spacing.xl, gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
+  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   emptyBody: { fontSize: typography.sizeSm, color: c.textMuted, textAlign: "center" as const, lineHeight: 22, maxWidth: 280 },
-  newBtn: { backgroundColor: c.primary, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const, marginBottom: spacing.sm },
-  newBtnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
-  importBtn: { borderColor: c.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, alignItems: "center" as const },
-  importBtnText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  newBtn: { marginBottom: spacing.sm },
 
   // Phone grid
   gridContent: { padding: spacing.md },
   gridRow: { gap: spacing.md },
   tile: { flex: 1, marginBottom: spacing.md, gap: spacing.xs },
   tileHalf: { maxWidth: "50%" as const },
-  tileTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
+  tileTitle: { fontSize: typography.sizeSm, fontWeight: "500" as const, color: c.text },
   tileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
   // Wide split
@@ -414,7 +409,7 @@ const makeStyles = (c: Palette) => ({
   coverWrap: { position: "relative" as const, alignSelf: "flex-start" as const },
   coverBadge: { position: "absolute" as const, top: 6, left: 6, zIndex: 2 },
   rowMain: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.text },
+  rowTitle: { fontSize: typography.sizeSm, fontWeight: "500" as const, color: c.text },
   rowMeta: { fontSize: typography.sizeXs, color: c.textMuted },
   rightPane: { flex: 6, backgroundColor: c.background },
 
@@ -424,9 +419,9 @@ const makeStyles = (c: Palette) => ({
   detailContent: { padding: spacing.lg, gap: spacing.xs },
   detailCover: { alignItems: "center" as const, marginBottom: spacing.sm },
   detailCoverWrap: { position: "relative" as const, alignSelf: "flex-start" as const },
-  detailTitle: { fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text },
+  detailTitle: { color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   detailMeta: { fontSize: typography.sizeSm, color: c.textMuted },
-  detailDone: { color: c.success, fontWeight: "600" as const },
+  detailDone: { color: c.success, fontWeight: "500" as const },
   staleRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -436,19 +431,12 @@ const makeStyles = (c: Palette) => ({
   staleText: { flex: 1, fontSize: typography.sizeSm, color: c.warning },
   detailDesc: { fontSize: typography.sizeMd, color: c.textSecondary, lineHeight: 22, marginTop: spacing.sm },
   detailDescMuted: { fontSize: typography.sizeSm, color: c.textMuted, fontStyle: "italic" as const, marginTop: spacing.sm },
-  contentsLabel: {
-    fontSize: typography.sizeXs, fontWeight: "600" as const, color: c.textSecondary,
-    textTransform: "uppercase" as const, letterSpacing: 0.8, marginTop: spacing.lg, marginBottom: spacing.xs,
-  },
+  contentsLabel: { marginTop: spacing.lg, marginBottom: spacing.xs },
   tocRow: { flexDirection: "row" as const, gap: spacing.sm, alignItems: "center" as const, paddingVertical: 3 },
   tocMark: { width: 16, textAlign: "center" as const, color: c.textMuted },
   tocDone: { color: c.success },
   tocTitle: { flex: 1, fontSize: typography.sizeSm, color: c.text },
   tocMore: { fontSize: typography.sizeXs, color: c.textMuted, marginTop: spacing.xs },
   actions: { flexDirection: "row" as const, gap: spacing.sm, marginTop: spacing.lg, alignItems: "center" as const },
-  actionPrimary: { backgroundColor: c.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  actionPrimaryText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeSm },
-  actionSecondary: { borderColor: c.primary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  actionSecondaryText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
   actionDelete: { marginLeft: "auto" as const, padding: spacing.sm },
 });

@@ -12,7 +12,9 @@ import { searchHelpTopics, HelpTopicView } from "@/help";
 import { HELP_TOPICS } from "@/help-content";
 import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
+import { Card, Label } from "@/components/ui";
 
 // Help screen — renders the structured, searchable help content (issue #60).
 // Topics live in help-content/ so they stay maintainable + indexable; the
@@ -81,14 +83,14 @@ export default function HelpScreen() {
                 if (topic === t.id) scrollToTopic(t.id);
               }}
             >
-              <Text style={styles.sectionLabel}>{t.title}</Text>
-              <View style={[styles.card, highlight === t.id && styles.cardHighlight]}>
+              <Label tone="secondary">{t.title}</Label>
+              <Card style={[styles.cardInner, highlight === t.id && styles.cardHighlight]}>
                 <HelpTopicView
                   topic={t}
                   onLink={(href) => router.push(href as Href)}
                   onAction={(step) => void relaunchStep(step as StepId)}
                 />
-              </View>
+              </Card>
             </View>
           ))
         )}
@@ -101,9 +103,10 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background },
   scrollContent: { flexGrow: 1 },
   title: {
-    fontSize: typography.sizeXl,
-    fontWeight: "800" as const,
     color: c.text,
+    fontSize: typography.sizeXl,
+    fontFamily: PLAYFAIR.semibold,
+    letterSpacing: -0.36,
     marginBottom: spacing.xs,
   },
   search: {
@@ -118,20 +121,7 @@ const makeStyles = (c: Palette) => ({
   },
   empty: { color: c.textMuted, fontSize: typography.sizeSm, paddingVertical: spacing.md },
   section: { gap: spacing.xs },
-  sectionLabel: {
-    fontSize: typography.sizeXs,
-    fontWeight: "600" as const,
-    color: c.textSecondary,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.8,
-  },
-  card: {
-    backgroundColor: c.surface,
-    borderColor: c.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  // Layout only — the surface, border, and padding now come from <Card>.
+  cardInner: { gap: spacing.sm },
   cardHighlight: { borderColor: c.primary },
 });

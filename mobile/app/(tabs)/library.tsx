@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
@@ -17,8 +16,10 @@ import { SharedWithYou } from "@/components/SharedWithYou";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
-import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { useTheme, useThemedStyles } from "@/theme";
+import { spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
+import { useThemedStyles } from "@/theme";
+import { Button } from "@/components/ui";
 import { IS_DEMO } from "@/constants/demo";
 import { loadBook, loadBookIndex } from "@/storage/bookStore";
 import { seedDefaultLibrary } from "@/storage/seedLibrary";
@@ -111,7 +112,6 @@ export default function LibraryScreen() {
 function EpubLibrary() {
   const router = useRouter();
   const { accessToken } = useAuth();
-  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [items, setItems] = useState<EpubMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -332,31 +332,25 @@ function EpubLibrary() {
   );
 
   const newShelfButton = (
-    <Pressable
-      style={styles.importBtn}
+    <Button
+      variant="ghost"
+      label="+ New shelf"
       onPress={() => {
         setPendingAssignBookId(null);
         setNameModal({ mode: "create" });
       }}
-      accessibilityRole="button"
       accessibilityLabel="Create a new shelf"
-    >
-      <Ionicons name="add" size={16} color={theme.primary} />
-      <Text style={styles.importBtnText}>New shelf</Text>
-    </Pressable>
+    />
   );
 
   const importButton = (
-    <Pressable
-      style={[styles.importBtn, importing && styles.importBtnDisabled]}
+    <Button
+      variant="ghost"
+      label="Import EPUB"
+      busy={importing}
       onPress={handleImport}
-      disabled={importing}
-      accessibilityRole="button"
       accessibilityLabel="Import an EPUB file into your library"
-    >
-      <Ionicons name="cloud-upload-outline" size={16} color={theme.primary} />
-      <Text style={styles.importBtnText}>{importing ? "Importing…" : "Import EPUB"}</Text>
-    </Pressable>
+    />
   );
 
   if (items.length === 0) {
@@ -371,14 +365,12 @@ function EpubLibrary() {
         </Text>
         {importButton}
         {error && <Text style={styles.errorText}>{error}</Text>}
-        <Pressable
-          style={styles.cta}
+        <Button
+          variant="primary"
+          label="Go to Books →"
           onPress={() => router.push("/books")}
-          accessibilityRole="button"
           accessibilityLabel="Go to Books"
-        >
-          <Text style={styles.ctaText}>Go to Books →</Text>
-        </Pressable>
+        />
       </View>
     );
   }
@@ -469,33 +461,23 @@ const makeStyles = (c: Palette) => ({
   demoShelf: { flex: 1, backgroundColor: c.background },
   demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   demoHeader: {
-    fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text,
+    color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36,
     marginBottom: spacing.md,
   },
   demoGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.lg },
   demoTile: { marginBottom: spacing.sm, gap: spacing.xs },
-  demoTileTitle: { fontSize: typography.sizeXs, fontWeight: "700" as const, color: c.text },
+  // Small (sizeXs) caption under a book cover — stays Inter, medium weight (the
+  // Studio system retires bold/700 in favour of 500 for emphasis at this scale).
+  demoTileTitle: { fontSize: typography.sizeXs, fontWeight: "500" as const, color: c.text },
   demoTileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
   list: { flex: 1, backgroundColor: c.background },
   gridContent: { padding: spacing.md },
   gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   screen: { flex: 1 },
-  // Import sits left so it clears the floating profile chip (top-right).
-  header: { flexDirection: "row" as const, justifyContent: "flex-start" as const, marginBottom: spacing.md },
-  importBtn: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: c.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: c.primary + "1A",
-  },
-  importBtnDisabled: { opacity: 0.6 },
-  importBtnText: { color: c.primary, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  // Import sits left so it clears the floating profile chip (top-right). gap
+  // keeps the two ghost-pill <Button>s from touching (Studio re-skin P2).
+  header: { flexDirection: "row" as const, justifyContent: "flex-start" as const, alignItems: "center" as const, gap: spacing.sm, marginBottom: spacing.md },
   errorText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   empty: {
     flex: 1,
@@ -506,7 +488,7 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: typography.sizeLg, fontWeight: "700" as const, color: c.text },
+  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   emptyBody: {
     fontSize: typography.sizeSm,
     color: c.textMuted,
@@ -514,11 +496,4 @@ const makeStyles = (c: Palette) => ({
     lineHeight: 22,
     maxWidth: 300,
   },
-  cta: {
-    backgroundColor: c.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  ctaText: { color: c.primaryText, fontWeight: "700" as const, fontSize: typography.sizeMd },
 });
