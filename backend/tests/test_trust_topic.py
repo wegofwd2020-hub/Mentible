@@ -195,6 +195,16 @@ def test_topic_prompt_scopes_to_topic_sources_and_sections_per_subtopic():
     assert "S1" in p
 
 
+def test_topic_prompt_allows_grounded_diagrams_and_bans_placeholders():
+    p = build_topic_prompt(_SOURCES, "Reading music", ["Staff & clef"], "beginners", "read music")
+    low = p.lower()
+    assert "mermaid" in low  # ```mermaid guidance
+    assert "svg" in low  # ```svg guidance
+    assert "invent nothing" in low  # grounding kept
+    # placeholders explicitly banned
+    assert "[image" in low or "placeholder" in low
+
+
 def test_generate_topic_draft_returns_sections(monkeypatch):
     monkeypatch.setattr(
         "backend.src.trust.generate_topic.build_provider",

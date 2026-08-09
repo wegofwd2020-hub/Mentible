@@ -25,11 +25,21 @@ def build_topic_prompt(sources, topic_title, subtopics, audience, goal) -> str:
     if goal:
         ctx.append(f"so the reader can {goal}")
     ctx_line = (" " + " ".join(ctx)) if ctx else ""
+    diagram_guidance = (
+        "Where the sources support it, include a diagram that VISUALIZES what the sources "
+        "describe — a ```mermaid block for a process, hierarchy, or relationship, or a ```svg "
+        "block for a labeled or illustrative figure. Hold diagrams to the same bar as the prose: "
+        "invent nothing beyond the sources; if a diagram would need facts the sources do not "
+        "establish, omit it. Put the fenced diagram inline in the relevant section's body. NEVER "
+        'write "[IMAGE: ...]" or a camera emoji as a placeholder — produce an actual '
+        "```mermaid/```svg diagram, or write text only."
+    )
     return (
         f'You are writing the section on "{topic_title}"{ctx_line}. Using ONLY the sources below, '
         f"write one section per subtopic — subtopics: {subs}. Each section's heading is the subtopic; "
         f"its body is grounded ONLY in the sources and cites the source label(s) it draws from. Invent "
         f"nothing beyond the sources — if a subtopic is not covered, omit its section.\n\n"
+        f"{diagram_guidance}\n\n"
         f"SOURCES:\n{labelled}\n\n"
         f"Respond with ONLY valid JSON, no prose, exactly matching this schema:\n"
         f'{{"sections": [{{"heading": "string", "body": "string", "sources": ["S1"]}}]}}'

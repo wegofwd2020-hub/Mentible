@@ -29,6 +29,17 @@ jest.mock("@/api/trustClient", () => ({
   })),
 }));
 
+// Section bodies now render through TopicRenderer (visuals T2), which on
+// native goes through a react-native-webview host — stub it so the module
+// loads under jest (mirrors __tests__/app/chapter-quiz.test.tsx). This test
+// file only exercises approve/withdraw, not the rendered content.
+jest.mock("react-native-webview", () => ({
+  default: ({ source, accessibilityLabel }: { source?: { html?: string }; accessibilityLabel?: string }) => {
+    const { Text } = require("react-native");
+    return <Text accessibilityLabel={accessibilityLabel}>{source?.html ?? ""}</Text>;
+  },
+}));
+
 import { getTopicVersion } from "@/api/trustClient";
 import TopicVersionViewer from "@/../app/trust/topic-version/[id]";
 
