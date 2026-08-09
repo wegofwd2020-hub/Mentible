@@ -4,6 +4,7 @@ import { BRAND_AUTHOR, BRAND_CONTACT, BRAND_NAME, BRAND_TAGLINE } from "@/consta
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
+import { Card, Label } from "@/components/ui";
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
@@ -29,18 +30,18 @@ export default function AboutScreen() {
       </Text>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>About this app</Text>
-        <View style={styles.card}>
+        <Label tone="secondary">About this app</Label>
+        <Card style={styles.cardInner}>
           <Row label="App" value={BRAND_NAME} styles={styles} />
           <Row label="Tagline" value={BRAND_TAGLINE} styles={styles} />
           <Row label="Version" value="0.1.0 (MVP)" styles={styles} />
           <Row label="Default model" value="claude-sonnet-4-6" styles={styles} />
-        </View>
+        </Card>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Author</Text>
-        <View style={styles.card}>
+        <Label tone="secondary">Author</Label>
+        <Card style={styles.cardInner}>
           <Row label="Author" value={BRAND_AUTHOR} styles={styles} />
           <Pressable
             style={styles.row}
@@ -51,18 +52,18 @@ export default function AboutScreen() {
             <Text style={styles.rowLabel}>Contact</Text>
             <Text style={styles.contactValue}>{BRAND_CONTACT}</Text>
           </Pressable>
-        </View>
+        </Card>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Privacy</Text>
-        <View style={styles.card}>
+        <Label tone="secondary">Privacy</Label>
+        <Card style={styles.cardInner}>
           <Text style={styles.body}>
             Your API key and your lessons are yours. The key is held in
             your device's secure storage and used only to generate your content — never
             logged or stored on a server.
           </Text>
-        </View>
+        </Card>
       </View>
 
       <Text style={styles.footnote}>
@@ -101,26 +102,13 @@ const makeStyles = (c: Palette) => ({
     textAlign: "center" as const,
   },
   section: { gap: spacing.xs },
-  sectionLabel: {
-    fontSize: typography.sizeXs,
-    fontWeight: "600" as const,
-    color: c.textSecondary,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.8,
-  },
-  card: {
-    backgroundColor: c.surface,
-    borderColor: c.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  // Layout only — the surface, border, and padding now come from <Card>.
+  cardInner: { gap: spacing.sm },
   body: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
   row: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
   rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
-  rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "600" as const },
-  contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "600" as const },
+  rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "500" as const },
+  contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "500" as const },
   footnote: {
     fontSize: typography.sizeXs,
     color: c.textMuted,
