@@ -130,12 +130,38 @@ describe("buildPdfHtml — textbook layout", () => {
 
 describe("buildPdfHtml — typography & numbering CSS", () => {
   const html = buildPdfHtml(book());
-  it("uses sans-serif headings and per-chapter float numbering + list styles", () => {
-    expect(html).toMatch(/h1, h2, h3[^{]*\{\s*font-family:\s*"Nimbus Sans"/);
+  it("uses Playfair headings (Studio P4, matching the EPUB) and per-chapter float numbering + list styles", () => {
+    const headingRule = html.match(/h1,\s*h2,\s*h3,\s*h4,\s*h5,\s*h6\s*\{[^}]*\}/);
+    expect(headingRule).not.toBeNull();
+    expect(headingRule![0]).toMatch(/font-family:\s*'Playfair Display'/);
+    expect(headingRule![0]).toContain("font-weight: 500");
+    expect(headingRule![0]).toContain("font-synthesis: none");
+    expect(headingRule![0]).not.toContain("Nimbus Sans"); // old sans-serif headings gone (Nimbus Sans stays elsewhere, e.g. th)
     expect(html).toContain(".toc-part"); // Part labels in the grouped TOC
     expect(html).toContain("nav.floatlist"); // List of Figures / List of Tables
     expect(html).toContain(".fnum"); // figure/table number styling
     // page references (TOC + float lists) resolved by the paged-media engine
     expect(html).toContain("target-counter(attr(href url), page)");
+  });
+
+  it("carries the Studio palette, not the old indigo brand", () => {
+    expect(html).toContain("#8A6A22"); // STUDIO.gold — th/fnum/toc-part/objectives accent
+    expect(html).toContain("#0A0E1A"); // STUDIO.navy — takeaways panel + cover-page wrapper
+    expect(html).not.toContain("#312a8c"); // old BRAND.indigo
+    expect(html).not.toContain("#1e1b4b"); // old BRAND.indigoDark
+    expect(html).not.toContain("#16a34a"); // old (non-token) green
+    expect(html).not.toContain("#4ade80"); // old (non-token) bright green
+  });
+
+  it("uses warm table neutrals + a gold figure caption, matching the EPUB stylesheet (css.ts)", () => {
+    expect(html).toContain("#f4f1ea"); // warm even-row background (matches css.ts tbody tr:nth-child(even))
+    expect(html).toContain("#e6e0d4"); // warm td border (matches css.ts td)
+    expect(html).not.toContain("#f6f5fc"); // old cool-blue even-row background (indigo era)
+    expect(html).not.toContain("#d9d9e3"); // old cool-blue td border (indigo era)
+
+    const figcaptionRule = html.match(/\.diagram figcaption\s*\{[^}]*\}/);
+    expect(figcaptionRule).not.toBeNull();
+    expect(figcaptionRule![0]).toContain("#8A6A22"); // STUDIO.gold, matching css.ts .diagram figcaption
+    expect(figcaptionRule![0]).not.toContain("#555"); // old neutral gray caption color
   });
 });

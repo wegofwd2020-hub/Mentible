@@ -5,6 +5,8 @@ import { escapeHtml } from "./html";
 import { PassthroughDiagramRenderer, type DiagramRenderer } from "./diagrams";
 import { EmptyBookError } from "./epub";
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
+import { PLAYFAIR_FONTFACE } from "./playfairFont";
+import { BRAND, STUDIO } from "./tokens";
 import { buildCoverSvg, coverInputForBook } from "./cover";
 import { colophonSection } from "./colophon";
 import { numberFloats, type FloatRef } from "./floats";
@@ -93,7 +95,7 @@ export interface PdfHtmlOptions {
 function watermarkPageCss(text: string): string {
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">` +
-    `<text x="105" y="150" fill="#312a8c" fill-opacity="0.10" ` +
+    `<text x="105" y="150" fill="${STUDIO.gold}" fill-opacity="0.10" ` +
     `font-family="Helvetica,Arial,sans-serif" font-weight="bold" font-size="40" ` +
     `text-anchor="middle" textLength="150" lengthAdjust="spacingAndGlyphs" ` +
     `transform="rotate(-45 105 150)">${escapeHtml(text)}</text></svg>`;
@@ -212,8 +214,16 @@ ${glossaryHtml}
 
 // CSS Paged Media stylesheet (resolved by Vivliostyle). The TOC page numbers
 // come from target-counter(attr(href url), page).
+//
+// Studio identity (P4): headings, table/callout accents, and the cover-page
+// wrapper draw from STUDIO (tokens.ts) — the same palette css.ts uses for the
+// EPUB, so the two export targets stay visually in lock-step. Playfair Display
+// is embedded here too (single weight 500 + font-synthesis:none, same
+// discipline as css.ts — no faux-bold).
+const DISPLAY = "'Playfair Display', Georgia, 'Times New Roman', serif";
 const PDF_CSS = `
   ${SOURCE_SERIF_FONTFACE}
+  ${PLAYFAIR_FONTFACE}
   @page {
     size: A4;
     margin: 24mm 22mm; /* more air (Anthropic-leaning); also spreads content toward the ~50pp target */
@@ -228,21 +238,23 @@ const PDF_CSS = `
     counter-reset: figure table;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    font-family: ${DISPLAY};
+    font-weight: 500;
+    font-synthesis: none; /* only 400/500 are embedded — no faux-bold */
     break-after: avoid;   /* keep a heading with the content that follows it */
     break-inside: avoid;
   }
   h1 { font-size: 1.6em; margin: 0 0 0.45em; }
   h2 { font-size: 1.25em; margin: 1.1em 0 0.35em; }
-  h3 { font-size: 1.08em; margin: 0.9em 0 0.25em; color: #333; }
+  h3 { font-size: 1.08em; margin: 0.9em 0 0.25em; color: ${STUDIO.ink}; }
   p { margin: 0.62em 0; orphans: 2; widows: 2; }
   ul, ol { padding-left: 1.4em; }
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 0.95em; counter-increment: table; break-inside: avoid; }
-  th, td { border: 1px solid #d9d9e3; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
-  th { background: #312a8c; color: #fff; border-color: #312a8c; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 700; }
-  tbody tr:nth-child(even) td { background: #f6f5fc; }
+  th, td { border: 1px solid #e6e0d4; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+  th { background: ${STUDIO.gold}; color: #fff; border-color: ${STUDIO.gold}; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 700; }
+  tbody tr:nth-child(even) td { background: #f4f1ea; }
   caption {
     caption-side: top; text-align: left; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
@@ -251,14 +263,14 @@ const PDF_CSS = `
   .diagram svg { max-width: 100%; max-height: 84mm; width: auto; height: auto; }
   .diagram figcaption {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
-    font-size: 0.85em; color: #555; margin-top: 0.3em;
+    font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.3em;
   }
-  .fnum { font-weight: 800; color: #312a8c; }
+  .fnum { font-weight: 800; color: ${STUDIO.gold}; }
 
   /* Cover: its own page (no @page margin). The SVG (5:8) fills the full A4
      height edge-to-edge; its narrower width centres with slim side margins. */
   @page cover { margin: 0; }
-  .cover-page { page: cover; break-after: page; text-align: center; background: #1e1b4b; }
+  .cover-page { page: cover; break-after: page; text-align: center; background: ${STUDIO.navy}; }
   .cover-page svg { display: inline-block; height: 297mm; width: 185.6mm; }
 
   .colophon { break-after: page; text-align: center; }
@@ -267,7 +279,7 @@ const PDF_CSS = `
   .colophon hr { width: 30%; margin: 1.2em auto; border: none; border-top: 1px solid #ccc; }
   .colophon .identifier, .colophon .colophon-note { font-size: 0.85em; color: #777; }
   .colophon .draft-notice { color: #b91c1c; font-weight: 800; letter-spacing: 1px; }
-  .colophon .edition { color: #16a34a; font-weight: 700; }
+  .colophon .edition { color: ${BRAND.green}; font-weight: 700; }
   .colophon .revisions { text-align: left; max-width: 64%; margin: 1.4em auto 0; }
   .colophon .revisions h2 { font-size: 1em; }
   .colophon .revisions ul { padding-left: 1.2em; font-size: 0.85em; color: #555; }
@@ -280,7 +292,7 @@ const PDF_CSS = `
   .toc-part {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
     font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
-    color: #312a8c; font-size: 0.82em; margin: 1.1em 0 0.3em;
+    color: ${STUDIO.gold}; font-size: 0.82em; margin: 1.1em 0 0.3em;
   }
   nav.floatlist .fnum { display: inline-block; min-width: 4.6em; }
 
@@ -288,7 +300,7 @@ const PDF_CSS = `
   .glossary dl { margin: 0.5em 0; }
   .glossary dt {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
-    font-weight: 700; color: #1e1b4b; margin-top: 0.7em; break-after: avoid;
+    font-weight: 700; color: ${STUDIO.navy}; margin-top: 0.7em; break-after: avoid;
   }
   .glossary dd { margin: 0.1em 0 0.4em 0; color: #333; break-inside: avoid; }
 
@@ -298,14 +310,14 @@ const PDF_CSS = `
   .objectives ul, .takeaways ul, .further ul { margin: 0.3em 0; }
   li { margin: 0.22em 0; }
   /* Accent the lighter callouts; make Key Takeaways a branded panel. */
-  .objectives { border-left: 3px solid #312a8c; }
-  .further { border-left: 3px solid #16a34a; }
+  .objectives { border-left: 3px solid ${STUDIO.gold}; }
+  .further { border-left: 3px solid ${BRAND.green}; }
   .takeaways {
-    background: #1e1b4b; color: #eceaf6; border-radius: 8px;
+    background: ${STUDIO.navy}; color: #eceaf6; border-radius: 8px;
     padding: 0.8em 1.05em; margin: 0.9em 0; break-inside: avoid;
   }
   .takeaways h3 {
-    color: #4ade80; text-transform: uppercase; letter-spacing: 0.08em;
+    color: ${STUDIO.goldBright}; text-transform: uppercase; letter-spacing: 0.08em;
     font-size: 0.82em; margin: 0 0 0.45em;
   }
   .takeaways ul { margin: 0.2em 0 0; }

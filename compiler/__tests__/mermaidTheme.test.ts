@@ -1,5 +1,5 @@
 import { applyDiagramTheme } from "../src/mermaid";
-import { DIAGRAM_ROLES } from "../src/tokens";
+import { DIAGRAM_ROLES, MERMAID_THEME_VARIABLES, STUDIO } from "../src/tokens";
 
 // applyDiagramTheme injects the brand role classDefs into flowcharts (so the
 // generator only has to tag nodes `:::role`), while leaving other diagram kinds
@@ -31,5 +31,29 @@ describe("applyDiagramTheme", () => {
 
   it("ignores leading whitespace when detecting the diagram type", () => {
     expect(applyDiagramTheme("\n  flowchart TD\n A-->B")).toContain("classDef concept");
+  });
+});
+
+// Studio (P4) — DIAGRAM_ROLES and MERMAID_THEME_VARIABLES now reference the
+// Studio export palette (navy/gold/panel), not the old BRAND indigo/lavender.
+describe("Studio palette", () => {
+  it("uses the Studio palette", () => {
+    expect(STUDIO.navy).toBe("#0A0E1A");
+    expect(STUDIO.gold).toBe("#8A6A22");
+    expect(DIAGRAM_ROLES.concept.fill).toBe(STUDIO.navy); // concept → navy
+    expect(MERMAID_THEME_VARIABLES.primaryBorderColor).toBe(STUDIO.gold);
+    // every role has a fill+color+stroke
+    for (const r of Object.values(DIAGRAM_ROLES)) {
+      expect(r.fill).toBeTruthy();
+      expect(r.color).toBeTruthy();
+      expect(r.stroke).toBeTruthy();
+    }
+  });
+
+  it("retints the base mermaid theme variables onto Studio panel/navy/gold", () => {
+    expect(MERMAID_THEME_VARIABLES.primaryColor).toBe(STUDIO.panel);
+    expect(MERMAID_THEME_VARIABLES.primaryTextColor).toBe(STUDIO.navy);
+    expect(MERMAID_THEME_VARIABLES.tertiaryColor).toBe(STUDIO.ivory);
+    expect(MERMAID_THEME_VARIABLES.tertiaryTextColor).toBe(STUDIO.navy);
   });
 });

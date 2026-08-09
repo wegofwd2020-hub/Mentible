@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
 import { buildCoverSvg, buildCoverXhtml, coverInputForBook } from "../src/cover";
 import { compileEpub } from "../src/epub";
+import { STUDIO } from "../src/tokens";
 import type { Book } from "../src/types";
 
 function bookWith(overrides: Partial<Book> = {}): Book {
@@ -72,6 +73,75 @@ describe("buildCoverSvg", () => {
     expect(xhtml).not.toMatch(/<script/i);
     expect(xhtml).not.toMatch(/<link\b/i);
     expect(xhtml).toContain('epub:type="cover"');
+  });
+});
+
+// Studio (P4) — the cover is the ONE place the Studio navy is allowed to be a
+// full field; the validated-mark accent is gold, not the old brand green, and
+// the title carries Playfair Display. This locks the retint and guards against
+// stray old brand indigo/green hexes leaking back in.
+describe("buildCoverSvg — Studio identity", () => {
+  it("uses the Studio navy field, not the old indigo brand field", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).toContain(STUDIO.navyLuminous);
+    expect(svg).toContain(STUDIO.navy);
+    expect(svg).not.toContain("#312a8c"); // old BRAND.indigo
+    expect(svg).not.toContain("#1e1b4b"); // old BRAND.indigoDark
+    expect(svg).not.toContain("#4c1d95"); // old BRAND.indigoLuminous
+  });
+
+  it("marks the validated check→arrow in gold, not the old brand green", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).toContain(STUDIO.goldBright);
+    expect(svg).toContain(STUDIO.goldSoft);
+    expect(svg).not.toContain("#2a9258"); // old BRAND.green
+    expect(svg).not.toContain("#6cc79a"); // old BRAND.greenBright
+  });
+
+  it("sets the main title in Playfair Display", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).toContain("font-family=\"'Playfair Display', 'Source Serif 4', Georgia, serif\"");
+  });
+
+  // Only Playfair Display 400/500 are embedded (playfairFont.ts). Requesting
+  // font-weight="800" on the main title asks renderers to synthesize a faux
+  // bold on the artifact's most prominent text — the exact hazard css.ts and
+  // pdf.ts already guard against elsewhere. Weight must match an embedded
+  // weight, with font-synthesis:none as a defense-in-depth belt-and-braces.
+  it("requests an embedded Playfair weight for the main title, not a synthesized bold", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).not.toContain('font-weight="800"');
+    expect(svg).toMatch(/font-family="'Playfair Display'[^>]*font-weight="500"/);
+    expect(svg).toMatch(/font-family="'Playfair Display'[^>]*font-synthesis="none"/);
+  });
+
+  it("uses the Studio warm panel for the lower field, not the old lavender", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).toContain(STUDIO.panel);
+    expect(svg).not.toContain("#f5f3ff"); // old BRAND.lavender
+  });
+
+  it("keeps the draft-red edition stamp but golds the released edition", () => {
+    const draft = buildCoverSvg({ title: "Algebra", edition: "DRAFT" });
+    expect(draft).toContain("#b91c1c");
+    const released = buildCoverSvg({ title: "Algebra", edition: "v1.0 · First Edition" });
+    expect(released).toContain(STUDIO.gold);
+  });
+
+  it("the cover XHTML page background is Studio navy, not the old indigo", () => {
+    const xhtml = buildCoverXhtml({ title: "Algebra" });
+    expect(xhtml).toContain(`background:${STUDIO.navy}`);
+    expect(xhtml).not.toContain("#1e1b4b");
+  });
+
+  // cover.xhtml is its own EPUB content document — it does NOT link the shared
+  // css/style.css (unlike chapters/colophon/TOC), so unless it embeds the
+  // Playfair/Source-Serif @font-face itself, the title silently falls back to
+  // a generic reader-system serif and never actually renders Playfair.
+  it("embeds its own Playfair + Source Serif @font-face (self-contained, no shared stylesheet)", () => {
+    const xhtml = buildCoverXhtml({ title: "Algebra" });
+    expect(xhtml).toContain("@font-face{font-family:'Playfair Display'");
+    expect(xhtml).toContain("@font-face{font-family:'Source Serif 4'");
   });
 });
 
