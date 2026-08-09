@@ -11,10 +11,11 @@ import React, { useMemo, useRef } from "react";
 import { View, StyleSheet } from "react-native";
 import type { ImportedChapter } from "@/types/book";
 import { renderChapterToSafeHtml } from "@/reader/renderContent";
-import { READER_CSS, READER_ROOT_CLASS } from "@/reader/readerStyles";
-import { colors } from "@/constants/theme";
+import { readerCss, READER_ROOT_CLASS } from "@/reader/readerStyles";
+import { useTheme } from "@/theme";
 
 export function NativeChapterReader({ chapter }: { chapter: ImportedChapter }) {
+  const theme = useTheme();
   const ref = useRef<HTMLDivElement | null>(null);
   const html = useMemo(() => renderChapterToSafeHtml(chapter), [chapter]);
 
@@ -23,8 +24,8 @@ export function NativeChapterReader({ chapter }: { chapter: ImportedChapter }) {
   // contract with us, and running KaTeX over arbitrary prose would corrupt
   // ordinary text that happens to contain dollar signs.
   return (
-    <View style={styles.container}>
-      <style data-mentible-reader="">{READER_CSS}</style>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <style data-mentible-reader="">{readerCss(theme)}</style>
       <div
         ref={ref}
         className={READER_ROOT_CLASS}
@@ -36,5 +37,5 @@ export function NativeChapterReader({ chapter }: { chapter: ImportedChapter }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
 });
