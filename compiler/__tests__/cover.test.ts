@@ -103,6 +103,18 @@ describe("buildCoverSvg — Studio identity", () => {
     expect(svg).toContain("font-family=\"'Playfair Display', 'Source Serif 4', Georgia, serif\"");
   });
 
+  // Only Playfair Display 400/500 are embedded (playfairFont.ts). Requesting
+  // font-weight="800" on the main title asks renderers to synthesize a faux
+  // bold on the artifact's most prominent text — the exact hazard css.ts and
+  // pdf.ts already guard against elsewhere. Weight must match an embedded
+  // weight, with font-synthesis:none as a defense-in-depth belt-and-braces.
+  it("requests an embedded Playfair weight for the main title, not a synthesized bold", () => {
+    const svg = buildCoverSvg({ title: "Algebra" });
+    expect(svg).not.toContain('font-weight="800"');
+    expect(svg).toMatch(/font-family="'Playfair Display'[^>]*font-weight="500"/);
+    expect(svg).toMatch(/font-family="'Playfair Display'[^>]*font-synthesis="none"/);
+  });
+
   it("uses the Studio warm panel for the lower field, not the old lavender", () => {
     const svg = buildCoverSvg({ title: "Algebra" });
     expect(svg).toContain(STUDIO.panel);

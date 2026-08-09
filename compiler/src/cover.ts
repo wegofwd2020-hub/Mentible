@@ -130,7 +130,7 @@ export function buildCoverSvg(input: CoverInput): string {
     // accent rule sits to the left of the first subtitle line
     subBlock =
       `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="${STUDIO.gold}"/>` +
-      `<text fill="${STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="800">` +
+      `<text fill="${STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="700">` +
       tspans(sub.lines, MARGIN_L + 130, y, subLH) +
       `</text>`;
     y += (sub.lines.length - 1) * subLH + 96;
@@ -209,7 +209,7 @@ export function buildCoverSvg(input: CoverInput): string {
     <circle cx="0" cy="0" r="92" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="5"/>
     <circle cx="0" cy="0" r="40" fill="#ffffff" fill-opacity="0.18"/>
   </g>
-  <text fill="${STUDIO.navy}" font-family="${DISPLAY}" font-size="${main.size}" font-weight="800" letter-spacing="-1">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
+  <text fill="${STUDIO.navy}" font-family="${DISPLAY}" font-size="${main.size}" font-weight="500" font-synthesis="none" letter-spacing="-1">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
   ${subBlock}
   ${taglineBlock}
   ${authorBlock}
