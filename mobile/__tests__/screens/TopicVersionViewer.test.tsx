@@ -2,11 +2,14 @@ import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 
 jest.mock("expo-router", () => ({
-  useLocalSearchParams: () => ({ id: "tv1" }),
+  useLocalSearchParams: () => ({ id: "tv1", projectId: "p1" }),
   useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
 }));
 const mockUseAuth = jest.fn((): { accessToken: string | null; status: string } => ({ accessToken: "tok", status: "signed_in" }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => mockUseAuth() }));
+jest.mock("@/hooks/useTrustProject", () => ({
+  useTrustProject: () => ({ project: { my_role: "reviewer" }, approveTopic: jest.fn(), withdrawTopic: jest.fn() }),
+}));
 jest.mock("@/api/trustClient", () => ({
   getTopicVersion: jest.fn(async () => ({
     id: "tv1", topic_id: "t1", title: "Reading music",

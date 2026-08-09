@@ -669,8 +669,13 @@ function DraftsPanel({
 // Feedback (validate phase): a list of versions that opens each one full-screen
 // to review — Approve / Unapprove now lives ON the draft view itself (slice 2,
 // matching the Lovable IA), not inline here — plus (owner) the Invite-an-expert
-// control. Nothing to review until a draft exists, so this stays gated on
-// anyVersion.
+// control. Nothing to review until a draft exists, so the whole-book branch
+// stays gated on anyVersion. A `Whole book | Per topic` toggle (only rendered
+// once the project has a TOC — Slice C2c, mirroring the C2b Drafts toggle)
+// switches to a rollup header (`{validated}/{total} topics validated` +
+// book_validated indicator) plus the TOC grouped by subject, each topic
+// showing its status badge and an Open (no inline Approve — that lives on the
+// topic viewer, app/trust/topic-version/[versionId].tsx).
 function FeedbackPanel({
   styles,
   theme,
@@ -687,6 +692,10 @@ function FeedbackPanel({
   toggleCompareMode,
   toggleCompareSel,
   onCompare,
+  toc,
+  topicStatus,
+  bookValidated,
+  onOpenTopic,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -703,12 +712,80 @@ function FeedbackPanel({
   toggleCompareMode: (artifactId: string) => void;
   toggleCompareSel: (versionId: string) => void;
   onCompare: (artifactId: string) => void;
+  toc: StructuredTocView | undefined;
+  topicStatus: TopicStatusView[];
+  bookValidated: boolean;
+  onOpenTopic: (versionId: string) => void;
 }) {
-  if (!anyVersion) {
-    return <Text style={styles.emptyText}>Finish Drafts first — generate a draft before it can be reviewed.</Text>;
-  }
+  const [mode, setMode] = useState<"whole" | "topic">("whole");
+  const hasToc = (toc?.subjects?.length ?? 0) > 0;
+  const statusByTopic = new Map(topicStatus.map((s) => [s.topic_id, s]));
+  const totalTopics = toc?.subjects.reduce((sum, s) => sum + s.units.length, 0) ?? 0;
+  const validatedTopics = topicStatus.filter((s) => s.status === "validated").length;
+
   return (
     <View style={styles.artifactsWrap}>
+      {hasToc ? (
+        <View style={styles.kindRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Whole book"
+            accessibilityState={{ selected: mode === "whole" }}
+            style={[styles.kindBtn, mode === "whole" ? styles.kindBtnActive : null]}
+            onPress={() => setMode("whole")}
+          >
+            <Text style={mode === "whole" ? styles.kindTextActive : styles.kindText}>Whole book</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Per topic"
+            accessibilityState={{ selected: mode === "topic" }}
+            style={[styles.kindBtn, mode === "topic" ? styles.kindBtnActive : null]}
+            onPress={() => setMode("topic")}
+          >
+            <Text style={mode === "topic" ? styles.kindTextActive : styles.kindText}>Per topic</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {hasToc && mode === "topic" ? (
+        <View style={styles.artifactsWrap}>
+          <View style={styles.rollupHeader}>
+            <Text style={styles.rollupText}>{validatedTopics}/{totalTopics} topics validated</Text>
+            <Chip label={bookValidated ? "Book validated ✓" : "Not yet book-validated"} active={bookValidated} />
+          </View>
+          {toc?.subjects.map((subject) => (
+            <View key={subject.subject_label} style={styles.artifact}>
+              <Label tone="secondary">{subject.subject_label}</Label>
+              {subject.units.map((unit) => {
+                const status = statusByTopic.get(unit.id);
+                return (
+                  <View key={unit.id} style={styles.topicRow}>
+                    <View style={styles.topicRowLeft}>
+                      <Text style={styles.topicRowTitle}>{unit.title}</Text>
+                      <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                    </View>
+                    <View style={styles.topicRowActions}>
+                      {status?.latest_version_id ? (
+                        <Button
+                          variant="ghost"
+                          label="Open"
+                          onPress={() => onOpenTopic(status.latest_version_id as string)}
+                          accessibilityLabel={`Open ${unit.title}`}
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {mode === "whole" && !anyVersion ? (
+        <Text style={styles.emptyText}>Finish Drafts first — generate a draft before it can be reviewed.</Text>
+      ) : null}
+      {mode === "whole" && anyVersion ? (
+        <>
       {artifacts.map(({ artifact, versions }) => {
         const inCompareMode = compareArtifactId === artifact.id;
         return (
@@ -822,6 +899,8 @@ function FeedbackPanel({
             />
           </View>
         </View>
+      ) : null}
+        </>
       ) : null}
     </View>
   );
@@ -1062,7 +1141,8 @@ function TrustProjectDetailInner() {
     }
   };
 
-  const onOpenTopic = (versionId: string) => router.push(`/trust/topic-version/${versionId}`);
+  const onOpenTopic = (versionId: string) =>
+    router.push(`/trust/topic-version/${versionId}?projectId=${projectId}`);
 
   const onCompare = (artifactId: string) => {
     if (compareSel.length !== 2) return;
@@ -1276,6 +1356,10 @@ function TrustProjectDetailInner() {
             toggleCompareMode={toggleCompareMode}
             toggleCompareSel={toggleCompareSel}
             onCompare={onCompare}
+            toc={project.project.toc}
+            topicStatus={project.topic_status ?? []}
+            bookValidated={project.book_validated ?? false}
+            onOpenTopic={onOpenTopic}
           />
         ) : null}
         {active === "share" ? (
@@ -1462,4 +1546,16 @@ const makeStyles = (c: Palette) => ({
   // the emphasis instead.
   topicRowTitle: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const, flexShrink: 1 as const },
   topicRowActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  rollupHeader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    gap: spacing.sm,
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+  },
+  rollupText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 
 const mockPush = jest.fn();
@@ -25,8 +25,8 @@ const toc = {
 };
 
 const topicStatus = [
-  { topic_id: "t1", status: "drafted", latest_version_id: "tv1", version_no: 1 },
-  { topic_id: "t2", status: "not_generated" },
+  { topic_id: "t1", status: "validated", latest_version_id: "tv1", version_no: 1 },
+  { topic_id: "t2", status: "drafted", latest_version_id: "tv2", version_no: 1 },
 ];
 
 const sourceInputs = [
@@ -42,83 +42,83 @@ const base = (opts: { withToc?: boolean; role?: string } = {}) => {
       artifacts: [{ artifact: { id: "art", title: "Guide", role: "cornerstone", format: "book" }, versions: [] }],
       inputs: sourceInputs,
       topic_status: withToc ? topicStatus : [],
+      book_validated: false,
     },
     loading: false,
     error: null,
     refresh: jest.fn(),
-    approve: jest.fn(),
-    addArtifact: jest.fn(),
-    generateVersion: jest.fn(),
     generateFormat: jest.fn(),
-    generateTopic: jest.fn().mockResolvedValue({ id: "tv2" }),
+    generateTopic: jest.fn(),
     invite: jest.fn(),
     addInput: jest.fn(),
+    editInput: jest.fn(),
+    removeInput: jest.fn(),
+    loadVersionContent: jest.fn(),
+    suggestToc: jest.fn(),
+    saveToc: jest.fn(),
     inputs: sourceInputs,
   };
 };
 
 beforeEach(() => jest.clearAllMocks());
 
-it("shows a Per topic mode toggle when the project has a TOC", async () => {
+it("shows a Per topic mode toggle on Feedback when the project has a TOC", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base());
   render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   expect(await screen.findByLabelText("Per topic")).toBeTruthy();
   expect(screen.getByLabelText("Whole book")).toBeTruthy();
 });
 
-it("switching to Per topic shows topics grouped under their subject with a status chip each", async () => {
+it("switching to Per topic shows a rollup header and a not-yet-book-validated state", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base());
   render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+
+  expect(await screen.findByText("1/2 topics validated")).toBeTruthy();
+  expect(screen.getByText(/not yet book-validated/i)).toBeTruthy();
+});
+
+it("lists topic titles with a status badge each, grouped by subject", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   fireEvent.press(await screen.findByLabelText("Per topic"));
 
   expect(await screen.findByText("Fundamentals")).toBeTruthy();
   expect(screen.getByText("Topic One")).toBeTruthy();
   expect(screen.getByText("Topic Two")).toBeTruthy();
-  expect(screen.getByText(/drafted/i)).toBeTruthy();
-  expect(screen.getByText(/not generated/i)).toBeTruthy();
+  expect(screen.getByText(/^validated$/i)).toBeTruthy();
+  expect(screen.getByText(/^drafted$/i)).toBeTruthy();
 });
 
-it("pressing Generate on an ungenerated topic calls generateTopic", async () => {
-  const mock = base();
-  (useTrustProject as jest.Mock).mockReturnValue(mock);
-  render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  fireEvent.press(await screen.findByLabelText("Per topic"));
-
-  fireEvent.press(await screen.findByLabelText("Generate Topic Two"));
-  await waitFor(() => {
-    expect(mock.generateTopic).toHaveBeenCalledWith("t2");
-  });
-});
-
-it("pressing Open on a drafted topic navigates to the topic-version viewer", async () => {
+it("pressing Open on a topic navigates to the topic-version viewer with projectId", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base());
   render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   fireEvent.press(await screen.findByLabelText("Per topic"));
 
   fireEvent.press(await screen.findByLabelText("Open Topic One"));
   expect(mockPush).toHaveBeenCalledWith("/trust/topic-version/tv1?projectId=p1");
 });
 
-it("shows no Per topic control when the project has no TOC", async () => {
-  (useTrustProject as jest.Mock).mockReturnValue(base({ withToc: false }));
+it("has no inline Approve control on the per-topic list rows", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(base());
   render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  await screen.findByLabelText("Generate LinkedIn post");
-  expect(screen.queryByLabelText("Per topic")).toBeNull();
-  expect(screen.queryByLabelText("Whole book")).toBeNull();
-});
-
-it("reviewer sees the toggle, status, and Open, but no Generate button", async () => {
-  (useTrustProject as jest.Mock).mockReturnValue(base({ role: "reviewer" }));
-  render(<TrustProjectDetail />);
-  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
   fireEvent.press(await screen.findByLabelText("Per topic"));
 
-  expect(await screen.findByLabelText("Open Topic One")).toBeTruthy();
-  expect(screen.queryByLabelText("Generate Topic Two")).toBeNull();
-  expect(screen.queryByLabelText("Regenerate Topic One")).toBeNull();
+  await screen.findByText("Topic One");
+  expect(screen.queryByLabelText(/Approve/i)).toBeNull();
+  expect(screen.queryByText(/^Approve$/i)).toBeNull();
+});
+
+it("shows no Per topic control on Feedback when the project has no TOC", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(base({ withToc: false }));
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Feedback:/));
+  await screen.findByText(/Finish Drafts first/i);
+  expect(screen.queryByLabelText("Per topic")).toBeNull();
+  expect(screen.queryByLabelText("Whole book")).toBeNull();
 });
