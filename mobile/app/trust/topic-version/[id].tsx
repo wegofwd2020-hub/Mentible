@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { getTopicVersion, type TopicVersionDetailView } from "@/api/trustClient";
@@ -10,7 +10,9 @@ import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
-import { Card, Label, Button } from "@/components/ui";
+import { Card, Button } from "@/components/ui";
+import { TopicRenderer } from "@/components/LessonRenderer";
+import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -120,8 +122,13 @@ function TopicVersionViewerInner() {
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!topicVersion) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
 
+  // NOT a page-level ScrollView: TopicRenderer's reader div/WebView needs a
+  // bounded (flex:1) parent to size against and scrolls its own content — a
+  // ScrollView here would give it no definite height and collapse it to a
+  // tiny box (the bug app/book/shared/[id].tsx's topic view hit and fixed).
+  // Header, actions, and the back link stay fixed above/below the reader body.
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+    <View style={styles.screen}>
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>{topicVersion.title}</Text>
@@ -136,12 +143,9 @@ function TopicVersionViewerInner() {
             </View>
           ) : null}
         </View>
-        {(topicVersion.content?.sections ?? []).map((s, i) => (
-          <Card key={i} style={styles.section}>
-            <Label>{s.heading}</Label>
-            <Text style={styles.bodyText}>{s.body}</Text>
-          </Card>
-        ))}
+        <View style={styles.readerBody}>
+          <TopicRenderer topic={topicVersionToTopic(topicVersion)} />
+        </View>
         <View style={styles.actionsRow}>
           {topicVersion.is_validated ? (
             <Button
@@ -186,7 +190,7 @@ function TopicVersionViewerInner() {
           <Text style={styles.backText}>Back</Text>
         </Pressable>
       </PageContainer>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -195,20 +199,21 @@ export default function TopicVersionViewer() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
-  body: { padding: spacing.md, gap: spacing.md },
+  screen: { flex: 1 as const, backgroundColor: c.background },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
-  headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm },
+  headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
   badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
-  section: { gap: spacing.sm },
+  // Bounded (flex:1) so TopicRenderer's reader can size against it and scroll
+  // its own content — see the render-body comment above.
+  readerBody: { flex: 1 as const, marginTop: spacing.sm },
   bodyText: { color: c.text, fontSize: typography.sizeMd, lineHeight: 22 as const },
   error: { color: c.error, fontSize: typography.sizeMd },
-  backBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.sm },
+  backBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   backText: { color: c.primary, fontSize: typography.sizeMd },
-  actionsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: spacing.sm },
-  editRow: { gap: spacing.sm },
+  actionsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: spacing.sm, padding: spacing.md, paddingTop: 0 },
+  editRow: { gap: spacing.sm, marginHorizontal: spacing.md },
   input: { color: c.text, fontSize: typography.sizeMd, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
 });
