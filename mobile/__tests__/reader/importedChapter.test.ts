@@ -3,6 +3,7 @@ import { buildChapterHtml, buildTopicHtml } from "@/components/contentHtml";
 import type { GeneratedTopic, ImportedChapter } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
 import { CHAPTER_SANITIZE_VECTORS, CHAPTER_KEEP_VECTORS } from "@/reader/chapterSanitizeVectors.fixtures";
+import { studioDarkColors } from "@/constants/theme";
 
 // Minimal valid topic fixture, mirroring `__tests__/components/contentHtml.test.ts`'s
 // own `topic()` helper — used only to pin that the CSP added to the chapter
@@ -81,31 +82,31 @@ describe("buildChapterHtml (the native WebView document)", () => {
   // CDN, so its policy permits those hosts while the chapter doc locks the
   // network down entirely.
   it("declares a network-locked CSP ('default-src none'; img-src data: only)", () => {
-    const doc = buildChapterHtml(ch("<p>Body</p>"));
+    const doc = buildChapterHtml(ch("<p>Body</p>"), studioDarkColors);
     expect(doc).toContain(
-      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; font-src data:">',
     );
     // The topic doc ALSO has a CSP now (merged from #329), but a DIFFERENT,
     // CDN-permitting one — not the chapter's fully network-locked policy. Pin
     // that distinction: topic has a CSP that allows the render-dep CDN, chapter
     // does not.
-    const topicDoc = buildTopicHtml(minimalTopic());
+    const topicDoc = buildTopicHtml(minimalTopic(), undefined, studioDarkColors);
     expect(topicDoc).toContain("Content-Security-Policy");
     expect(topicDoc).toContain("cdn.jsdelivr.net");
     expect(topicDoc).not.toContain(
-      'content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
+      'content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; font-src data:">',
     );
   });
 
   it("inlines DOMPurify rather than fetching it — an imported book must open offline", () => {
-    const doc = buildChapterHtml(ch("<p>Body</p>"));
+    const doc = buildChapterHtml(ch("<p>Body</p>"), studioDarkColors);
     expect(doc).not.toContain("cdn.jsdelivr.net/npm/dompurify");
     expect(doc).not.toMatch(/https?:\/\/[^"]*dompurify/i);
     expect(doc).toContain("DOMPurify"); // the library itself is in the document
   });
 
   it("sanitizes BEFORE assigning innerHTML — never parse untrusted HTML unsanitized", () => {
-    const doc = buildChapterHtml(ch("<p>Body</p>"));
+    const doc = buildChapterHtml(ch("<p>Body</p>"), studioDarkColors);
     const sanitizeAt = doc.indexOf("DOMPurify.sanitize");
     const assignAt = doc.indexOf("innerHTML =");
     expect(sanitizeAt).toBeGreaterThan(-1);
@@ -130,7 +131,7 @@ describe("buildChapterHtml (the native WebView document)", () => {
     // cannot prematurely end the block; (2) the payload round-trips exactly,
     // proving the escaping didn't corrupt it into something else unsafe.
     const BREAKOUT = "</script><img src=x onerror=BREAKOUT>";
-    const doc = buildChapterHtml(ch(`<p>Teaching HTML: ${BREAKOUT} is a closing tag.</p>`));
+    const doc = buildChapterHtml(ch(`<p>Teaching HTML: ${BREAKOUT} is a closing tag.</p>`), studioDarkColors);
     const region = doc.slice(doc.indexOf("var DATA"), doc.indexOf("})();"));
     expect(region).not.toContain("</script>");
     expect(doc).not.toContain(BREAKOUT); // the COMBINED breakout string never survives intact
@@ -149,7 +150,7 @@ describe("buildChapterHtml (the native WebView document)", () => {
     // DOMPurify's OWN minified source legitimately contains SVG/MathML
     // namespace URI string literals like "http://www.w3.org/2000/svg", which
     // are inert data, never a fetch).
-    const doc = buildChapterHtml(ch("<p>Body</p>"));
+    const doc = buildChapterHtml(ch("<p>Body</p>"), studioDarkColors);
     expect(doc).not.toMatch(/<script[^>]*\ssrc=/i);
     expect(doc).not.toMatch(/<link[^>]*\shref=/i);
     expect(doc).not.toContain("fonts.googleapis.com");
@@ -167,7 +168,7 @@ describe("buildChapterHtml (the native WebView document)", () => {
 import { JSDOM } from "jsdom";
 
 function renderInWebView(chapter: ImportedChapter): string {
-  const dom = new JSDOM(buildChapterHtml(chapter), { runScripts: "dangerously" });
+  const dom = new JSDOM(buildChapterHtml(chapter, studioDarkColors), { runScripts: "dangerously" });
   const root = dom.window.document.getElementById("root");
   if (!root) throw new Error("no #root in the generated document");
   return root.innerHTML;

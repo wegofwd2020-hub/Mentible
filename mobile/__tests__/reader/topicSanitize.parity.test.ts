@@ -8,11 +8,12 @@ import { sanitizeFragment } from "@/reader/sanitize";
 import { buildTopicHtml } from "@/components/contentHtml";
 import { ATTACK_VECTORS, KEEP_VECTORS } from "@/reader/topicSanitizeVectors.fixtures";
 import type { GeneratedTopic } from "@/types/book";
+import { studioDarkColors } from "@/constants/theme";
 
 const topicWith = (h: string) =>
   ({ id: "t", label: "x", detail: "d", lesson: { title: "x", sections: [{ heading: "S", body_markdown: `i\n\n${h}` }] } } as unknown as GeneratedTopic);
 const nativeRoot = (h: string) => {
-  const doc = buildTopicHtml(topicWith(h)).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
+  const doc = buildTopicHtml(topicWith(h), undefined, studioDarkColors).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
   return new JSDOM(doc, { runScripts: "dangerously" }).window.document.getElementById("root")?.innerHTML ?? "";
 };
 

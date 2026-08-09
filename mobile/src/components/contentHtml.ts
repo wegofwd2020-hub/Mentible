@@ -9,8 +9,10 @@
 
 import { renderChapterQuizToHtml, renderChapterToHtml, renderTopicToHtml } from "@/reader/topicHtml";
 import type { GeneratedTopic, ImportedChapter, QuizSet } from "@/types/book";
-import { colors } from "@/constants/theme";
+import type { Palette } from "@/constants/theme";
 import { DOMPURIFY_SRC } from "@/components/dompurifySource";
+import { isDarkBackground, readerVars } from "@/reader/readerStyles";
+import { PLAYFAIR_FONTFACE } from "@/reader/playfairFont";
 
 // In-page render helpers + per-type builders. Inlined as a string because the
 // WebView sandbox can't import bundle modules. Uses only single quotes so it
@@ -18,21 +20,23 @@ import { DOMPURIFY_SRC } from "@/components/dompurifySource";
 
 // Shared by both WebView documents (topic + chapter) so they render with one
 // stylesheet rather than two copies drifting apart.
-const READER_STYLES = `<style>
-  :root {
-    --bg: ${colors.background};
-    --surface: ${colors.surface};
-    --border: ${colors.border};
-    --text: ${colors.text};
-    --text2: ${colors.textSecondary};
-    --muted: ${colors.textMuted};
-    --primary: ${colors.primary};
-    --success: ${colors.success};
-    --warning: ${colors.warning};
-    /* Match the EPUB/PDF artifact: serif body for prose, sans for headings/UI. */
-    --sans: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
-    --serif: 'Source Serif 4', "Noto Serif", Georgia, "Times New Roman", "Liberation Serif", serif;
-    color-scheme: dark;
+//
+// THEME-REACTIVE (Studio P3 T3): this used to be a static string built from
+// the retired `colors` (indigo "study") palette, hardcoded to `color-scheme:
+// dark` and an unconditional equation-image `invert(1)`. It is now a function
+// of the ACTIVE palette, reusing the SAME `readerVars`/`isDarkBackground`
+// helpers as the web reader's `readerCss` (`@/reader/readerStyles`) so the two
+// documents cannot silently drift onto different var sets. Headings use the
+// embedded Playfair (`--display`, see PLAYFAIR_FONTFACE below) at an explicit
+// `font-weight: 500` with `font-synthesis: none` on the root — the single
+// loaded weight has no bold face, so leaving synthesis on would fake a bold
+// Playfair rather than render the real one (see readerStyles.ts's comment on
+// this same trap).
+function readerStyles(palette: Palette): string {
+  return `<style>
+  :root {${readerVars(palette)}
+    color-scheme: var(--reader-scheme);
+    font-synthesis: none;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { background: var(--bg); }
@@ -49,11 +53,16 @@ const READER_STYLES = `<style>
     max-width: 42rem;
     margin: 0 auto;
   }
-  h1, h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; }
-  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 8px; color: var(--text); }
-  h2 { font-size: 1.3rem; font-weight: 700; margin: 24px 0 8px; color: var(--text); }
-  h3 { font-size: 1.1rem; font-weight: 600; margin: 18px 0 6px; color: var(--text2); }
-  h4, h5, h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--display); line-height: 1.3;
+    /* Explicit — matches the loaded PlayfairDisplay_500Medium face. Without
+       this, the UA's default bold h1-h6 weight triggers faux-bold synthesis. */
+    font-weight: 500;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; color: var(--text); }
+  h2 { font-size: 1.3rem; margin: 24px 0 8px; color: var(--text); }
+  h3 { font-size: 1.1rem; margin: 18px 0 6px; color: var(--text2); }
+  h4, h5, h6 { font-size: 1rem; margin: 14px 0 4px; }
   p  { margin: 12px 0; }
   ul, ol { padding-left: 22px; margin: 8px 0; }
   li { margin: 4px 0; }
@@ -63,7 +72,7 @@ const READER_STYLES = `<style>
     background: var(--surface);
     padding: 2px 5px;
     border-radius: 4px;
-    color: #e2e8f0;
+    color: var(--text2);
   }
   pre {
     font-family: "Menlo", "Courier New", monospace;
@@ -93,10 +102,12 @@ const READER_STYLES = `<style>
      PNGs inside the prose). Without this, the block rule above rips a "x/100"
      equation image onto its own centered line. Images flowing inside a
      paragraph stay inline and scale to the text; figures live in <figure>. */
-  /* invert(1)+screen: equation PNGs are black-on-white; the reader is dark-only,
-     so invert to white-on-black then screen-blend the black box away, leaving
-     only the white glyphs. */
-  p img { display: inline; vertical-align: middle; margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0; filter: invert(1); mix-blend-mode: screen; }
+  /* Equation PNGs are black-on-white. On a DARK theme, --eq-filter is
+     invert(1), which turns them white-on-black, then mix-blend-mode: screen
+     drops the (now black) box so only the white glyphs remain. On a LIGHT
+     theme, --eq-filter is "none": the PNG's own black-on-white rendering is
+     already correct, so it is left untouched. */
+  p img { display: inline; vertical-align: middle; margin: 0 1px; max-height: 1.2em; width: auto; border-radius: 0; filter: var(--eq-filter); mix-blend-mode: screen; }
   hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
   .synopsis {
     color: var(--text2); font-size: 0.95em;
@@ -150,6 +161,7 @@ const READER_STYLES = `<style>
   .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   .error-banner { background: #7f1d1d; border-radius: 8px; padding: 12px; color: #fca5a5; }
 </style>`;
+}
 
 // ---------------------------------------------------------------------------
 // Native topic sanitizer — the WebView IS the sanitizer.
@@ -352,7 +364,8 @@ function wireQuizzes(root) {
 }
 `;
 
-function htmlDocument(dataJson: string): string {
+function htmlDocument(dataJson: string, palette: Palette): string {
+  const darkTheme = isDarkBackground(palette);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -364,7 +377,7 @@ function htmlDocument(dataJson: string): string {
      than the chapter WebView's stricter default-src none. connect-src stays
      'none' as an egress backstop — nothing in this document should ever open
      its own network connection beyond the declared style/script/font loads. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src data: https://fonts.gstatic.com https://cdn.jsdelivr.net; connect-src 'none'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Source Serif 4 = a clean book serif loaded from the web; "Noto Serif" is
@@ -376,7 +389,10 @@ function htmlDocument(dataJson: string): string {
 <link rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
   crossorigin="anonymous">
-${READER_STYLES}
+<!-- Embedded (not fetched) Playfair Display — self-contained heading font,
+     matches the EPUB/PDF artifact and the web reader's identical embed. -->
+<style>${PLAYFAIR_FONTFACE}</style>
+${readerStyles(palette)}
 </head>
 <body>
 <div id="root">Loading…</div>
@@ -426,7 +442,7 @@ ${READER_STYLES}
   // source text inside .mermaid rather than taking the page down.
   if (typeof mermaid !== 'undefined' && mermaid && typeof mermaid.initialize === 'function') {
     try {
-      mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+      mermaid.initialize({ startOnLoad: true, theme: '${darkTheme ? "dark" : "default"}', securityLevel: 'loose' });
     } catch (e) { /* diagram source remains visible */ }
   }
 
@@ -472,8 +488,12 @@ function jsonForScriptBlock(value: unknown): string {
  * markdown, which is what lets the reader work offline (#325) and what allowed the
  * ~130-line duplicate renderer that used to live in this file to be deleted.
  */
-export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, string>): string {
-  return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls) }));
+export function buildTopicHtml(
+  topic: GeneratedTopic,
+  dataUrls: Map<string, string> | undefined,
+  palette: Palette,
+): string {
+  return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls) }), palette);
 }
 
 /**
@@ -485,8 +505,8 @@ export function buildTopicHtml(topic: GeneratedTopic, dataUrls?: Map<string, str
  * `buildTopicHtml` — not the in-WebView DOMPurify pass that third-party
  * chapter HTML needs.
  */
-export function buildChapterQuizHtml(quiz: QuizSet): string {
-  return htmlDocument(jsonForScriptBlock({ __html: renderChapterQuizToHtml(quiz) }));
+export function buildChapterQuizHtml(quiz: QuizSet, palette: Palette): string {
+  return htmlDocument(jsonForScriptBlock({ __html: renderChapterQuizToHtml(quiz) }), palette);
 }
 
 // ---------------------------------------------------------------------------
@@ -661,7 +681,7 @@ const CHAPTER_SANITIZE_CONFIG_JS = `{
     FORBID_ATTR: ['srcdoc', 'formaction', 'xlink:href', 'style', 'srcset'],
   }`;
 
-function htmlChapterDocument(dataJson: string): string {
+function htmlChapterDocument(dataJson: string, palette: Palette): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -671,9 +691,14 @@ function htmlChapterDocument(dataJson: string): string {
      img-src data: alone kills every phone-home/tracking-pixel this whole
      feature defends against, even if a hook bug ever let one through. Inline
      DOMPurify + inline styles are why script-src/style-src need
-     'unsafe-inline' — this document loads no external script or stylesheet. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
-${READER_STYLES}
+     'unsafe-inline' — this document loads no external script or stylesheet.
+     font-src data: is the embedded Playfair @font-face below — still zero
+     network, the font bytes are inlined as a data: URI. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:">
+<!-- Embedded (not fetched) Playfair Display — self-contained heading font,
+     matches the EPUB/PDF artifact and the web reader's identical embed. -->
+<style>${PLAYFAIR_FONTFACE}</style>
+${readerStyles(palette)}
 </head>
 <body>
 <div id="root">Loading…</div>
@@ -707,8 +732,9 @@ ${READER_STYLES}
  * unsanitized markup at that point, and only becomes safe once
  * `DOMPurify.sanitize` runs on it inside the WebView.
  */
-export function buildChapterHtml(chapter: ImportedChapter): string {
+export function buildChapterHtml(chapter: ImportedChapter, palette: Palette): string {
   return htmlChapterDocument(
     jsonForScriptBlock({ __html: renderChapterToHtml(chapter), images: chapter.images }),
+    palette,
   );
 }
