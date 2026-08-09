@@ -3,7 +3,7 @@ import { Platform, View } from "react-native";
 import type { GeneratedTopic, ImportedChapter, QuizSet } from "@/types/book";
 import { buildChapterHtml, buildChapterQuizHtml, buildTopicHtml } from "@/components/contentHtml";
 import { type Palette } from "@/constants/theme";
-import { useThemedStyles } from "@/theme";
+import { useTheme, useThemedStyles } from "@/theme";
 import { NativeTopicReader } from "@/reader/NativeTopicReader";
 import { NativeChapterReader } from "@/reader/NativeChapterReader";
 import { NativeQuizReader } from "@/reader/NativeQuizReader";
@@ -80,7 +80,8 @@ function WebViewTopicRenderer({
   topic: GeneratedTopic;
   figures?: Map<string, string>;
 }) {
-  const html = useMemo(() => buildTopicHtml(topic, figures), [topic, figures]);
+  const theme = useTheme();
+  const html = useMemo(() => buildTopicHtml(topic, figures, theme), [topic, figures, theme]);
   return <HtmlView html={html} label="Topic content" />;
 }
 
@@ -95,7 +96,8 @@ export function ChapterRenderer({ chapter }: { chapter: ImportedChapter }) {
 }
 
 function WebViewChapterRenderer({ chapter }: { chapter: ImportedChapter }) {
-  const html = useMemo(() => buildChapterHtml(chapter), [chapter]);
+  const theme = useTheme();
+  const html = useMemo(() => buildChapterHtml(chapter, theme), [chapter, theme]);
   return <HtmlView html={html} label="Chapter content" />;
 }
 
@@ -112,7 +114,8 @@ export function QuizRenderer({ quiz }: { quiz: QuizSet }) {
 }
 
 function WebViewQuizRenderer({ quiz }: { quiz: QuizSet }) {
-  const html = useMemo(() => buildChapterQuizHtml(quiz), [quiz]);
+  const theme = useTheme();
+  const html = useMemo(() => buildChapterQuizHtml(quiz, theme), [quiz, theme]);
   return <HtmlView html={html} label="Chapter quiz" />;
 }
 

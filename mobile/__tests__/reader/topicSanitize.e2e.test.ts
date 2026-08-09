@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import { renderTopicToSafeHtml } from "@/reader/renderContent";
 import { buildTopicHtml } from "@/components/contentHtml";
 import type { GeneratedTopic } from "@/types/book";
+import { studioDarkColors } from "@/constants/theme";
 
 const hostile = {
   id: "t", label: "Intro", detail: "d",
@@ -26,7 +27,7 @@ it("web entry (renderTopicToSafeHtml) drops all egress + XSS, keeps prose", () =
 });
 
 it("native entry (buildTopicHtml, executed) drops all egress + XSS, keeps prose", () => {
-  const doc = buildTopicHtml(hostile).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
+  const doc = buildTopicHtml(hostile, undefined, studioDarkColors).replace(/<script src="https:[^"]*"[^>]*><\/script>/g, "");
   const root = new JSDOM(doc, { runScripts: "dangerously" }).window.document.getElementById("root")?.innerHTML ?? "";
   expect(root).not.toContain("evil.example");
   expect(root).not.toContain("onerror");

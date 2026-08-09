@@ -13,6 +13,7 @@ import { JSDOM } from "jsdom";
 import { buildTopicHtml } from "@/components/contentHtml";
 import { ATTACK_VECTORS, KEEP_VECTORS } from "@/reader/topicSanitizeVectors.fixtures";
 import type { GeneratedTopic } from "@/types/book";
+import { studioDarkColors } from "@/constants/theme";
 
 function topicWith(bodyHtml: string): GeneratedTopic {
   return {
@@ -34,7 +35,7 @@ function renderRoot(html: string): string {
 
 describe("native topic WebView document", () => {
   it("has the topic CSP meta, scoped to CDNs + connect-src none", () => {
-    const out = buildTopicHtml(topicWith("<p>x</p>"));
+    const out = buildTopicHtml(topicWith("<p>x</p>"), undefined, studioDarkColors);
     expect(out).toContain(`http-equiv="Content-Security-Policy"`);
     expect(out).toContain("connect-src 'none'");
     expect(out).toContain("img-src data:");
@@ -44,7 +45,7 @@ describe("native topic WebView document", () => {
   it.each(ATTACK_VECTORS.map((v) => [v.name, v] as const))(
     "sanitizes before innerHTML — drops: %s",
     (_n, v) => {
-      const root = renderRoot(buildTopicHtml(topicWith(v.html)));
+      const root = renderRoot(buildTopicHtml(topicWith(v.html), undefined, studioDarkColors));
       expect(v.leaks(root)).toBe(false);
     },
   );
@@ -52,7 +53,7 @@ describe("native topic WebView document", () => {
   it.each(KEEP_VECTORS.map((v) => [v.name, v] as const))(
     "preserves legit content: %s",
     (_n, v) => {
-      const root = renderRoot(buildTopicHtml(topicWith(v.html)));
+      const root = renderRoot(buildTopicHtml(topicWith(v.html), undefined, studioDarkColors));
       expect(v.survives(root)).toBe(true);
     },
   );

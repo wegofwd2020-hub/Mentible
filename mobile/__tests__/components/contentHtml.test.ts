@@ -1,6 +1,7 @@
 import { buildTopicHtml, buildChapterQuizHtml } from "@/components/contentHtml";
 import type { GeneratedTopic, QuizSet } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
+import { studioDarkColors } from "@/constants/theme";
 
 /** The finished HTML the WebView injects — the body is now rendered in RN (#325). */
 function embeddedHtml(doc: string): string {
@@ -41,7 +42,7 @@ describe("buildTopicHtml (multi-format topic)", () => {
   // shared renderer now (#325). Assert the OUTPUT instead, which is what those
   // strings were standing in for and is not satisfiable by dead source text.
   it("renders the lesson always, and the extras only when present", () => {
-    const bare = embeddedHtml(buildTopicHtml(topic()));
+    const bare = embeddedHtml(buildTopicHtml(topic(), undefined, studioDarkColors));
     expect(bare).toContain("<h1>"); // the lesson always renders
     expect(bare).not.toContain("quiz-set");
     expect(bare).not.toContain("experiment");
@@ -94,6 +95,8 @@ describe("buildTopicHtml (multi-format topic)", () => {
           conclusion_prompt: "Summarise.",
         },
       }),
+      undefined,
+      studioDarkColors,
     );
     expect(full).toContain("Tutorial: CE");
     expect(full).toContain("forgetting context");
@@ -101,7 +104,7 @@ describe("buildTopicHtml (multi-format topic)", () => {
     expect(full).toContain("mind cables");
 
     // A lesson-only topic embeds none of the extra-type payloads.
-    const lessonOnly = buildTopicHtml(topic());
+    const lessonOnly = buildTopicHtml(topic(), undefined, studioDarkColors);
     expect(lessonOnly).not.toContain("Observe windows");
     expect(lessonOnly).not.toContain("forgetting context");
   });
@@ -118,7 +121,7 @@ describe("animated SVG (free animated-visual path)", () => {
         ...topic().lesson,
         sections: [{ heading: "S", body_markdown: "```svg\n<svg><script>evil()</script><rect/></svg>\n```" }],
       },
-    })));
+    }), undefined, studioDarkColors));
     expect(html).toContain('<figure class="anim-svg">'); // inline + animated, not <pre><code>
     expect(html).toContain("<rect/>");
     expect(html).not.toContain("<pre><code>");
@@ -126,7 +129,7 @@ describe("animated SVG (free animated-visual path)", () => {
   });
 
   it("keeps the anim-svg styling in the document", () => {
-    expect(buildTopicHtml(topic())).toContain(".anim-svg");
+    expect(buildTopicHtml(topic(), undefined, studioDarkColors)).toContain(".anim-svg");
   });
 });
 
@@ -142,13 +145,13 @@ describe("native quiz-reveal wiring", () => {
   };
 
   it("defines wireQuizzes and calls it in the topic document", () => {
-    const doc = buildTopicHtml(topic());
+    const doc = buildTopicHtml(topic(), undefined, studioDarkColors);
     expect(doc).toContain("function wireQuizzes(root)");
     expect(doc).toContain("wireQuizzes(document.getElementById('root'))");
   });
 
   it("wires the chapter-quiz document too (F2 routes through htmlDocument)", () => {
-    const doc = buildChapterQuizHtml(quizSet);
+    const doc = buildChapterQuizHtml(quizSet, studioDarkColors);
     expect(doc).toContain("function wireQuizzes(root)");
     expect(doc).toContain("wireQuizzes(document.getElementById('root'))");
   });

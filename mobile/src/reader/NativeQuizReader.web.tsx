@@ -14,11 +14,12 @@ import { View, StyleSheet } from "react-native";
 import "katex/dist/katex.min.css";
 import type { QuizSet } from "@/types/book";
 import { renderChapterQuizToSafeHtml } from "@/reader/renderContent";
-import { READER_CSS, READER_ROOT_CLASS } from "@/reader/readerStyles";
+import { readerCss, READER_ROOT_CLASS } from "@/reader/readerStyles";
 import { enhanceReaderNode } from "@/reader/enhance";
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/theme";
 
 export function NativeQuizReader({ quiz }: { quiz: QuizSet }) {
+  const theme = useTheme();
   const ref = useRef<HTMLDivElement | null>(null);
   const html = useMemo(() => renderChapterQuizToSafeHtml(quiz), [quiz]);
 
@@ -32,8 +33,8 @@ export function NativeQuizReader({ quiz }: { quiz: QuizSet }) {
   }, [html]);
 
   return (
-    <View style={styles.container}>
-      <style data-mentible-reader="">{READER_CSS}</style>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <style data-mentible-reader="">{readerCss(theme)}</style>
       <div
         ref={ref}
         className={READER_ROOT_CLASS}
@@ -45,5 +46,5 @@ export function NativeQuizReader({ quiz }: { quiz: QuizSet }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
 });

@@ -11,9 +11,9 @@ import { View, StyleSheet } from "react-native";
 import "katex/dist/katex.min.css";
 import type { GeneratedTopic } from "@/types/book";
 import { renderTopicToSafeHtml } from "@/reader/renderContent";
-import { READER_CSS, READER_ROOT_CLASS } from "@/reader/readerStyles";
+import { readerCss, READER_ROOT_CLASS } from "@/reader/readerStyles";
 import { enhanceReaderNode } from "@/reader/enhance";
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/theme";
 
 export function NativeTopicReader({
   topic,
@@ -22,6 +22,7 @@ export function NativeTopicReader({
   topic: GeneratedTopic;
   figures?: Map<string, string>;
 }) {
+  const theme = useTheme();
   const ref = useRef<HTMLDivElement | null>(null);
   const html = useMemo(() => renderTopicToSafeHtml(topic, figures), [topic, figures]);
 
@@ -34,8 +35,8 @@ export function NativeTopicReader({
   }, [html]);
 
   return (
-    <View style={styles.container}>
-      <style data-mentible-reader="">{READER_CSS}</style>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <style data-mentible-reader="">{readerCss(theme)}</style>
       <div
         ref={ref}
         className={READER_ROOT_CLASS}
@@ -47,5 +48,5 @@ export function NativeTopicReader({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
 });
