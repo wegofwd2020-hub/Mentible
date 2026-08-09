@@ -41,6 +41,35 @@ it("assembles per-topic drafts into a multi-topic Book with an aggregated Source
   expect(sourcesSection.body_markdown).toContain("[S1] Interview");
 });
 
+it("carries svg and mermaid diagram fences into body_markdown verbatim (export survives assembly)", () => {
+  const diagramBody = [
+    "Here is a labeled diagram:",
+    "",
+    "```svg",
+    '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>',
+    "```",
+    "",
+    "And a flow:",
+    "",
+    "```mermaid",
+    "graph TD; A-->B;",
+    "```",
+  ].join("\n");
+  const diagramSections: Map<string, DraftSection[]> = new Map([
+    ["u1", [{ heading: "Staff", body: diagramBody, source_ids: [] }]],
+    ["u2", [{ heading: "Rhythm", body: "beats", source_ids: [] }]],
+  ]);
+
+  const book = topicsToBook("My Project", toc, diagramSections, inputs);
+
+  const bodyMarkdown = book.content!["u1"].lesson.sections[0].body_markdown;
+  expect(bodyMarkdown).toContain(
+    '```svg\n<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>\n```',
+  );
+  expect(bodyMarkdown).toContain("```mermaid\ngraph TD; A-->B;\n```");
+  expect(bodyMarkdown).toBe(diagramBody);
+});
+
 it("omits the Sources unit entirely when nothing is cited", () => {
   const noCiteSections: Map<string, DraftSection[]> = new Map([
     ["u1", [{ heading: "Staff", body: "5 lines", source_ids: [] }]],
