@@ -2,6 +2,8 @@ import { escapeHtml } from "./html";
 import { STUDIO } from "./tokens";
 import { MENTIBLE_LOGO_DATA_URI } from "./brandLogo";
 import { editionLabel } from "./release";
+import { SOURCE_SERIF_FONTFACE } from "./fonts";
+import { PLAYFAIR_FONTFACE } from "./playfairFont";
 import type { Book } from "./types";
 
 // Generates the book's cover — the Studio (P4) design: a deep navy upper field
@@ -229,6 +231,13 @@ export function buildCoverSvgFile(input: CoverInput): string {
 
 // Full-bleed EPUB cover page (page 1 of the spine), inlining the SVG. The dark
 // page background hides any letterbox bars from preserveAspectRatio="meet".
+//
+// EPUB content documents are independently scoped — this page does NOT link
+// the shared css/style.css (it isn't a "chapter"), so it must embed its own
+// @font-face rules or its Playfair/Source-Serif text silently falls back to
+// whatever generic serif the reading system has, never rendering the actual
+// Studio typeface. Inlined here (not linked) to keep the page fully
+// self-contained, matching how the SVG itself is inlined.
 export function buildCoverXhtml(input: CoverInput): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
@@ -236,7 +245,11 @@ export function buildCoverXhtml(input: CoverInput): string {
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(input.title)}</title>
-<style>html,body{margin:0;padding:0;height:100%;background:${STUDIO.navy}}.cv{width:100%;height:100vh}.cv svg{width:100%;height:100%;display:block}</style>
+<style>
+${SOURCE_SERIF_FONTFACE}
+${PLAYFAIR_FONTFACE}
+html,body{margin:0;padding:0;height:100%;background:${STUDIO.navy}}.cv{width:100%;height:100vh}.cv svg{width:100%;height:100%;display:block}
+</style>
 </head>
 <body>
 <section epub:type="cover" class="cv">

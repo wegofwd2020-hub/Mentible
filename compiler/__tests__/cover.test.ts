@@ -121,6 +121,16 @@ describe("buildCoverSvg — Studio identity", () => {
     expect(xhtml).toContain(`background:${STUDIO.navy}`);
     expect(xhtml).not.toContain("#1e1b4b");
   });
+
+  // cover.xhtml is its own EPUB content document — it does NOT link the shared
+  // css/style.css (unlike chapters/colophon/TOC), so unless it embeds the
+  // Playfair/Source-Serif @font-face itself, the title silently falls back to
+  // a generic reader-system serif and never actually renders Playfair.
+  it("embeds its own Playfair + Source Serif @font-face (self-contained, no shared stylesheet)", () => {
+    const xhtml = buildCoverXhtml({ title: "Algebra" });
+    expect(xhtml).toContain("@font-face{font-family:'Playfair Display'");
+    expect(xhtml).toContain("@font-face{font-family:'Source Serif 4'");
+  });
 });
 
 describe("coverInputForBook", () => {
