@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { radius, spacing, typography, THEME_META, themes, SWITCHABLE_THEMES, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles, useThemeControls } from "@/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/help";
@@ -13,6 +14,7 @@ import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { useFontMode } from "@/state/fontMode";
 import { IS_DEMO } from "@/constants/demo";
+import { Card, Label } from "@/components/ui";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -42,31 +44,30 @@ export default function SettingsScreen() {
     >
       <PageContainer>
       {IS_DEMO && (
-        <View style={styles.demoNote}>
+        <Card style={styles.demoNote}>
           <Text style={styles.demoNoteText}>
             Demo build — read the included books freely. Authoring, content
             generation, and accounts are disabled in the demo.
           </Text>
-        </View>
+        </Card>
       )}
       {authStatus !== "unavailable" && (
-        <Pressable
-          style={styles.accountRow}
-          onPress={() => router.push(authStatus === "signed_in" ? "/account" : "/sign-in")}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.accountTitle}>Account</Text>
-            <Text style={styles.accountSub}>
-              {authStatus === "signed_in"
-                ? (session?.user?.email ?? "Signed in")
-                : "Sign in to sync across devices"}
-            </Text>
-          </View>
-          <Text style={styles.accountChevron}>›</Text>
+        <Pressable onPress={() => router.push(authStatus === "signed_in" ? "/account" : "/sign-in")}>
+          <Card style={styles.accountRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.accountTitle}>Account</Text>
+              <Text style={styles.accountSub}>
+                {authStatus === "signed_in"
+                  ? (session?.user?.email ?? "Signed in")
+                  : "Sign in to sync across devices"}
+              </Text>
+            </View>
+            <Text style={styles.accountChevron}>›</Text>
+          </Card>
         </Pressable>
       )}
 
-      <Text style={styles.sectionLabel}>Appearance</Text>
+      <Label tone="secondary">Appearance</Label>
       <Text style={styles.helpText}>
         Pick a colour theme. It applies instantly across the app and is saved on
         this device. Your book exports are not affected.
@@ -98,24 +99,28 @@ export default function SettingsScreen() {
 
       {!IS_DEMO && (
       <>
-      <Pressable style={styles.accountRow} onPress={() => router.push("/paywall")}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.accountTitle}>Plans & billing</Text>
-          <Text style={styles.accountSub}>Managed generation, or bring your own key</Text>
-        </View>
-        <Text style={styles.accountChevron}>›</Text>
+      <Pressable onPress={() => router.push("/paywall")}>
+        <Card style={styles.accountRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.accountTitle}>Plans & billing</Text>
+            <Text style={styles.accountSub}>Managed generation, or bring your own key</Text>
+          </View>
+          <Text style={styles.accountChevron}>›</Text>
+        </Card>
       </Pressable>
 
-      <Pressable style={styles.accountRow} onPress={() => router.push("/usage")}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.accountTitle}>Usage</Text>
-          <Text style={styles.accountSub}>Tokens & estimated cost (observed, not billed)</Text>
-        </View>
-        <Text style={styles.accountChevron}>›</Text>
+      <Pressable onPress={() => router.push("/usage")}>
+        <Card style={styles.accountRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.accountTitle}>Usage</Text>
+            <Text style={styles.accountSub}>Tokens & estimated cost (observed, not billed)</Text>
+          </View>
+          <Text style={styles.accountChevron}>›</Text>
+        </Card>
       </Pressable>
 
       <View style={styles.labelRow}>
-        <Text style={styles.sectionLabel}>API keys (BYOK)</Text>
+        <Label tone="secondary">API keys (BYOK)</Label>
         <HelpButton topic="provider-keys" label="BYOK" />
       </View>
       <Text style={styles.helpText}>
@@ -130,7 +135,7 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>Generation defaults</Text>
+      <Label tone="secondary">Generation defaults</Label>
       <Text style={styles.helpText}>
         Defaults for new books and one-off lessons. Each book keeps its own copy
         you can adjust per book.
@@ -141,7 +146,7 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>Accessibility</Text>
+      <Label tone="secondary">Accessibility</Label>
       <View style={styles.toggleRow}>
         <View style={styles.toggleText}>
           <Text style={styles.toggleTitle}>Dyslexia-friendly font</Text>
@@ -163,15 +168,16 @@ export default function SettingsScreen() {
       <>
       <View style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>Prototypes</Text>
+      <Label tone="secondary">Prototypes</Label>
       <Pressable
-        style={styles.protoRow}
         onPress={() => router.push("/concepts")}
         accessibilityRole="button"
         accessibilityLabel="Open UI concept gallery"
       >
-        <Text style={styles.protoText}>🎨 UI concept gallery</Text>
-        <Text style={styles.protoChevron}>→</Text>
+        <Card style={styles.protoRow}>
+          <Text style={styles.protoText}>🎨 UI concept gallery</Text>
+          <Text style={styles.protoChevron}>→</Text>
+        </Card>
       </Pressable>
       </>
       )}
@@ -190,24 +196,16 @@ function makeStyles(c: Palette) {
       flexGrow: 1,
     },
     labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+    // Layout only — the surface, border, and padding now come from <Card>,
+    // which this style overrides onto (Studio re-skin P2).
     accountRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
-      backgroundColor: c.surface,
-      borderRadius: radius.md,
-      padding: spacing.md,
       marginBottom: spacing.lg,
     },
-    accountTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+    accountTitle: { color: c.text, fontSize: typography.sizeMd, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
     accountSub: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
     accountChevron: { color: c.textMuted, fontSize: typography.sizeXl },
-    sectionLabel: {
-      fontSize: typography.sizeXs,
-      fontWeight: "600" as const,
-      color: c.textSecondary,
-      textTransform: "uppercase" as const,
-      letterSpacing: 0.8,
-    },
     helpText: {
       fontSize: typography.sizeSm,
       color: c.textMuted,
@@ -218,12 +216,8 @@ function makeStyles(c: Palette) {
       backgroundColor: c.border,
       marginVertical: spacing.sm,
     },
+    // Layout only — the surface, border, and padding now come from <Card>.
     demoNote: {
-      backgroundColor: c.surface,
-      borderColor: c.border,
-      borderWidth: 1,
-      borderRadius: radius.md,
-      padding: spacing.md,
       marginBottom: spacing.md,
     },
     demoNoteText: { color: c.textSecondary, fontSize: typography.sizeSm, lineHeight: 20 },
@@ -237,23 +231,21 @@ function makeStyles(c: Palette) {
     toggleTitle: {
       fontSize: typography.sizeMd,
       color: c.text,
-      fontWeight: "600" as const,
+      fontFamily: PLAYFAIR.semibold,
+      letterSpacing: -0.36,
       marginBottom: 2,
     },
+    // Layout only — the surface, border, and padding now come from <Card>.
     protoRow: {
       flexDirection: "row" as const,
       justifyContent: "space-between" as const,
       alignItems: "center" as const,
-      backgroundColor: c.surface,
-      borderColor: c.border,
-      borderWidth: 1,
-      borderRadius: radius.md,
-      padding: spacing.md,
     },
     protoText: {
       fontSize: typography.sizeMd,
       color: c.text,
-      fontWeight: "600" as const,
+      fontFamily: PLAYFAIR.semibold,
+      letterSpacing: -0.36,
     },
     protoChevron: {
       fontSize: typography.sizeMd,
@@ -261,11 +253,11 @@ function makeStyles(c: Palette) {
     },
     swatchRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.sm },
     swatch: { width: 92, borderRadius: radius.md, borderWidth: 2, padding: spacing.sm, alignItems: "center" as const, gap: 4 },
-    swatchSample: { fontSize: typography.sizeLg, fontWeight: "700" as const },
+    swatchSample: { fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
     swatchDot: { width: 14, height: 14, borderRadius: 7 },
     // Colour is set inline per tile (p.textSecondary) so each caption stays
     // legible on its OWN palette background, not the active theme's.
     swatchLabel: { fontSize: typography.sizeXs, textAlign: "center" as const },
-    swatchCheck: { color: c.primary, fontWeight: "700" as const },
+    swatchCheck: { color: c.primary, fontWeight: "500" as const },
   };
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { PLAYFAIR } from "@/constants/fonts";
 
 jest.mock("../../src/secure/keyStore", () => ({
   loadApiKey: jest.fn(),
@@ -29,6 +30,14 @@ import SettingsScreen from "../../app/(tabs)/settings";
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+// Flattens an RN style (object | array | nested array) into a single object so
+// tests can inspect the resolved fontFamily/fontWeight without caring how many
+// style arrays a primitive wraps things in.
+function flattenStyle(style: unknown): Record<string, unknown> {
+  const arr = Array.isArray(style) ? style.flat(Infinity) : [style];
+  return Object.assign({}, ...arr.filter(Boolean));
+}
 
 describe("SettingsScreen", () => {
   it("shows no-key message when nothing is stored", async () => {
@@ -78,5 +87,29 @@ describe("SettingsScreen", () => {
     await waitFor(() => {
       expect(saveApiKey).not.toHaveBeenCalled();
     });
+  });
+
+  it("renders row titles in Playfair with no bold (700) weight — Studio re-skin", () => {
+    loadApiKey.mockResolvedValue(null);
+    render(<SettingsScreen />);
+    // Row/section titles that survive the primitive sweep (auth is "unavailable"
+    // here, so the Account row is hidden — these two always render).
+    for (const text of ["Dyslexia-friendly font", "🎨 UI concept gallery"]) {
+      const style = flattenStyle(screen.getByText(text).props.style);
+      expect(style["fontFamily"]).toBe(PLAYFAIR.semibold);
+      expect(style["fontWeight"]).not.toBe("700");
+      expect(style["fontWeight"]).not.toBe("600");
+    }
+  });
+
+  it("renders section eyebrows via the Label primitive (uppercase, never bold)", () => {
+    loadApiKey.mockResolvedValue(null);
+    render(<SettingsScreen />);
+    for (const text of ["Appearance", "Accessibility", "Prototypes"]) {
+      const style = flattenStyle(screen.getByText(text).props.style);
+      expect(style["textTransform"]).toBe("uppercase");
+      expect(style["fontWeight"]).not.toBe("700");
+      expect(style["fontWeight"]).not.toBe("600");
+    }
   });
 });
