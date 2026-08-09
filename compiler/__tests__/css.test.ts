@@ -26,4 +26,12 @@ describe("STYLESHEET (Studio P4 text export)", () => {
     expect(headingRule![0]).toContain("font-weight: 500");
     expect(headingRule![0]).toContain("font-synthesis: none");
   });
+
+  it("retints the .diagram panel to Studio warm/gold, not the old lavender brand", () => {
+    const diagramRule = STYLESHEET.match(/\.diagram\s*\{[^}]*\}/);
+    expect(diagramRule).not.toBeNull();
+    expect(diagramRule![0]).toContain("#f3efe6"); // STUDIO.panel
+    expect(diagramRule![0]).not.toContain("#f5f3ff"); // BRAND.lavender (old)
+    expect(diagramRule![0]).not.toContain("#ece8fb"); // BRAND.lavenderBorder (old)
+  });
 });

@@ -71,7 +71,7 @@ export const STYLESHEET = `
   }
   table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
   th { background: ${STUDIO.gold}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${STUDIO.gold}; text-align: left; }
-  td { padding: 0.45em 0.8em; border: 1px solid ${BRAND.lavenderBorder}; }
+  td { padding: 0.45em 0.8em; border: 1px solid #e6e0d4; }
   tbody tr:nth-child(even) td { background: #f4f1ea; }
   caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
   hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
@@ -112,7 +112,7 @@ export const STYLESHEET = `
   .step .obs { color: #555; font-style: italic; font-size: 0.95em; }
   .diagram {
     margin: 1.4em 0; counter-increment: figure; text-align: center;
-    background: ${BRAND.lavender}; border: 1px solid ${BRAND.lavenderBorder};
+    background: ${STUDIO.panel}; border: 1px solid ${STUDIO.goldSoft};
     border-radius: 10px; padding: 1.1em 1em 0.8em; break-inside: avoid;
   }
   .diagram svg { max-width: 100%; height: auto; }
