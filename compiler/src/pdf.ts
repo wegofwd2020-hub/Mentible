@@ -252,9 +252,9 @@ const PDF_CSS = `
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 0.95em; counter-increment: table; break-inside: avoid; }
-  th, td { border: 1px solid #d9d9e3; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+  th, td { border: 1px solid #e6e0d4; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
   th { background: ${STUDIO.gold}; color: #fff; border-color: ${STUDIO.gold}; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 700; }
-  tbody tr:nth-child(even) td { background: #f6f5fc; }
+  tbody tr:nth-child(even) td { background: #f4f1ea; }
   caption {
     caption-side: top; text-align: left; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
@@ -263,7 +263,7 @@ const PDF_CSS = `
   .diagram svg { max-width: 100%; max-height: 84mm; width: auto; height: auto; }
   .diagram figcaption {
     font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
-    font-size: 0.85em; color: #555; margin-top: 0.3em;
+    font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.3em;
   }
   .fnum { font-weight: 800; color: ${STUDIO.gold}; }
 

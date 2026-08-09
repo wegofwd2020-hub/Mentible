@@ -152,4 +152,16 @@ describe("buildPdfHtml — typography & numbering CSS", () => {
     expect(html).not.toContain("#16a34a"); // old (non-token) green
     expect(html).not.toContain("#4ade80"); // old (non-token) bright green
   });
+
+  it("uses warm table neutrals + a gold figure caption, matching the EPUB stylesheet (css.ts)", () => {
+    expect(html).toContain("#f4f1ea"); // warm even-row background (matches css.ts tbody tr:nth-child(even))
+    expect(html).toContain("#e6e0d4"); // warm td border (matches css.ts td)
+    expect(html).not.toContain("#f6f5fc"); // old cool-blue even-row background (indigo era)
+    expect(html).not.toContain("#d9d9e3"); // old cool-blue td border (indigo era)
+
+    const figcaptionRule = html.match(/\.diagram figcaption\s*\{[^}]*\}/);
+    expect(figcaptionRule).not.toBeNull();
+    expect(figcaptionRule![0]).toContain("#8A6A22"); // STUDIO.gold, matching css.ts .diagram figcaption
+    expect(figcaptionRule![0]).not.toContain("#555"); // old neutral gray caption color
+  });
 });
