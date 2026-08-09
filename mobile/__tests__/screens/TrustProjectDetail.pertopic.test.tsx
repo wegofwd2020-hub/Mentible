@@ -100,7 +100,7 @@ it("pressing Open on a drafted topic navigates to the topic-version viewer", asy
   fireEvent.press(await screen.findByLabelText("Per topic"));
 
   fireEvent.press(await screen.findByLabelText("Open Topic One"));
-  expect(mockPush).toHaveBeenCalledWith("/trust/topic-version/tv1");
+  expect(mockPush).toHaveBeenCalledWith("/trust/topic-version/tv1?projectId=p1");
 });
 
 it("shows no Per topic control when the project has no TOC", async () => {

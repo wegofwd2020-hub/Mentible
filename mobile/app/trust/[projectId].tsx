@@ -1062,7 +1062,8 @@ function TrustProjectDetailInner() {
     }
   };
 
-  const onOpenTopic = (versionId: string) => router.push(`/trust/topic-version/${versionId}`);
+  const onOpenTopic = (versionId: string) =>
+    router.push(`/trust/topic-version/${versionId}?projectId=${projectId}`);
 
   const onCompare = (artifactId: string) => {
     if (compareSel.length !== 2) return;
