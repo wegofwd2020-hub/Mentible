@@ -14,7 +14,10 @@ describe("renderMarkdown — ```svg blocks", () => {
   it("inlines a ```svg fence as a <figure class=\"anim-svg\"> (not <pre><code>, not escaped)", () => {
     const out = r("```svg\n<svg><rect/></svg>\n```");
     expect(out).toContain('<figure class="anim-svg">');
-    expect(out).toContain("<svg><rect/></svg>");
+    // DOMPurify sanitizes by parsing + re-serializing the DOM, so the exact
+    // self-closing byte form isn't preserved (<rect/> -> <rect></rect>) —
+    // assert the element survives, not its exact serialization.
+    expect(out).toMatch(/<svg[^>]*>[\s\S]*<rect[\s\S]*<\/svg>/);
     expect(out).not.toContain("<pre><code>");
     expect(out).not.toContain("&lt;svg&gt;");
   });
@@ -24,6 +27,37 @@ describe("renderMarkdown — ```svg blocks", () => {
     expect(out).toContain('<figure class="anim-svg">');
     expect(out).not.toContain("<script>");
     expect(out).not.toContain("alert(1)");
+  });
+
+  it("strips an on* event handler attribute (XSS via headless-Chromium PDF render)", () => {
+    const out = r('```svg\n<svg onload="alert(1)"><rect/></svg>\n```');
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).not.toContain("onload");
+    expect(out).not.toContain("alert(1)");
+  });
+
+  it("strips a javascript: href (XSS via headless-Chromium PDF render)", () => {
+    const out = r(
+      '```svg\n<svg><a href="javascript:alert(1)"><rect/></a></svg>\n```',
+    );
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).not.toContain("javascript:");
+    expect(out).not.toContain("alert(1)");
+  });
+
+  it("leaves no executable trace of an unclosed <script token", () => {
+    const out = r('```svg\n<svg><script>alert(1)<rect/></svg>\n```');
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).not.toContain("<script");
+    expect(out).not.toContain("alert(1)");
+  });
+
+  it("preserves a clean svg body's element + attributes inside the figure", () => {
+    const out = r("```svg\n<svg><rect width=\"10\" height=\"10\"/></svg>\n```");
+    expect(out).toContain('<figure class="anim-svg">');
+    expect(out).toContain("<rect");
+    expect(out).toContain('width="10"');
+    expect(out).toContain('height="10"');
   });
 
   it("still delegates ```mermaid blocks to the DiagramRenderer (unchanged)", () => {

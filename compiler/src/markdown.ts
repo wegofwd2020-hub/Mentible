@@ -1,7 +1,17 @@
 import { Marked, type Tokens } from "marked";
 import markedKatex from "marked-katex-extension";
+import DOMPurify from "dompurify";
+import { JSDOM } from "jsdom";
 import type { DiagramRenderer } from "./diagrams";
 import { escapeHtml } from "./html";
+
+// A single, module-scope DOMPurify instance backed by a throwaway jsdom
+// window. The compiler is server-side Node with no browser DOM, so DOMPurify
+// (which needs `window`) must be given one explicitly — unlike the mobile web
+// reader (mobile/src/reader/sanitize.ts), which runs in a real browser.
+// Constructing the jsdom window is the expensive part; reuse it across every
+// renderMarkdown() call instead of paying that cost per ```svg block.
+const purify = DOMPurify(new JSDOM("").window);
 
 // Render a markdown string to a self-contained HTML fragment with:
 //  - maths pre-rendered to MathML (KaTeX, output:"mathml") — no runtime JS, no CDN
@@ -28,15 +38,22 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
         const language = (lang ?? "").trim().split(/\s+/)[0];
         if (language === "mermaid") return diagrams.render(text);
         if (language === "svg") {
-          // Inline the LLM-authored SVG so SMIL/CSS animation works — mirror the
-          // mobile reader (mobile/src/reader/markdown.ts). Strip <script>: this
-          // HTML is embedded in the EPUB and rendered by headless Chromium for
-          // the PDF, so an SVG <script> would execute. This targeted strip
-          // mirrors the reader's; it is NOT a full sanitizer (does not touch
-          // handlers/javascript: hrefs) — consistent with the reader's
-          // documented posture.
-          const noScript = text.replace(/<script[\s\S]*?<\/script\s*>/gi, "");
-          return `<figure class="anim-svg">${noScript}</figure>`;
+          // Inline the LLM-authored SVG so SMIL/CSS animation works — mirror
+          // the mobile reader (mobile/src/reader/sanitize.ts / markdown.ts).
+          // Unlike the mobile WEB reader, which sits behind DOMPurify as a
+          // second layer, the compiler has NO other sanitizer, AND this HTML
+          // is rendered by headless Chromium for the PDF (which executes
+          // <script>, on* handlers, javascript:/data: hrefs) and embedded
+          // verbatim in the EPUB (opened in arbitrary third-party readers).
+          // So this sanitize call is the ONLY thing standing between
+          // model-authored SVG and real script execution — run it through
+          // DOMPurify's svg profile (module-scope instance above, backed by
+          // jsdom since Node has no native DOM). This does not port the
+          // reader's extra animation-href/nested-data-URI hardening
+          // (sanitize.ts) — the svg profile is the baseline fix; porting the
+          // rest is a possible future hardening if it proves necessary here.
+          const clean = purify.sanitize(text, { USE_PROFILES: { svg: true, svgFilters: true } });
+          return `<figure class="anim-svg">${clean}</figure>`;
         }
         return `<pre><code>${escapeHtml(text)}</code></pre>`;
       },
