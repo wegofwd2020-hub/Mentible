@@ -11,12 +11,14 @@ import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
 import { artifactToBook } from "@/lib/artifactToBook";
+import { topicsToBook } from "@/lib/topicsToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
-import type { ArtifactDetailView, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
-import type { StructuredTOC, Subtopic } from "@/types/book";
+import { getTopicVersion } from "@/api/trustClient";
+import type { ArtifactDetailView, DraftSection, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import type { Book, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
@@ -909,23 +911,45 @@ function FeedbackPanel({
 // Publish (share phase): export each APPROVED asset's validated version as plain
 // text or Markdown (client-side; content fetched on demand). PDF/Word are an
 // honest, disabled "Pro — coming soon" row (billing is dormant — ADR-005/paywall).
+// A `Whole book | Per topic` toggle (only rendered once the project has a TOC —
+// Slice D, mirroring the C2b/C2c toggles) switches to a rollup header
+// (`{validated}/{total} topics validated` + book_validated indicator) plus a
+// Publish-book block: Add to Library / Download EPUB / Download PDF, gated on
+// `bookValidated` and owner-only (the assembly itself is an owner action).
 function PublishPanel({
   styles,
+  isOwner,
   artifacts,
   inputs,
   pubBusy,
   onCopyAsset,
   onAddToLibrary,
   onDownloadAsset,
+  toc,
+  topicStatus,
+  bookValidated,
+  onPublishToLibrary,
+  onPublishDownload,
 }: {
   styles: Styles;
+  isOwner: boolean;
   artifacts: ArtifactDetailView[];
   inputs: ProjectInputView[];
   pubBusy: string | null;
   onCopyAsset: (versionId: string, fmt: "text" | "markdown", title: string) => void;
   onAddToLibrary: (versionId: string, title: string, format: string) => void;
   onDownloadAsset: (versionId: string, title: string, fmt: "epub" | "pdf") => void;
+  toc: StructuredTocView | undefined;
+  topicStatus: TopicStatusView[];
+  bookValidated: boolean;
+  onPublishToLibrary: () => void;
+  onPublishDownload: (fmt: "epub" | "pdf") => void;
 }) {
+  const [mode, setMode] = useState<"whole" | "topic">("whole");
+  const hasToc = (toc?.subjects?.length ?? 0) > 0;
+  const totalTopics = toc?.subjects.reduce((sum, s) => sum + s.units.length, 0) ?? 0;
+  const validatedTopics = topicStatus.filter((s) => s.status === "validated").length;
+
   const publishable = artifacts
     .map(({ artifact, versions }) => {
       const validated = versions.filter((v) => v.is_validated);
@@ -933,15 +957,78 @@ function PublishPanel({
       return latest ? { artifact, version: latest } : null;
     })
     .filter((x): x is { artifact: ArtifactDetailView["artifact"]; version: ArtifactDetailView["versions"][number] } => x !== null);
-  if (publishable.length === 0) {
-    return (
-      <View style={styles.artifactsWrap}>
-        <Text style={styles.emptyText}>Nothing to publish yet — approve a version under Feedback, then export it here.</Text>
-      </View>
-    );
-  }
+
   return (
     <View style={styles.artifactsWrap}>
+      {hasToc ? (
+        <View style={styles.kindRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Whole book"
+            accessibilityState={{ selected: mode === "whole" }}
+            style={[styles.kindBtn, mode === "whole" ? styles.kindBtnActive : null]}
+            onPress={() => setMode("whole")}
+          >
+            <Text style={mode === "whole" ? styles.kindTextActive : styles.kindText}>Whole book</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Per topic"
+            accessibilityState={{ selected: mode === "topic" }}
+            style={[styles.kindBtn, mode === "topic" ? styles.kindBtnActive : null]}
+            onPress={() => setMode("topic")}
+          >
+            <Text style={mode === "topic" ? styles.kindTextActive : styles.kindText}>Per topic</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {hasToc && mode === "topic" ? (
+        <View style={styles.artifactsWrap}>
+          <View style={styles.rollupHeader}>
+            <Text style={styles.rollupText}>{validatedTopics}/{totalTopics} topics validated</Text>
+            <Chip label={bookValidated ? "Book validated ✓" : "Not yet book-validated"} active={bookValidated} />
+          </View>
+          {isOwner ? (
+            <View style={styles.artifact}>
+              <Text style={styles.artifactTitle}>Publish book</Text>
+              <View style={styles.pubActions}>
+                <Button
+                  variant="primary"
+                  label="Add to Library"
+                  onPress={onPublishToLibrary}
+                  busy={pubBusy === "book:lib"}
+                  disabled={!bookValidated || pubBusy !== null}
+                  accessibilityLabel="Add book to Library"
+                />
+                <Button
+                  variant="primary"
+                  label="Download EPUB"
+                  onPress={() => onPublishDownload("epub")}
+                  busy={pubBusy === "book:epub"}
+                  disabled={!bookValidated || pubBusy !== null}
+                  accessibilityLabel="Download book as EPUB"
+                />
+                <Button
+                  variant="primary"
+                  label="Download PDF"
+                  onPress={() => onPublishDownload("pdf")}
+                  busy={pubBusy === "book:pdf"}
+                  disabled={!bookValidated || pubBusy !== null}
+                  accessibilityLabel="Download book as PDF"
+                />
+              </View>
+              {!bookValidated ? (
+                <Text style={styles.emptyText}>Validate all topics first — {validatedTopics}/{totalTopics}</Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {mode === "whole" && publishable.length === 0 ? (
+        <Text style={styles.emptyText}>Nothing to publish yet — approve a version under Feedback, then export it here.</Text>
+      ) : null}
+      {mode === "whole" && publishable.length > 0 ? (
+        <>
       <Text style={styles.sourcesHelper}>Export the expert-validated version of each asset.</Text>
       {publishable.map(({ artifact, version }) => {
         const title = artifact.title ?? artifact.format;
@@ -1006,6 +1093,8 @@ function PublishPanel({
           </View>
         );
       })}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -1015,7 +1104,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
@@ -1202,6 +1291,61 @@ function TrustProjectDetailInner() {
     })();
   };
 
+  // Assembles the current TOC's validated topic drafts into one multi-topic
+  // Book (T1's topicsToBook), fetching each topic's latest validated version
+  // content on demand. Feeds both onPublishToLibrary and onPublishDownload —
+  // mirroring how the whole-book handlers share loadVersionContent + a Book.
+  const assembleBook = async (): Promise<Book> => {
+    if (!accessToken) throw new Error("Not signed in");
+    const toc = project.project.toc ?? { subjects: [] };
+    const statusByTopic = new Map((project.topic_status ?? []).map((s) => [s.topic_id, s]));
+    const sectionsByTopic = new Map<string, DraftSection[]>();
+    for (const subject of toc.subjects) {
+      for (const unit of subject.units) {
+        const status = statusByTopic.get(unit.id);
+        if (status?.latest_version_id) {
+          const tv = await getTopicVersion(status.latest_version_id, accessToken);
+          sectionsByTopic.set(unit.id, tv.content?.sections ?? []);
+        }
+      }
+    }
+    return topicsToBook(project.project.title, toc, sectionsByTopic, inputs);
+  };
+
+  const onPublishToLibrary = () => {
+    setPubBusy("book:lib");
+    void (async () => {
+      try {
+        const book = await assembleBook();
+        await saveBook(book);
+        Alert.alert("Added", "Added to your Library.");
+      } catch (e) {
+        Alert.alert("Couldn't add", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setPubBusy(null);
+      }
+    })();
+  };
+
+  const onPublishDownload = (fmt: "epub" | "pdf") => {
+    setPubBusy(`book:${fmt}`);
+    void (async () => {
+      try {
+        const book = await assembleBook();
+        const res = await trackedExport(book, fmt, { diagrams: true });
+        await downloadArtifact(
+          res.artifact,
+          `${slug(project.project.title)}.${fmt}`,
+          fmt === "epub" ? "application/epub+zip" : "application/pdf",
+        );
+      } catch (e) {
+        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setPubBusy(null);
+      }
+    })();
+  };
+
   const onAddSource = async () => {
     const content = sourceContent.trim();
     if (!content) return;
@@ -1365,12 +1509,18 @@ function TrustProjectDetailInner() {
         {active === "share" ? (
           <PublishPanel
             styles={styles}
+            isOwner={isOwner}
             artifacts={project.artifacts}
             inputs={inputs}
             pubBusy={pubBusy}
             onCopyAsset={onCopyAsset}
             onAddToLibrary={onAddToLibrary}
             onDownloadAsset={onDownloadAsset}
+            toc={project.project.toc}
+            topicStatus={project.topic_status ?? []}
+            bookValidated={project.book_validated ?? false}
+            onPublishToLibrary={onPublishToLibrary}
+            onPublishDownload={onPublishDownload}
           />
         ) : null}
         <PhaseNav phaseKey={active} onSelect={setSelected} />
