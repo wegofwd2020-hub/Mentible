@@ -65,6 +65,15 @@ export function readerCss(palette: Palette): string {
      scrollbar. Now theme-reactive via --reader-scheme instead of a hardcoded
      "dark". */
   color-scheme: var(--reader-scheme);
+  /* Each Playfair face below is loaded as its own single-weight @font-face
+     (e.g. PlayfairDisplay_500Medium has no bold variant). Real h1-h6 tags
+     carry a UA-stylesheet font-weight:bold by default, and with
+     font-synthesis on (the default) the browser fakes a bold face from the
+     single loaded weight — an ugly faux-bold, not real Playfair. Belt-and-
+     suspenders: turn off synthesis here, AND set an explicit weight matching
+     the loaded face on every heading rule below (see applyGlobalFont.ts for
+     the native-side version of this same trap). */
+  font-synthesis: none;
 
   background: var(--bg);
   color: var(--text);
@@ -83,11 +92,14 @@ export function readerCss(palette: Palette): string {
 .${READER_ROOT_CLASS} h1, .${READER_ROOT_CLASS} h2, .${READER_ROOT_CLASS} h3,
 .${READER_ROOT_CLASS} h4, .${READER_ROOT_CLASS} h5, .${READER_ROOT_CLASS} h6 {
   font-family: var(--display); line-height: 1.3;
+  /* Explicit — matches the loaded PlayfairDisplay_500Medium face. Without this,
+     the UA's default bold h1-h6 weight would trigger faux-bold synthesis. */
+  font-weight: 500;
 }
 .${READER_ROOT_CLASS} h1 { font-size: 1.6rem; margin: 0 0 8px; color: var(--text); }
 .${READER_ROOT_CLASS} h2 { font-size: 1.3rem; margin: 24px 0 8px; color: var(--text); }
 .${READER_ROOT_CLASS} h3 { font-size: 1.1rem; margin: 18px 0 6px; color: var(--text2); }
-.${READER_ROOT_CLASS} h4, .${READER_ROOT_CLASS} h5, .${READER_ROOT_CLASS} h6 { font-size: 1rem; font-weight: 600; margin: 14px 0 4px; }
+.${READER_ROOT_CLASS} h4, .${READER_ROOT_CLASS} h5, .${READER_ROOT_CLASS} h6 { font-size: 1rem; margin: 14px 0 4px; }
 .${READER_ROOT_CLASS} p { margin: 12px 0; }
 .${READER_ROOT_CLASS} ul, .${READER_ROOT_CLASS} ol { padding-left: 22px; margin: 8px 0; }
 .${READER_ROOT_CLASS} li { margin: 4px 0; }
