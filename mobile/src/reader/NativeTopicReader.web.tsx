@@ -15,6 +15,33 @@ import { readerCss, READER_ROOT_CLASS } from "@/reader/readerStyles";
 import { enhanceReaderNode } from "@/reader/enhance";
 import { useTheme } from "@/theme";
 
+// The content div is isolated in a React.memo so it re-renders ONLY when the
+// html string changes. KaTeX and (lazily) Mermaid mutate this subtree OUT OF
+// BAND after mount (Mermaid swaps the `.mermaid` source for an <svg>). React
+// does not know about those mutations, so if this element re-rendered on an
+// unrelated parent update (theme, scroll-induced layout, approve/withdraw
+// state) React could re-apply `dangerouslySetInnerHTML` and wipe the rendered
+// SVG back to the escaped source — the "diagram renders then reverts to raw
+// code" bug. Freezing re-renders on a stable html keeps the rendered diagram.
+const ReaderBody = React.memo(function ReaderBody({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  // `ref.current` is null under react-test-renderer, so this guard also makes
+  // the component test-safe.
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    return enhanceReaderNode(node);
+  }, [html]);
+  return (
+    <div
+      ref={ref}
+      className={READER_ROOT_CLASS}
+      // SAFE: `html` is the output of renderTopicToSafeHtml → sanitizeFragment.
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
+
 export function NativeTopicReader({
   topic,
   figures,
@@ -23,26 +50,12 @@ export function NativeTopicReader({
   figures?: Map<string, string>;
 }) {
   const theme = useTheme();
-  const ref = useRef<HTMLDivElement | null>(null);
   const html = useMemo(() => renderTopicToSafeHtml(topic, figures), [topic, figures]);
-
-  // KaTeX and (lazily) Mermaid, over the mounted node. `ref.current` is null under
-  // react-test-renderer, so this guard also makes the component test-safe.
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    return enhanceReaderNode(node);
-  }, [html]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <style data-mentible-reader="">{readerCss(theme)}</style>
-      <div
-        ref={ref}
-        className={READER_ROOT_CLASS}
-        // SAFE: `html` is the output of renderTopicToSafeHtml → sanitizeFragment.
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <ReaderBody html={html} />
     </View>
   );
 }
