@@ -1,9 +1,10 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from backend.src.trust.draft_prompt import build_draft_prompt
-from backend.src.trust.generate import _DraftOutput, generate_draft
+from backend.src.trust.generate import _coerce_draft, _DraftOutput, generate_draft
 from backend.src.trust.schemas import DraftGenerateIn
 from backend.tests.helpers import fake_provider
 
@@ -104,3 +105,21 @@ def test_prompt_book_unchanged_default():
 def test_prompt_unknown_format_falls_back_to_book():
     p = build_draft_prompt(_SOURCES, "totally_unknown", None, None, None)
     assert "3 to 6 sections" in p  # DEFAULT_SPEC == book
+
+
+def test_coerce_draft_accepts_sections_as_json_string():
+    """Some models double-encode the array — `sections` comes back as a JSON
+    string instead of a list. The coercion decodes it before validating (same
+    fix as the per-topic generator)."""
+    section = {"heading": "Intro", "body": "Body text", "sources": ["S1"]}
+    d = _coerce_draft({"sections": [section]})
+    assert len(d.sections) == 1 and d.sections[0].heading == "Intro"
+    d2 = _coerce_draft({"sections": json.dumps([section])})
+    assert len(d2.sections) == 1 and d2.sections[0].body == "Body text"
+
+
+def test_coerce_draft_rejects_a_non_json_string():
+    """A truncated/garbage sections string can't be decoded — pydantic still
+    raises (the repair loop then handles it), we don't silently swallow it."""
+    with pytest.raises(ValidationError):
+        _coerce_draft({"sections": '[{"heading": "h", "body": "trunca'})
