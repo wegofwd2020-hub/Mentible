@@ -86,6 +86,25 @@ describe("renderDiagrams — lazy (spec D2)", () => {
     expect(await renderDiagrams(node, () => true)).toBe(false);
     expect(mockMermaidRun).not.toHaveBeenCalled();
   });
+
+  it("isolates a malformed diagram so it does not abort the others", async () => {
+    // Two diagrams; the FIRST one fails to parse. Without per-node isolation
+    // mermaid.run would throw and the second (valid) diagram would stay raw.
+    const node = nodeWith(
+      '<div class="mermaid" id="bad">nonsense</div><div class="mermaid" id="good">graph TD;A--&gt;B</div>',
+    );
+    const bad = node.querySelector("#bad") as HTMLElement;
+    mockMermaidRun.mockImplementation(({ nodes }: { nodes: HTMLElement[] }) =>
+      nodes[0] === bad ? Promise.reject(new Error("parse error")) : Promise.resolve(undefined),
+    );
+
+    expect(await renderDiagrams(node)).toBe(true);
+    // run() was invoked for BOTH nodes (the loop did not abort at the failure)…
+    expect(mockMermaidRun).toHaveBeenCalledTimes(2);
+    // …and the failed one is marked rather than left looking half-rendered.
+    expect(bad.hasAttribute("data-mermaid-error")).toBe(true);
+    expect(node.querySelector("#good")!.hasAttribute("data-mermaid-error")).toBe(false);
+  });
 });
 
 describe("enhanceReaderNode", () => {
