@@ -9,6 +9,8 @@ JSON-mode request, and validate + repair via `generate_validated`.
 
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
@@ -19,7 +21,11 @@ from backend.src.generate.anthropic_caller import parse_json_response
 from .draft_prompt import build_draft_prompt
 
 _MAX_REPAIRS = 2
-_MAX_TOKENS = 4096
+# A whole-book draft is several sections of real prose — 4096 truncated multi-
+# section drafts mid-JSON → invalid output → 502 (the same failure the per-topic
+# generator hit; see reference_llm_output_shape_gotchas). Match the pipeline's
+# book default.
+_MAX_TOKENS = 16384
 
 
 class _DraftSection(BaseModel):
@@ -32,6 +38,18 @@ class _DraftOutput(BaseModel):
     sections: list[_DraftSection] = Field(min_length=1, max_length=6)
 
 
+def _coerce_draft(obj: object) -> _DraftOutput:
+    """Validate the model's output into a _DraftOutput, tolerating a common quirk:
+    some models double-encode the array, returning `sections` as a JSON STRING
+    instead of a list. Decode it before validating; leave anything else to pydantic."""
+    if isinstance(obj, dict) and isinstance(obj.get("sections"), str):
+        try:
+            obj = {**obj, "sections": json.loads(obj["sections"])}
+        except (json.JSONDecodeError, TypeError):
+            pass  # not a JSON array string — let pydantic raise the real error
+    return _DraftOutput.model_validate(obj)
+
+
 def generate_draft(
     *, sources, artifact_format, topic, audience, goal, provider_id, api_key, model, guidance=None
 ) -> _DraftOutput:
@@ -40,6 +58,6 @@ def generate_draft(
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
 
     def _validate(text: str) -> _DraftOutput:
-        return _DraftOutput.model_validate(parse_json_response(text))
+        return _coerce_draft(parse_json_response(text))
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
