@@ -23,7 +23,13 @@ import { useTheme } from "@/theme";
 // state) React could re-apply `dangerouslySetInnerHTML` and wipe the rendered
 // SVG back to the escaped source — the "diagram renders then reverts to raw
 // code" bug. Freezing re-renders on a stable html keeps the rendered diagram.
-const ReaderBody = React.memo(function ReaderBody({ html }: { html: string }) {
+const ReaderBody = React.memo(function ReaderBody({
+  html,
+  inline,
+}: {
+  html: string;
+  inline?: boolean;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
   // `ref.current` is null under react-test-renderer, so this guard also makes
   // the component test-safe.
@@ -35,7 +41,7 @@ const ReaderBody = React.memo(function ReaderBody({ html }: { html: string }) {
   return (
     <div
       ref={ref}
-      className={READER_ROOT_CLASS}
+      className={inline ? `${READER_ROOT_CLASS} inline` : READER_ROOT_CLASS}
       // SAFE: `html` is the output of renderTopicToSafeHtml → sanitizeFragment.
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -45,21 +51,26 @@ const ReaderBody = React.memo(function ReaderBody({ html }: { html: string }) {
 export function NativeTopicReader({
   topic,
   figures,
+  inline,
 }: {
   topic: GeneratedTopic;
   figures?: Map<string, string>;
+  inline?: boolean;
 }) {
   const theme = useTheme();
   const html = useMemo(() => renderTopicToSafeHtml(topic, figures), [topic, figures]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View
+      style={[inline ? styles.inlineContainer : styles.container, { backgroundColor: theme.background }]}
+    >
       <style data-mentible-reader="">{readerCss(theme)}</style>
-      <ReaderBody html={html} />
+      <ReaderBody html={html} inline={inline} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  inlineContainer: {},
 });

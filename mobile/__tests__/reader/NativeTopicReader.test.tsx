@@ -105,6 +105,23 @@ it("does not crash when mounted without a real DOM node, and leaves math as text
   expect(readerDiv(UNSAFE_root)!.props.dangerouslySetInnerHTML.__html).toContain("$$x^2$$");
 });
 
+it("opts into inline/auto-height mode: className gains 'inline' when the prop is set", () => {
+  const { UNSAFE_root } = render(<NativeTopicReader topic={topic("x")} inline />);
+  const div = UNSAFE_root.findAll(
+    (n: TestNode) => n.type === ("div" as never) && n.props.className === "mentible-reader inline",
+  )[0];
+  expect(div).toBeDefined();
+});
+
+it("defaults to standalone (self-scrolling) mode: className has no 'inline' when the prop is omitted", () => {
+  const { UNSAFE_root } = render(<NativeTopicReader topic={topic("x")} />);
+  expect(readerDiv(UNSAFE_root)).toBeDefined();
+  const inlineDiv = UNSAFE_root.findAll(
+    (n: TestNode) => n.type === ("div" as never) && n.props.className === "mentible-reader inline",
+  )[0];
+  expect(inlineDiv).toBeUndefined();
+});
+
 it("emits a scoped stylesheet — every rule sits under the reader root class", () => {
   const { UNSAFE_root } = render(<NativeTopicReader topic={topic("x")} />);
   const style = UNSAFE_root.findAll((n: TestNode) => n.type === ("style" as never))[0];
