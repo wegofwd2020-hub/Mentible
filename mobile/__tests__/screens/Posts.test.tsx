@@ -1,4 +1,5 @@
 import React from "react";
+import { StyleSheet } from "react-native";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import PostsScreen, { assemblePost } from "@/../app/(tabs)/posts";
 
@@ -27,6 +28,27 @@ function mockHook(over: Record<string, unknown>) {
 }
 
 beforeEach(() => jest.clearAllMocks());
+
+// Asserts a rendered <Text> node never carries the retired bold (700) weight —
+// the Studio primitives (Button/Label) top out at 500.
+function expectNotBold(text: ReturnType<typeof screen.getByText>) {
+  expect(StyleSheet.flatten(text.props.style).fontWeight).not.toBe("700");
+}
+
+it("renders the post-variant hook in Playfair and carries no bold (700) weight on the migrated Studio controls", () => {
+  mockHook({ status: "done", variants: VARIANTS, provenance: "ai-generated" });
+  render(<PostsScreen />);
+
+  // (a) heading face: the variant "hook" is the card's Playfair heading.
+  const hook = screen.getByText("Hook 0");
+  expect(StyleSheet.flatten(hook.props.style).fontFamily).toMatch(/Playfair/);
+
+  // (b) no migrated control carries fontWeight: "700" — the Copy <Button>,
+  // the Make posts <Button variant="primary">, and the hook heading itself.
+  expectNotBold(hook);
+  expectNotBold(screen.getAllByText("Copy")[0]);
+  expectNotBold(screen.getByText("Make posts"));
+});
 
 it("disables Generate until source text is entered", () => {
   mockHook({});
