@@ -72,6 +72,10 @@ Flowchart colour-coding (applies whenever you use a `flowchart`):
   render. Other diagram types (sequenceDiagram, stateDiagram-v2) are themed
   automatically; do not colour them either. Keep every diagram legible at page
   width (~4-9 nodes for a flowchart).
+- Write every mermaid diagram MULTI-LINE: put the diagram-type header and EACH
+  statement and edge on its OWN line (a real line break between every one, as in
+  the examples). NEVER put the whole diagram on a single line — mermaid cannot
+  parse a one-line diagram and it will fail to render.
 """
 
 # Optional animated visuals — the "free animated-visual path". The model emits a

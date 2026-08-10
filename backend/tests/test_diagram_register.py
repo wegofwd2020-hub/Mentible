@@ -59,3 +59,5 @@ class TestDiagramRegister:
             p = _prompt(diagram_register=reg)
             assert ":::concept" in p
             assert "Do NOT write your own `classDef`" in p
+            # the multi-line mermaid rule (a one-line diagram fails to parse, #402)
+            assert "MULTI-LINE" in p and "single line" in p

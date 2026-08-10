@@ -13,6 +13,9 @@ from dataclasses import dataclass
 class FormatSpec:
     section_rule: str  # the "write N sections" framing injected into the prompt
     rules: str  # length + style rules for this format
+    # Long-form written formats (book, essay) may include grounded diagrams;
+    # social/spoken formats (post, thread, reel, podcast) never do.
+    supports_diagrams: bool = False
 
 
 FORMAT_SPECS: dict[str, FormatSpec] = {
@@ -35,10 +38,12 @@ FORMAT_SPECS: dict[str, FormatSpec] = {
     "essay": FormatSpec(
         "Write a long-form essay across 3 to 5 sections, each with a heading.",
         "800-1200 words total. Clear prose.",
+        supports_diagrams=True,
     ),
     "book": FormatSpec(
         "write a short draft of 3 to 6 sections",
         "",
+        supports_diagrams=True,
     ),
 }
 
