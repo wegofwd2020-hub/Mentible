@@ -203,6 +203,11 @@ def test_topic_prompt_allows_grounded_diagrams_and_bans_placeholders():
     assert "invent nothing" in low  # grounding kept
     # placeholders explicitly banned
     assert "[image" in low or "placeholder" in low
+    # mermaid must be multi-line — a one-line diagram fails to parse/render
+    assert "multi-line" in low or "own line" in low
+    assert "single line" in low
+    # a concrete multi-line example is shown (real line breaks between statements)
+    assert "flowchart td\n" in low
 
 
 def test_generate_topic_draft_returns_sections(monkeypatch):
