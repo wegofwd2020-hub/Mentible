@@ -89,6 +89,12 @@ export function readerCss(palette: Palette): string {
   overflow-y: auto;
   height: 100%;
 }
+/* Opt-in inline/auto-height mode (whole-book draft render preview): lets the
+   reader flow inside a parent ScrollView instead of self-scrolling. ADDITIVE
+   only — the base rule above is untouched so standalone readers keep their
+   own scroll. Deliberately after the base rule so it wins on specificity-tie
+   (same specificity, later cascade position), without needing !important. */
+.${READER_ROOT_CLASS}.inline { height: auto; overflow: visible; }
 .${READER_ROOT_CLASS} * { box-sizing: border-box; margin: 0; padding: 0; }
 .${READER_ROOT_CLASS} h1, .${READER_ROOT_CLASS} h2, .${READER_ROOT_CLASS} h3,
 .${READER_ROOT_CLASS} h4, .${READER_ROOT_CLASS} h5, .${READER_ROOT_CLASS} h6 {

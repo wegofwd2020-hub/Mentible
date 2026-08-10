@@ -10,6 +10,11 @@ jest.mock("@/hooks/useTrustProject", () => ({
   useTrustProject: () => ({ project: { my_role: "reviewer", inputs: [] }, addVersion: jest.fn(), generateVersion: jest.fn(), approve: jest.fn(), unapprove: jest.fn() }),
 }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
+// This screen now renders through TopicRenderer (T3), whose native branch
+// pulls in react-native-webview — stub it (these tests run on the jest-expo
+// default "ios" platform, where the view stays plain-text, but the module
+// still gets required at import time).
+jest.mock("react-native-webview", () => ({ default: () => null }));
 
 const mockAddFeedback = jest.fn(async (_id: string, _body: { body: string }, _token: string) => ({ id: "f2", version_id: "v1", author_kind: "expert", author_name: "Dr X", body: "add a source", created_at: null }));
 jest.mock("@/api/trustClient", () => ({

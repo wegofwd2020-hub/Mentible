@@ -16,6 +16,11 @@ jest.mock("@/api/trustClient", () => ({
     generation_meta: null, is_validated: false, recorded_via: null, created_at: null,
   })),
 }));
+// This screen now renders through TopicRenderer (T3), whose native branch
+// pulls in react-native-webview — stub it (these tests run on the jest-expo
+// default "ios" platform, where the view stays plain-text, but the module
+// still gets required at import time).
+jest.mock("react-native-webview", () => ({ default: () => null }));
 
 import { getVersion } from "@/api/trustClient";
 import TrustVersion from "@/../app/trust/version/[versionId]";

@@ -65,11 +65,16 @@ function HtmlView({ html, label }: HtmlViewProps) {
 export function TopicRenderer({
   topic,
   figures,
+  inline,
 }: {
   topic: GeneratedTopic;
   figures?: Map<string, string>;
+  /** Opt-in: renders auto-height so the reader can flow inside a parent
+   * ScrollView instead of self-scrolling (web only — see NativeTopicReader /
+   * readerStyles' `.inline` modifier). Ignored on native. */
+  inline?: boolean;
 }) {
-  if (Platform.OS === "web") return <NativeTopicReader topic={topic} figures={figures} />;
+  if (Platform.OS === "web") return <NativeTopicReader topic={topic} figures={figures} inline={inline} />;
   return <WebViewTopicRenderer topic={topic} figures={figures} />;
 }
 

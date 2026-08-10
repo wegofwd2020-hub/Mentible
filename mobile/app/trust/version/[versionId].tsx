@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { addFeedback, getVersion, type VersionDetailView } from "@/api/trustClient";
@@ -12,6 +12,8 @@ import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
+import { TopicRenderer } from "@/components/LessonRenderer";
+import { versionToTopic } from "@/lib/topicVersionToTopic";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -67,6 +69,29 @@ function TrustVersionInner() {
     (project?.inputs ?? []).forEach((inp, i) => m.set(inp.id, `S${i + 1}`));
     return m;
   }, [project]);
+
+  // The web view-mode render preview: built ONCE per version (not inline in
+  // JSX). Building it fresh on every render (approve/withdraw reload, theme,
+  // busy state) would hand TopicRenderer a new object each time, re-running
+  // the reader's html memo and wiping any diagram the enhance pass had just
+  // drawn (the topic viewer's "diagram flashes then reverts" bug — see
+  // trust/topic-version/[id].tsx's builtTopic comment).
+  // Guard on `content?.sections` (not just `version`): a malformed version can
+  // arrive with no `sections` at all, and `versionToTopic` maps it verbatim —
+  // it would throw reading `.sections.map` off `undefined`. Falling back to
+  // `null` here mirrors the native branch's `version.content?.sections ?? []`
+  // defend-on-read for the same shape.
+  const previewTopic = useMemo(
+    () => (version?.content?.sections ? versionToTopic(version) : null),
+    [version],
+  );
+  // Section-level source chips are lost once the sections flow through the
+  // reader as one lesson body, so the web preview shows one aggregate row of
+  // every source cited anywhere in the draft instead.
+  const previewSources = useMemo(
+    () => Array.from(new Set((version?.content?.sections ?? []).flatMap((s) => s.source_ids ?? []))),
+    [version],
+  );
 
   const startEdit = () => {
     const go = () => {
@@ -347,6 +372,17 @@ function TrustVersionInner() {
             >
               <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save as new version"}</Text>
             </Pressable>
+          </>
+        ) : Platform.OS === "web" ? (
+          <>
+            {previewTopic ? <TopicRenderer topic={previewTopic} inline /> : null}
+            {previewSources.length > 0 ? (
+              <View style={styles.citeRow}>
+                {previewSources.map((id) => (
+                  <Text key={id} style={styles.cite}>{labelFor.get(id) ?? "cited"}</Text>
+                ))}
+              </View>
+            ) : null}
           </>
         ) : (
           (version.content?.sections ?? []).map((s, i) => (

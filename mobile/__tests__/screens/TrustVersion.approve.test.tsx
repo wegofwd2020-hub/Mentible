@@ -7,6 +7,12 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
 
+// This screen now renders through TopicRenderer (T3), whose native branch
+// pulls in react-native-webview — stub it (these tests run on the jest-expo
+// default "ios" platform, where the view stays plain-text, but the module
+// still gets required at import time).
+jest.mock("react-native-webview", () => ({ default: () => null }));
+
 const mockApprove = jest.fn(async () => ({ recorded_via: "expert_self", expert_name: "Dr X" }));
 const mockUnapprove = jest.fn(async () => ({ recorded_via: "expert_self", action: "withdraw" }));
 let mockRole = "reviewer";

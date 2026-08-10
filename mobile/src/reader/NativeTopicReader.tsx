@@ -8,7 +8,7 @@
 import type { GeneratedTopic } from "@/types/book";
 
 export function NativeTopicReader(
-  _props: { topic: GeneratedTopic; figures?: Map<string, string> },
+  _props: { topic: GeneratedTopic; figures?: Map<string, string>; inline?: boolean },
 ): never {
   throw new Error(
     "NativeTopicReader is web-only (spec D3). Native must render TopicRenderer's WebView path.",

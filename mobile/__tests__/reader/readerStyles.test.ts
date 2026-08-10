@@ -52,4 +52,19 @@ describe("reader theme vars", () => {
     // future weight mismatch can't fall back to synthesized bold.
     expect(css).toContain("font-synthesis: none");
   });
+  it("adds an additive .inline modifier rule for auto-height flow inside a parent ScrollView", () => {
+    const css = readerCss(studioDarkColors);
+    expect(css).toContain(".mentible-reader.inline");
+    const inlineRuleMatch = /\.mentible-reader\.inline\s*\{([^}]*)\}/.exec(css);
+    expect(inlineRuleMatch).not.toBeNull();
+    const inlineRuleBody = inlineRuleMatch![1];
+    expect(inlineRuleBody).toMatch(/height:\s*auto/);
+    expect(inlineRuleBody).toMatch(/overflow:\s*visible/);
+    // Additive: the base root rule must keep its own-scroll behaviour
+    // (standalone readers still self-scroll).
+    const baseRuleMatch = /\.mentible-reader\s*\{([\s\S]*?)\n\}/.exec(css);
+    expect(baseRuleMatch).not.toBeNull();
+    expect(baseRuleMatch![1]).toMatch(/height:\s*100%/);
+    expect(baseRuleMatch![1]).toMatch(/overflow-y:\s*auto/);
+  });
 });
