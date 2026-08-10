@@ -31,7 +31,9 @@ it("shows a timestamp and an explicit View control on a Drafts version row", asy
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
 
-  expect(screen.getByText(/v1/)).toBeTruthy();
+  // Exact match — a loose /v1/ regex also matches the "Start a new draft"
+  // hint text ("...fresh draft (v1)...") now shown above the drafts list.
+  expect(screen.getByText("v1")).toBeTruthy();
   // timestamp shown
   expect(screen.getByText(/2026|AM|PM|:/)).toBeTruthy();
   // explicit View affordance opens the viewer

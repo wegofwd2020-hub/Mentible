@@ -8,6 +8,7 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToPlainText } from "@/lib/draftExport";
+import { describeProvenance } from "@/lib/draftProvenance";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -244,7 +245,10 @@ function TrustVersionInner() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>v{version.version_no}</Text>
+          <View>
+            <Text style={styles.title}>v{version.version_no}</Text>
+            <Text style={styles.provenance}>{describeProvenance(version.generation_meta)}</Text>
+          </View>
           {version.is_validated ? (
             <View style={styles.badgeRow}>
               <Text accessibilityLabel={`Version ${version.version_no} validated`} style={styles.chip}>Validated ✓</Text>
@@ -454,6 +458,7 @@ const makeStyles = (c: Palette) => ({
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
+  provenance: { color: c.textMuted, fontSize: typography.sizeSm, marginTop: 2 },
   section: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   heading: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   bodyText: { color: c.text, fontSize: typography.sizeMd, lineHeight: 22 as const },

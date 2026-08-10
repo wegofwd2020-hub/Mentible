@@ -60,3 +60,19 @@ it("does not crash on a section missing source_ids", async () => {
   await waitFor(() => expect(getByText("No sources")).toBeTruthy());
   expect(getByText("Body text.")).toBeTruthy();
 });
+
+it("renders a provenance line from generation_meta's source count", async () => {
+  (getVersion as jest.Mock).mockResolvedValueOnce({
+    id: "v1", artifact_id: "a1", version_no: 5,
+    content: { sections: [{ heading: "Enrollment windows", body: "Sign up during IEP.", source_ids: [] }] },
+    generation_meta: { source_input_ids: ["s1", "s2"] }, is_validated: false, recorded_via: null, created_at: null,
+  });
+  const { getByText } = render(<TrustVersion />);
+  await waitFor(() => expect(getByText(/source/)).toBeTruthy());
+});
+
+it("still renders a provenance fallback when generation_meta is null", async () => {
+  const { getByText } = render(<TrustVersion />);
+  await waitFor(() => expect(getByText("v2")).toBeTruthy());
+  expect(getByText("Generated draft")).toBeTruthy();
+});
