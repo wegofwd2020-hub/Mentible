@@ -43,12 +43,30 @@ it("owner with a source sees the format picker and pressing a card calls generat
   // (skip-satisfied only by a toc or an existing version) — navigate to
   // Drafts explicitly, same as the sibling test below.
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  const btn = await screen.findByLabelText("Generate LinkedIn post");
+  const btn = await screen.findByLabelText("Start a new LinkedIn post draft");
   fireEvent.press(btn);
 
   await waitFor(() => {
     expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
   });
+});
+
+// Task 2: whole-book Drafts labels — "start a new draft" (new artifact → v1)
+// must read distinct from "regenerate" (new version on an existing draft).
+it("labels the generate block 'Start a new draft' with a hint, and shows a 'Your drafts' header above existing drafts", async () => {
+  const mock = proj(true);
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+
+  expect(screen.getByText("Start a new draft")).toBeTruthy();
+  expect(
+    screen.getByText(/Creates a fresh draft \(v1\)\. To make a new version of an existing draft, open it and Regenerate\./),
+  ).toBeTruthy();
+  // proj(true) seeds one artifact (with no versions), so the drafts list is
+  // non-empty and the "Your drafts" header should render above it.
+  expect(screen.getByText("Your drafts")).toBeTruthy();
 });
 
 it("disables the format cards and shows a hint when there are no sources yet", async () => {
@@ -57,7 +75,7 @@ it("disables the format cards and shows a hint when there are no sources yet", a
   render(<TrustProjectDetail />);
 
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  const btn = await screen.findByLabelText("Generate LinkedIn post");
+  const btn = await screen.findByLabelText("Start a new LinkedIn post draft");
   expect(btn.props.accessibilityState?.disabled).toBe(true);
   expect(screen.getByText(/add a source first/i)).toBeTruthy();
 

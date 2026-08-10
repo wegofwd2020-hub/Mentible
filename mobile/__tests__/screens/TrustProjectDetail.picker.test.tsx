@@ -40,7 +40,7 @@ it("owner with a source sees the format picker and generating a format calls gen
   expect(screen.getByText("LinkedIn post")).toBeTruthy();
   expect(screen.getByText("Long-form essay")).toBeTruthy();
 
-  fireEvent.press(screen.getByLabelText("Generate LinkedIn post"));
+  fireEvent.press(screen.getByLabelText("Start a new LinkedIn post draft"));
   expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
 });
 
@@ -50,7 +50,7 @@ it("disables the format cards and shows a hint when there are no sources yet", a
   render(<TrustProjectDetail />);
 
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  const btn = await screen.findByLabelText("Generate LinkedIn post");
+  const btn = await screen.findByLabelText("Start a new LinkedIn post draft");
   expect(btn.props.accessibilityState?.disabled).toBe(true);
   expect(screen.getByText(/add a source first/i)).toBeTruthy();
 

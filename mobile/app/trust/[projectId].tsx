@@ -538,7 +538,10 @@ function DraftsPanel({
         <>
           {isOwner ? (
             <View style={styles.genBlock}>
-              <Text style={styles.artifactTitle}>Generate</Text>
+              <Text style={styles.artifactTitle}>Start a new draft</Text>
+              <Text style={styles.genHint}>
+                Creates a fresh draft (v1). To make a new version of an existing draft, open it and Regenerate.
+              </Text>
               <View style={styles.genGrid}>
                 {DRAFT_FORMATS.map((f) => {
                   const disabled = genBusyFormat !== null || inputs.length === 0;
@@ -546,7 +549,7 @@ function DraftsPanel({
                     <Pressable
                       key={f.format}
                       accessibilityRole="button"
-                      accessibilityLabel={`Generate ${f.label}`}
+                      accessibilityLabel={`Start a new ${f.label} draft`}
                       disabled={disabled}
                       style={styles.genCardPressable}
                       onPress={() => onGenerateFormat(f)}
@@ -566,101 +569,104 @@ function DraftsPanel({
           {artifacts.length === 0 ? (
             !isOwner ? <Text style={styles.emptyText}>Waiting for the owner to create a draft.</Text> : null
           ) : (
-            artifacts.map(({ artifact, versions }) => {
-              const inCompareMode = compareArtifactId === artifact.id;
-              return (
-                <View key={artifact.id} style={styles.artifact}>
-                  <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
-                  {versions.length === 0 ? (
-                    <Text style={styles.emptyText}>No drafts yet.</Text>
-                  ) : (
-                    versions.map((v) => {
-                      const ts = versionTimestamp(v.created_at);
-                      return (
-                        <Pressable
-                          key={v.id}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Open version ${v.version_no}`}
-                          style={styles.versionRow}
-                          onPress={() => onOpenVersion(artifact.id, v.id)}
-                        >
-                          <View style={styles.versionRowLeft}>
-                            <Text style={styles.versionLabel}>v{v.version_no}</Text>
-                            {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
-                          </View>
-                          {v.is_validated ? (
-                            <View style={styles.validatedRow}>
-                              <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
-                              {v.recorded_via === "expert_self" ? (
-                                <Text style={styles.chip}>expert-validated</Text>
-                              ) : v.recorded_via === "operator" ? (
-                                <Text style={styles.chip}>operator-recorded</Text>
-                              ) : null}
+            <>
+              <Text style={styles.artifactTitle}>Your drafts</Text>
+              {artifacts.map(({ artifact, versions }) => {
+                const inCompareMode = compareArtifactId === artifact.id;
+                return (
+                  <View key={artifact.id} style={styles.artifact}>
+                    <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+                    {versions.length === 0 ? (
+                      <Text style={styles.emptyText}>No drafts yet.</Text>
+                    ) : (
+                      versions.map((v) => {
+                        const ts = versionTimestamp(v.created_at);
+                        return (
+                          <Pressable
+                            key={v.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open version ${v.version_no}`}
+                            style={styles.versionRow}
+                            onPress={() => onOpenVersion(artifact.id, v.id)}
+                          >
+                            <View style={styles.versionRowLeft}>
+                              <Text style={styles.versionLabel}>v{v.version_no}</Text>
+                              {ts ? <Text style={styles.versionRowTs}>{ts}</Text> : null}
                             </View>
-                          ) : (
-                            <Text style={styles.versionLabel}>Awaiting review</Text>
-                          )}
-                          {inCompareMode ? (
+                            {v.is_validated ? (
+                              <View style={styles.validatedRow}>
+                                <Text accessibilityLabel={`Version ${v.version_no} validated`} style={styles.validated}>Validated ✓</Text>
+                                {v.recorded_via === "expert_self" ? (
+                                  <Text style={styles.chip}>expert-validated</Text>
+                                ) : v.recorded_via === "operator" ? (
+                                  <Text style={styles.chip}>operator-recorded</Text>
+                                ) : null}
+                              </View>
+                            ) : (
+                              <Text style={styles.versionLabel}>Awaiting review</Text>
+                            )}
+                            {inCompareMode ? (
+                              <Pressable
+                                accessibilityRole="checkbox"
+                                accessibilityLabel={`Select version ${v.version_no}`}
+                                accessibilityState={{ checked: compareSel.includes(v.id) }}
+                                style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
+                                onPress={(e) => {
+                                  e?.stopPropagation?.();
+                                  toggleCompareSel(v.id);
+                                }}
+                              />
+                            ) : null}
+                            {/* Raw Pressable (not <Button>) — nested inside this row's own
+                                onPress, so it needs the real event to stopPropagation and
+                                avoid double-firing onOpenVersion on web; Button's onPress
+                                is () => void and can't receive it. */}
                             <Pressable
-                              accessibilityRole="checkbox"
-                              accessibilityLabel={`Select version ${v.version_no}`}
-                              accessibilityState={{ checked: compareSel.includes(v.id) }}
-                              style={[styles.checkbox, compareSel.includes(v.id) ? styles.checkboxOn : null]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`View version ${v.version_no}`}
+                              style={styles.viewBtn}
                               onPress={(e) => {
                                 e?.stopPropagation?.();
-                                toggleCompareSel(v.id);
+                                onOpenVersion(artifact.id, v.id);
                               }}
-                            />
-                          ) : null}
-                          {/* Raw Pressable (not <Button>) — nested inside this row's own
-                              onPress, so it needs the real event to stopPropagation and
-                              avoid double-firing onOpenVersion on web; Button's onPress
-                              is () => void and can't receive it. */}
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`View version ${v.version_no}`}
-                            style={styles.viewBtn}
-                            onPress={(e) => {
-                              e?.stopPropagation?.();
-                              onOpenVersion(artifact.id, v.id);
-                            }}
-                          >
-                            <Text style={styles.viewBtnText}>View</Text>
+                            >
+                              <Text style={styles.viewBtnText}>View</Text>
+                            </Pressable>
                           </Pressable>
-                        </Pressable>
-                      );
-                    })
-                  )}
-                  {versions.length >= 2 ? (
-                    inCompareMode ? (
-                      <View style={styles.compareRow}>
-                        <Button
-                          variant="primary"
-                          label="Compare selected versions"
-                          onPress={() => onCompare(artifact.id)}
-                          disabled={compareSel.length !== 2}
-                          accessibilityLabel="Compare selected versions"
-                        />
+                        );
+                      })
+                    )}
+                    {versions.length >= 2 ? (
+                      inCompareMode ? (
+                        <View style={styles.compareRow}>
+                          <Button
+                            variant="primary"
+                            label="Compare selected versions"
+                            onPress={() => onCompare(artifact.id)}
+                            disabled={compareSel.length !== 2}
+                            accessibilityLabel="Compare selected versions"
+                          />
+                          <Button
+                            variant="ghost"
+                            label="Cancel"
+                            onPress={() => toggleCompareMode(artifact.id)}
+                            accessibilityLabel="Cancel"
+                          />
+                        </View>
+                      ) : (
                         <Button
                           variant="ghost"
-                          label="Cancel"
+                          label="Compare…"
                           onPress={() => toggleCompareMode(artifact.id)}
-                          accessibilityLabel="Cancel"
+                          accessibilityLabel="Compare versions"
+                          style={styles.compareBtnAlign}
                         />
-                      </View>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        label="Compare…"
-                        onPress={() => toggleCompareMode(artifact.id)}
-                        accessibilityLabel="Compare versions"
-                        style={styles.compareBtnAlign}
-                      />
-                    )
-                  ) : null}
-                </View>
-              );
-            })
+                      )
+                    ) : null}
+                  </View>
+                );
+              })}
+            </>
           )}
         </>
       ) : null}

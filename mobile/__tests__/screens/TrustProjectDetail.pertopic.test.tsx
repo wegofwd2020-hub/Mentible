@@ -107,7 +107,7 @@ it("shows no Per topic control when the project has no TOC", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base({ withToc: false }));
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
-  await screen.findByLabelText("Generate LinkedIn post");
+  await screen.findByLabelText("Start a new LinkedIn post draft");
   expect(screen.queryByLabelText("Per topic")).toBeNull();
   expect(screen.queryByLabelText("Whole book")).toBeNull();
 });
