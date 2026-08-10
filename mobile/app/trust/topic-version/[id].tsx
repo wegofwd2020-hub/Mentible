@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
@@ -34,6 +34,17 @@ function TopicVersionViewerInner() {
   const [askName, setAskName] = useState(false);
   const [expertName, setExpertName] = useState("");
   const isOwner = project?.my_role === "owner";
+
+  // Build the reader's topic ONCE per version. Building it inline in the JSX
+  // handed TopicRenderer a fresh object on every re-render (approve/withdraw
+  // reload, theme, busy state) — which re-ran the reader's html memo and reset
+  // the diagram container's innerHTML back to the escaped source, wiping the
+  // Mermaid SVG the enhance pass had just drawn (the "diagram flashes then
+  // reverts to raw code" bug). A stable reference keeps the rendered SVG.
+  const builtTopic = useMemo(
+    () => (topicVersion ? topicVersionToTopic(topicVersion) : null),
+    [topicVersion],
+  );
 
   // Re-fetch just this version (used after approve/withdraw so the header's
   // validated state reflects the append-only toggle).
@@ -144,7 +155,7 @@ function TopicVersionViewerInner() {
           ) : null}
         </View>
         <View style={styles.readerBody}>
-          <TopicRenderer topic={topicVersionToTopic(topicVersion)} />
+          {builtTopic ? <TopicRenderer topic={builtTopic} /> : null}
         </View>
         <View style={styles.actionsRow}>
           {topicVersion.is_validated ? (
