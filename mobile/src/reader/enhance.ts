@@ -44,7 +44,20 @@ export async function renderDiagrams(
   if (isCancelled()) return false;
 
   mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
-  await mermaid.run({ nodes });
+  // Render each diagram INDEPENDENTLY. `mermaid.run({ nodes })` throws on the
+  // first block it can't parse and aborts every LATER block — so one malformed
+  // diagram left every diagram after it stuck as raw source (the "first
+  // flowchart renders, second shows raw code" bug). Isolating per node means a
+  // bad diagram can't break its siblings; the failed block is marked and left
+  // as its (already-escaped) source rather than half-rendered.
+  for (const el of nodes) {
+    if (isCancelled()) return false;
+    try {
+      await mermaid.run({ nodes: [el] });
+    } catch {
+      el.setAttribute("data-mermaid-error", "");
+    }
+  }
   return true;
 }
 
