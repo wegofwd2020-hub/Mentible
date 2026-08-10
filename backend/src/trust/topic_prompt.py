@@ -8,6 +8,8 @@ outline.
 
 from __future__ import annotations
 
+from .diagram_guidance import DIAGRAM_GUIDANCE
+
 
 def build_topic_prompt(sources, topic_title, subtopics, audience, goal) -> str:
     labelled = "\n\n".join(
@@ -25,26 +27,7 @@ def build_topic_prompt(sources, topic_title, subtopics, audience, goal) -> str:
     if goal:
         ctx.append(f"so the reader can {goal}")
     ctx_line = (" " + " ".join(ctx)) if ctx else ""
-    diagram_guidance = (
-        "Where the sources support it, include a diagram that VISUALIZES what the sources "
-        "describe — a ```mermaid block for a process, hierarchy, or relationship, or a ```svg "
-        "block for a labeled or illustrative figure. Hold diagrams to the same bar as the prose: "
-        "invent nothing beyond the sources; if a diagram would need facts the sources do not "
-        "establish, omit it. Put the fenced diagram in the relevant section's body.\n"
-        "MERMAID MUST BE MULTI-LINE: put the diagram-type header and EACH statement and edge on "
-        "its OWN line, with a real line break between every one. NEVER put the whole diagram on a "
-        "single line — mermaid cannot parse a one-line diagram and it will fail to render. Correct "
-        "shape:\n"
-        "```mermaid\n"
-        "flowchart TD\n"
-        "  A[Read paragraph] --> B[Read bullet point]\n"
-        "  B --> C{More bullet points?}\n"
-        "  C -- Yes --> B\n"
-        "  C -- No --> D[End of section]\n"
-        "```\n"
-        'NEVER write "[IMAGE: ...]" or a camera emoji as a placeholder — produce an actual '
-        "```mermaid/```svg diagram, or write text only."
-    )
+    diagram_guidance = DIAGRAM_GUIDANCE
     return (
         f'You are writing the section on "{topic_title}"{ctx_line}. Using ONLY the sources below, '
         f"write one section per subtopic — subtopics: {subs}. Each section's heading is the subtopic; "

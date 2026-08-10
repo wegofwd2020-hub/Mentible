@@ -123,3 +123,18 @@ def test_coerce_draft_rejects_a_non_json_string():
     raises (the repair loop then handles it), we don't silently swallow it."""
     with pytest.raises(ValidationError):
         _coerce_draft({"sections": '[{"heading": "h", "body": "trunca'})
+
+
+def test_book_and_essay_drafts_get_grounded_diagram_guidance():
+    for fmt in ("book", "essay"):
+        p = build_draft_prompt(_SOURCES, fmt, None, None, None).lower()
+        assert "mermaid" in p and "svg" in p
+        # the multi-line rule that keeps diagrams parseable (see #402)
+        assert "multi-line" in p or "own line" in p
+        assert "single line" in p
+
+
+def test_social_formats_get_no_diagram_guidance():
+    for fmt in ("x_thread", "linkedin", "reel", "podcast"):
+        p = build_draft_prompt(_SOURCES, fmt, None, None, None).lower()
+        assert "mermaid" not in p
