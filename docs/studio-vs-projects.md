@@ -27,13 +27,17 @@ flowchart TB
 
   subgraph PROJECTS["PROJECTS — Trust / SME · ADR-037"]
     direction TB
-    P1["Input — sources<br/><i>transcript / note / link</i>"] -->|"ONLY the sources<br/>invents nothing"| P2["Draft<br/><i>multi-format</i>"]
-    P2 -->|"append-only<br/>recorded_via"| P3["Feedback — validate"] --> P4["Publish"]
+    P1["Input — sources<br/><i>transcript / note / link</i>"] --> P1b["Structure — TOC<br/><i>suggest from sources</i>"]
+    P1b -->|"ONLY the sources<br/>invents nothing"| P2["Create — Draft<br/><i>per-topic or whole-book</i>"]
+    P2 -->|"append-only<br/>recorded_via"| P3["Validate<br/><i>per topic / rollup</i>"] --> P4["Publish"]
   end
 
   S5 -->|"export"| LIB[("Library / Reader<br/>EPUB · PDF")]
-  P4 -->|"artifactToBook · #379"| LIB
+  P4 -->|"artifactToBook / topicsToBook · #379"| LIB
 ```
+
+> The Mermaid source above is the current source of truth; the rendered `.svg` image may lag the
+> latest flow.
 
 </details>
 
@@ -52,9 +56,10 @@ the provided sources and invents nothing — then routes through an append-only 
 | **Grounding** | Scoped retrieval over world knowledge (6 dimensions) | `invent nothing beyond the sources` |
 | **Validation** | None — self-authored | Append-only expert approval · `recorded_via` |
 | **Actors** | Solo author | Owner + invited reviewer (app-level access guard) |
-| **Unit** | Multi-topic **Book** — TOC / topic tree | **Artifacts** with immutable **versions** |
-| **Flow** | New Book → structure TOC → topic tree → generate → export | **Input → Drafts → Feedback → Publish** (Capture · Create · Validate · Share) |
-| **Storage** | Local-first (`bookStore`, on device) | Backend trust tables (`project · artifact · version · approval`) |
+| **Unit** | Multi-topic **Book** — TOC / topic tree | **Artifacts** with immutable **versions**; drafts author **per-topic** (each topic its own `topic_version`) OR **whole-book** (one artifact, `artifact_version`s) — author picks per artifact |
+| **Flow** | New Book → structure TOC → topic tree → generate → export | **Input → Structure (TOC) → Create → Validate → Publish** (Capture · Create · Validate · Share) — the TOC arc is **shipped + live** |
+| **Storage** | Local-first (`bookStore`, on device) | Backend trust tables (`project · project_input · artifact · artifact_version · topic_version · approval · feedback`, migrations **0009–0015**) |
+| **Diagrams** | Grounded ```mermaid / ```svg from world knowledge (compiler-themed) | Grounded ```mermaid / ```svg **from the sources** (whole-book/essay + per-topic); rendered **in-app** (reader) and in the **EPUB/PDF** (compiler) |
 | **Output** | EPUB / PDF + Library | Copy / Markdown, and (#379) **Add to Library + EPUB/PDF** |
 
 ---
@@ -90,19 +95,47 @@ flowchart LR
   B --> D["trackedExport<br/>→ EPUB / PDF"]
 ```
 
-Borrowing Studio's *structuring UX* into Projects (the in-progress TOC arc) does **not** blur this:
+Borrowing Studio's *structuring UX* into Projects (the shipped TOC arc) does **not** blur this:
 Projects keeps its two differentiators — **grounding** (sources only) and **validation** (expert
 approval) — while reusing Studio's outline editor.
 
 ---
 
-## Where Projects is heading (in progress)
+## Projects today — the full loop (shipped + live)
 
-A design arc reframes Projects around a cornerstone book with an explicit **Structure (TOC)** phase —
-`Input → Structure → Create (per topic) → Validate (per topic) → Publish` — so the author builds a
-visible, source-derived outline before generating (fixes wayfinding + thin drafts). It borrows
-Studio's `TopicTreeEditor` + `useStructureJob` but keeps Projects' grounding and validation. See
-`docs/superpowers/specs/2026-08-07-projects-toc-structure-arc-design.md`.
+The TOC arc is done: Projects is now `Input → Structure (TOC) → Create → Validate → Publish`, so the
+author builds a visible, source-derived outline before generating (borrowed Studio's `TopicTreeEditor`
+but kept Projects' grounding + validation). Two authoring modes coexist, picked per artifact:
+
+- **Per-topic** — generate + validate each topic independently. Each topic carries its own
+  `topic_version` (row-per-version) with a separate `topic_approval`; the project rolls up to
+  `book_validated` when every current TOC topic is validated. The topic viewer renders the draft
+  (diagrams and all) through the reader; owner/reviewer approve or withdraw per topic.
+- **Whole-book** — one artifact drafted across sections in a single generation (multi-format:
+  `book · essay · linkedin · x_thread · reel · podcast`; diagrams only for the long-form
+  `book`/`essay`). The whole-book draft viewer renders its VIEW mode through the reader too (an
+  opt-in inline/auto-height reader so it flows inside the page scroll); EDIT mode stays raw text.
+
+**Regenerate vs new draft.** *Regenerating* an existing draft appends a new **version** (v2, v3…,
+append-only, re-approval required); *starting a new draft* (the "Start a new draft" grid, or a fresh
+"Suggest from Source") creates a **new artifact** at v1. Each version shows a **provenance line** —
+*"Generated from N sources · with your guidance"* (from `generation_meta`) — so drafts are
+distinguishable and the v1-vs-v2 model is legible.
+
+See `docs/superpowers/specs/2026-08-07-projects-toc-structure-arc-design.md` and the per-topic /
+whole-book / provenance specs under `docs/superpowers/specs/2026-08-*`.
+
+---
+
+## A note on the two meanings of "Studio"
+
+"**Studio**" in this doc = the **Books authoring product** (topic → LLM-authored book). Separately,
+"**Studio**" is also the name of the app-wide **visual identity** (the 2026-08 re-skin: a navy-dark /
+refined-light theme, Playfair Display headings + Inter body, a single gold accent, ghost controls) —
+applied across **both** products' surfaces, the reader (theme-reactive navy ↔ paper), and the
+EPUB/PDF exports (light print artifact, navy/gold cover). The re-skin is a look, not a product; it
+doesn't change the Studio-vs-Projects distinction below. See
+`docs/superpowers/specs/2026-08-08-studio-reskin-design.md` (+ the P2–P4 slice specs).
 
 ---
 
@@ -111,6 +144,6 @@ Studio's `TopicTreeEditor` + `useStructureJob` but keeps Projects' grounding and
 | | Studio | Projects |
 |---|---|---|
 | **Routes** | `app/(tabs)/books.tsx` · `app/book/*` | `app/(tabs)/projects.tsx` · `app/trust/*` |
-| **Backend** | stateless authoring; local-first `Book` | `backend/src/trust/*` (migrations 0009–0013) |
+| **Backend** | stateless authoring; local-first `Book` | `backend/src/trust/*` (migrations **0009–0015**; per-topic in `topic_repo`/`generate_topic`, whole-book in `artifact_repo`/`generate`, shared diagram guidance in `diagram_guidance.py`) |
 | **ADRs** | ADR-003 (book authoring) · ADR-004 (two-product split + artifacts) | ADR-037 (SME expert-validation studio) |
-| **Bridge** | — | `artifactToBook` · PR #379 (Publish → Add to Library + EPUB/PDF) |
+| **Bridge** | — | `artifactToBook` (single) / `topicsToBook` (per-topic) · PR #379 (Publish → Add to Library + EPUB/PDF) |
