@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View,
+  Image, Pressable, ScrollView, Text, TextInput, View,
 } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useMakePost } from "@/hooks/useMakePost";
@@ -10,7 +10,9 @@ import { Alert } from "@/lib/alert";
 import { loadApiKey } from "@/secure/keyStore";
 import { type Platform, type PostVariant } from "@/api/derivativesClient";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
+import { Button, Card, Label } from "@/components/ui";
 
 const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "linkedin", label: "LinkedIn" },
@@ -73,7 +75,7 @@ export default function PostsScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       <PageContainer>
         <View style={styles.body}>
-        <Text style={styles.label}>Source</Text>
+        <Label tone="secondary">Source</Label>
         <TextInput
           accessibilityLabel="Source text"
           style={styles.source}
@@ -84,7 +86,7 @@ export default function PostsScreen() {
           onChangeText={setSource}
         />
 
-        <Text style={styles.label}>Platform</Text>
+        <Label tone="secondary">Platform</Label>
         <View style={styles.segment}>
           {PLATFORMS.map((p) => {
             const active = p.id === platform;
@@ -103,7 +105,7 @@ export default function PostsScreen() {
           })}
         </View>
 
-        <Text style={styles.label}>Tone (optional)</Text>
+        <Label tone="secondary">Tone (optional)</Label>
         <TextInput
           accessibilityLabel="Tone"
           style={styles.tone}
@@ -113,62 +115,57 @@ export default function PostsScreen() {
           onChangeText={setTone}
         />
 
-        <Text style={styles.label}>Reference image (optional)</Text>
+        <Label tone="secondary">Reference image (optional)</Label>
         <Text style={styles.helper}>The model takes cues from this — it won't copy it.</Text>
         {image == null ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add reference image"
+          <Button
+            variant="ghost"
+            label="Add reference image"
             onPress={() => void onPickImage()}
+            accessibilityLabel="Add reference image"
             style={styles.imageBtn}
-          >
-            <Text style={styles.imageBtnText}>Add reference image</Text>
-          </Pressable>
+          />
         ) : (
           <View style={styles.imageRow}>
             <Image source={{ uri: `data:${image.media_type};base64,${image.data}` }} style={styles.thumb} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Remove reference image"
+            <Button
+              variant="ghost"
+              label="Remove"
               onPress={() => setImage(null)}
-              style={styles.removeImageBtn}
-            >
-              <Text style={styles.removeImageBtnText}>Remove</Text>
-            </Pressable>
+              accessibilityLabel="Remove reference image"
+            />
           </View>
         )}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Make posts"
-          accessibilityState={{ disabled: !canGenerate }}
-          disabled={!canGenerate}
+        <Button
+          variant="primary"
+          label="Make posts"
           onPress={onGenerate}
-          style={[styles.generate, !canGenerate && styles.generateDisabled]}
-        >
-          {busy ? <ActivityIndicator color={theme.tileOnGlyph} /> : <Text style={styles.generateText}>Make posts</Text>}
-        </Pressable>
+          busy={busy}
+          disabled={!canGenerate}
+          accessibilityLabel="Make posts"
+          style={styles.generate}
+        />
 
         {status === "failed" && error ? <Text style={styles.error}>{error}</Text> : null}
 
         {status === "done" && variants.length > 0 ? (
           <View style={styles.results}>
-            <Text style={styles.provenance}>{humanizeProvenance(provenance)}</Text>
+            <Label tone="muted">{humanizeProvenance(provenance)}</Label>
             {variants.map((v, i) => (
-              <View key={i} style={styles.card}>
+              <Card key={i} style={styles.card}>
                 <Text style={styles.hook}>{v.hook}</Text>
                 <Text style={styles.postBody}>{v.body}</Text>
                 {v.hashtags.length > 0 ? <Text style={styles.hashtags}>{v.hashtags.join(" ")}</Text> : null}
                 {v.cta ? <Text style={styles.cta}>{v.cta}</Text> : null}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Copy post ${i + 1}`}
+                <Button
+                  variant="ghost"
+                  label={copiedIndex === i ? "Copied" : "Copy"}
                   onPress={() => void onCopy(v, i)}
+                  accessibilityLabel={`Copy post ${i + 1}`}
                   style={styles.copyBtn}
-                >
-                  <Text style={styles.copyText}>{copiedIndex === i ? "Copied" : "Copy"}</Text>
-                </Pressable>
-              </View>
+                />
+              </Card>
             ))}
           </View>
         ) : null}
@@ -184,7 +181,6 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   body: { gap: spacing.sm },
-  label: { fontSize: typography.sizeSm, fontWeight: "600" as const, color: c.text, marginTop: spacing.sm },
   source: {
     minHeight: 120, borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
     padding: spacing.sm, color: c.text, textAlignVertical: "top" as const,
@@ -194,40 +190,34 @@ const makeStyles = (c: Palette) => ({
     padding: spacing.sm, color: c.text,
   },
   helper: { fontSize: typography.sizeXs, color: c.textMuted },
-  imageBtn: {
-    alignSelf: "flex-start" as const, paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
-  },
-  imageBtnText: { color: c.text, fontWeight: "600" as const },
+  // Layout only — the fill/border/text now come from <Button variant="ghost">
+  // (Studio re-skin straggler sweep); this just keeps the button from
+  // stretching to the row's full width.
+  imageBtn: { alignSelf: "flex-start" as const },
   imageRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   thumb: { width: 96, height: 96, borderRadius: radius.md },
-  removeImageBtn: {
-    paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: radius.sm, backgroundColor: c.tileOffFace,
-  },
-  removeImageBtnText: { color: c.tileOffGlyph, fontWeight: "600" as const },
+  // The Platform toggle is a two-way selector, not a standalone action —
+  // Button has no "selected" state distinct from primary/ghost, and using
+  // variant="primary" for the active option would put a second gold pill on
+  // screen alongside "Make posts". Kept as a raw Pressable pair; only the
+  // retired bold weight below was swept.
   segment: { flexDirection: "row" as const, gap: spacing.xs },
   segmentBtn: {
     paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
     borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
   },
   segmentBtnActive: { backgroundColor: c.primary, borderColor: c.primary },
-  segmentText: { color: c.text, fontWeight: "600" as const },
+  segmentText: { color: c.text, fontWeight: "500" as const },
   segmentTextActive: { color: c.tileOnGlyph },
-  generate: {
-    marginTop: spacing.md, backgroundColor: c.primary, borderRadius: radius.md,
-    paddingVertical: spacing.sm, alignItems: "center" as const,
-  },
-  generateDisabled: { opacity: 0.5 },
-  generateText: { color: c.tileOnGlyph, fontWeight: "700" as const },
+  // Layout only — the fill/text now come from <Button variant="primary">.
+  generate: { marginTop: spacing.md },
   error: { color: c.error, marginTop: spacing.sm },
   results: { marginTop: spacing.md, gap: spacing.sm },
-  provenance: { fontSize: typography.sizeXs, color: c.textMuted, fontStyle: "italic" as const },
-  card: { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs },
-  hook: { fontWeight: "700" as const, color: c.text },
+  // Layout only — the surface, border, and padding now come from <Card>.
+  card: { gap: spacing.xs },
+  hook: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   postBody: { color: c.text },
   hashtags: { color: c.primary },
-  cta: { color: c.text, fontWeight: "600" as const },
-  copyBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.sm, backgroundColor: c.tileOffFace },
-  copyText: { color: c.tileOffGlyph, fontWeight: "600" as const },
+  cta: { color: c.text, fontWeight: "500" as const },
+  copyBtn: { alignSelf: "flex-start" as const },
 });

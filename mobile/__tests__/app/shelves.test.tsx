@@ -1,4 +1,5 @@
 import { render, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 const add = jest.fn().mockResolvedValue(true);
 const remove = jest.fn();
@@ -50,8 +51,8 @@ test("empty state when no sources", () => {
 });
 
 test("Downloads is reachable from the Shelves tab, even with no sources", () => {
-  const { getByTestId } = render(<ShelvesScreen />);
-  fireEvent.press(getByTestId("open-downloads"));
+  render(<ShelvesScreen />);
+  fireEvent.press(screen.getByLabelText("Downloads"));
   expect(mockPush).toHaveBeenCalledWith("/shelves/downloads");
 });
 
@@ -108,17 +109,17 @@ test("Import an EPUB does nothing when the picker is cancelled or a non-zip is c
 });
 
 test("restore starter sources calls restoreStarterSources then reloads the list", async () => {
-  const { getByTestId } = render(<ShelvesScreen />);
-  fireEvent.press(getByTestId("restore-starter"));
+  render(<ShelvesScreen />);
+  fireEvent.press(screen.getByLabelText("Restore starter sources"));
   await waitFor(() => expect(mockRestoreStarterSources).toHaveBeenCalled());
   await waitFor(() => expect(mockHookState.reload).toHaveBeenCalled());
 });
 
 test("restore starter sources surfaces an alert when the restore fails", async () => {
   mockRestoreStarterSources.mockRejectedValueOnce(new Error("write failed"));
-  const { getByTestId } = render(<ShelvesScreen />);
+  render(<ShelvesScreen />);
   (Alert.alert as jest.Mock).mockClear();
-  fireEvent.press(getByTestId("restore-starter"));
+  fireEvent.press(screen.getByLabelText("Restore starter sources"));
   await waitFor(() =>
     expect(Alert.alert).toHaveBeenCalledWith("Couldn't restore starter sources", "Please try again.")
   );
@@ -126,8 +127,8 @@ test("restore starter sources surfaces an alert when the restore fails", async (
 
 test("restore starter sources control is disabled while busy", () => {
   mockHookState = { ...mockHookState, busy: true };
-  const { getByTestId } = render(<ShelvesScreen />);
-  expect(getByTestId("restore-starter").props.accessibilityState?.disabled).toBe(true);
+  render(<ShelvesScreen />);
+  expect(screen.getByLabelText("Restore starter sources").props.accessibilityState?.disabled).toBe(true);
 });
 
 test("shows the shelves-download nudge when a starter shelf is present", async () => {
@@ -142,4 +143,30 @@ test("hides the nudge when no starter shelf is present", () => {
   mockHookState = { ...mockHookState, sources: [src("a")] };
   const { queryByTestId } = render(<ShelvesScreen />);
   expect(queryByTestId("nudge-shelves-download")).toBeNull();
+});
+
+// Studio re-skin (straggler sweep, task 2): the screen title and the "Sources"
+// section heading move to Playfair, and neither carries the retired bold
+// (700) weight — the Studio primitives top out at 500.
+test("titles the screen and the Sources section in Playfair, with no bold (700) weight", () => {
+  render(<ShelvesScreen />);
+
+  const heading = screen.getByText("Open Shelves");
+  expect(StyleSheet.flatten(heading.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(heading.props.style).fontWeight).not.toBe("700");
+
+  const sectionTitle = screen.getByText("Sources");
+  expect(StyleSheet.flatten(sectionTitle.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(sectionTitle.props.style).fontWeight).not.toBe("700");
+});
+
+// The standalone browse/action controls (Downloads, Import an EPUB, Restore
+// starter sources) migrated to the Studio <Button> primitive, which always
+// exposes accessibilityRole="button" — confirming they're reachable this way
+// is also what makes them queryable via getByLabelText in the tests above.
+test("Downloads, Import an EPUB, and Restore starter sources render as accessible buttons", () => {
+  render(<ShelvesScreen />);
+  for (const label of ["Downloads", "Import an EPUB", "Restore starter sources"]) {
+    expect(screen.getByLabelText(label).props.accessibilityRole).toBe("button");
+  }
 });

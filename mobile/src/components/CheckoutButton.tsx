@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { TrustBadge } from "@/components/TrustBadge";
-import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { Button, Label } from "@/components/ui";
+import { spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 import type { TrustManifest } from "@/types/trust";
@@ -52,26 +53,24 @@ export function CheckoutButton({ book }: { book: Book }) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.label}>Check out</Text>
+      <Label tone="secondary">Check out</Label>
       <View style={styles.row}>
-        <Pressable
-          style={[styles.btn, working && styles.btnDisabled]}
+        <Button
+          variant="ghost"
+          label="EPUB3"
           onPress={() => checkout("epub")}
           disabled={working}
-          accessibilityRole="button"
           accessibilityLabel="Check out as EPUB3"
-        >
-          <Text style={styles.btnText}>EPUB3</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.btn, styles.btnAlt, working && styles.btnDisabled]}
+          style={styles.btn}
+        />
+        <Button
+          variant="ghost"
+          label="PDF"
           onPress={() => checkout("pdf")}
           disabled={working}
-          accessibilityRole="button"
           accessibilityLabel="Check out as PDF"
-        >
-          <Text style={[styles.btnText, styles.btnAltText]}>PDF</Text>
-        </Pressable>
+          style={styles.btn}
+        />
       </View>
 
       {working && (
@@ -116,25 +115,8 @@ function messageFor(err: unknown): string {
 
 const makeStyles = (c: Palette) => ({
   root: { gap: spacing.xs, marginTop: spacing.lg },
-  label: {
-    fontSize: typography.sizeSm,
-    fontWeight: "600" as const,
-    color: c.textSecondary,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.8,
-  },
   row: { flexDirection: "row" as const, gap: spacing.sm },
-  btn: {
-    flex: 1,
-    backgroundColor: c.primary,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    alignItems: "center" as const,
-  },
-  btnAlt: { backgroundColor: c.surfaceHigh, borderColor: c.primary, borderWidth: 1 },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: c.primaryText, fontSize: typography.sizeMd, fontWeight: "700" as const },
-  btnAltText: { color: c.primary },
+  btn: { flex: 1 },
   statusRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginTop: spacing.xs },
   statusText: { color: c.textSecondary, fontSize: typography.sizeSm },
   doneBlock: { gap: spacing.sm, marginTop: spacing.xs },

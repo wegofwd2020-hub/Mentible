@@ -3,12 +3,14 @@
 // list/refresh/remove sources. User-added sources are warned (P0-8, neutral
 // conduit) and never blocked. No auth required.
 import { useCallback } from "react";
-import { ScrollView, Text, View, Pressable } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { spacing, typography, type Palette } from "@/constants/theme";
+import { PLAYFAIR } from "@/constants/fonts";
 import { useThemedStyles } from "@/theme";
+import { Button } from "@/components/ui";
 import { useOpenShelves } from "@/openshelves/useOpenShelves";
 import { AddSourceForm } from "@/openshelves/AddSourceForm";
 import { SourceRow } from "@/openshelves/SourceRow";
@@ -70,12 +72,16 @@ export default function ShelvesScreen() {
         <Text style={styles.blurb}>Browse free book catalogs (OPDS). Add a repo by URL.</Text>
 
         <View style={styles.linksRow}>
-          <Pressable testID="open-downloads" onPress={() => router.push("/shelves/downloads")}>
-            <Text style={styles.downloadsLink}>Downloads</Text>
-          </Pressable>
-          <Pressable onPress={() => { void importFromPicker(); }} accessibilityRole="button" accessibilityLabel="Import an EPUB">
-            <Text style={styles.secondaryBtn}>Import an EPUB</Text>
-          </Pressable>
+          <Button
+            variant="ghost"
+            label="Downloads"
+            onPress={() => router.push("/shelves/downloads")}
+          />
+          <Button
+            variant="ghost"
+            label="Import an EPUB"
+            onPress={() => { void importFromPicker(); }}
+          />
         </View>
 
         <AddSourceForm onSubmit={confirmAdd} busy={shelves.busy} error={shelves.error} />
@@ -91,13 +97,19 @@ export default function ShelvesScreen() {
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>Sources</Text>
           <View style={styles.headerActions}>
-            <Pressable testID="restore-starter" onPress={() => void restoreStarters()} disabled={shelves.busy}>
-              <Text style={styles.refreshAll}>Restore starter sources</Text>
-            </Pressable>
+            <Button
+              variant="ghost"
+              label="Restore starter sources"
+              onPress={() => void restoreStarters()}
+              disabled={shelves.busy}
+            />
             {shelves.sources.length > 0 ? (
-              <Pressable testID="refresh-all" onPress={() => void shelves.refreshAllSources()} disabled={shelves.busy}>
-                <Text style={styles.refreshAll}>Refresh all</Text>
-              </Pressable>
+              <Button
+                variant="ghost"
+                label="Refresh all"
+                onPress={() => void shelves.refreshAllSources()}
+                disabled={shelves.busy}
+              />
             ) : null}
           </View>
         </View>
@@ -124,14 +136,11 @@ export default function ShelvesScreen() {
 const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  heading: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const, marginBottom: spacing.xs },
+  heading: { color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36, marginBottom: spacing.xs },
   blurb: { color: c.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },
-  linksRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.lg, marginBottom: spacing.lg },
-  downloadsLink: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
-  secondaryBtn: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  linksRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginBottom: spacing.lg },
   listHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginTop: spacing.lg },
-  headerActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md },
-  sectionTitle: { color: c.text, fontSize: typography.sizeXl, fontWeight: "600" as const },
-  refreshAll: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  headerActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  sectionTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   empty: { color: c.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });
