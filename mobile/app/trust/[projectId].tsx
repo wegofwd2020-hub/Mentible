@@ -138,6 +138,8 @@ function SourcesPanel({
   setSourceTitle,
   sourceContent,
   setSourceContent,
+  sourceUrl,
+  setSourceUrl,
   addSourceBusy,
   onAddSource,
   editInput,
@@ -153,6 +155,8 @@ function SourcesPanel({
   setSourceTitle: (v: string) => void;
   sourceContent: string;
   setSourceContent: (v: string) => void;
+  sourceUrl: string;
+  setSourceUrl: (v: string) => void;
   addSourceBusy: boolean;
   onAddSource: () => void;
   editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
@@ -228,6 +232,8 @@ function SourcesPanel({
     ]);
   };
 
+  const canAdd = sourceKind === "link" ? sourceUrl.trim().length > 0 : sourceContent.trim().length > 0;
+
   return (
     <View style={styles.sourcesBlock}>
       <Text style={styles.artifactTitle}>Input</Text>
@@ -249,25 +255,39 @@ function SourcesPanel({
           </View>
           <TextInput
             style={styles.inviteInput}
-            placeholder="Title (optional)"
+            placeholder={sourceKind === "link" ? "Label (optional)" : "Title (optional)"}
             placeholderTextColor={theme.textMuted}
             value={sourceTitle}
             onChangeText={setSourceTitle}
           />
-          <TextInput
-            style={styles.sourceContentInput}
-            placeholder="Paste a transcript, note, or link…"
-            placeholderTextColor={theme.textMuted}
-            value={sourceContent}
-            onChangeText={setSourceContent}
-            multiline
-          />
+          {sourceKind === "link" ? (
+            <TextInput
+              style={styles.inviteInput}
+              accessibilityLabel="Source URL"
+              placeholder="https://…"
+              placeholderTextColor={theme.textMuted}
+              value={sourceUrl}
+              onChangeText={setSourceUrl}
+              autoCapitalize="none"
+              keyboardType="url"
+              autoCorrect={false}
+            />
+          ) : (
+            <TextInput
+              style={styles.sourceContentInput}
+              placeholder="Paste a transcript, note, or link…"
+              placeholderTextColor={theme.textMuted}
+              value={sourceContent}
+              onChangeText={setSourceContent}
+              multiline
+            />
+          )}
           <Button
             variant="ghost"
             label="Add source"
             onPress={onAddSource}
             busy={addSourceBusy}
-            disabled={!sourceContent.trim()}
+            disabled={!canAdd}
             accessibilityLabel="Add source"
           />
         </View>
@@ -1120,6 +1140,7 @@ function TrustProjectDetailInner() {
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
   const [selected, setSelected] = useState<PhaseKey | null>(null);
   const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
@@ -1353,13 +1374,24 @@ function TrustProjectDetailInner() {
   };
 
   const onAddSource = async () => {
-    const content = sourceContent.trim();
-    if (!content) return;
+    const title = sourceTitle.trim() || undefined;
+    const body =
+      sourceKind === "link"
+        ? (() => {
+            const url = sourceUrl.trim();
+            return url ? { kind: "link" as const, title, content: url, source_ref: url } : null;
+          })()
+        : (() => {
+            const content = sourceContent.trim();
+            return content ? { kind: sourceKind, title, content } : null;
+          })();
+    if (!body) return;
     setAddSourceBusy(true);
     try {
-      await addInput({ kind: sourceKind, title: sourceTitle.trim() || undefined, content });
+      await addInput(body);
       setSourceTitle("");
       setSourceContent("");
+      setSourceUrl("");
       setSourceKind("note");
     } catch (e) {
       Alert.alert("Couldn't add source", e instanceof ApiError ? e.userMessage() : "Please try again.");
@@ -1450,6 +1482,8 @@ function TrustProjectDetailInner() {
             setSourceTitle={setSourceTitle}
             sourceContent={sourceContent}
             setSourceContent={setSourceContent}
+            sourceUrl={sourceUrl}
+            setSourceUrl={setSourceUrl}
             addSourceBusy={addSourceBusy}
             onAddSource={onAddSource}
             editInput={editInput}

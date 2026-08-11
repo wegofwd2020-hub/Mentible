@@ -46,3 +46,49 @@ it("reviewer sees the source list but not the add form", async () => {
   expect(screen.getByText("Kickoff notes")).toBeTruthy();
   expect(screen.queryByLabelText("Add source")).toBeNull();
 });
+
+it("Link kind shows a URL field and hides the paste box; Add is gated on the URL", async () => {
+  const mock = proj("owner");
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  fireEvent.press(screen.getByLabelText("Source kind Link"));
+
+  const urlInput = screen.getByLabelText("Source URL");
+  expect(urlInput).toBeTruthy();
+  expect(screen.queryByPlaceholderText(/paste/i)).toBeNull();
+
+  const addBtn = screen.getByLabelText("Add source");
+  expect(addBtn.props.accessibilityState?.disabled).toBe(true);
+
+  fireEvent.changeText(urlInput, "https://example.com/article");
+  expect(addBtn.props.accessibilityState?.disabled).toBe(false);
+
+  fireEvent.press(addBtn);
+  await waitFor(() => {
+    expect(mock.addInput).toHaveBeenCalledWith({
+      kind: "link",
+      title: undefined,
+      content: "https://example.com/article",
+      source_ref: "https://example.com/article",
+    });
+  });
+});
+
+it("Note kind still sends { kind: 'note', content } with no source_ref", async () => {
+  const mock = proj("owner");
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Input:/));
+  const contentInput = screen.getByPlaceholderText(/paste/i);
+  fireEvent.changeText(contentInput, "Some note content.");
+  fireEvent.press(screen.getByLabelText("Add source"));
+
+  await waitFor(() => {
+    expect(mock.addInput).toHaveBeenCalledWith({ kind: "note", content: "Some note content." });
+  });
+  const call = mock.addInput.mock.calls[mock.addInput.mock.calls.length - 1][0];
+  expect(call.source_ref).toBeUndefined();
+});
