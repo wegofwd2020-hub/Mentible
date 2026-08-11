@@ -19,7 +19,14 @@ from backend.src.generate.anthropic_caller import parse_json_response
 from .toc_prompt import build_toc_prompt
 
 _MAX_REPAIRS = 2
-_MAX_TOKENS = 4096
+# 16384, not 4096: a real-sized TOC (up to 6 subjects × 8 topics × 12 subtopics
+# with labels + detail) overruns 4096 output tokens, truncating the JSON. That
+# fails schema validation and triggers the repair loop (_MAX_REPAIRS extra full
+# LLM calls), so a single Suggest-TOC balloons to several minutes and blows past
+# CloudFlare's ~100s proxy timeout — the caller sees a 524, not our 502. Match
+# the per-topic (generate_topic.py) and whole-book (generate.py) generators,
+# both bumped to 16384 for the same truncation reason.
+_MAX_TOKENS = 16384
 
 
 class _TocSubtopic(BaseModel):

@@ -68,3 +68,21 @@ def test_suggest_toc_returns_subjects(monkeypatch):
     assert 1 <= len(out.subjects) <= 6
     assert out.subjects[0].subject_label == "Design basics"
     assert out.subjects[0].topics[0].sources == ["S1"]
+
+
+def test_suggest_toc_requests_full_max_tokens(monkeypatch):
+    # Regression: a 4096 cap truncated real-sized TOCs → repair loop → multi-minute
+    # call → CloudFlare 524. Must request the full 16384 like the sibling generators.
+    p = fake_provider(text=_GOOD)
+    monkeypatch.setattr("backend.src.trust.toc_suggest.build_provider", lambda *a, **k: p)
+    suggest_toc(
+        sources=_SOURCES,
+        topic="t",
+        audience="a",
+        goal="g",
+        provider_id="anthropic",
+        api_key="sk-ant-" + "x" * 20,
+        model="m",
+    )
+    req = p.generate.call_args_list[0].args[0]
+    assert req.max_tokens == 16384
