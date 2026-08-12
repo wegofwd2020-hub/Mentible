@@ -118,6 +118,33 @@ it("a failed generate surfaces the job's error message, not a bare 'Try again.' 
   );
 });
 
+it("a topic generating does NOT grey out other topics' Generate (per-id busy, not a global lock)", async () => {
+  // Regression: `disabled={busyTopicId !== null}` used a single busy id, so one
+  // in-flight per-topic generation disabled EVERY topic's Generate button — the
+  // "all Not-generated greyed, no option to generate" report. Now it's a Set,
+  // gating each row independently. Keep t1's generate pending forever so t1 is
+  // busy while we assert t2 stays enabled.
+  const mock = base();
+  // Never resolves — t1 stays in-flight for the duration of the assertions,
+  // and no post-test state update fires (avoids an act() warning).
+  mock.generateTopic = jest.fn().mockImplementation(() => new Promise<{ id: string }>(() => {}));
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+
+  // Start regenerating t1 (drafted → "Regenerate"); its promise never resolves.
+  fireEvent.press(await screen.findByLabelText("Regenerate Topic One"));
+  await waitFor(() => expect(mock.generateTopic).toHaveBeenCalledWith("t1"));
+
+  // t1's own button is busy/disabled...
+  await waitFor(() =>
+    expect(screen.getByLabelText("Regenerate Topic One").props.accessibilityState?.disabled).toBe(true),
+  );
+  // ...but t2's Generate must stay ENABLED (the fix — no global grey).
+  expect(screen.getByLabelText("Generate Topic Two").props.accessibilityState?.disabled).toBeFalsy();
+});
+
 it("pressing Open on a drafted topic navigates to the topic-version viewer", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base());
   render(<TrustProjectDetail />);
