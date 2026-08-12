@@ -122,11 +122,11 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, refresh]);
 
-  const generateTopic = useCallback(async (topicId: string) => {
+  const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string }) => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
     if (!accessToken) throw new Error("Not signed in");
-    const v = await generateTopicApi(projectId, topicId, { api_key: key, provider_id: "anthropic" }, accessToken);
+    const v = await generateTopicApi(projectId, topicId, { api_key: key, provider_id: "anthropic", guidance: opts?.guidance }, accessToken);
     await refresh(); return v;
   }, [accessToken, projectId, refresh]);
 

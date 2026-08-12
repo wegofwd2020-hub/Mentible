@@ -181,7 +181,7 @@ export async function saveToc(projectId: string, toc: StructuredTocView, token: 
 }
 
 export async function generateTopic(
-  projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string }, token: string,
+  projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
 ): Promise<TopicVersionCreatedView> {
   return (await trustFetch<TopicVersionCreatedView>(
     `/projects/${projectId}/topics/${topicId}/generate`, token, { method: "POST", body: JSON.stringify(body) },
