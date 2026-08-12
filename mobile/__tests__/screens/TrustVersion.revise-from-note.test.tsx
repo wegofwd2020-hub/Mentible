@@ -58,7 +58,12 @@ it("owner: 'Revise from this note' prefills guidance and submits it", async () =
   expect(guidanceInput.props.value).toContain("tighten the intro");
 
   fireEvent.press(screen.getByLabelText("Generate new version"));
-  await waitFor(() => expect(mockGenerateVersion).toHaveBeenCalledWith("a1", { guidance: "tighten the intro" }));
+  await waitFor(() =>
+    expect(mockGenerateVersion).toHaveBeenCalledWith(
+      "a1",
+      expect.objectContaining({ guidance: "tighten the intro", onPhase: expect.any(Function) }),
+    ),
+  );
 });
 
 it("reviewer: does not see 'Revise from this note'", async () => {
