@@ -911,7 +911,9 @@ async def create_topic_version_manual(
     # list_topic_versions orders by topic_id, version_no -> last = latest
     title = existing[-1].title
     sections = body.content.get("sections", []) if isinstance(body.content, dict) else []
-    source_ids = sorted({sid for s in sections for sid in (s.get("source_ids") or [])})
+    source_ids = sorted(
+        {sid for s in sections if isinstance(s, dict) for sid in (s.get("source_ids") or [])}
+    )
     v = await topic_repo.create_topic_version(
         conn,
         project_id=project_id,

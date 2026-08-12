@@ -200,8 +200,10 @@ function TopicVersionViewerInner() {
     setSaving(true);
     try {
       const v = await editTopic(topicVersion.topic_id, { sections: draft });
-      setEditing(false);
+      // Navigate first, then clear edit state (mirror trust/version/[versionId].tsx) —
+      // this file is render-order-sensitive around the reader (see builtTopic note).
       router.replace(`/trust/topic-version/${v.id}?projectId=${projectId}`);
+      setEditing(false);
     } catch (e) {
       Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : "Please try again.");
     } finally {
