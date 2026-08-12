@@ -217,6 +217,15 @@ class TopicVersionSummaryOut(BaseModel):
     is_validated: bool
 
 
+class TopicFeedbackOut(BaseModel):
+    id: str
+    topic_version_id: str
+    author_kind: str  # "expert" | "operator"
+    author_name: str | None
+    body: str
+    created_at: datetime | None
+
+
 class TopicVersionDetailOut(BaseModel):
     id: str
     topic_id: str
@@ -227,6 +236,7 @@ class TopicVersionDetailOut(BaseModel):
     is_validated: bool
     recorded_via: str | None = None
     generation_meta: dict | None = None
+    feedback: list[TopicFeedbackOut] = []
 
 
 class DraftGenerateIn(BaseModel):

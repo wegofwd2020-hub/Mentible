@@ -1227,3 +1227,52 @@ def test_topic_versions_list_endpoint():
         # a stranger is 403
         _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
         assert c.get(f"/api/v1/trust/projects/{pid}/topics/t1/versions").status_code == 403
+
+
+def test_topic_feedback_records_revision_note_and_appears_in_version_detail():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        expert_email = f"e-{uuid.uuid4()}@x.z"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        # empty body -> 422
+        assert (
+            c.post(f"/api/v1/trust/topic-versions/{tvid}/feedback", json={"body": "  "}).status_code
+            == 422
+        )
+        # owner note -> operator
+        of = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/feedback", json={"body": "tighten the intro"}
+        ).json()
+        assert of["author_kind"] == "operator"
+        assert of["topic_version_id"] == tvid
+        # reviewer note -> expert
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert_email})
+        _as(f"e-{uuid.uuid4()}", expert_email)
+        c.post("/api/v1/trust/session/sync")
+        rf = c.post(
+            f"/api/v1/trust/topic-versions/{tvid}/feedback", json={"body": "add a source"}
+        ).json()
+        assert rf["author_kind"] == "expert" and rf["author_name"] == expert_email
+        # both notes surface on the topic-version detail, in order
+        detail = c.get(f"/api/v1/trust/topic-versions/{tvid}").json()
+        assert [f["body"] for f in detail["feedback"]] == ["tighten the intro", "add a source"]
+
+
+def test_topic_feedback_unknown_topic_version_404():
+    with TestClient(app) as c:
+        _as(f"u-{uuid.uuid4()}", f"u-{uuid.uuid4()}@x.z")
+        r = c.post(f"/api/v1/trust/topic-versions/{uuid.uuid4()}/feedback", json={"body": "hi"})
+        assert r.status_code == 404
+
+
+def test_topic_feedback_non_member_403():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        tvid = _topic_version_id(c, pid)
+        _as(f"s-{uuid.uuid4()}", f"s-{uuid.uuid4()}@x.z")
+        r = c.post(f"/api/v1/trust/topic-versions/{tvid}/feedback", json={"body": "hi"})
+        assert r.status_code == 403
