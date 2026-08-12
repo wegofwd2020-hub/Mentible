@@ -467,7 +467,7 @@ function TrustVersionInner() {
             ) : null}
           </View>
         ) : null}
-        {versions.length > 1 ? (
+        {!editing && versions.length > 1 ? (
           <View style={styles.notesBlock}>
             <Text style={styles.notesTitle}>Versions</Text>
             {versions.map((v) => {

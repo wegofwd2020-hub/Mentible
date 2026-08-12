@@ -106,3 +106,22 @@ it("renders nothing when no artifact matches artifactId (defensive)", async () =
   await waitFor(() => expect(screen.getByText("H")).toBeTruthy());
   expect(screen.queryByText("Versions")).toBeNull();
 });
+
+it("hides the Versions block in edit mode (so a row tap can't discard edits)", async () => {
+  mockArtifacts = [
+    {
+      artifact: { id: "a1" },
+      versions: [
+        { id: "v1", version_no: 2, created_at: "2026-08-01T00:00:00Z", is_validated: false, recorded_via: null },
+        { id: "v0", version_no: 1, created_at: "2026-07-01T00:00:00Z", is_validated: true, recorded_via: "expert_self" },
+      ],
+    },
+  ];
+  render(<TrustVersion />);
+  await waitFor(() => expect(screen.getByText("H")).toBeTruthy());
+  expect(screen.getByText("Versions")).toBeTruthy();
+
+  fireEvent.press(screen.getByLabelText("Edit draft")); // enter edit mode (draft is not validated)
+
+  expect(screen.queryByText("Versions")).toBeNull();
+});
