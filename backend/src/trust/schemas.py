@@ -44,6 +44,18 @@ class TocSuggestOut(BaseModel):
     toc: dict
 
 
+class TocSuggestJobOut(BaseModel):
+    """Response for the async suggest-TOC submit (Phase B, T1).
+
+    The endpoint returns 202 + this shape immediately; the caller polls
+    `GET /api/v1/jobs/{job_id}` (shared with whole-lesson / per-topic
+    generation) for the eventual `done`/`failed` status and the suggested
+    `toc` dict."""
+
+    job_id: str
+    status: str
+
+
 class ProjectSummaryOut(BaseModel):
     id: str
     title: str

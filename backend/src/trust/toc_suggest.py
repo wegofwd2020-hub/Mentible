@@ -9,6 +9,8 @@ returns a StructuredTOC-shaped payload; the client saves it via the separate
 
 from __future__ import annotations
 
+import uuid
+
 from pydantic import BaseModel, Field
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
@@ -58,3 +60,31 @@ def suggest_toc(*, sources, topic, audience, goal, provider_id, api_key, model) 
         return _TocOutput.model_validate(parse_json_response(text))
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+
+
+def toc_output_to_view(out: _TocOutput, sources) -> dict:
+    """Map the LLM's `_TocOutput` (+ the project's inputs, for S-label→id
+    resolution) into the StructuredTocView dict the client consumes. Unknown
+    S-labels are dropped, never raised on."""
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    return {
+        "subjects": [
+            {
+                "subject_label": subj.subject_label,
+                "units": [
+                    {
+                        "id": str(uuid.uuid4()),
+                        "title": t.title,
+                        "subtopics": [
+                            ({"label": st.label, "detail": st.detail} if st.detail else st.label)
+                            for st in t.subtopics
+                        ],
+                        "prerequisites": [],
+                        "source_ids": [by_label[lbl] for lbl in t.sources if lbl in by_label],
+                    }
+                    for t in subj.topics
+                ],
+            }
+            for subj in out.subjects
+        ]
+    }
