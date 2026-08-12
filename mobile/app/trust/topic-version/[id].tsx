@@ -28,7 +28,7 @@ function TopicVersionViewerInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions, addTopicFeedback } = useTrustProject(String(projectId));
+  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions, addTopicFeedback, editTopic } = useTrustProject(String(projectId));
   const [topicVersion, setTopicVersion] = useState<TopicVersionDetailView | null>(null);
   const [versions, setVersions] = useState<TopicVersionSummaryView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +40,9 @@ function TopicVersionViewerInner() {
   const [genBusy, setGenBusy] = useState(false);
   const [note, setNote] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
+  const [saving, setSaving] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Build the reader's topic ONCE per version. Building it inline in the JSX
@@ -164,6 +167,50 @@ function TopicVersionViewerInner() {
     }
   };
 
+  // Owner-only: manually edit this topic's sections into a new version.
+  // Mirrors trust/version/[versionId].tsx's startEdit/save — a validated
+  // version confirms first (the approval stays on the old version; the new
+  // one needs re-approval).
+  const startEdit = () => {
+    const go = () => {
+      setDraft((topicVersion!.content?.sections ?? []).map((s) => ({ ...s, source_ids: [...(s.source_ids ?? [])] })));
+      setEditing(true);
+    };
+    if (topicVersion!.is_validated) {
+      Alert.alert(
+        "Edit a validated draft?",
+        `This creates a new version. The approval on v${topicVersion!.version_no} stays; the new version will need re-approval.`,
+        [{ text: "Cancel", style: "cancel" }, { text: "Edit", onPress: go }],
+      );
+    } else {
+      go();
+    }
+  };
+
+  const updateSection = (i: number, field: "heading" | "body", value: string) => {
+    setDraft((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+  };
+
+  const removeSection = (i: number) => {
+    setDraft((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const save = async () => {
+    if (!topicVersion) return;
+    setSaving(true);
+    try {
+      const v = await editTopic(topicVersion.topic_id, { sections: draft });
+      // Navigate first, then clear edit state (mirror trust/version/[versionId].tsx) —
+      // this file is render-order-sensitive around the reader (see builtTopic note).
+      router.replace(`/trust/topic-version/${v.id}?projectId=${projectId}`);
+      setEditing(false);
+    } catch (e) {
+      Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onUnapprove = () => {
     Alert.alert(
       "Withdraw approval",
@@ -241,37 +288,49 @@ function TopicVersionViewerInner() {
             </View>
           ) : null}
         </View>
-        <View style={styles.readerBody}>
-          {builtTopic ? <TopicRenderer topic={builtTopic} /> : null}
-        </View>
-        <View style={styles.actionsRow}>
-          {isOwner ? (
-            <Button
-              variant="ghost"
-              label="Revise"
-              accessibilityLabel="Revise draft"
-              onPress={openRegen}
-            />
-          ) : null}
-          {topicVersion.is_validated ? (
-            <Button
-              variant="ghost"
-              label="Withdraw"
-              accessibilityLabel={`Withdraw approval of version ${topicVersion.version_no}`}
-              busy={apBusy}
-              onPress={onUnapprove}
-            />
-          ) : (
-            <Button
-              variant="primary"
-              label="Approve"
-              accessibilityLabel={`Approve version ${topicVersion.version_no}`}
-              busy={apBusy}
-              onPress={onApprove}
-            />
-          )}
-        </View>
-        {regen ? (
+        {!editing ? (
+          <View style={styles.readerBody}>
+            {builtTopic ? <TopicRenderer topic={builtTopic} /> : null}
+          </View>
+        ) : null}
+        {!editing ? (
+          <View style={styles.actionsRow}>
+            {isOwner ? (
+              <Button
+                variant="ghost"
+                label="Revise"
+                accessibilityLabel="Revise draft"
+                onPress={openRegen}
+              />
+            ) : null}
+            {isOwner ? (
+              <Button
+                variant="ghost"
+                label="Edit text"
+                accessibilityLabel="Edit draft"
+                onPress={startEdit}
+              />
+            ) : null}
+            {topicVersion.is_validated ? (
+              <Button
+                variant="ghost"
+                label="Withdraw"
+                accessibilityLabel={`Withdraw approval of version ${topicVersion.version_no}`}
+                busy={apBusy}
+                onPress={onUnapprove}
+              />
+            ) : (
+              <Button
+                variant="primary"
+                label="Approve"
+                accessibilityLabel={`Approve version ${topicVersion.version_no}`}
+                busy={apBusy}
+                onPress={onApprove}
+              />
+            )}
+          </View>
+        ) : null}
+        {!editing && regen ? (
           <Card style={styles.editRow}>
             <TextInput
               style={[styles.input, styles.bodyInput]}
@@ -292,7 +351,7 @@ function TopicVersionViewerInner() {
             />
           </Card>
         ) : null}
-        {askName ? (
+        {!editing && askName ? (
           <Card style={styles.editRow}>
             <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
             <TextInput
@@ -313,60 +372,109 @@ function TopicVersionViewerInner() {
             />
           </Card>
         ) : null}
-        <View style={styles.notesBlock}>
-          <Text style={styles.notesTitle}>Revision notes</Text>
-          {!isOwner ? (
-            <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
-          ) : null}
-          {(topicVersion.feedback ?? []).length === 0 ? (
-            <Text style={styles.notesEmpty}>
-              {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
-            </Text>
-          ) : (
-            (topicVersion.feedback ?? []).map((f) => (
-              <View key={f.id} style={styles.noteRow}>
-                <Text style={styles.noteMeta}>
-                  {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
-                  {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
-                </Text>
-                <Text style={styles.noteBody}>{f.body}</Text>
-                {isOwner ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Revise from this note"
-                    style={styles.reviseFromNoteBtn}
-                    onPress={() => { setGuidance(f.body); openRegen(); }}
-                  >
-                    <Text style={styles.reviseFromNoteText}>Revise from this note</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ))
-          )}
-          {!isOwner ? (
-            <>
-              <TextInput
-                style={[styles.input, styles.bodyInput]}
-                value={note}
-                onChangeText={setNote}
-                accessibilityLabel="Revision note"
-                placeholder="Request a revision…"
-                placeholderTextColor={theme.textMuted}
-                maxLength={1000}
-                multiline
+        {editing ? (
+          <>
+            {draft.map((s, i) => (
+              <Card key={i} style={styles.editRow}>
+                <TextInput
+                  style={styles.input}
+                  value={s.heading}
+                  onChangeText={(t) => updateSection(i, "heading", t)}
+                  accessibilityLabel={`Section ${i + 1} heading`}
+                  placeholder="Heading"
+                  placeholderTextColor={theme.textMuted}
+                />
+                <TextInput
+                  style={[styles.input, styles.bodyInput]}
+                  value={s.body}
+                  onChangeText={(t) => updateSection(i, "body", t)}
+                  accessibilityLabel={`Section ${i + 1} body`}
+                  placeholder="Body"
+                  placeholderTextColor={theme.textMuted}
+                  multiline
+                />
+                <Button
+                  variant="ghost"
+                  label="Remove section"
+                  accessibilityLabel={`Remove section ${i + 1}`}
+                  onPress={() => removeSection(i)}
+                />
+              </Card>
+            ))}
+            <View style={styles.actionsRow}>
+              <Button
+                variant="ghost"
+                label="Add section"
+                accessibilityLabel="Add section"
+                onPress={() => setDraft([...draft, { heading: "", body: "", source_ids: [] }])}
               />
               <Button
                 variant="primary"
-                label="Request a revision"
-                accessibilityLabel="Send revision request"
-                busy={noteBusy}
-                disabled={!note.trim()}
-                onPress={onAddFeedback}
+                label="Save as new version"
+                accessibilityLabel="Save as new version"
+                busy={saving}
+                disabled={draft.length === 0}
+                onPress={save}
               />
-            </>
-          ) : null}
-        </View>
-        {versions.length > 1 ? (
+            </View>
+          </>
+        ) : null}
+        {!editing ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Revision notes</Text>
+            {!isOwner ? (
+              <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
+            ) : null}
+            {(topicVersion.feedback ?? []).length === 0 ? (
+              <Text style={styles.notesEmpty}>
+                {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
+              </Text>
+            ) : (
+              (topicVersion.feedback ?? []).map((f) => (
+                <View key={f.id} style={styles.noteRow}>
+                  <Text style={styles.noteMeta}>
+                    {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
+                    {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
+                  </Text>
+                  <Text style={styles.noteBody}>{f.body}</Text>
+                  {isOwner ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Revise from this note"
+                      style={styles.reviseFromNoteBtn}
+                      onPress={() => { setGuidance(f.body); openRegen(); }}
+                    >
+                      <Text style={styles.reviseFromNoteText}>Revise from this note</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))
+            )}
+            {!isOwner ? (
+              <>
+                <TextInput
+                  style={[styles.input, styles.bodyInput]}
+                  value={note}
+                  onChangeText={setNote}
+                  accessibilityLabel="Revision note"
+                  placeholder="Request a revision…"
+                  placeholderTextColor={theme.textMuted}
+                  maxLength={1000}
+                  multiline
+                />
+                <Button
+                  variant="primary"
+                  label="Request a revision"
+                  accessibilityLabel="Send revision request"
+                  busy={noteBusy}
+                  disabled={!note.trim()}
+                  onPress={onAddFeedback}
+                />
+              </>
+            ) : null}
+          </View>
+        ) : null}
+        {!editing && versions.length > 1 ? (
           <View style={styles.notesBlock}>
             <Text style={styles.notesTitle}>Versions</Text>
             {versions.map((v) => {

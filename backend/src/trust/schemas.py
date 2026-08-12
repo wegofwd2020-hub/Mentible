@@ -210,6 +210,10 @@ class TopicVersionOut(BaseModel):
     created_at: datetime | None
 
 
+class TopicVersionContentIn(BaseModel):
+    content: dict
+
+
 class TopicVersionSummaryOut(BaseModel):
     id: str
     version_no: int

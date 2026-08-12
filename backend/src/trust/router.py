@@ -888,6 +888,57 @@ async def list_topic_version_history(
     ]
 
 
+@router.post(
+    "/projects/{project_id}/topics/{topic_id}/versions",
+    response_model=schemas.TopicVersionOut,
+)
+async def create_topic_version_manual(
+    project_id: uuid.UUID,
+    topic_id: str,
+    body: schemas.TopicVersionContentIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicVersionOut:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    existing = [
+        v
+        for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
+        if v.topic_id == topic_id
+    ]
+    if not existing:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
+    # list_topic_versions orders by topic_id, version_no -> last = latest
+    title = existing[-1].title
+    sections = body.content.get("sections", []) if isinstance(body.content, dict) else []
+    source_ids = sorted(
+        {
+            str(sid)
+            for s in sections
+            if isinstance(s, dict) and isinstance(s.get("source_ids"), list)
+            for sid in s["source_ids"]
+        }
+    )
+    v = await topic_repo.create_topic_version(
+        conn,
+        project_id=project_id,
+        topic_id=topic_id,
+        title=title,
+        source_ids=source_ids,
+        content=body.content,
+        created_by_sub=principal.sub,
+        generation_meta={"kind": "manual_edit", "source_input_ids": source_ids},
+    )
+    return schemas.TopicVersionOut(
+        id=str(v.id),
+        topic_id=v.topic_id,
+        title=v.title,
+        content=v.content or {"sections": []},
+        version_no=v.version_no,
+        created_at=v.created_at,
+    )
+
+
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)
 async def record_version_approval(
     version_id: uuid.UUID,

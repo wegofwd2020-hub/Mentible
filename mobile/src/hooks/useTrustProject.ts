@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -152,6 +152,12 @@ export function useTrustProject(projectId: string) {
     return addTopicFeedbackApi(topicVersionId, body, accessToken);
   }, [accessToken]);
 
+  const editTopic = useCallback(async (topicId: string, content: object): Promise<TopicVersionCreatedView> => {
+    if (!accessToken) throw new Error("Not signed in");
+    const v = await createTopicVersion(projectId, topicId, content, accessToken);
+    await refresh(); return v;
+  }, [accessToken, projectId, refresh]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
@@ -159,5 +165,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, accessToken };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken };
 }
