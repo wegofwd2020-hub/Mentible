@@ -401,6 +401,8 @@ function StructurePanel({
   onChangeToc,
   onSuggest,
   suggestBusy,
+  suggestGen,
+  suggestElapsedMs,
   sourceLabel,
   inputsEmpty,
 }: {
@@ -410,6 +412,8 @@ function StructurePanel({
   onChangeToc: (next: StructuredTOC) => void;
   onSuggest: () => void;
   suggestBusy: boolean;
+  suggestGen: { startedAt: number; phase: "queued" | "running" } | null;
+  suggestElapsedMs: number;
   sourceLabel: (id: string) => string;
   inputsEmpty: boolean;
 }) {
@@ -431,6 +435,7 @@ function StructurePanel({
               accessibilityLabel="Suggest outline from sources"
             />
           </View>
+          {suggestGen ? <GenerateProgressBar phase={suggestGen.phase} elapsedMs={suggestElapsedMs} /> : null}
           {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
           <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
         </>
@@ -1181,6 +1186,12 @@ function TrustProjectDetailInner() {
   const [compareSel, setCompareSel] = useState<string[]>([]);
   const [tocDraft, setTocDraft] = useState<StructuredTOC | null>(null);
   const [suggestBusy, setSuggestBusy] = useState(false);
+  // Drives the Suggest-from-sources GenerateProgressBar — separate from
+  // suggestBusy, which stays a re-entry guard + button-busy flag that also
+  // spans the confirm-replace dialog (the bar itself clears well before
+  // that, in onSuggest's `finally`).
+  const [suggestGen, setSuggestGen] = useState<{ startedAt: number; phase: "queued" | "running" } | null>(null);
+  const suggestElapsedMs = useElapsedMs(suggestGen?.startedAt ?? null);
   // Debounces the network `saveToc` triggered by TOC edits — every keystroke
   // in TopicTreeEditor calls onChangeToc, and firing a full-TOC PATCH per
   // character both floods the network and risks an out-of-order last-write
@@ -1458,8 +1469,23 @@ function TrustProjectDetailInner() {
     // suggestToc call and stack a second dialog.
     if (suggestBusy) return;
     setSuggestBusy(true);
+    setSuggestGen({ startedAt: Date.now(), phase: "queued" });
+    let suggested: StructuredTOC;
     try {
-      const suggested = tocViewToStructured(await suggestToc());
+      suggested = tocViewToStructured(
+        await suggestToc({ onPhase: (phase) => setSuggestGen((p) => (p ? { ...p, phase } : p)) }),
+      );
+    } catch (e) {
+      Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      setSuggestBusy(false);
+      return;
+    } finally {
+      // Cleared here (not in the outer flow) so the bar is gone before the
+      // Replace? confirm dialog or the apply() below — it never shows
+      // during either.
+      setSuggestGen(null);
+    }
+    try {
       const apply = async () => {
         // An armed keystroke-debounce timer firing after this save would
         // clobber the just-persisted suggested outline with a stale edit —
@@ -1582,6 +1608,8 @@ function TrustProjectDetailInner() {
             onChangeToc={onChangeToc}
             onSuggest={onSuggest}
             suggestBusy={suggestBusy}
+            suggestGen={suggestGen}
+            suggestElapsedMs={suggestElapsedMs}
             sourceLabel={sourceLabel}
             inputsEmpty={inputs.length === 0}
           />
