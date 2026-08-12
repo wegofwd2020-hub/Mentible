@@ -90,6 +90,18 @@ class VersionOut(BaseModel):
     created_at: datetime | None
 
 
+class VersionGenerateJobOut(BaseModel):
+    """Response for the async whole-book draft generate submit (Phase C, T1).
+
+    The endpoint returns 202 + this shape immediately; the caller polls
+    `GET /api/v1/jobs/{job_id}` (shared with whole-lesson / per-topic /
+    suggest-TOC generation) for the eventual `done`/`failed` status and the
+    created `artifact_version` id."""
+
+    job_id: str
+    status: str
+
+
 class VersionSummaryOut(BaseModel):
     id: str
     version_no: int

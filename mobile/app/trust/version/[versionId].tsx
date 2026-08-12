@@ -15,8 +15,11 @@ import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { versionToTopic } from "@/lib/topicVersionToTopic";
+import { GenerateProgressBar } from "@/components/GenerateProgressBar";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 type Styles = ReturnType<typeof makeStyles>;
+type GenProgress = { startedAt: number; phase: "queued" | "running" };
 
 function TrustVersionInner() {
   const { versionId, artifactId, projectId } = useLocalSearchParams<{
@@ -34,7 +37,8 @@ function TrustVersionInner() {
   const [saving, setSaving] = useState(false);
   const [regen, setRegen] = useState(false);
   const [guidance, setGuidance] = useState("");
-  const [genBusy, setGenBusy] = useState(false);
+  const [reviseGen, setReviseGen] = useState<GenProgress | null>(null);
+  const reviseElapsed = useElapsedMs(reviseGen?.startedAt ?? null);
   const [apBusy, setApBusy] = useState(false);
   const [askName, setAskName] = useState(false);
   const [expertName, setExpertName] = useState("");
@@ -139,14 +143,17 @@ function TrustVersionInner() {
   };
 
   const doRegen = async () => {
-    setGenBusy(true);
+    setReviseGen({ startedAt: Date.now(), phase: "queued" });
     try {
-      const v = await generateVersion(String(artifactId), { guidance: guidance.trim() || undefined });
+      const v = await generateVersion(String(artifactId), {
+        guidance: guidance.trim() || undefined,
+        onPhase: (phase) => setReviseGen((p) => (p ? { ...p, phase } : p)),
+      });
       router.push({ pathname: "/trust/version/[versionId]", params: { versionId: v.id, artifactId: String(artifactId), projectId: String(projectId) } });
       setRegen(false); setGuidance("");
     } catch (e) {
-      Alert.alert("Couldn't regenerate", e instanceof ApiError ? e.userMessage() : "Try again.");
-    } finally { setGenBusy(false); }
+      Alert.alert("Couldn't regenerate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+    } finally { setReviseGen(null); }
   };
 
   const onCopy = async () => {
@@ -332,11 +339,12 @@ function TrustVersionInner() {
               accessibilityRole="button"
               accessibilityLabel="Generate new version"
               style={styles.saveBtn}
-              disabled={genBusy}
+              disabled={reviseGen !== null}
               onPress={doRegen}
             >
-              <Text style={styles.saveBtnText}>{genBusy ? "Generating…" : "Generate new version"}</Text>
+              <Text style={styles.saveBtnText}>{reviseGen !== null ? "Generating…" : "Generate new version"}</Text>
             </Pressable>
+            {reviseGen ? <GenerateProgressBar phase={reviseGen.phase} elapsedMs={reviseElapsed} /> : null}
           </View>
         ) : null}
         {editing ? (

@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import uuid
 
 import asyncpg
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, status
-from wegofwd_llm.errors import (
-    LLMAuthError,
-    LLMError,
-    LLMRateLimitError,
-    LLMSchemaError,
-)
 
 from backend.config import settings
 
@@ -20,7 +13,6 @@ from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing.eligibility import is_managed_eligible
-from ..billing.vault import get_managed_key
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
 from ..core.rate_limit import enforce_rate_limit
@@ -45,8 +37,7 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
-from .generate import generate_draft
-from .tasks import generate_topic_task, suggest_toc_task
+from .tasks import generate_topic_task, generate_version_task, suggest_toc_task
 from .toc_util import find_toc_topic
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -305,7 +296,8 @@ async def get_version(
 
 @router.post(
     "/artifacts/{artifact_id}/versions/generate",
-    response_model=schemas.VersionOut,
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(enforce_rate_limit)],
 )
 async def generate_version(
@@ -313,14 +305,24 @@ async def generate_version(
     body: schemas.DraftGenerateIn,
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
-) -> schemas.VersionOut:
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """Submit a whole-book draft generation job (Phase C, T1 — async).
+
+    Does the synchronous, fail-fast validation (owner-only access, artifact
+    exists, project exists, has sources, managed eligibility) then hands the
+    actual LLM call off to `generate_version_task` (Celery) and returns 202
+    immediately. Poll the shared `GET /api/v1/jobs/{job_id}` for the eventual
+    `done`/`failed` status and the created `artifact_version` id — same job
+    machinery (encrypted BYOK envelope + status row) as per-topic generation
+    and suggest-TOC.
+    """
     project_id = await project_id_for_artifact(conn, artifact_id=artifact_id)
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
 
-    fmt = await conn.fetchval("SELECT format FROM artifact WHERE id=$1", artifact_id)
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
@@ -331,86 +333,47 @@ async def generate_version(
             "add at least one source before generating a draft",
         )
 
-    # key handling mirrors /derivatives
+    # key handling mirrors generate_topic_version / suggest_project_toc — the
+    # actual key (managed vault lookup or BYOK decrypt) is resolved by the
+    # worker, not here.
     managed = body.api_key is None
     if managed:
         if not is_managed_eligible(principal, body.provider_id):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
             )
-        api_key = get_managed_key(body.provider_id)
-    else:
-        api_key = body.api_key
     model = body.model or settings.anthropic_default_model
 
-    try:
-        out = await asyncio.to_thread(
-            generate_draft,
-            sources=sources,
-            artifact_format=fmt,
-            topic=p.topic,
-            audience=p.audience,
-            goal=p.goal,
-            provider_id=body.provider_id,
-            api_key=api_key,
-            model=model,
-            guidance=body.guidance,
-        )
-    except LLMSchemaError:
-        log.warning("draft_generation_failed", reason="schema", artifact_id=str(artifact_id))
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, "generated draft failed validation"
-        ) from None
-    except LLMAuthError:
-        log.warning("draft_generation_failed", reason="auth", artifact_id=str(artifact_id))
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            "The API key was rejected by the provider. Check it in Settings.",
-        ) from None
-    except LLMRateLimitError:
-        log.warning("draft_generation_failed", reason="rate_limit", artifact_id=str(artifact_id))
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "The provider is rate-limiting requests. Try again shortly.",
-        ) from None
-    except LLMError:
-        log.warning("draft_generation_failed", reason="llm_error", artifact_id=str(artifact_id))
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "draft generation failed") from None
-    except Exception:
-        # Defense in depth: never let a raw error escape with key material.
-        log.warning("draft_generation_failed", reason="unexpected", artifact_id=str(artifact_id))
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "draft generation failed") from None
+    job_id = uuid.uuid4()
 
-    # map model labels S1..Sn -> real input ids (drop unknowns; never 500 on a bad label)
-    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
-    sections = [
-        {
-            "heading": sec.heading,
-            "body": sec.body,
-            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
-        }
-        for sec in out.sections
-    ]
-    cited = sorted({sid for s in sections for sid in s["source_ids"]})
-    v = await artifact_repo.create_version(
-        conn,
-        artifact_id=artifact_id,
-        content={"sections": sections},
-        created_by_sub=principal.sub,
-        generation_meta={
-            "kind": "draft",
-            "model": model,
-            "provider_id": body.provider_id,
-            "source_input_ids": cited,
-            **({"guidance": body.guidance} if body.guidance else {}),
-        },
+    # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
+    # key; the worker reads OUR vault key (ADR-005 D6).
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    generate_version_task.delay(
+        job_id=str(job_id),
+        artifact_id=str(artifact_id),
+        provider_id=body.provider_id,
+        model=model,
+        guidance=body.guidance,
+        managed=managed,
+        recorded_by_sub=principal.sub,
     )
-    return schemas.VersionOut(
-        id=str(v.id),
-        artifact_id=str(v.artifact_id),
-        version_no=v.version_no,
-        created_at=v.created_at,
+
+    # Safe-surface logging only — never the api_key, never the request body.
+    log.info(
+        "draft_generate_submitted",
+        job_id=str(job_id),
+        artifact_id=str(artifact_id),
+        managed=managed,
     )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
 
 
 @router.post("/projects/{project_id}/invitations", response_model=schemas.InvitationOut)

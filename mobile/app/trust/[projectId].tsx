@@ -488,7 +488,7 @@ function DraftsPanel({
   isOwner: boolean;
   artifacts: ArtifactDetailView[];
   inputs: ProjectInputView[];
-  formatGen: ReadonlyMap<string, number>;
+  formatGen: ReadonlyMap<string, GenProgress>;
   onGenerateFormat: (fmt: DraftFormat) => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
   compareArtifactId: string | null;
@@ -587,8 +587,8 @@ function DraftsPanel({
               </Text>
               <View style={styles.genGrid}>
                 {DRAFT_FORMATS.map((f) => {
-                  const startedAt = formatGen.get(f.format);
-                  const busy = startedAt !== undefined;
+                  const prog = formatGen.get(f.format);
+                  const busy = prog !== undefined;
                   const disabled = busy || inputs.length === 0;
                   return (
                     <Pressable
@@ -603,7 +603,7 @@ function DraftsPanel({
                         <Text style={styles.genCardLabel}>{f.label}</Text>
                         <Text style={styles.genHint}>{f.hint}</Text>
                         <Text style={styles.genPlus}>{busy ? "…" : "+"}</Text>
-                        {busy ? <TopicRowProgress startedAt={startedAt} phase="running" /> : null}
+                        {prog ? <TopicRowProgress startedAt={prog.startedAt} phase={prog.phase} /> : null}
                       </Card>
                     </Pressable>
                   );
@@ -1163,10 +1163,12 @@ function TrustProjectDetailInner() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
-  // A MAP of in-flight formats to their startedAt, not a single busy format —
+  // A MAP of in-flight formats to their progress, not a single busy format —
   // same "per-id busy, not a global lock" fix as topicGen below: a single
   // `genBusyFormat` string greyed EVERY whole-book card while one generated.
-  const [formatGen, setFormatGen] = useState<ReadonlyMap<string, number>>(new Map());
+  // The value carries startedAt/phase (queued -> running) the same way
+  // topicGen does, now that whole-book generation is a durable async job too.
+  const [formatGen, setFormatGen] = useState<ReadonlyMap<string, GenProgress>>(new Map());
   // A MAP of in-flight topic ids to their progress, not a single id: the
   // Celery worker runs per-topic generations concurrently, and —
   // more importantly — a single `busyTopicId` string forced
@@ -1278,9 +1280,17 @@ function TrustProjectDetailInner() {
   };
 
   const onGenerateFormat = async (fmt: DraftFormat) => {
-    setFormatGen((cur) => new Map(cur).set(fmt.format, Date.now()));
+    setFormatGen((cur) => new Map(cur).set(fmt.format, { startedAt: Date.now(), phase: "queued" }));
     try {
-      await generateFormat(fmt);
+      await generateFormat(fmt, {
+        onPhase: (phase) => setFormatGen((cur) => {
+          const p = cur.get(fmt.format);
+          if (!p) return cur;
+          const next = new Map(cur);
+          next.set(fmt.format, { ...p, phase });
+          return next;
+        }),
+      });
     } catch (e) {
       Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {

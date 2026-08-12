@@ -1,0 +1,557 @@
+"""TDD for the whole-book draft generate Celery task (Phase C, T1).
+
+`generate_version_task` / its async body `_run_version` is the worker side of
+`POST /api/v1/trust/artifacts/{artifact_id}/versions/generate` — it resolves
+the provider key (BYOK envelope decrypt, or the managed vault key), generates
+the whole-book draft, persists an `artifact_version`, and writes the job
+status row. Mirrors `backend/src/trust/tasks.py`'s `_run` (per-topic, Phase A)
+so the shared `GET /api/v1/jobs/{id}` polling endpoint works identically for
+whole-lesson / per-topic / suggest-TOC / whole-book job kinds.
+
+ADR-001 is non-negotiable here: the BYOK key must NEVER appear in the
+serialized status payload (`test_status_payload_never_contains_the_key_*`),
+and the encrypted envelope must be deleted from Redis after the run on both
+the success and failure paths.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import uuid
+from unittest.mock import patch
+
+import asyncpg
+import fakeredis.aioredis
+import pytest
+from wegofwd_llm.errors import LLMSchemaError
+
+from backend.config import settings
+from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
+from backend.src.generate.tasks import _byok_redis_key, _job_status_redis_key
+from backend.src.trust import artifact_repo, project_repo
+from backend.src.trust import tasks as trust_tasks
+from backend.tests.helpers import fake_provider
+
+DSN = os.environ.get("DATABASE_URL", "")
+pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(not DSN, reason="no DB")]
+
+_MASTER_KEY = parse_master_key(settings.byok_master_key)
+_API_KEY = "sk-ant-" + "k" * 20
+
+_GOOD = json.dumps(
+    {
+        "sections": [
+            {
+                "heading": "Design storm",
+                "body": "Pipes are sized for the 10-year storm.",
+                "sources": ["S1"],
+            },
+        ]
+    }
+)
+
+
+@pytest.fixture
+async def conn():
+    c = await asyncpg.connect(DSN)
+    tx = c.transaction()
+    await tx.start()
+    try:
+        yield c
+    finally:
+        await tx.rollback()
+        await c.close()
+
+
+@pytest.fixture
+async def fake_redis():
+    r = fakeredis.aioredis.FakeRedis(decode_responses=False)
+    try:
+        yield r
+    finally:
+        await r.aclose()
+
+
+@pytest.fixture(autouse=True)
+def _patch_redis_client(fake_redis):
+    """The task builds its own Redis connection from settings (Celery task
+    args are JSON — a live client can't ride along). Point it at the test's
+    fakeredis instance instead of a real Redis."""
+    with patch("backend.src.trust.tasks._redis_client", return_value=fake_redis):
+        yield
+
+
+class _NoCloseConn:
+    """Proxies every call to the wrapped connection except `close()`.
+
+    The task opens its OWN DB connection and closes it when done (mirrors
+    production — the Celery worker has no shared pool). In tests that
+    connection must be the SAME one the `conn` fixture seeded data through
+    (a second real connection can't see the fixture's uncommitted rows), and
+    that fixture — not the task — owns the connection's lifecycle (it rolls
+    back + closes at teardown). So `close()` here is a deliberate no-op.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def close(self):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _patch_db_connect(conn):
+    async def _fake_connect():
+        return _NoCloseConn(conn)
+
+    with patch("backend.src.trust.tasks._db_connect", _fake_connect):
+        yield
+
+
+async def _project_with_artifact(conn, *, with_source=True):
+    a = await conn.fetchval(
+        "INSERT INTO account (idp_sub) VALUES ($1) RETURNING id", f"s-{uuid.uuid4()}"
+    )
+    p = await project_repo.create_project(
+        conn,
+        owner_account_id=a,
+        title="Guide",
+        topic="stormwater",
+        audience="engineers",
+        goal="size pipes",
+    )
+    art = await artifact_repo.create_artifact(
+        conn, project_id=p.id, role="cornerstone", format="guide"
+    )
+    if with_source:
+        await project_repo.add_input(
+            conn,
+            project_id=p.id,
+            kind="note",
+            title="N",
+            content="Pipes are sized for the 10-year storm.",
+        )
+    return p.id, art.id
+
+
+async def _seed_byok_envelope(fake_redis, job_id: uuid.UUID, key: str = _API_KEY) -> None:
+    envelope = encrypt_api_key(_MASTER_KEY, str(job_id), key)
+    await fake_redis.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+
+async def _status(fake_redis, job_id: uuid.UUID) -> dict:
+    raw = await fake_redis.get(_job_status_redis_key(job_id))
+    assert raw is not None, "no status row written"
+    return json.loads(raw)
+
+
+# ── Happy path ────────────────────────────────────────────────────────────────
+
+
+async def test_task_produces_a_version_and_writes_done(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+    assert body["result"]["artifact_id"] == str(aid)
+    assert body["result"]["version_no"] == 1
+    version_id = uuid.UUID(body["result"]["version_id"])
+
+    v = await artifact_repo.get_version(conn, version_id=version_id)
+    assert v.content["sections"][0]["heading"] == "Design storm"
+    assert v.generation_meta["kind"] == "draft"
+    assert v.generation_meta["provider_id"] == "anthropic"
+
+
+async def test_task_stores_guidance_in_generation_meta(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance="keep it concise",
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    version_id = uuid.UUID(body["result"]["version_id"])
+    v = await artifact_repo.get_version(conn, version_id=version_id)
+    assert v.generation_meta["guidance"] == "keep it concise"
+
+
+async def test_task_uses_the_managed_vault_key_when_managed(conn, fake_redis, monkeypatch):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    # No envelope seeded — managed jobs never touch Redis for the key.
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=True,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+
+
+async def test_task_writes_running_before_done(conn, fake_redis, monkeypatch):
+    """The task must write a `running` status when it actually starts work
+    (after the no-sources guard, before the generation call) so the mobile
+    foreground progress bar can distinguish "waiting for a worker slot" from
+    "generating". Spies on `_write_status` to capture the emitted status
+    sequence, and — per ADR-001 — asserts the `running` payload never carries
+    the API key."""
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    seq: list[tuple[str, str]] = []
+    orig = trust_tasks._write_status
+
+    async def spy(r, jid, status, **kw):
+        payload = {"status": status, **{k: v for k, v in kw.items() if v is not None}}
+        seq.append((status, json.dumps(payload)))
+        return await orig(r, jid, status, **kw)
+
+    monkeypatch.setattr(trust_tasks, "_write_status", spy)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    statuses = [s for s, _ in seq]
+    assert "running" in statuses and "done" in statuses
+    assert statuses.index("running") < statuses.index("done")
+    # ADR-001: neither payload ever carries the key.
+    for _s, payload in seq:
+        assert _API_KEY not in payload
+
+
+# ── Failure path ──────────────────────────────────────────────────────────────
+
+
+async def test_provider_error_writes_failed_status(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        side_effect=LLMSchemaError("bad json"),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "failed"
+    assert "error" in body
+    versions = await artifact_repo.list_versions(conn, artifact_id=aid)
+    assert versions == []
+
+
+async def test_unknown_artifact_writes_failed_status(conn, fake_redis):
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    await trust_tasks._run_version(
+        job_id=job_id,
+        artifact_id=uuid.uuid4(),
+        provider_id="anthropic",
+        model="m",
+        guidance=None,
+        managed=False,
+        recorded_by_sub="owner-sub",
+    )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "failed"
+    assert body["error"] == "artifact not found"
+
+
+async def test_no_sources_writes_failed_status_before_running(conn, fake_redis):
+    """The source-less guard must fire BEFORE `running` is written — no
+    partial-progress status for a job that never actually generates."""
+    _pid, aid = await _project_with_artifact(conn, with_source=False)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    seq: list[str] = []
+    orig = trust_tasks._write_status
+
+    async def spy(r, jid, status, **kw):
+        seq.append(status)
+        return await orig(r, jid, status, **kw)
+
+    with patch.object(trust_tasks, "_write_status", spy):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert "running" not in seq
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "failed"
+    assert body["error"] == "add at least one source before generating a draft"
+
+
+# ── ADR-001: the key never leaks into the status payload ──────────────────────
+
+
+async def test_status_payload_never_contains_the_key_on_success(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    raw = await fake_redis.get(_job_status_redis_key(job_id))
+    assert _API_KEY not in raw.decode("utf-8")
+
+
+async def test_status_payload_never_contains_the_key_on_provider_error(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    # The most dangerous case: the provider raises with the key baked into
+    # the exception message.
+    leaky = fake_provider(side_effect=RuntimeError(f"upstream rejected key={_API_KEY}"))
+    with patch("backend.src.trust.generate.build_provider", return_value=leaky):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    raw = await fake_redis.get(_job_status_redis_key(job_id))
+    assert _API_KEY not in raw.decode("utf-8")
+
+
+# ── Envelope shredding ──────────────────────────────────────────────────────────
+
+
+async def test_envelope_deleted_after_success(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert await fake_redis.get(_byok_redis_key(job_id)) is None
+
+
+async def test_envelope_deleted_after_failure(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        side_effect=LLMSchemaError("bad json"),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert await fake_redis.get(_byok_redis_key(job_id)) is None
+
+
+async def test_envelope_delete_is_a_noop_on_the_managed_path(conn, fake_redis, monkeypatch):
+    """Managed jobs never write an envelope; shredding a nonexistent key must
+    not raise."""
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=True,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+    assert await fake_redis.get(_byok_redis_key(job_id)) is None
+
+
+# ── Idempotency ───────────────────────────────────────────────────────────────
+
+
+async def test_idempotent_rerun_does_not_duplicate_the_version(conn, fake_redis):
+    _pid, aid = await _project_with_artifact(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.generate.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+        # A redelivered task (task_acks_late) re-runs with the same job_id.
+        # The envelope is already shredded — a naive re-run would fail trying
+        # to re-decrypt, which is itself evidence the idempotency check must
+        # come BEFORE key resolution.
+        await trust_tasks._run_version(
+            job_id=job_id,
+            artifact_id=aid,
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    versions = await artifact_repo.list_versions(conn, artifact_id=aid)
+    assert len(versions) == 1
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+
+
+# ── The Celery task wrapper itself ──────────────────────────────────────────────
+
+
+def test_generate_version_task_registered():
+    assert "trust.generate_version" in trust_tasks.celery_app.tasks
+
+
+def test_generate_version_task_wraps_run_version_via_asyncio_run():
+    """The Celery entrypoint is a thin sync wrapper — `asyncio.run(_run_version(...))`.
+
+    Verified via `.apply()` (no broker/worker needed — runs the task body
+    directly in-process) with `_run_version` monkeypatched, called from a SYNC
+    test so `asyncio.run()` isn't nested inside pytest-asyncio's already-running
+    loop (which the DB-backed `_run_version(...)`-calling tests above avoid by
+    calling `_run_version` directly instead of going through this Celery
+    entrypoint)."""
+    calls: dict = {}
+
+    async def _fake_run(**kwargs):
+        calls.update(kwargs)
+
+    with patch("backend.src.trust.tasks._run_version", _fake_run):
+        trust_tasks.generate_version_task.apply(
+            kwargs={
+                "job_id": "11111111-1111-1111-1111-111111111111",
+                "artifact_id": "22222222-2222-2222-2222-222222222222",
+                "provider_id": "anthropic",
+                "model": "m",
+                "guidance": "g",
+                "managed": False,
+                "recorded_by_sub": "sub-1",
+            }
+        ).get()
+
+    assert str(calls["artifact_id"]) == "22222222-2222-2222-2222-222222222222"
+    assert calls["provider_id"] == "anthropic"
+    assert calls["managed"] is False
+    assert str(calls["job_id"]) == "11111111-1111-1111-1111-111111111111"

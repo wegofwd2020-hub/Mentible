@@ -155,12 +155,40 @@ export async function createVersion(
   return (await trustFetch<VersionCreatedView>(`/artifacts/${artifactId}/versions`, token, { method: "POST", body: JSON.stringify(body) })) as VersionCreatedView;
 }
 
+// Phase C async whole-book/whole-artifact generate (T1/T2): POST
+// .../versions/generate now returns 202 + this job handle immediately; the
+// actual generation runs in a Celery worker. Poll `getGenerateVersionJob`
+// below (or use `useGenerateVersionJob`) for the eventual `done`/`failed`
+// result, off the SAME shared GET /api/v1/jobs/{id} endpoint /generate, the
+// per-topic generate, and suggest-toc jobs also use.
+export interface VersionGenerateJobOut { job_id: string; status: string }
+export interface GenerateVersionJobResult { version_id: string; artifact_id: string; version_no: number }
+export interface GenerateVersionJobStatusView {
+  status: "queued" | "running" | "done" | "failed";
+  result?: GenerateVersionJobResult;
+  error?: string;
+}
+
 export async function generateVersion(
   artifactId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
-): Promise<VersionCreatedView> {
-  return (await trustFetch<VersionCreatedView>(
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
     `/artifacts/${artifactId}/versions/generate`, token, { method: "POST", body: JSON.stringify(body) },
-  )) as VersionCreatedView;
+  )) as VersionGenerateJobOut;
+}
+
+// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
+// /generate, /structure, suggest-toc, and the per-topic generate job also
+// use. Same fetch/ApiError shape as `getJob`/`getSuggestTocJob`.
+export async function getGenerateVersionJob(jobId: string, token: string): Promise<GenerateVersionJobStatusView> {
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<GenerateVersionJobStatusView>;
 }
 
 export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {

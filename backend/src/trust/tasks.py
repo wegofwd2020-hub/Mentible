@@ -40,7 +40,9 @@ from backend.src.generate.tasks import (
     _write_status,
 )
 
-from . import project_repo, topic_repo
+from . import artifact_repo, project_repo, topic_repo
+from .access import project_id_for_artifact
+from .generate import draft_output_to_sections, generate_draft
 from .generate_topic import generate_topic_draft
 from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
@@ -275,6 +277,207 @@ def generate_topic_task(
             job_id=uuid.UUID(job_id),
             project_id=uuid.UUID(project_id),
             topic_id=topic_id,
+            provider_id=provider_id,
+            model=model,
+            guidance=guidance,
+            managed=managed,
+            recorded_by_sub=recorded_by_sub,
+        )
+    )
+
+
+async def _run_version(
+    *,
+    job_id: uuid.UUID,
+    artifact_id: uuid.UUID,
+    provider_id: str,
+    model: str | None,
+    guidance: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    """Do the actual generation work for one whole-book draft generate job.
+
+    Mirrors `_run`'s exact shape (idempotency check, key resolution, the
+    `running` write, shred-on-every-exit-path) — deltas are: the aggregate
+    is an artifact (not a topic within a project's toc), so `project_id` is
+    resolved via `project_id_for_artifact`, and the persisted row is an
+    `artifact_version` (via `artifact_repo.create_version`) rather than a
+    `topic_version`. Never raises — every exit path (success, a known LLM
+    failure, or an unexpected error) writes a status row and shreds the BYOK
+    envelope.
+    """
+    r = _redis_client()
+    api_key: str | None = None
+    try:
+        # (a) Idempotency — a redelivered/retried task (task_acks_late) must
+        # not create a second artifact_version for the same job.
+        raw = await r.get(_job_status_redis_key(job_id))
+        if raw is not None:
+            try:
+                already = json.loads(raw).get("status")
+            except (json.JSONDecodeError, AttributeError):
+                already = None
+            if already == "done":
+                return
+
+        # (b) Resolve the provider key: managed = OUR vault key (ADR-005 D6),
+        # BYOK = decrypt the per-job envelope.
+        if managed:
+            api_key = get_managed_key(provider_id)
+            if not api_key:
+                log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
+                await _write_status(r, job_id, "failed", error="managed generation unavailable")
+                return
+        else:
+            envelope_blob = await r.get(_byok_redis_key(job_id))
+            if envelope_blob is None:
+                # TTL expired before the worker picked up the job.
+                log.warning("envelope_missing", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="job timed out")
+                return
+            try:
+                master_key = parse_master_key(settings.byok_master_key)
+                api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
+            except Exception:
+                log.warning("envelope_decrypt_failed", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="internal error")
+                return
+
+        # (c) Load the artifact's project + sources, generate, and persist
+        # the version. A fresh asyncpg connection — the Celery worker has no
+        # FastAPI pool.
+        conn = await _db_connect()
+        try:
+            project_id = await project_id_for_artifact(conn, artifact_id=artifact_id)
+            if project_id is None:
+                await _write_status(r, job_id, "failed", error="artifact not found")
+                return
+            fmt = await conn.fetchval("SELECT format FROM artifact WHERE id=$1", artifact_id)
+            p = await project_repo.get_project(conn, project_id=project_id)
+            if p is None:
+                await _write_status(r, job_id, "failed", error="project not found")
+                return
+            sources = await project_repo.list_inputs(conn, project_id=project_id)
+            if not sources:
+                await _write_status(
+                    r, job_id, "failed", error="add at least one source before generating a draft"
+                )
+                return
+
+            resolved_model = model or settings.anthropic_default_model
+            await _write_status(
+                r, job_id, "running"
+            )  # phase: queued -> running (foreground progress)
+            try:
+                out = await asyncio.to_thread(
+                    generate_draft,
+                    sources=sources,
+                    artifact_format=fmt,
+                    topic=p.topic,
+                    audience=p.audience,
+                    goal=p.goal,
+                    provider_id=provider_id,
+                    api_key=api_key,
+                    model=resolved_model,
+                    guidance=guidance,
+                )
+            except LLMSchemaError:
+                log.warning("draft_generation_failed", job_id=str(job_id), reason="schema")
+                await _write_status(r, job_id, "failed", error="generated draft failed validation")
+                return
+            except LLMAuthError:
+                log.warning("draft_generation_failed", job_id=str(job_id), reason="auth")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The API key was rejected by the provider. Check it in Settings.",
+                )
+                return
+            except LLMRateLimitError:
+                log.warning("draft_generation_failed", job_id=str(job_id), reason="rate_limit")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The provider is rate-limiting requests. Try again shortly.",
+                )
+                return
+            except LLMError:
+                log.warning("draft_generation_failed", job_id=str(job_id), reason="llm_error")
+                await _write_status(r, job_id, "failed", error="draft generation failed")
+                return
+            except Exception:
+                # Defense in depth: never let a raw error escape with key material.
+                log.warning("draft_generation_failed", job_id=str(job_id), reason="unexpected")
+                await _write_status(r, job_id, "failed", error="draft generation failed")
+                return
+
+            sections, cited = draft_output_to_sections(out, sources)
+            v = await artifact_repo.create_version(
+                conn,
+                artifact_id=artifact_id,
+                content={"sections": sections},
+                created_by_sub=recorded_by_sub,
+                generation_meta={
+                    "kind": "draft",
+                    "model": resolved_model,
+                    "provider_id": provider_id,
+                    "source_input_ids": cited,
+                    **({"guidance": guidance} if guidance else {}),
+                },
+            )
+        finally:
+            await conn.close()
+
+        # (d) Success.
+        await _write_status(
+            r,
+            job_id,
+            "done",
+            result={
+                "version_id": str(v.id),
+                "artifact_id": str(v.artifact_id),
+                "version_no": v.version_no,
+            },
+        )
+    except Exception:
+        # Defense in depth: an unhandled error anywhere above (DB, Redis,
+        # decrypt) must still land as a SAFE failed status — never the raw
+        # exception, which could carry key material in its message.
+        log.warning("trust_generate_version_task_failed", job_id=str(job_id), reason="unexpected")
+        try:
+            await _write_status(r, job_id, "failed", error="draft generation failed")
+        except Exception:
+            log.warning("status_write_failed", job_id=str(job_id))
+    finally:
+        # (e) SHRED — drop our reference to the key and delete the envelope on
+        # every exit path, managed or BYOK (DEL on a missing key is a
+        # harmless no-op, so this is safe even when there was never an
+        # envelope to begin with).
+        if api_key is not None:
+            del api_key
+        await _shred_envelope(r, job_id)
+        await r.aclose()
+
+
+@celery_app.task(bind=True, name="trust.generate_version")
+def generate_version_task(
+    self,
+    *,
+    job_id: str,
+    artifact_id: str,
+    provider_id: str,
+    model: str | None,
+    guidance: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    asyncio.run(
+        _run_version(
+            job_id=uuid.UUID(job_id),
+            artifact_id=uuid.UUID(artifact_id),
             provider_id=provider_id,
             model=model,
             guidance=guidance,

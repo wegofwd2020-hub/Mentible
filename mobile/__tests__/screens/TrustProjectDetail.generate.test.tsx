@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn() }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
@@ -47,7 +47,10 @@ it("owner with a source sees the format picker and pressing a card calls generat
   fireEvent.press(btn);
 
   await waitFor(() => {
-    expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
+    expect(mock.generateFormat).toHaveBeenCalledWith(
+      expect.objectContaining({ format: "linkedin" }),
+      expect.objectContaining({ onPhase: expect.any(Function) }),
+    );
   });
 });
 
@@ -83,10 +86,11 @@ it("disables the format cards and shows a hint when there are no sources yet", a
   expect(mock.generateFormat).not.toHaveBeenCalled();
 });
 
-// Whole-book generation is a SYNCHRONOUS blocking POST (no job, no queue), so
-// the progress bar's phase is fixed to "running" for the whole duration —
-// unlike the per-topic bar (TrustProjectDetail.pertopic.test.tsx), there is
-// no "waiting" (queued) state to assert first.
+// Whole-book generation is now a durable async job (Task 2 — generateFormat
+// submits+polls), same shape as per-topic generation
+// (TrustProjectDetail.pertopic.test.tsx): the bar starts "queued" (Waiting…)
+// and flips to "running" (Generating…) only once generateFormat's onPhase
+// callback fires.
 it("shows the progress bar on a whole-book draft card while generating", async () => {
   const mock = proj(true);
   mock.generateFormat = jest.fn().mockImplementation(() => new Promise(() => {})); // pending
@@ -96,5 +100,25 @@ it("shows the progress bar on a whole-book draft card while generating", async (
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
   fireEvent.press(await screen.findByLabelText("Start a new LinkedIn post draft"));
 
-  expect(await screen.findByText(/generating/i)).toBeTruthy();
+  expect(await screen.findByText(/waiting/i)).toBeTruthy();
+});
+
+it("shows the progress bar on a whole-book draft card and flips Waiting -> Generating via onPhase", async () => {
+  const mock = proj(true);
+  let resolve!: (v: { id: string }) => void;
+  let phaseCb: ((p: "queued" | "running") => void) | undefined;
+  mock.generateFormat = jest.fn().mockImplementation((_fmt: unknown, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
+    phaseCb = opts?.onPhase;
+    return new Promise<{ id: string }>((r) => { resolve = r; });
+  });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Start a new LinkedIn post draft"));
+
+  expect(await screen.findByText(/waiting/i)).toBeTruthy();     // queued
+  act(() => phaseCb?.("running"));
+  expect(await screen.findByText(/generating/i)).toBeTruthy();  // running
+  act(() => resolve({ id: "v9" }));
 });
