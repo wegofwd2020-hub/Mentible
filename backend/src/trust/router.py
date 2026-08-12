@@ -4,6 +4,7 @@ import asyncio
 import uuid
 
 import asyncpg
+import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, status
 from wegofwd_llm.errors import (
     LLMAuthError,
@@ -20,9 +21,12 @@ from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing.eligibility import is_managed_eligible
 from ..billing.vault import get_managed_key
+from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
 from ..core.rate_limit import enforce_rate_limit
+from ..core.redis_dep import get_redis
 from ..db.deps import get_conn
+from ..generate.tasks import _byok_redis_key, _write_status
 from . import (
     approval_repo,
     artifact_repo,
@@ -42,8 +46,9 @@ from .access import (
     require_project_access,
 )
 from .generate import generate_draft
-from .generate_topic import generate_topic_draft
+from .tasks import generate_topic_task
 from .toc_suggest import suggest_toc
+from .toc_util import find_toc_topic
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
 log = get_logger("trust")
@@ -646,12 +651,11 @@ async def suggest_project_toc(
     return schemas.TocSuggestOut(toc=toc)
 
 
-def _find_toc_topic(toc: dict | None, topic_id: str) -> dict | None:
-    for subj in (toc or {}).get("subjects", []):
-        for unit in subj.get("units", []):
-            if str(unit.get("id")) == topic_id:
-                return unit
-    return None
+# Moved to toc_util.py (T2) so both this router and the async per-topic
+# generate Celery task (trust/tasks.py) can import it without a router<->tasks
+# import cycle. Kept as a module-level alias so the many call sites below are
+# unchanged.
+_find_toc_topic = find_toc_topic
 
 
 def _toc_topic_ids(toc: dict | None) -> list[str]:
@@ -698,7 +702,8 @@ async def _topic_status_rollup(
 
 @router.post(
     "/projects/{project_id}/topics/{topic_id}/generate",
-    response_model=schemas.TopicVersionOut,
+    response_model=schemas.TopicGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(enforce_rate_limit)],
 )
 async def generate_topic_version(
@@ -707,7 +712,17 @@ async def generate_topic_version(
     body: schemas.DraftGenerateIn,
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
-) -> schemas.TopicVersionOut:
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.TopicGenerateJobOut:
+    """Submit a per-topic generation job (Phase A, T2 — async).
+
+    Does the synchronous, fail-fast validation (owner-only access, topic
+    exists, has sources, managed eligibility) then hands the actual LLM call
+    off to `generate_topic_task` (Celery) and returns 202 immediately. Poll
+    the shared `GET /api/v1/jobs/{job_id}` for the eventual `done`/`failed`
+    status and the created `topic_version` id — same job machinery
+    (encrypted BYOK envelope + status row) as whole-lesson `/generate`.
+    """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
 
@@ -718,10 +733,6 @@ async def generate_topic_version(
     if topic is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
 
-    topic_title = topic.get("title") or ""
-    subtopics = [
-        st.get("label") if isinstance(st, dict) else st for st in topic.get("subtopics", [])
-    ]
     topic_source_ids = topic.get("source_ids") or []
     all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
     inputs_by_id = {str(i.id): i for i in all_inputs}
@@ -732,90 +743,49 @@ async def generate_topic_version(
             "add at least one source to this topic before generating",
         )
 
-    # key handling mirrors generate_version / suggest_project_toc
+    # key handling mirrors generate_version / suggest_project_toc — the actual
+    # key (managed vault lookup or BYOK decrypt) is resolved by the worker,
+    # not here.
     managed = body.api_key is None
     if managed:
         if not is_managed_eligible(principal, body.provider_id):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
             )
-        api_key = get_managed_key(body.provider_id)
-    else:
-        api_key = body.api_key
     model = body.model or settings.anthropic_default_model
 
-    try:
-        out = await asyncio.to_thread(
-            generate_topic_draft,
-            sources=sources,
-            topic_title=topic_title,
-            subtopics=subtopics,
-            audience=p.audience,
-            goal=p.goal,
-            provider_id=body.provider_id,
-            api_key=api_key,
-            model=model,
-        )
-    except LLMSchemaError:
-        log.warning("topic_generation_failed", reason="schema", topic_id=topic_id)
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, "generated topic draft failed validation"
-        ) from None
-    except LLMAuthError:
-        log.warning("topic_generation_failed", reason="auth", topic_id=topic_id)
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            "The API key was rejected by the provider. Check it in Settings.",
-        ) from None
-    except LLMRateLimitError:
-        log.warning("topic_generation_failed", reason="rate_limit", topic_id=topic_id)
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "The provider is rate-limiting requests. Try again shortly.",
-        ) from None
-    except LLMError:
-        log.warning("topic_generation_failed", reason="llm_error", topic_id=topic_id)
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
-    except Exception:
-        # Defense in depth: never let a raw error escape with key material.
-        log.warning("topic_generation_failed", reason="unexpected", topic_id=topic_id)
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "topic generation failed") from None
+    job_id = uuid.uuid4()
 
-    # map model labels S1..Sn -> real input ids, scoped to THIS topic's sources
-    # (drop unknowns; never 500 on a bad label)
-    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
-    sections = [
-        {
-            "heading": sec.heading,
-            "body": sec.body,
-            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
-        }
-        for sec in out.sections
-    ]
-    v = await topic_repo.create_topic_version(
-        conn,
-        project_id=project_id,
+    # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
+    # key; the worker reads OUR vault key (ADR-005 D6).
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    generate_topic_task.delay(
+        job_id=str(job_id),
+        project_id=str(project_id),
         topic_id=topic_id,
-        title=topic_title,
-        source_ids=topic_source_ids,
-        content={"sections": sections},
-        created_by_sub=principal.sub,
-        generation_meta={
-            "kind": "topic_draft",
-            "model": model,
-            "provider_id": body.provider_id,
-            "source_input_ids": topic_source_ids,
-            **({"guidance": body.guidance} if body.guidance else {}),
-        },
+        provider_id=body.provider_id,
+        model=model,
+        guidance=body.guidance,
+        managed=managed,
+        recorded_by_sub=principal.sub,
     )
-    return schemas.TopicVersionOut(
-        id=str(v.id),
-        topic_id=v.topic_id,
-        title=v.title,
-        content=v.content,
-        version_no=v.version_no,
-        created_at=v.created_at,
+
+    # Safe-surface logging only — never the api_key, never the request body.
+    log.info(
+        "topic_generate_submitted",
+        job_id=str(job_id),
+        project_id=str(project_id),
+        topic_id=topic_id,
+        managed=managed,
     )
+
+    return schemas.TopicGenerateJobOut(job_id=str(job_id), status="queued")
 
 
 @router.get("/topic-versions/{topic_version_id}", response_model=schemas.TopicVersionDetailOut)

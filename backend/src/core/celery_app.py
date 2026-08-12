@@ -39,5 +39,9 @@ def ping() -> str:
     return "pong"
 
 
-# Trust (per-topic generation) tasks are registered here in T2:
-#   from backend.src.trust import tasks as trust_tasks
+# Trust (per-topic generation) tasks — importing registers `trust.generate_topic`
+# on this app (the module's @celery_app.task decorator runs at import time).
+# Deferred to the bottom of the module (not a top-level import) because
+# backend.src.trust.tasks imports `celery_app` from HERE — a top-level import
+# would be circular.
+from backend.src.trust import tasks as trust_tasks  # noqa: E402,F401
