@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
+import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
@@ -69,23 +70,32 @@ export function useTrustProject(projectId: string) {
     await refresh(); return v;
   }, [accessToken, refresh]);
 
-  const generateVersion = useCallback(async (artifactId: string, opts?: { guidance?: string }) => {
+  // Async whole-book/whole-artifact generate (Phase C / T2): submit returns a
+  // job_id immediately, `runGenerateVersionJob` polls the shared /jobs/{id}
+  // until done|failed. Resolves to the same {id, artifact_id, version_no,
+  // created_at} shape the old synchronous call returned, so callers
+  // ([projectId].tsx's generateFormat, version/[versionId].tsx's
+  // generateVersion) don't need to change beyond passing an optional
+  // `onPhase`.
+  const { run: runGenerateVersionJob } = useGenerateVersionJob();
+
+  const generateVersion = useCallback(async (artifactId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }) => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
-    const v = await generateVersionApi(artifactId, { api_key: key, provider_id: "anthropic", guidance: opts?.guidance }, accessToken);
+    const v = await runGenerateVersionJob({ artifactId, apiKey: key, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh(); return v;
-  }, [accessToken, refresh]);
+  }, [accessToken, refresh, runGenerateVersionJob]);
 
-  const generateFormat = useCallback(async (fmt: DraftFormat) => {
+  const generateFormat = useCallback(async (fmt: DraftFormat, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
     const a = await createArtifact(projectId, { role: fmt.role, format: fmt.format, title: fmt.label }, accessToken);
-    const v = await generateVersionApi(a.id, { api_key: key, provider_id: "anthropic" }, accessToken);
+    const v = await runGenerateVersionJob({ artifactId: a.id, apiKey: key, accessToken, onPhase: opts?.onPhase });
     await refresh();
     return v;
-  }, [accessToken, projectId, refresh]);
+  }, [accessToken, projectId, refresh, runGenerateVersionJob]);
 
   // Async suggest-TOC (Phase B / T2): submit returns a job_id immediately,
   // `runSuggestTocJob` polls the shared /jobs/{id} until done|failed.

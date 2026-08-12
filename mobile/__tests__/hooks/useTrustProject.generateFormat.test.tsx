@@ -5,6 +5,7 @@ jest.mock("@/api/trustClient", () => ({
   getProject: jest.fn(),
   createArtifact: jest.fn(),
   generateVersion: jest.fn(),
+  getGenerateVersionJob: jest.fn(),
 }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
@@ -17,14 +18,18 @@ describe("useTrustProject().generateFormat", () => {
     (tc.getProject as jest.Mock).mockResolvedValue({ project: { id: "p1", title: "P" }, my_role: "owner", artifacts: [] });
   });
 
-  it("creates an artifact for the chosen format then generates a version", async () => {
+  it("creates an artifact for the chosen format then submits+polls a generate job", async () => {
     (tc.createArtifact as jest.Mock).mockResolvedValue({ id: "art1" });
-    (tc.generateVersion as jest.Mock).mockResolvedValue({ id: "v1", content: {} });
+    (tc.generateVersion as jest.Mock).mockResolvedValue({ job_id: "job-1", status: "queued" });
+    (tc.getGenerateVersionJob as jest.Mock).mockResolvedValue({
+      status: "done",
+      result: { version_id: "v1", artifact_id: "art1", version_no: 1 },
+    });
 
     const { result } = renderHook(() => useTrustProject("p1"));
     await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
 
-    await result.current.generateFormat({
+    const v = await result.current.generateFormat({
       format: "linkedin",
       label: "LinkedIn post",
       hint: "180–260 words",
@@ -41,5 +46,7 @@ describe("useTrustProject().generateFormat", () => {
       expect.objectContaining({ provider_id: "anthropic" }),
       "tok",
     );
+    expect(tc.getGenerateVersionJob).toHaveBeenCalledWith("job-1", "tok");
+    expect(v).toEqual({ id: "v1", artifact_id: "art1", version_no: 1, created_at: null });
   });
 });
