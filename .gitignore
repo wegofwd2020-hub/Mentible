@@ -101,3 +101,5 @@ firebase-debug.log
 # Android release signing credentials — never commit (see #328)
 mobile/credentials/
 *.keystore
+verify-shots/
+.playwright-mcp/
