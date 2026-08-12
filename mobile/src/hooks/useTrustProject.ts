@@ -130,11 +130,11 @@ export function useTrustProject(projectId: string) {
   // onGenerateTopic, the topic-viewer's doRegen) don't need to change.
   const { run: runTopicGenJob } = useGenerateTopicJob();
 
-  const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string }): Promise<TopicVersionCreatedView> => {
+  const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }): Promise<TopicVersionCreatedView> => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
     if (!accessToken) throw new Error("Not signed in");
-    const result = await runTopicGenJob({ projectId, topicId, apiKey: key, accessToken, guidance: opts?.guidance });
+    const result = await runTopicGenJob({ projectId, topicId, apiKey: key, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh();
     return { id: result.version_id, topic_id: result.topic_id, version_no: result.version_no, created_at: null };
   }, [accessToken, projectId, refresh, runTopicGenJob]);

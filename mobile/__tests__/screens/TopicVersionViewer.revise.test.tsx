@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -10,7 +10,11 @@ jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", 
 
 const mockApproveTopic = jest.fn(async () => ({ recorded_via: "expert_self", expert_name: "Dr X" }));
 const mockWithdrawTopic = jest.fn(async () => ({ recorded_via: "expert_self", action: "withdraw" }));
-const mockGenerateTopic = jest.fn(async () => ({ id: "tv2", topic_id: "t1", version_no: 2 }));
+const mockGenerateTopic = jest.fn(
+  async (_id: string, _opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }) => ({
+    id: "tv2", topic_id: "t1", version_no: 2,
+  }),
+);
 let mockRole = "owner";
 jest.mock("@/hooks/useTrustProject", () => ({
   useTrustProject: () => ({
@@ -59,7 +63,10 @@ it("owner sees Revise; pressing it on an unvalidated version reveals the guidanc
 
   fireEvent.press(screen.getByLabelText("Generate new version"));
   await waitFor(() =>
-    expect(mockGenerateTopic).toHaveBeenCalledWith("t1", { guidance: "Add more detail on ledger lines" }),
+    expect(mockGenerateTopic).toHaveBeenCalledWith(
+      "t1",
+      expect.objectContaining({ guidance: "Add more detail on ledger lines", onPhase: expect.any(Function) }),
+    ),
   );
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/trust/topic-version/tv2?projectId=p1"));
 });
@@ -79,6 +86,26 @@ it("a failed revise surfaces the job's error message, not a bare 'Try again.' (F
   await waitFor(() =>
     expect(alertSpy).toHaveBeenCalledWith("Couldn't revise", "rate limited, try again shortly"),
   );
+});
+
+it("pressing Generate new version shows the bar and flips Waiting -> Generating via onPhase, then navigates", async () => {
+  let resolve!: (v: { id: string; topic_id: string; version_no: number }) => void;
+  let phaseCb: ((p: "queued" | "running") => void) | undefined;
+  mockGenerateTopic.mockImplementation((_id: string, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
+    phaseCb = opts?.onPhase;
+    return new Promise((r) => { resolve = r; });
+  });
+
+  render(<TopicVersionViewer />);
+  fireEvent.press(await screen.findByLabelText("Revise draft"));
+  fireEvent.press(await screen.findByLabelText("Generate new version"));
+
+  expect(await screen.findByText(/waiting/i)).toBeTruthy();     // queued
+  act(() => phaseCb?.("running"));
+  expect(await screen.findByText(/generating/i)).toBeTruthy();  // running
+
+  act(() => resolve({ id: "tv2", topic_id: "t1", version_no: 2 }));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/trust/topic-version/tv2?projectId=p1"));
 });
 
 it("reviewer sees no Revise control; Approve is still present", async () => {
