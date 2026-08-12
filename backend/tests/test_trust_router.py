@@ -1136,6 +1136,29 @@ def test_topic_version_detail_owner_reviewer_read_stranger_403_and_404():
         assert body["content"]["sections"][0]["heading"] == "Staff"
         assert body["is_validated"] is False
         assert body["recorded_via"] is None
+        # generated via _topic_version_id() -> generation_meta was stored on generate
+        assert body["generation_meta"]["kind"] == "topic_draft"
+
+        # a topic_version created without generation_meta -> null on the detail response
+        async def _insert_no_meta():
+            conn = await asyncpg.connect(DSN)
+            try:
+                return await topic_repo.create_topic_version(
+                    conn,
+                    project_id=uuid.UUID(pid),
+                    topic_id="t1",
+                    title="No meta",
+                    source_ids=[],
+                    content={"sections": []},
+                    created_by_sub=owner,
+                )
+            finally:
+                await conn.close()
+
+        no_meta_tv = asyncio.run(_insert_no_meta())
+        r = c.get(f"/api/v1/trust/topic-versions/{no_meta_tv.id}")
+        assert r.status_code == 200, r.text
+        assert r.json()["generation_meta"] is None
 
         # owner approves on a named expert's behalf -> validated + recorded_via
         ap = c.post(

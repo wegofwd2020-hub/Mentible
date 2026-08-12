@@ -58,6 +58,7 @@ export interface TopicVersionDetailView {
   content: { sections: DraftSection[] };
   version_no: number; created_at: string | null;
   is_validated: boolean; recorded_via: string | null;
+  generation_meta: Record<string, unknown> | null;
 }
 
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {

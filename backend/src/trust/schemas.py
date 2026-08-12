@@ -219,6 +219,7 @@ class TopicVersionDetailOut(BaseModel):
     created_at: datetime | None
     is_validated: bool
     recorded_via: str | None = None
+    generation_meta: dict | None = None
 
 
 class DraftGenerateIn(BaseModel):

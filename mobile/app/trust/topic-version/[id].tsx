@@ -13,6 +13,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { Card, Button } from "@/components/ui";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
+import { describeProvenance } from "@/lib/draftProvenance";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -177,7 +178,10 @@ function TopicVersionViewerInner() {
     <View style={styles.screen}>
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>{topicVersion.title}</Text>
+          <View>
+            <Text style={styles.title}>{topicVersion.title}</Text>
+            <Text style={styles.provenance}>{describeProvenance(topicVersion.generation_meta)}</Text>
+          </View>
           {topicVersion.is_validated ? (
             <View style={styles.badgeRow}>
               <Text accessibilityLabel={`${topicVersion.title} validated`} style={styles.chip}>Validated ✓</Text>
@@ -278,6 +282,7 @@ const makeStyles = (c: Palette) => ({
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
+  provenance: { color: c.textMuted, fontSize: typography.sizeSm, marginTop: 2 },
   badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },

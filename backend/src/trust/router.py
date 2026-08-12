@@ -845,6 +845,7 @@ async def get_topic_version(
         created_at=tv.created_at,
         is_validated=latest is not None and latest.action == "approve",
         recorded_via=latest.recorded_via if latest and latest.action == "approve" else None,
+        generation_meta=tv.generation_meta,
     )
 
 
