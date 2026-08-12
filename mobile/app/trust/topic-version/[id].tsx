@@ -27,12 +27,15 @@ function TopicVersionViewerInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, approveTopic, withdrawTopic } = useTrustProject(String(projectId));
+  const { project, approveTopic, withdrawTopic, generateTopic } = useTrustProject(String(projectId));
   const [topicVersion, setTopicVersion] = useState<TopicVersionDetailView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apBusy, setApBusy] = useState(false);
   const [askName, setAskName] = useState(false);
   const [expertName, setExpertName] = useState("");
+  const [regen, setRegen] = useState(false);
+  const [guidance, setGuidance] = useState("");
+  const [genBusy, setGenBusy] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Build the reader's topic ONCE per version. Building it inline in the JSX
@@ -102,6 +105,38 @@ function TopicVersionViewerInner() {
     if (name) runApprove({ expertName: name });
   };
 
+  // Owner-only: revise this topic into a new version, optionally with
+  // guidance. Mirrors trust/version/[versionId].tsx's openRegen/doRegen —
+  // a validated version confirms first (the approval stays on the old
+  // version; the new one needs re-approval).
+  const openRegen = () => {
+    const go = () => setRegen(true);
+    if (topicVersion?.is_validated) {
+      Alert.alert(
+        "Revise a validated draft?",
+        `This creates a new version. The approval on v${topicVersion.version_no} stays; the new version needs re-approval.`,
+        [{ text: "Cancel", style: "cancel" }, { text: "Revise", onPress: go }],
+      );
+    } else {
+      go();
+    }
+  };
+
+  const doRegen = async () => {
+    if (!topicVersion) return;
+    setGenBusy(true);
+    try {
+      const nv = await generateTopic(topicVersion.topic_id, { guidance: guidance.trim() || undefined });
+      setRegen(false);
+      setGuidance("");
+      router.replace(`/trust/topic-version/${nv.id}?projectId=${projectId}`);
+    } catch (e) {
+      Alert.alert("Couldn't revise", e instanceof ApiError ? e.userMessage() : "Try again.");
+    } finally {
+      setGenBusy(false);
+    }
+  };
+
   const onUnapprove = () => {
     Alert.alert(
       "Withdraw approval",
@@ -158,6 +193,14 @@ function TopicVersionViewerInner() {
           {builtTopic ? <TopicRenderer topic={builtTopic} /> : null}
         </View>
         <View style={styles.actionsRow}>
+          {isOwner ? (
+            <Button
+              variant="ghost"
+              label="Revise"
+              accessibilityLabel="Revise draft"
+              onPress={openRegen}
+            />
+          ) : null}
           {topicVersion.is_validated ? (
             <Button
               variant="ghost"
@@ -176,6 +219,27 @@ function TopicVersionViewerInner() {
             />
           )}
         </View>
+        {regen ? (
+          <Card style={styles.editRow}>
+            <TextInput
+              style={[styles.input, styles.bodyInput]}
+              value={guidance}
+              onChangeText={setGuidance}
+              accessibilityLabel="Revision guidance"
+              placeholder="Describe the change — a new version is created"
+              placeholderTextColor={theme.textMuted}
+              maxLength={500}
+              multiline
+            />
+            <Button
+              variant="primary"
+              label="Generate new version"
+              accessibilityLabel="Generate new version"
+              busy={genBusy}
+              onPress={doRegen}
+            />
+          </Card>
+        ) : null}
         {askName ? (
           <Card style={styles.editRow}>
             <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
@@ -227,4 +291,5 @@ const makeStyles = (c: Palette) => ({
   actionsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: spacing.sm, padding: spacing.md, paddingTop: 0 },
   editRow: { gap: spacing.sm, marginHorizontal: spacing.md },
   input: { color: c.text, fontSize: typography.sizeMd, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
+  bodyInput: { minHeight: 80 as const, textAlignVertical: "top" as const },
 });
