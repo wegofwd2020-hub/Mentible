@@ -200,6 +200,65 @@ it("reviewer sees the TOC read-only: no Suggest and edits never persist (phase n
   expect((await screen.findByLabelText(/Drafts:/)).props.accessibilityState.selected).toBe(true);
 });
 
+it("shows the progress bar and flips Waiting -> Generating via onPhase, then clears after applying", async () => {
+  const mock = proj("owner"); // no seeded toc -> no confirm prompt in the way
+  let resolve!: (v: typeof suggestedToc) => void;
+  let phaseCb: ((p: "queued" | "running") => void) | undefined;
+  mock.suggestToc = jest.fn().mockImplementation((opts?: { onPhase?: (p: "queued" | "running") => void }) => {
+    phaseCb = opts?.onPhase;
+    return new Promise<typeof suggestedToc>((r) => { resolve = r; });
+  });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  fireEvent.press(await screen.findByLabelText("Suggest outline from sources"));
+
+  expect(await screen.findByText(/waiting/i)).toBeTruthy(); // queued
+  act(() => phaseCb?.("running"));
+  expect(await screen.findByText(/generating/i)).toBeTruthy(); // running
+
+  act(() => resolve(suggestedToc));
+
+  expect(await screen.findByDisplayValue("Bonds")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByText(/generating/i)).toBeNull());
+  expect(screen.queryByText(/waiting/i)).toBeNull();
+});
+
+it("owner with an existing outline: the bar clears before the Replace? confirm prompt appears", async () => {
+  const mock = proj("owner", { toc: seededToc });
+  let resolve!: (v: typeof suggestedToc) => void;
+  mock.suggestToc = jest.fn().mockImplementation(() => new Promise<typeof suggestedToc>((r) => { resolve = r; }));
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  fireEvent.press(await screen.findByLabelText("Suggest outline from sources"));
+
+  expect(await screen.findByText(/waiting/i)).toBeTruthy();
+  act(() => resolve(suggestedToc));
+
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("Replace outline?", expect.any(String), expect.any(Array)));
+  // The bar is gone by the time the confirm dialog is up.
+  expect(screen.queryByText(/waiting/i)).toBeNull();
+  expect(screen.queryByText(/generating/i)).toBeNull();
+});
+
+it("a failed suggest surfaces the job's error message, not a bare 'Try again.'", async () => {
+  const mock = proj("owner");
+  mock.suggestToc = jest.fn().mockRejectedValue(new Error("no sources to suggest from"));
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Structure:/));
+  fireEvent.press(await screen.findByLabelText("Suggest outline from sources"));
+
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("Couldn't suggest", "no sources to suggest from"));
+  // The bar must not be stuck up after the failure.
+  expect(screen.queryByText(/waiting/i)).toBeNull();
+  expect(screen.queryByText(/generating/i)).toBeNull();
+});
+
 it("tolerates a persisted subject missing `units` (defensive backend payload) without crashing", async () => {
   // PUT /toc only validates that `subjects` is a list, not that every
   // subject has a `units` array — a hand-crafted payload could omit it.

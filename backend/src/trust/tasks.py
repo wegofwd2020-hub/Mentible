@@ -1,12 +1,15 @@
-"""Celery task for per-topic generation — the async worker side of
-`POST /api/v1/trust/projects/{project_id}/topics/{topic_id}/generate`.
+"""Celery tasks for per-topic generation and suggest-TOC — the async worker
+side of `POST .../topics/{topic_id}/generate` (Phase A) and
+`POST .../projects/{project_id}/suggest-toc` (Phase B, T1).
 
 Mirrors `backend/src/generate/tasks.py`'s job machinery (an encrypted BYOK
 envelope in Redis + a `job:{id}:status` row) so the SHARED `GET
-/api/v1/jobs/{job_id}` resolves both whole-lesson and per-topic jobs
+/api/v1/jobs/{job_id}` resolves whole-lesson, per-topic, and suggest-TOC jobs
 identically — the Redis key helpers (`_byok_redis_key`, `_job_status_redis_key`,
 `_write_status`, `_shred_envelope`) are imported from there rather than
-re-implemented, so the key strings stay byte-identical across both job kinds.
+re-implemented, so the key strings stay byte-identical across all job kinds.
+Suggest-TOC persists nothing to the DB — its job `result` carries the
+suggested TOC dict directly.
 
 ADR-001 discipline holds exactly as it does for `run_generation`: the BYOK key
 transits ONLY the encrypted per-job envelope, is decrypted, used for the one
@@ -39,6 +42,7 @@ from backend.src.generate.tasks import (
 
 from . import project_repo, topic_repo
 from .generate_topic import generate_topic_draft
+from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
 
 log = get_logger("trust.tasks")
@@ -274,6 +278,170 @@ def generate_topic_task(
             provider_id=provider_id,
             model=model,
             guidance=guidance,
+            managed=managed,
+            recorded_by_sub=recorded_by_sub,
+        )
+    )
+
+
+async def _run_suggest(
+    *,
+    job_id: uuid.UUID,
+    project_id: uuid.UUID,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    """Do the actual work for one suggest-TOC job.
+
+    Mirrors `_run`'s exact shape (idempotency check, key resolution, the
+    `running` write, shred-on-every-exit-path) — suggest-TOC persists
+    nothing, so the job's `result` carries the suggested TOC dict directly
+    instead of a created row's id. `recorded_by_sub` isn't used by the
+    generator itself; it's kept in the signature for symmetry with
+    `generate_topic_task`/`_run` and in case a future audit trail needs it.
+    """
+    r = _redis_client()
+    api_key: str | None = None
+    try:
+        # (a) Idempotency — a redelivered/retried task (task_acks_late) must
+        # not do the LLM call twice for the same job.
+        raw = await r.get(_job_status_redis_key(job_id))
+        if raw is not None:
+            try:
+                already = json.loads(raw).get("status")
+            except (json.JSONDecodeError, AttributeError):
+                already = None
+            if already == "done":
+                return
+
+        # (b) Resolve the provider key: managed = OUR vault key (ADR-005 D6),
+        # BYOK = decrypt the per-job envelope.
+        if managed:
+            api_key = get_managed_key(provider_id)
+            if not api_key:
+                log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
+                await _write_status(r, job_id, "failed", error="managed generation unavailable")
+                return
+        else:
+            envelope_blob = await r.get(_byok_redis_key(job_id))
+            if envelope_blob is None:
+                # TTL expired before the worker picked up the job.
+                log.warning("envelope_missing", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="job timed out")
+                return
+            try:
+                master_key = parse_master_key(settings.byok_master_key)
+                api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
+            except Exception:
+                log.warning("envelope_decrypt_failed", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="internal error")
+                return
+
+        # (c) Load the project + its sources.
+        # A fresh asyncpg connection — the Celery worker has no FastAPI pool.
+        conn = await _db_connect()
+        try:
+            p = await project_repo.get_project(conn, project_id=project_id)
+            if p is None:
+                await _write_status(r, job_id, "failed", error="project not found")
+                return
+            sources = await project_repo.list_inputs(conn, project_id=project_id)
+        finally:
+            await conn.close()
+
+        if not sources:
+            await _write_status(
+                r, job_id, "failed", error="add at least one source before suggesting a TOC"
+            )
+            return
+
+        resolved_model = model or settings.anthropic_default_model
+        await _write_status(r, job_id, "running")  # phase: queued -> running
+        try:
+            out = await asyncio.to_thread(
+                suggest_toc,
+                sources=sources,
+                topic=p.topic,
+                audience=p.audience,
+                goal=p.goal,
+                provider_id=provider_id,
+                api_key=api_key,
+                model=resolved_model,
+            )
+        except LLMSchemaError:
+            log.warning("toc_suggest_failed", job_id=str(job_id), reason="schema")
+            await _write_status(r, job_id, "failed", error="suggested TOC failed validation")
+            return
+        except LLMAuthError:
+            log.warning("toc_suggest_failed", job_id=str(job_id), reason="auth")
+            await _write_status(
+                r,
+                job_id,
+                "failed",
+                error="The API key was rejected by the provider. Check it in Settings.",
+            )
+            return
+        except LLMRateLimitError:
+            log.warning("toc_suggest_failed", job_id=str(job_id), reason="rate_limit")
+            await _write_status(
+                r,
+                job_id,
+                "failed",
+                error="The provider is rate-limiting requests. Try again shortly.",
+            )
+            return
+        except LLMError:
+            log.warning("toc_suggest_failed", job_id=str(job_id), reason="llm_error")
+            await _write_status(r, job_id, "failed", error="couldn't suggest an outline")
+            return
+        except Exception:
+            # Defense in depth: never let a raw error escape with key material.
+            log.warning("toc_suggest_failed", job_id=str(job_id), reason="unexpected")
+            await _write_status(r, job_id, "failed", error="couldn't suggest an outline")
+            return
+
+        # (d) Success.
+        toc = toc_output_to_view(out, sources)
+        await _write_status(r, job_id, "done", result={"toc": toc})
+    except Exception:
+        # Defense in depth: an unhandled error anywhere above (DB, Redis,
+        # decrypt) must still land as a SAFE failed status — never the raw
+        # exception, which could carry key material in its message.
+        log.warning("trust_suggest_toc_task_failed", job_id=str(job_id), reason="unexpected")
+        try:
+            await _write_status(r, job_id, "failed", error="couldn't suggest an outline")
+        except Exception:
+            log.warning("status_write_failed", job_id=str(job_id))
+    finally:
+        # (e) SHRED — drop our reference to the key and delete the envelope on
+        # every exit path, managed or BYOK (DEL on a missing key is a
+        # harmless no-op, so this is safe even when there was never an
+        # envelope to begin with).
+        if api_key is not None:
+            del api_key
+        await _shred_envelope(r, job_id)
+        await r.aclose()
+
+
+@celery_app.task(bind=True, name="trust.suggest_toc")
+def suggest_toc_task(
+    self,
+    *,
+    job_id: str,
+    project_id: str,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    asyncio.run(
+        _run_suggest(
+            job_id=uuid.UUID(job_id),
+            project_id=uuid.UUID(project_id),
+            provider_id=provider_id,
+            model=model,
             managed=managed,
             recorded_by_sub=recorded_by_sub,
         )

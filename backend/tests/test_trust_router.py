@@ -623,6 +623,25 @@ _TOC_JSON = _json.dumps(
 )
 
 
+def _run_suggest_toc_job(c, pid, payload):
+    """POST the suggest-toc submit endpoint (async, Phase B T1 — 202 +
+    job_id), then run the enqueued Celery task synchronously (`.apply()`, no
+    broker/worker needed) against the SAME fakeredis instance the submit
+    endpoint wrote the envelope/status into (the `_redis` autouse fixture).
+    Returns the submit response; callers poll `GET /jobs/{job_id}` for the
+    outcome. A no-op if submit itself failed (403/404/422) — nothing to run.
+    """
+    fake_redis = app.dependency_overrides[get_redis]()
+    with patch("backend.src.trust.router.suggest_toc_task.delay") as mock_delay:
+        r = c.post(f"/api/v1/trust/projects/{pid}/suggest-toc", json=payload)
+    if r.status_code == 202:
+        with patch("backend.src.trust.tasks._redis_client", return_value=fake_redis):
+            from backend.src.trust.tasks import suggest_toc_task
+
+            suggest_toc_task.apply(kwargs=mock_delay.call_args.kwargs).get()
+    return r
+
+
 def test_owner_suggests_toc_from_sources():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
@@ -633,13 +652,16 @@ def test_owner_suggests_toc_from_sources():
             "backend.src.trust.toc_suggest.build_provider",
             return_value=fake_provider(text=_TOC_JSON),
         ):
-            r = c.post(
-                f"/api/v1/trust/projects/{pid}/suggest-toc",
-                json={"api_key": key},
-            )
-        assert r.status_code == 200
+            r = _run_suggest_toc_job(c, pid, {"api_key": key})
+        assert r.status_code == 202, r.text
         assert key not in r.text  # ADR-001: the submitted key never leaks into the response
-        toc = r.json()["toc"]
+        body = r.json()
+        assert body["status"] == "queued"
+
+        job = c.get(f"/api/v1/jobs/{body['job_id']}").json()
+        assert key not in _json.dumps(job)  # ADR-001: nor into the polled status
+        assert job["status"] == "done"
+        toc = job["result"]["toc"]
         subjects = toc["subjects"]
         assert len(subjects) == 1
         units = subjects[0]["units"]

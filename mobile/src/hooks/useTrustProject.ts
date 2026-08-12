@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
+import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -86,12 +87,19 @@ export function useTrustProject(projectId: string) {
     return v;
   }, [accessToken, projectId, refresh]);
 
-  const suggestToc = useCallback(async (): Promise<StructuredTocView> => {
+  // Async suggest-TOC (Phase B / T2): submit returns a job_id immediately,
+  // `runSuggestTocJob` polls the shared /jobs/{id} until done|failed.
+  // Resolves to the same StructuredTocView the old synchronous call
+  // returned, so callers (the Structure screen's Suggest button) don't
+  // need to change beyond passing an optional `onPhase`.
+  const { run: runSuggestTocJob } = useSuggestTocJob();
+
+  const suggestToc = useCallback(async (opts?: { onPhase?: (p: "queued" | "running") => void }): Promise<StructuredTocView> => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to suggest an outline.");
     if (!accessToken) throw new Error("Not signed in");
-    return suggestTocApi(projectId, { api_key: key, provider_id: "anthropic" }, accessToken);
-  }, [accessToken, projectId]);
+    return runSuggestTocJob({ projectId, apiKey: key, accessToken, onPhase: opts?.onPhase });
+  }, [accessToken, projectId, runSuggestTocJob]);
 
   const saveToc = useCallback(async (toc: StructuredTocView) => {
     if (!accessToken) throw new Error("Not signed in");

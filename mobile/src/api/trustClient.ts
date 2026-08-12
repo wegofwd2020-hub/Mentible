@@ -187,13 +187,37 @@ export async function deleteInput(inputId: string, token: string): Promise<void>
   await trustFetch<null>(`/inputs/${inputId}`, token, { method: "DELETE" });
 }
 
+// Phase B async suggest-TOC (T1/T2): POST .../suggest-toc now returns 202 +
+// this job handle immediately; the actual outline generation runs in a
+// Celery worker. Poll `getSuggestTocJob` below (or use `useSuggestTocJob`)
+// for the eventual `done`/`failed` result.
+export interface TocSuggestJobOut { job_id: string; status: string }
+export interface SuggestTocJobStatusView {
+  status: "queued" | "running" | "done" | "failed";
+  result?: { toc: StructuredTocView };
+  error?: string;
+}
+
 export async function suggestToc(
   projectId: string, body: { api_key: string; provider_id?: string }, token: string,
-): Promise<StructuredTocView> {
-  const r = (await trustFetch<{ toc: StructuredTocView }>(
+): Promise<TocSuggestJobOut> {
+  return (await trustFetch<TocSuggestJobOut>(
     `/projects/${projectId}/suggest-toc`, token, { method: "POST", body: JSON.stringify(body) },
-  )) as { toc: StructuredTocView };
-  return r.toc;
+  )) as TocSuggestJobOut;
+}
+
+// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
+// /generate, /structure, and the per-topic generate job also use (see
+// getJob below). Same fetch/ApiError shape.
+export async function getSuggestTocJob(jobId: string, token: string): Promise<SuggestTocJobStatusView> {
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<SuggestTocJobStatusView>;
 }
 
 export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
