@@ -1617,7 +1617,7 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
-  // Playfair bakes the weight into the family name, so no fontWeight here (a
+  // Fraunces bakes the weight into the family name, so no fontWeight here (a
   // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },

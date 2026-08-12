@@ -61,7 +61,8 @@ export const FONT_ASSETS = {
   Fraunces_700Bold,
   Fraunces_400Regular_Italic,
   Fraunces_600SemiBold_Italic,
-  // Playfair Display: the app-wide heading face (Studio reskin P0).
+  // Playfair Display: retained for the reader/book-content surface (app-chrome
+  // headings moved to Fraunces in the 2026-08-12 visual pass).
   PlayfairDisplay_400Regular,
   PlayfairDisplay_500Medium,
   PlayfairDisplay_600SemiBold,
