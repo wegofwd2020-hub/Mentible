@@ -104,7 +104,7 @@ describe("Card", () => {
     expect(flat.backgroundColor).toBe(t.surface);
     expect(flat.borderColor).toBe(t.border);
     expect(flat.borderWidth).toBe(1);
-    expect(flat.borderRadius).toBe(16);
+    expect(flat.borderRadius).toBe(22);
   });
 });
 

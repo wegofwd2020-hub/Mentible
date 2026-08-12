@@ -72,8 +72,8 @@ export const spacing = {
 
 export const radius = {
   sm: 6,
-  md: 10,
-  lg: 16,
+  md: 14,
+  lg: 22,
   full: 9999,
 } as const;
 
@@ -257,11 +257,11 @@ export const studioDarkColors: Palette = {
   background: "#0A0E1A", surface: "#131E36", surfaceHigh: "#1B2842",
   border: "#323846", borderLight: "#4E5565",
   text: "#F4F7FC", textSecondary: "#C6D4EC", textMuted: "#93A6C6",
-  primary: "#F0DCAC", primaryText: "#0A0E1A",
-  brand: "#F0DCAC", brandText: "#0A0E1A",
-  growth: "#F0DCAC", growthText: "#0A0E1A",
-  tileOffFace: "#131E36", tileOffGlyph: "#F0DCAC", tileOffShadow: "#05070E",
-  tileOnFace: "#F0DCAC", tileOnGlyph: "#0A0E1A", tileOnHi: "#F7E9C6", tileOnLo: "#B79A5E",
+  primary: "#D6A94B", primaryText: "#0A0E1A",
+  brand: "#D6A94B", brandText: "#0A0E1A",
+  growth: "#D6A94B", growthText: "#0A0E1A",
+  tileOffFace: "#131E36", tileOffGlyph: "#D6A94B", tileOffShadow: "#05070E",
+  tileOnFace: "#D6A94B", tileOnGlyph: "#0A0E1A", tileOnHi: "#E6C87E", tileOnLo: "#A9853C",
   tileSubGlyph: "#93A6C6",
   success: "#8FCBAD", error: "#E29B9B", warning: "#E7C98A",
   white: "#ffffff",
