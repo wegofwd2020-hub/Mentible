@@ -53,9 +53,9 @@ export const FONT_ASSETS = {
   SourceSerif4_400Regular,
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
-  // Fraunces: the SME/Navy-Trust heading brand (ADR-038 O2). Only the SME
-  // surfaces opt in; the rest of the app keeps Source Serif 4. The italics power
-  // the editorial "accent word" (ADR-038 O2 polish).
+  // Fraunces: the app-chrome heading face (2026-08-12 visual pass) and the
+  // SME/Navy-Trust heading brand (ADR-038 O2). The italics power the editorial
+  // "accent word" (ADR-038 O2 polish).
   Fraunces_400Regular,
   Fraunces_600SemiBold,
   Fraunces_700Bold,
@@ -94,9 +94,9 @@ const INTER = {
 } as const;
 
 // Source Serif 4 ships no medium here; medium maps to regular. No longer
-// referenced by resolveFamily (heading now always resolves to Playfair —
-// Studio reskin P0); exported (not deleted) for any literal references until
-// they migrate.
+// referenced by resolveFamily (chrome headings resolve to Fraunces as of the
+// 2026-08-12 visual pass; reader/book stays Playfair); exported (not deleted)
+// for any literal references until they migrate.
 export const SERIF = {
   regular: "SourceSerif4_400Regular",
   medium: "SourceSerif4_400Regular",

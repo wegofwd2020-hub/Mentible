@@ -80,6 +80,6 @@ const makeStyles = (c: Palette) => ({
   chevron: { color: c.text, fontSize: typography.sizeXl },
   titles: { flex: 1 },
   // Playfair wordmark — ≥16px floor honoured (sizeLg=18). Medium weight, never bold.
-  wordmark: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.medium, letterSpacing: 1 },
+  wordmark: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: 1 },
   kicker: { marginTop: 1 }, // <Label> already: uppercase, tracked, muted, 500
 });

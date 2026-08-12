@@ -64,7 +64,7 @@ const makeStyles = (c: Palette) => ({
   bar: { width: 256, height: "100%" as const, backgroundColor: c.background, borderRightColor: c.border, borderRightWidth: 1, paddingHorizontal: spacing.sm, gap: spacing.xs },
   brandRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, paddingHorizontal: spacing.sm, paddingBottom: spacing.md },
   logo: { width: 40, height: 40 },
-  brandText: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.medium },
+  brandText: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold },
   row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md },
   rowActive: { backgroundColor: c.primary },
   rowLabel: { color: c.text, fontSize: typography.sizeMd, fontWeight: "500" as const },
