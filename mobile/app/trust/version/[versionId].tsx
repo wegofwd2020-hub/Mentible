@@ -422,6 +422,16 @@ function TrustVersionInner() {
                     {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
                   </Text>
                   <Text style={styles.noteBody}>{f.body}</Text>
+                  {isOwner ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Revise from this note"
+                      style={styles.reviseFromNoteBtn}
+                      onPress={() => { setGuidance(f.body); openRegen(); }}
+                    >
+                      <Text style={styles.reviseFromNoteText}>Revise from this note</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))
             )}
@@ -503,4 +513,6 @@ const makeStyles = (c: Palette) => ({
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
   noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
+  reviseFromNoteBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
+  reviseFromNoteText: { color: c.primary, fontSize: typography.sizeSm },
 });
