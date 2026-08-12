@@ -230,3 +230,11 @@ export async function getTopicVersions(
     `/projects/${projectId}/topics/${topicId}/versions`, token, { method: "GET" },
   )) as TopicVersionSummaryView[];
 }
+
+export async function createTopicVersion(
+  projectId: string, topicId: string, content: object, token: string,
+): Promise<TopicVersionCreatedView> {
+  return (await trustFetch<TopicVersionCreatedView>(
+    `/projects/${projectId}/topics/${topicId}/versions`, token, { method: "POST", body: JSON.stringify({ content }) },
+  )) as TopicVersionCreatedView;
+}
