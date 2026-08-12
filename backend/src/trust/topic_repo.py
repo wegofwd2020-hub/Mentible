@@ -4,7 +4,10 @@ import json
 
 from .models import TopicVersion
 
-_TV = "id, project_id, topic_id, title, source_ids, content, version_no, created_by_sub, created_at"
+_TV = (
+    "id, project_id, topic_id, title, source_ids, content, version_no, "
+    "created_by_sub, created_at, generation_meta"
+)
 
 
 def _topic_version(r) -> TopicVersion:
@@ -18,21 +21,25 @@ def _topic_version(r) -> TopicVersion:
         version_no=r["version_no"],
         created_by_sub=r["created_by_sub"],
         created_at=r["created_at"],
+        generation_meta=(
+            json.loads(r["generation_meta"]) if r["generation_meta"] is not None else None
+        ),
     )
 
 
 async def create_topic_version(
-    conn, *, project_id, topic_id, title, source_ids, content, created_by_sub
+    conn, *, project_id, topic_id, title, source_ids, content, created_by_sub, generation_meta=None
 ) -> TopicVersion:
     r = await conn.fetchrow(
         f"""
         INSERT INTO topic_version
-            (project_id, topic_id, title, source_ids, content, version_no, created_by_sub)
+            (project_id, topic_id, title, source_ids, content, version_no, created_by_sub,
+             generation_meta)
         VALUES (
             $1, $2, $3, $4::jsonb, $5::jsonb,
             (SELECT COALESCE(MAX(version_no),0)+1 FROM topic_version
                 WHERE project_id=$1 AND topic_id=$2),
-            $6
+            $6, $7::jsonb
         )
         RETURNING {_TV}
         """,
@@ -42,6 +49,7 @@ async def create_topic_version(
         json.dumps(source_ids),
         json.dumps(content),
         created_by_sub,
+        json.dumps(generation_meta) if generation_meta is not None else None,
     )
     return _topic_version(r)
 

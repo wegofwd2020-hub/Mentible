@@ -810,6 +810,39 @@ def test_owner_generates_topic_version():
         assert body["content"]["sections"][0]["source_ids"] == [iid]
 
 
+def test_generate_topic_version_stores_generation_meta():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, iid = _project_with_toc_topic(c)
+        key = "sk-ant-" + "x" * 20
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": key, "guidance": "keep it concise"},
+            )
+        assert r.status_code == 200, r.text
+        version_id = r.json()["id"]
+
+        async def _fetch():
+            conn = await asyncpg.connect(DSN)
+            try:
+                return await topic_repo.get_topic_version(
+                    conn, topic_version_id=uuid.UUID(version_id)
+                )
+            finally:
+                await conn.close()
+
+        tv = asyncio.run(_fetch())
+        assert tv.generation_meta["kind"] == "topic_draft"
+        assert tv.generation_meta["provider_id"] == "anthropic"
+        assert tv.generation_meta["source_input_ids"] == [iid]
+        assert tv.generation_meta["guidance"] == "keep it concise"
+
+
 def test_generate_topic_unknown_topic_404():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"

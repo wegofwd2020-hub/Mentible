@@ -98,6 +98,42 @@ async def test_topic_version_and_approval_roundtrip(conn):
     assert {v.id for v in versions} == {tv.id, tv2.id, tv3.id}
 
 
+async def test_topic_version_generation_meta_roundtrip(conn):
+    p = await _project(conn)
+    meta = {
+        "kind": "topic_draft",
+        "model": "m",
+        "provider_id": "anthropic",
+        "source_input_ids": ["s1"],
+        "guidance": "keep it short",
+    }
+    tv = await topic_repo.create_topic_version(
+        conn,
+        project_id=p.id,
+        topic_id="t1",
+        title="Reading music",
+        source_ids=["s1"],
+        content={"sections": []},
+        created_by_sub="sub-1",
+        generation_meta=meta,
+    )
+    assert tv.generation_meta == meta
+    fetched = await topic_repo.get_topic_version(conn, topic_version_id=tv.id)
+    assert fetched.generation_meta == meta
+
+    # generation_meta is optional — defaults to None
+    tv_no_meta = await topic_repo.create_topic_version(
+        conn,
+        project_id=p.id,
+        topic_id="t2",
+        title="Dynamics",
+        source_ids=[],
+        content={"sections": []},
+        created_by_sub="sub-1",
+    )
+    assert tv_no_meta.generation_meta is None
+
+
 async def test_withdraw_topic_approval_is_noop_when_not_approved(conn):
     p = await _project(conn)
     tv = await topic_repo.create_topic_version(

@@ -799,6 +799,13 @@ async def generate_topic_version(
         source_ids=topic_source_ids,
         content={"sections": sections},
         created_by_sub=principal.sub,
+        generation_meta={
+            "kind": "topic_draft",
+            "model": model,
+            "provider_id": body.provider_id,
+            "source_input_ids": topic_source_ids,
+            **({"guidance": body.guidance} if body.guidance else {}),
+        },
     )
     return schemas.TopicVersionOut(
         id=str(v.id),
