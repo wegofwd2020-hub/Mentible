@@ -849,6 +849,31 @@ async def get_topic_version(
     )
 
 
+@router.get(
+    "/projects/{project_id}/topics/{topic_id}/versions",
+    response_model=list[schemas.TopicVersionSummaryOut],
+)
+async def list_topic_version_history(
+    project_id: uuid.UUID,
+    topic_id: str,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> list[schemas.TopicVersionSummaryOut]:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    vs = await topic_repo.list_topic_versions(conn, project_id=project_id)
+    return [
+        schemas.TopicVersionSummaryOut(
+            id=str(v.id),
+            version_no=v.version_no,
+            created_at=v.created_at,
+            is_validated=await topic_approval_repo.is_topic_validated(conn, topic_version_id=v.id),
+        )
+        for v in vs
+        if v.topic_id == topic_id
+    ]
+
+
 @router.post("/versions/{version_id}/approvals", response_model=schemas.ApprovalOut)
 async def record_version_approval(
     version_id: uuid.UUID,
