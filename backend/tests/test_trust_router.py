@@ -1229,6 +1229,81 @@ def test_topic_versions_list_endpoint():
         assert c.get(f"/api/v1/trust/projects/{pid}/topics/t1/versions").status_code == 403
 
 
+def test_owner_manual_edits_topic_version():
+    """POST /projects/{id}/topics/{topic_id}/versions with owner-supplied content
+    creates a new topic version — version_no increments off the latest existing
+    version, content is stored as-is, source_ids is the derived union of each
+    section's source_ids, and generation_meta marks it as a manual edit."""
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        _topic_version_id(c, pid, topic_id="t1")  # seed version_no=1 via generate
+
+        content = {
+            "sections": [
+                {"heading": "Staff", "body": "…", "source_ids": ["b", "a"]},
+                {"heading": "Clef", "body": "…", "source_ids": ["a", "c"]},
+            ]
+        }
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/versions",
+            json={"content": content},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["topic_id"] == "t1"
+        assert body["title"] == "Reading music"
+        assert body["version_no"] == 2
+        assert body["content"] == content
+
+        async def _fetch():
+            conn = await asyncpg.connect(DSN)
+            try:
+                return await topic_repo.get_topic_version(
+                    conn, topic_version_id=uuid.UUID(body["id"])
+                )
+            finally:
+                await conn.close()
+
+        tv = asyncio.run(_fetch())
+        assert tv.source_ids == ["a", "b", "c"]
+        assert tv.generation_meta == {
+            "kind": "manual_edit",
+            "source_input_ids": ["a", "b", "c"],
+        }
+
+
+def test_manual_edit_topic_version_reviewer_forbidden():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        _topic_version_id(c, pid, topic_id="t1")
+        expert = f"e-{uuid.uuid4()}@x.z"
+        c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
+        _as(f"e-{uuid.uuid4()}", expert)
+        c.post("/api/v1/trust/session/sync")
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/versions",
+            json={"content": {"sections": []}},
+        )
+        assert r.status_code == 403
+
+
+def test_manual_edit_topic_version_unknown_topic_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        # t1 exists in the toc but no version has ever been created for it
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/t1/versions",
+            json={"content": {"sections": []}},
+        )
+        assert r.status_code == 404
+
+
 def test_topic_feedback_records_revision_note_and_appears_in_version_detail():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
