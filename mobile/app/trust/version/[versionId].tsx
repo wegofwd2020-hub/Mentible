@@ -266,13 +266,13 @@ function TrustVersionInner() {
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
             {isOwner ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
-                <Text style={styles.editBtnText}>Edit</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.approveBtn} onPress={openRegen}>
+                <Text style={styles.approveText}>Revise</Text>
               </Pressable>
             ) : null}
             {isOwner ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Regenerate draft" style={styles.editBtn} onPress={openRegen}>
-                <Text style={styles.editBtnText}>Regenerate</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
+                <Text style={styles.editBtnText}>Edit text</Text>
               </Pressable>
             ) : null}
             {version.is_validated ? (
@@ -310,6 +310,7 @@ function TrustVersionInner() {
         ) : null}
         {!editing && regen ? (
           <View style={styles.editRow}>
+            <Text style={styles.bodyText}>Revise — describe the change; this creates a new version.</Text>
             <TextInput
               style={[styles.input, styles.bodyInput]}
               value={guidance}
@@ -406,8 +407,13 @@ function TrustVersionInner() {
         {!editing ? (
           <View style={styles.notesBlock}>
             <Text style={styles.notesTitle}>Revision notes</Text>
+            {!isOwner ? (
+              <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
+            ) : null}
             {(version.feedback ?? []).length === 0 ? (
-              <Text style={styles.notesEmpty}>No revision notes yet. Ask for a change below.</Text>
+              <Text style={styles.notesEmpty}>
+                {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
+              </Text>
             ) : (
               (version.feedback ?? []).map((f) => (
                 <View key={f.id} style={styles.noteRow}>
@@ -419,24 +425,28 @@ function TrustVersionInner() {
                 </View>
               ))
             )}
-            <TextInput
-              style={[styles.input, styles.bodyInput]}
-              value={noteBody}
-              onChangeText={setNoteBody}
-              accessibilityLabel="Revision note"
-              placeholder="Request a revision…"
-              maxLength={1000}
-              multiline
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Send revision request"
-              style={[styles.saveBtn, !noteBody.trim() ? styles.disabledBtn : null]}
-              disabled={noteBusy || !noteBody.trim()}
-              onPress={onAddFeedback}
-            >
-              <Text style={styles.saveBtnText}>{noteBusy ? "Sending…" : "Request a revision"}</Text>
-            </Pressable>
+            {!isOwner ? (
+              <>
+                <TextInput
+                  style={[styles.input, styles.bodyInput]}
+                  value={noteBody}
+                  onChangeText={setNoteBody}
+                  accessibilityLabel="Revision note"
+                  placeholder="Request a revision…"
+                  maxLength={1000}
+                  multiline
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send revision request"
+                  style={[styles.saveBtn, !noteBody.trim() ? styles.disabledBtn : null]}
+                  disabled={noteBusy || !noteBody.trim()}
+                  onPress={onAddFeedback}
+                >
+                  <Text style={styles.saveBtnText}>{noteBusy ? "Sending…" : "Request a revision"}</Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
         ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
