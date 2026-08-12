@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { NativeStackHeaderProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useThemedStyles } from "@/theme";
 import { Label } from "@/components/ui";
 
@@ -80,6 +80,6 @@ const makeStyles = (c: Palette) => ({
   chevron: { color: c.text, fontSize: typography.sizeXl },
   titles: { flex: 1 },
   // Playfair wordmark — ≥16px floor honoured (sizeLg=18). Medium weight, never bold.
-  wordmark: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.medium, letterSpacing: 1 },
+  wordmark: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.medium, letterSpacing: 1 },
   kicker: { marginTop: 1 }, // <Label> already: uppercase, tracked, muted, 500
 });

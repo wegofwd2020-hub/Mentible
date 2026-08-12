@@ -6,7 +6,7 @@ import { RequireSignIn } from "@/auth/RequireSignIn";
 import { Alert } from "@/lib/alert";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { ApiError } from "@/api/client";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Label } from "@/components/ui";
@@ -62,7 +62,7 @@ export default function NewProjectScreen() {
 }
 const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background }, body: { padding: spacing.md, gap: spacing.md },
-  heading: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
+  heading: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   subhead: { color: c.textSecondary, fontSize: typography.sizeMd, marginTop: -spacing.sm },
   field: { gap: spacing.xs },
   input: { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, color: c.text, fontSize: typography.sizeMd, backgroundColor: c.surface },

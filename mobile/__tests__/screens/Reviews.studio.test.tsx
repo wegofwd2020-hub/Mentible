@@ -22,7 +22,7 @@ function expectNotBold(text: ReturnType<typeof screen.getByText>) {
   expect(StyleSheet.flatten(text.props.style).fontWeight).not.toBe("700");
 }
 
-it("titles review rows in Playfair and carries no bold (700) weight on the migrated Studio controls", async () => {
+it("titles review rows in Fraunces and carries no bold (700) weight on the migrated Studio controls", async () => {
   (useReviews as jest.Mock).mockReturnValue({
     reviews: [{ projectId: "p1", title: "Stormwater", versionsTotal: 2, versionsValidated: 1 }],
     loading: false,
@@ -31,18 +31,18 @@ it("titles review rows in Playfair and carries no bold (700) weight on the migra
   });
   render(<ReviewsScreen />);
 
-  // (a) row heading face: Playfair, not the retired Fraunces.
+  // (a) row heading face: Fraunces, not the retired Playfair.
   const title = await screen.findByText("Stormwater");
-  expect(StyleSheet.flatten(title.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(title.props.style).fontFamily).toMatch(/Fraunces/);
   expectNotBold(title);
 
   // (b) no migrated control carries fontWeight: "700".
   expectNotBold(screen.getByText("1/2 versions validated"));
 });
 
-it("titles the empty state in Playfair", () => {
+it("titles the empty state in Fraunces", () => {
   (useReviews as jest.Mock).mockReturnValue({ reviews: [], loading: false, error: null, refresh: jest.fn() });
   render(<ReviewsScreen />);
   const empty = screen.getByText(/no projects to/i);
-  expect(StyleSheet.flatten(empty.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(empty.props.style).fontFamily).toMatch(/Fraunces/);
 });

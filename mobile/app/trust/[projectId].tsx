@@ -24,7 +24,7 @@ import { nextStep } from "@/lib/nextStep";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Chip, Label } from "@/components/ui";
 
@@ -1620,16 +1620,16 @@ const makeStyles = (c: Palette) => ({
   // Playfair bakes the weight into the family name, so no fontWeight here (a
   // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
-  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   // The adaptive "what to do next" banner — self-retires once nextStep()
   // returns null (reviewer, or a topic is already drafted).
   nextStepCard: { gap: spacing.sm, marginBottom: spacing.md },
-  nextStepTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  nextStepTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   nextStepBody: { color: c.textMuted, fontSize: typography.sizeSm },
   nextStepBtn: { alignSelf: "flex-start" as const },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   versionRowLeft: { flexShrink: 1 as const },
   versionRowTs: { color: c.textMuted, fontSize: typography.sizeXs },

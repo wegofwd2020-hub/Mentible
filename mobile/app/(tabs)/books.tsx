@@ -13,7 +13,7 @@ import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
@@ -386,7 +386,7 @@ const makeStyles = (c: Palette) => ({
     alignItems: "center" as const, padding: spacing.xl, gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   emptyBody: { fontSize: typography.sizeSm, color: c.textMuted, textAlign: "center" as const, lineHeight: 22, maxWidth: 280 },
   newBtn: { marginBottom: spacing.sm },
 
@@ -419,7 +419,7 @@ const makeStyles = (c: Palette) => ({
   detailContent: { padding: spacing.lg, gap: spacing.xs },
   detailCover: { alignItems: "center" as const, marginBottom: spacing.sm },
   detailCoverWrap: { position: "relative" as const, alignSelf: "flex-start" as const },
-  detailTitle: { color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  detailTitle: { color: c.text, fontSize: typography.sizeXl, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   detailMeta: { fontSize: typography.sizeSm, color: c.textMuted },
   detailDone: { color: c.success, fontWeight: "500" as const },
   staleRow: {

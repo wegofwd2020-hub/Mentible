@@ -8,7 +8,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Alert } from "@/lib/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useThemedStyles } from "@/theme";
 import { Button } from "@/components/ui";
 import { useOpenShelves } from "@/openshelves/useOpenShelves";
@@ -136,11 +136,11 @@ export default function ShelvesScreen() {
 const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: c.background },
   content: { paddingVertical: spacing.lg },
-  heading: { color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36, marginBottom: spacing.xs },
+  heading: { color: c.text, fontSize: typography.sizeXl, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36, marginBottom: spacing.xs },
   blurb: { color: c.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },
   linksRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, marginBottom: spacing.lg },
   listHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginTop: spacing.lg },
   headerActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
-  sectionTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  sectionTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   empty: { color: c.textMuted, fontSize: typography.sizeMd, marginTop: spacing.md },
 });

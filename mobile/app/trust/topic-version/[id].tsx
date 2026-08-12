@@ -8,7 +8,7 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Card, Button } from "@/components/ui";
 import { TopicRenderer } from "@/components/LessonRenderer";
@@ -213,7 +213,7 @@ const makeStyles = (c: Palette) => ({
   screen: { flex: 1 as const, backgroundColor: c.background },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
-  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
+  title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },

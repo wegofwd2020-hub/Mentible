@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 
 jest.mock("../../src/secure/keyStore", () => ({
   loadApiKey: jest.fn(),
@@ -89,14 +89,14 @@ describe("SettingsScreen", () => {
     });
   });
 
-  it("renders row titles in Playfair with no bold (700) weight — Studio re-skin", () => {
+  it("renders row titles in Fraunces with no bold (700) weight — Studio re-skin", () => {
     loadApiKey.mockResolvedValue(null);
     render(<SettingsScreen />);
     // Row/section titles that survive the primitive sweep (auth is "unavailable"
     // here, so the Account row is hidden — these two always render).
     for (const text of ["Dyslexia-friendly font", "🎨 UI concept gallery"]) {
       const style = flattenStyle(screen.getByText(text).props.style);
-      expect(style["fontFamily"]).toBe(PLAYFAIR.semibold);
+      expect(style["fontFamily"]).toBe(FRAUNCES.semibold);
       expect(style["fontWeight"]).not.toBe("700");
       expect(style["fontWeight"]).not.toBe("600");
     }

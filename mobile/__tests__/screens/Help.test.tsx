@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -18,10 +18,10 @@ function flattenStyle(style: unknown): Record<string, unknown> {
 }
 
 describe("HelpScreen", () => {
-  it("renders the Help title in Playfair with no bold (700/600) weight — Studio re-skin", () => {
+  it("renders the Help title in Fraunces with no bold (700/600) weight — Studio re-skin", () => {
     render(<HelpScreen />);
     const style = flattenStyle(screen.getByText("Help").props.style);
-    expect(style["fontFamily"]).toBe(PLAYFAIR.semibold);
+    expect(style["fontFamily"]).toBe(FRAUNCES.semibold);
     expect(style["fontWeight"]).not.toBe("700");
     expect(style["fontWeight"]).not.toBe("600");
   });

@@ -6,7 +6,7 @@ import { AccentText } from "@/components/AccentText";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
 import { spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Label } from "@/components/ui";
 
@@ -62,10 +62,10 @@ const makeStyles = (c: Palette) => ({
   // Layout only — the surface, border, and padding now come from <Card>,
   // which this style overrides onto (Studio re-skin P1).
   row: { flexDirection: "row" as const, alignItems: "center" as const },
-  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  rowTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   rowMeta: { marginTop: 2 },
   chevron: { color: c.textMuted, fontSize: typography.sizeXl },
-  empty: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  empty: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   emptySub: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   error: { color: c.error, fontSize: typography.sizeMd, textAlign: "center" as const },
 });

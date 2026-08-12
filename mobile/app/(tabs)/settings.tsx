@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { radius, spacing, typography, THEME_META, themes, SWITCHABLE_THEMES, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles, useThemeControls } from "@/theme";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/help";
@@ -203,7 +203,7 @@ function makeStyles(c: Palette) {
       alignItems: "center" as const,
       marginBottom: spacing.lg,
     },
-    accountTitle: { color: c.text, fontSize: typography.sizeMd, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+    accountTitle: { color: c.text, fontSize: typography.sizeMd, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
     accountSub: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
     accountChevron: { color: c.textMuted, fontSize: typography.sizeXl },
     helpText: {
@@ -231,7 +231,7 @@ function makeStyles(c: Palette) {
     toggleTitle: {
       fontSize: typography.sizeMd,
       color: c.text,
-      fontFamily: PLAYFAIR.semibold,
+      fontFamily: FRAUNCES.semibold,
       letterSpacing: -0.36,
       marginBottom: 2,
     },
@@ -244,7 +244,7 @@ function makeStyles(c: Palette) {
     protoText: {
       fontSize: typography.sizeMd,
       color: c.text,
-      fontFamily: PLAYFAIR.semibold,
+      fontFamily: FRAUNCES.semibold,
       letterSpacing: -0.36,
     },
     protoChevron: {
@@ -253,7 +253,7 @@ function makeStyles(c: Palette) {
     },
     swatchRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.sm },
     swatch: { width: 92, borderRadius: radius.md, borderWidth: 2, padding: spacing.sm, alignItems: "center" as const, gap: 4 },
-    swatchSample: { fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+    swatchSample: { fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
     swatchDot: { width: 14, height: 14, borderRadius: 7 },
     // Colour is set inline per tile (p.textSecondary) so each caption stays
     // legible on its OWN palette background, not the active theme's.
