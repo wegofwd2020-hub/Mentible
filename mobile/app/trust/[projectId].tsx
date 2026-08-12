@@ -27,9 +27,20 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Chip, Label } from "@/components/ui";
+import { GenerateProgressBar } from "@/components/GenerateProgressBar";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
+
+type GenProgress = { startedAt: number; phase: "queued" | "running" };
+
+// A tiny wrapper so the per-topic .map() can render a live elapsed-time bar:
+// useElapsedMs is a hook and cannot be called directly inside a loop body.
+function TopicRowProgress({ startedAt, phase }: { startedAt: number; phase: "queued" | "running" }) {
+  const elapsed = useElapsedMs(startedAt);
+  return <GenerateProgressBar phase={phase} elapsedMs={elapsed} />;
+}
 
 const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] = [
   { value: "transcript", label: "Transcript" },
@@ -453,7 +464,7 @@ function DraftsPanel({
   isOwner,
   artifacts,
   inputs,
-  genBusyFormat,
+  formatGen,
   onGenerateFormat,
   onOpenVersion,
   compareArtifactId,
@@ -463,7 +474,7 @@ function DraftsPanel({
   onCompare,
   toc,
   topicStatus,
-  busyTopicIds,
+  topicGen,
   onGenerateTopic,
   onOpenTopic,
   initialMode,
@@ -472,7 +483,7 @@ function DraftsPanel({
   isOwner: boolean;
   artifacts: ArtifactDetailView[];
   inputs: ProjectInputView[];
-  genBusyFormat: string | null;
+  formatGen: ReadonlyMap<string, number>;
   onGenerateFormat: (fmt: DraftFormat) => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
   compareArtifactId: string | null;
@@ -482,7 +493,7 @@ function DraftsPanel({
   onCompare: (artifactId: string) => void;
   toc: StructuredTocView | undefined;
   topicStatus: TopicStatusView[];
-  busyTopicIds: ReadonlySet<string>;
+  topicGen: ReadonlyMap<string, GenProgress>;
   onGenerateTopic: (topicId: string) => void;
   onOpenTopic: (versionId: string) => void;
   initialMode?: "whole" | "topic";
@@ -522,34 +533,38 @@ function DraftsPanel({
               <Label tone="secondary">{subject.subject_label}</Label>
               {subject.units.map((unit) => {
                 const status = statusByTopic.get(unit.id);
-                const isBusy = busyTopicIds.has(unit.id);
+                const prog = topicGen.get(unit.id);
+                const isBusy = prog !== undefined;
                 const label = status && status.status !== "not_generated" ? "Regenerate" : "Generate";
                 return (
                   <View key={unit.id} style={styles.topicRow}>
-                    <View style={styles.topicRowLeft}>
-                      <Text style={styles.topicRowTitle}>{unit.title}</Text>
-                      <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                    <View style={styles.topicRowMain}>
+                      <View style={styles.topicRowLeft}>
+                        <Text style={styles.topicRowTitle}>{unit.title}</Text>
+                        <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                      </View>
+                      <View style={styles.topicRowActions}>
+                        {isOwner ? (
+                          <Button
+                            variant="primary"
+                            label={label}
+                            onPress={() => onGenerateTopic(unit.id)}
+                            busy={isBusy}
+                            disabled={isBusy}
+                            accessibilityLabel={`${label} ${unit.title}`}
+                          />
+                        ) : null}
+                        {status?.latest_version_id ? (
+                          <Button
+                            variant="ghost"
+                            label="Open"
+                            onPress={() => onOpenTopic(status.latest_version_id as string)}
+                            accessibilityLabel={`Open ${unit.title}`}
+                          />
+                        ) : null}
+                      </View>
                     </View>
-                    <View style={styles.topicRowActions}>
-                      {isOwner ? (
-                        <Button
-                          variant="primary"
-                          label={label}
-                          onPress={() => onGenerateTopic(unit.id)}
-                          busy={isBusy}
-                          disabled={isBusy}
-                          accessibilityLabel={`${label} ${unit.title}`}
-                        />
-                      ) : null}
-                      {status?.latest_version_id ? (
-                        <Button
-                          variant="ghost"
-                          label="Open"
-                          onPress={() => onOpenTopic(status.latest_version_id as string)}
-                          accessibilityLabel={`Open ${unit.title}`}
-                        />
-                      ) : null}
-                    </View>
+                    {prog ? <TopicRowProgress startedAt={prog.startedAt} phase={prog.phase} /> : null}
                   </View>
                 );
               })}
@@ -567,7 +582,9 @@ function DraftsPanel({
               </Text>
               <View style={styles.genGrid}>
                 {DRAFT_FORMATS.map((f) => {
-                  const disabled = genBusyFormat !== null || inputs.length === 0;
+                  const startedAt = formatGen.get(f.format);
+                  const busy = startedAt !== undefined;
+                  const disabled = busy || inputs.length === 0;
                   return (
                     <Pressable
                       key={f.format}
@@ -580,7 +597,8 @@ function DraftsPanel({
                       <Card style={[styles.genCard, disabled ? styles.disabledBtn : null]}>
                         <Text style={styles.genCardLabel}>{f.label}</Text>
                         <Text style={styles.genHint}>{f.hint}</Text>
-                        <Text style={styles.genPlus}>{genBusyFormat === f.format ? "…" : "+"}</Text>
+                        <Text style={styles.genPlus}>{busy ? "…" : "+"}</Text>
+                        {busy ? <TopicRowProgress startedAt={startedAt} phase="running" /> : null}
                       </Card>
                     </Pressable>
                   );
@@ -791,19 +809,21 @@ function FeedbackPanel({
                 const status = statusByTopic.get(unit.id);
                 return (
                   <View key={unit.id} style={styles.topicRow}>
-                    <View style={styles.topicRowLeft}>
-                      <Text style={styles.topicRowTitle}>{unit.title}</Text>
-                      <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
-                    </View>
-                    <View style={styles.topicRowActions}>
-                      {status?.latest_version_id ? (
-                        <Button
-                          variant="ghost"
-                          label="Open"
-                          onPress={() => onOpenTopic(status.latest_version_id as string)}
-                          accessibilityLabel={`Open ${unit.title}`}
-                        />
-                      ) : null}
+                    <View style={styles.topicRowMain}>
+                      <View style={styles.topicRowLeft}>
+                        <Text style={styles.topicRowTitle}>{unit.title}</Text>
+                        <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                      </View>
+                      <View style={styles.topicRowActions}>
+                        {status?.latest_version_id ? (
+                          <Button
+                            variant="ghost"
+                            label="Open"
+                            onPress={() => onOpenTopic(status.latest_version_id as string)}
+                            accessibilityLabel={`Open ${unit.title}`}
+                          />
+                        ) : null}
+                      </View>
                     </View>
                   </View>
                 );
@@ -1138,13 +1158,18 @@ function TrustProjectDetailInner() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
-  const [genBusyFormat, setGenBusyFormat] = useState<string | null>(null);
-  // A SET of in-flight topic ids, not a single id: the Celery worker runs
-  // per-topic generations concurrently, and — more importantly — a single
-  // `busyTopicId` string forced `disabled={busyTopicId !== null}` to grey
-  // EVERY topic's Generate while one ran (the "all Not-generated greyed, no
-  // option to generate" report). Per-id busy gates each row independently.
-  const [busyTopicIds, setBusyTopicIds] = useState<ReadonlySet<string>>(new Set());
+  // A MAP of in-flight formats to their startedAt, not a single busy format —
+  // same "per-id busy, not a global lock" fix as topicGen below: a single
+  // `genBusyFormat` string greyed EVERY whole-book card while one generated.
+  const [formatGen, setFormatGen] = useState<ReadonlyMap<string, number>>(new Map());
+  // A MAP of in-flight topic ids to their progress, not a single id: the
+  // Celery worker runs per-topic generations concurrently, and —
+  // more importantly — a single `busyTopicId` string forced
+  // `disabled={busyTopicId !== null}` to grey EVERY topic's Generate while
+  // one ran (the "all Not-generated greyed, no option to generate" report).
+  // Per-id busy gates each row independently; the value also carries the
+  // startedAt/phase the per-row progress bar renders.
+  const [topicGen, setTopicGen] = useState<ReadonlyMap<string, GenProgress>>(new Map());
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -1242,13 +1267,17 @@ function TrustProjectDetailInner() {
   };
 
   const onGenerateFormat = async (fmt: DraftFormat) => {
-    setGenBusyFormat(fmt.format);
+    setFormatGen((cur) => new Map(cur).set(fmt.format, Date.now()));
     try {
       await generateFormat(fmt);
     } catch (e) {
       Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
-      setGenBusyFormat(null);
+      setFormatGen((cur) => {
+        const next = new Map(cur);
+        next.delete(fmt.format);
+        return next;
+      });
     }
   };
 
@@ -1256,14 +1285,22 @@ function TrustProjectDetailInner() {
     router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
 
   const onGenerateTopic = async (topicId: string) => {
-    setBusyTopicIds((cur) => new Set(cur).add(topicId));
+    setTopicGen((cur) => new Map(cur).set(topicId, { startedAt: Date.now(), phase: "queued" }));
     try {
-      await generateTopic(topicId);
+      await generateTopic(topicId, {
+        onPhase: (phase) => setTopicGen((cur) => {
+          const p = cur.get(topicId);
+          if (!p) return cur;
+          const next = new Map(cur);
+          next.set(topicId, { ...p, phase });
+          return next;
+        }),
+      });
     } catch (e) {
       Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
-      setBusyTopicIds((cur) => {
-        const next = new Set(cur);
+      setTopicGen((cur) => {
+        const next = new Map(cur);
         next.delete(topicId);
         return next;
       });
@@ -1555,7 +1592,7 @@ function TrustProjectDetailInner() {
             isOwner={isOwner}
             artifacts={project.artifacts}
             inputs={inputs}
-            genBusyFormat={genBusyFormat}
+            formatGen={formatGen}
             onGenerateFormat={onGenerateFormat}
             onOpenVersion={onOpenVersion}
             compareArtifactId={compareArtifactId}
@@ -1565,7 +1602,7 @@ function TrustProjectDetailInner() {
             onCompare={onCompare}
             toc={project.project.toc}
             topicStatus={project.topic_status ?? []}
-            busyTopicIds={busyTopicIds}
+            topicGen={topicGen}
             onGenerateTopic={onGenerateTopic}
             onOpenTopic={onOpenTopic}
             initialMode={desiredDraftMode}
@@ -1777,12 +1814,21 @@ const makeStyles = (c: Palette) => ({
     backgroundColor: c.surfaceHigh,
   },
   checkboxOn: { backgroundColor: c.primary, borderColor: c.primary },
+  // Column, not row: this wraps the title+actions line AND (when a topic is
+  // generating) the full-width progress bar stacked beneath it. The row
+  // semantics (space-between, centered, horizontal) live on topicRowMain so
+  // the bar isn't crammed onto the same line as the title/buttons.
   topicRow: {
+    flexDirection: "column" as const,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  topicRowMain: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     justifyContent: "space-between" as const,
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    width: "100%" as const,
   },
   topicRowLeft: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, flexShrink: 1 as const },
   // Inter (body), not Playfair — sizeSm sits below the "Playfair only

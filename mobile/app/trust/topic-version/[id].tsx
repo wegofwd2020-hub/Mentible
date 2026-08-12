@@ -14,8 +14,11 @@ import { Card, Button } from "@/components/ui";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
 import { describeProvenance } from "@/lib/draftProvenance";
+import { GenerateProgressBar } from "@/components/GenerateProgressBar";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 type Styles = ReturnType<typeof makeStyles>;
+type GenProgress = { startedAt: number; phase: "queued" | "running" };
 
 // Read-write viewer for a single per-topic draft version (Slice C2c). Adds
 // Approve/Withdraw to the C2b read-only viewer, mirroring
@@ -37,7 +40,8 @@ function TopicVersionViewerInner() {
   const [expertName, setExpertName] = useState("");
   const [regen, setRegen] = useState(false);
   const [guidance, setGuidance] = useState("");
-  const [genBusy, setGenBusy] = useState(false);
+  const [reviseGen, setReviseGen] = useState<GenProgress | null>(null);
+  const reviseElapsed = useElapsedMs(reviseGen?.startedAt ?? null);
   const [note, setNote] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -154,16 +158,19 @@ function TopicVersionViewerInner() {
 
   const doRegen = async () => {
     if (!topicVersion) return;
-    setGenBusy(true);
+    setReviseGen({ startedAt: Date.now(), phase: "queued" });
     try {
-      const nv = await generateTopic(topicVersion.topic_id, { guidance: guidance.trim() || undefined });
+      const nv = await generateTopic(topicVersion.topic_id, {
+        guidance: guidance.trim() || undefined,
+        onPhase: (phase) => setReviseGen((p) => (p ? { ...p, phase } : p)),
+      });
       setRegen(false);
       setGuidance("");
       router.replace(`/trust/topic-version/${nv.id}?projectId=${projectId}`);
     } catch (e) {
       Alert.alert("Couldn't revise", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
-      setGenBusy(false);
+      setReviseGen(null);
     }
   };
 
@@ -346,9 +353,11 @@ function TopicVersionViewerInner() {
               variant="primary"
               label="Generate new version"
               accessibilityLabel="Generate new version"
-              busy={genBusy}
+              busy={reviseGen !== null}
+              disabled={reviseGen !== null}
               onPress={doRegen}
             />
+            {reviseGen ? <GenerateProgressBar phase={reviseGen.phase} elapsedMs={reviseElapsed} /> : null}
           </Card>
         ) : null}
         {!editing && askName ? (

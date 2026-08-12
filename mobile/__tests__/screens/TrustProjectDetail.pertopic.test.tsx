@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 
 const mockPush = jest.fn();
@@ -96,7 +96,7 @@ it("pressing Generate on an ungenerated topic calls generateTopic", async () => 
 
   fireEvent.press(await screen.findByLabelText("Generate Topic Two"));
   await waitFor(() => {
-    expect(mock.generateTopic).toHaveBeenCalledWith("t2");
+    expect(mock.generateTopic).toHaveBeenCalledWith("t2", expect.objectContaining({ onPhase: expect.any(Function) }));
   });
 });
 
@@ -135,7 +135,7 @@ it("a topic generating does NOT grey out other topics' Generate (per-id busy, no
 
   // Start regenerating t1 (drafted → "Regenerate"); its promise never resolves.
   fireEvent.press(await screen.findByLabelText("Regenerate Topic One"));
-  await waitFor(() => expect(mock.generateTopic).toHaveBeenCalledWith("t1"));
+  await waitFor(() => expect(mock.generateTopic).toHaveBeenCalledWith("t1", expect.objectContaining({ onPhase: expect.any(Function) })));
 
   // t1's own button is busy/disabled...
   await waitFor(() =>
@@ -143,6 +143,26 @@ it("a topic generating does NOT grey out other topics' Generate (per-id busy, no
   );
   // ...but t2's Generate must stay ENABLED (the fix — no global grey).
   expect(screen.getByLabelText("Generate Topic Two").props.accessibilityState?.disabled).toBeFalsy();
+});
+
+it("shows the progress bar and flips Waiting -> Generating via onPhase", async () => {
+  const mock = base();
+  let resolve!: (v: { id: string }) => void;
+  let phaseCb: ((p: "queued" | "running") => void) | undefined;
+  mock.generateTopic = jest.fn().mockImplementation((_id: string, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
+    phaseCb = opts?.onPhase;
+    return new Promise<{ id: string }>((r) => { resolve = r; });
+  });
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+  fireEvent.press(await screen.findByLabelText("Generate Topic Two"));
+
+  expect(await screen.findByText(/waiting/i)).toBeTruthy();     // queued
+  act(() => phaseCb?.("running"));
+  expect(await screen.findByText(/generating/i)).toBeTruthy();  // running
+  act(() => resolve({ id: "tv2" }));
 });
 
 it("pressing Open on a drafted topic navigates to the topic-version viewer", async () => {

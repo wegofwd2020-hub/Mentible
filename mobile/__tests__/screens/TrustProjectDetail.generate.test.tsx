@@ -82,3 +82,19 @@ it("disables the format cards and shows a hint when there are no sources yet", a
   fireEvent.press(btn);
   expect(mock.generateFormat).not.toHaveBeenCalled();
 });
+
+// Whole-book generation is a SYNCHRONOUS blocking POST (no job, no queue), so
+// the progress bar's phase is fixed to "running" for the whole duration —
+// unlike the per-topic bar (TrustProjectDetail.pertopic.test.tsx), there is
+// no "waiting" (queued) state to assert first.
+it("shows the progress bar on a whole-book draft card while generating", async () => {
+  const mock = proj(true);
+  mock.generateFormat = jest.fn().mockImplementation(() => new Promise(() => {})); // pending
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Start a new LinkedIn post draft"));
+
+  expect(await screen.findByText(/generating/i)).toBeTruthy();
+});

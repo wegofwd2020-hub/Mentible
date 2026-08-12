@@ -236,6 +236,50 @@ async def test_task_uses_the_managed_vault_key_when_managed(conn, fake_redis, mo
     assert body["status"] == "done"
 
 
+async def test_task_writes_running_before_done(conn, fake_redis, monkeypatch):
+    """The task must write a `running` status when it actually starts work
+    (after the no-sources guard, before the generation call) so the mobile
+    foreground progress bar can distinguish "waiting for a worker slot" from
+    "generating". Spies on `_write_status` to capture the emitted status
+    sequence, and — per ADR-001 — asserts the `running` payload never carries
+    the API key."""
+    pid, _source_ids = await _project_with_topic(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    seq: list[tuple[str, str]] = []
+    orig = trust_tasks._write_status
+
+    async def spy(r, jid, status, **kw):
+        payload = {"status": status, **{k: v for k, v in kw.items() if v is not None}}
+        seq.append((status, json.dumps(payload)))
+        return await orig(r, jid, status, **kw)
+
+    monkeypatch.setattr(trust_tasks, "_write_status", spy)
+
+    with patch(
+        "backend.src.trust.generate_topic.build_provider",
+        return_value=fake_provider(text=_GOOD),
+    ):
+        await trust_tasks._run(
+            job_id=job_id,
+            project_id=pid,
+            topic_id="t1",
+            provider_id="anthropic",
+            model="m",
+            guidance=None,
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    statuses = [s for s, _ in seq]
+    assert "running" in statuses and "done" in statuses
+    assert statuses.index("running") < statuses.index("done")
+    # ADR-001: the running payload never carries the key.
+    running_payload = next(p for s, p in seq if s == "running")
+    assert _API_KEY not in running_payload
+
+
 # ── Failure path ──────────────────────────────────────────────────────────────
 
 

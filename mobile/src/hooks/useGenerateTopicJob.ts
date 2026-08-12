@@ -17,6 +17,10 @@ export interface RunGenerateTopicArgs {
   accessToken: string;
   providerId?: string;
   guidance?: string;
+  // Called on each poll tick with the job's current status, for callers
+  // driving a foreground progress bar (Waiting -> Generating). Only invoked
+  // for "queued"/"running" — not for the terminal "done"/"failed" states.
+  onPhase?: (p: "queued" | "running") => void;
 }
 
 export interface UseGenerateTopicJobResult {
@@ -37,6 +41,7 @@ function pollTopicJob(
   jobId: string,
   accessToken: string,
   intervalMs: number,
+  onPhase?: (p: "queued" | "running") => void,
 ): Promise<TopicGenerateJobStatusView> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   return new Promise<TopicGenerateJobStatusView>((resolve, reject) => {
@@ -47,6 +52,7 @@ function pollTopicJob(
       }
       try {
         const job = await getJob(jobId, accessToken);
+        if (job.status === "queued" || job.status === "running") onPhase?.(job.status);
         if (job.status === "done" || job.status === "failed") {
           resolve(job);
         } else {
@@ -81,7 +87,7 @@ export function useGenerateTopicJob(intervalMs = POLL_INTERVAL_MS): UseGenerateT
           { api_key: args.apiKey, provider_id: args.providerId ?? "anthropic", guidance: args.guidance },
           args.accessToken,
         );
-        const job = await pollTopicJob(submitted.job_id, args.accessToken, intervalMs);
+        const job = await pollTopicJob(submitted.job_id, args.accessToken, intervalMs, args.onPhase);
         if (job.status === "done" && job.result) {
           setStatus("done");
           return job.result;
