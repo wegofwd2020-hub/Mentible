@@ -61,3 +61,22 @@ def generate_draft(
         return _coerce_draft(parse_json_response(text))
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+
+
+def draft_output_to_sections(out: _DraftOutput, sources) -> tuple[list[dict], list[str]]:
+    """Map a `_DraftOutput`'s model-labelled sources (S1..Sn) to real input ids.
+
+    Shared by the sync path and `trust.tasks._run_version` — drop unknown
+    labels rather than 500 on a bad one (the model occasionally invents a
+    label that doesn't exist)."""
+    by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
+    sections = [
+        {
+            "heading": sec.heading,
+            "body": sec.body,
+            "source_ids": [by_label[label] for label in sec.sources if label in by_label],
+        }
+        for sec in out.sections
+    ]
+    cited = sorted({sid for s in sections for sid in s["source_ids"]})
+    return sections, cited

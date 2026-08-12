@@ -527,6 +527,25 @@ def _artifact_with_source(c):
     return pid, art["id"]
 
 
+def _run_version_generate_job(c, aid, payload):
+    """POST the whole-book generate submit endpoint (async, Phase C T1 — 202
+    + job_id), then run the enqueued Celery task synchronously (`.apply()`,
+    no broker/worker needed) against the SAME fakeredis instance the submit
+    endpoint wrote the envelope/status into (the `_redis` autouse fixture).
+    Returns the submit response; callers poll `GET /jobs/{job_id}` for the
+    outcome. A no-op if submit itself failed (403/404/422) — nothing to run.
+    """
+    fake_redis = app.dependency_overrides[get_redis]()
+    with patch("backend.src.trust.router.generate_version_task.delay") as mock_delay:
+        r = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json=payload)
+    if r.status_code == 202:
+        with patch("backend.src.trust.tasks._redis_client", return_value=fake_redis):
+            from backend.src.trust.tasks import generate_version_task
+
+            generate_version_task.apply(kwargs=mock_delay.call_args.kwargs).get()
+    return r
+
+
 def test_owner_generates_draft_version():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
@@ -536,12 +555,11 @@ def test_owner_generates_draft_version():
             "backend.src.trust.generate.build_provider",
             return_value=fake_provider(text=_DRAFT_JSON),
         ):
-            r = c.post(
-                f"/api/v1/trust/artifacts/{aid}/versions/generate",
-                json={"api_key": "sk-ant-" + "x" * 20},
-            )
-        assert r.status_code == 200
-        assert r.json()["version_no"] == 1
+            r = _run_version_generate_job(c, aid, {"api_key": "sk-ant-" + "x" * 20})
+        assert r.status_code == 202, r.text
+        job = c.get(f"/api/v1/jobs/{r.json()['job_id']}").json()
+        assert job["status"] == "done"
+        assert job["result"]["version_no"] == 1
         detail = c.get(f"/api/v1/trust/projects/{pid}").json()
         assert (
             detail["artifacts"][0]["versions"][0]["is_validated"] is False
@@ -574,8 +592,11 @@ def test_generate_key_never_leaks_and_reviewer_forbidden():
             "backend.src.trust.generate.build_provider",
             return_value=fake_provider(text=_DRAFT_JSON),
         ):
-            r = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json={"api_key": key})
-        assert key not in _json.dumps(r.json())
+            r = _run_version_generate_job(c, aid, {"api_key": key})
+        assert r.status_code == 202, r.text
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        job_resp = c.get(f"/api/v1/jobs/{r.json()['job_id']}")
+        assert key not in job_resp.text  # ADR-001: nor into the polled status
         # reviewer cannot generate
         expert = f"e-{uuid.uuid4()}@x.z"
         c.post(f"/api/v1/trust/projects/{pid}/invitations", json={"email": expert})
@@ -585,7 +606,53 @@ def test_generate_key_never_leaks_and_reviewer_forbidden():
         assert rr.status_code == 403
 
 
-def test_generate_bad_model_output_502():
+def test_generate_version_submit_returns_202_writes_envelope_and_enqueues():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        _pid, aid = _artifact_with_source(c)
+        key = "sk-ant-" + "e" * 20
+        with patch("backend.src.trust.router.generate_version_task.delay") as mock_delay:
+            r = c.post(
+                f"/api/v1/trust/artifacts/{aid}/versions/generate",
+                json={"api_key": key},
+            )
+        assert r.status_code == 202, r.text
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        body = r.json()
+        assert body["status"] == "queued"
+
+        mock_delay.assert_called_once()
+        kwargs = mock_delay.call_args.kwargs
+        assert kwargs["job_id"] == body["job_id"]
+        assert kwargs["artifact_id"] == aid
+        assert kwargs["managed"] is False
+        assert kwargs["recorded_by_sub"] == owner
+        assert "api_key" not in kwargs  # ADR-001: the key never rides along in task args
+
+        # The BYOK envelope was written, encrypted — never the plaintext key.
+        fake_redis = app.dependency_overrides[get_redis]()
+        envelope = asyncio.run(fake_redis.get(f"byok:{body['job_id']}"))
+        assert envelope is not None
+        assert key.encode() not in envelope
+
+        # queued status is immediately pollable via the shared jobs endpoint.
+        job = c.get(f"/api/v1/jobs/{body['job_id']}").json()
+        assert job["status"] == "queued"
+
+
+def test_generate_version_unknown_artifact_404():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        r = c.post(
+            f"/api/v1/trust/artifacts/{uuid.uuid4()}/versions/generate",
+            json={"api_key": "sk-ant-" + "x" * 20},
+        )
+        assert r.status_code == 404
+
+
+def test_generate_bad_model_output_becomes_a_failed_job():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
@@ -594,11 +661,11 @@ def test_generate_bad_model_output_502():
             "backend.src.trust.generate.build_provider",
             return_value=fake_provider(text="not json"),
         ):
-            r = c.post(
-                f"/api/v1/trust/artifacts/{aid}/versions/generate",
-                json={"api_key": "sk-ant-" + "z" * 20},
-            )
-        assert r.status_code == 502
+            r = _run_version_generate_job(c, aid, {"api_key": "sk-ant-" + "z" * 20})
+        assert r.status_code == 202, r.text
+        job = c.get(f"/api/v1/jobs/{r.json()['job_id']}").json()
+        assert job["status"] == "failed"
+        assert "error" in job
 
 
 _TOC_JSON = _json.dumps(
