@@ -81,8 +81,8 @@ function tocHasContent(toc: StructuredTOC): boolean {
 // an editor-only `enhancementInstructions` the wire type has no field for. A
 // blind `as unknown as` cast across that gap defeats tsc at exactly the spot
 // it would catch a real drift, so map field-by-field instead.
-function toSubtopics(raw: unknown[]): Subtopic[] {
-  return raw.map((s) => {
+function toSubtopics(raw: unknown[] | null | undefined): Subtopic[] {
+  return (raw ?? []).map((s) => {
     if (typeof s === "string") return s;
     if (s && typeof s === "object" && typeof (s as { label?: unknown }).label === "string") {
       const { label, detail } = s as { label: string; detail?: unknown };
@@ -99,7 +99,7 @@ function tocViewToStructured(view: StructuredTocView): StructuredTOC {
       units: (s.units ?? []).map((u) => ({
         id: u.id,
         title: u.title,
-        subtopics: toSubtopics(u.subtopics),
+        subtopics: toSubtopics(u.subtopics ?? []),
         prerequisites: u.prerequisites,
         source_ids: u.source_ids,
       })),
@@ -463,7 +463,7 @@ function DraftsPanel({
   onCompare,
   toc,
   topicStatus,
-  busyTopicId,
+  busyTopicIds,
   onGenerateTopic,
   onOpenTopic,
   initialMode,
@@ -482,7 +482,7 @@ function DraftsPanel({
   onCompare: (artifactId: string) => void;
   toc: StructuredTocView | undefined;
   topicStatus: TopicStatusView[];
-  busyTopicId: string | null;
+  busyTopicIds: ReadonlySet<string>;
   onGenerateTopic: (topicId: string) => void;
   onOpenTopic: (versionId: string) => void;
   initialMode?: "whole" | "topic";
@@ -522,7 +522,7 @@ function DraftsPanel({
               <Label tone="secondary">{subject.subject_label}</Label>
               {subject.units.map((unit) => {
                 const status = statusByTopic.get(unit.id);
-                const isBusy = busyTopicId === unit.id;
+                const isBusy = busyTopicIds.has(unit.id);
                 const label = status && status.status !== "not_generated" ? "Regenerate" : "Generate";
                 return (
                   <View key={unit.id} style={styles.topicRow}>
@@ -537,7 +537,7 @@ function DraftsPanel({
                           label={label}
                           onPress={() => onGenerateTopic(unit.id)}
                           busy={isBusy}
-                          disabled={busyTopicId !== null}
+                          disabled={isBusy}
                           accessibilityLabel={`${label} ${unit.title}`}
                         />
                       ) : null}
@@ -1139,7 +1139,12 @@ function TrustProjectDetailInner() {
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
   const [genBusyFormat, setGenBusyFormat] = useState<string | null>(null);
-  const [busyTopicId, setBusyTopicId] = useState<string | null>(null);
+  // A SET of in-flight topic ids, not a single id: the Celery worker runs
+  // per-topic generations concurrently, and — more importantly — a single
+  // `busyTopicId` string forced `disabled={busyTopicId !== null}` to grey
+  // EVERY topic's Generate while one ran (the "all Not-generated greyed, no
+  // option to generate" report). Per-id busy gates each row independently.
+  const [busyTopicIds, setBusyTopicIds] = useState<ReadonlySet<string>>(new Set());
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -1251,13 +1256,17 @@ function TrustProjectDetailInner() {
     router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
 
   const onGenerateTopic = async (topicId: string) => {
-    setBusyTopicId(topicId);
+    setBusyTopicIds((cur) => new Set(cur).add(topicId));
     try {
       await generateTopic(topicId);
     } catch (e) {
       Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
-      setBusyTopicId(null);
+      setBusyTopicIds((cur) => {
+        const next = new Set(cur);
+        next.delete(topicId);
+        return next;
+      });
     }
   };
 
@@ -1556,7 +1565,7 @@ function TrustProjectDetailInner() {
             onCompare={onCompare}
             toc={project.project.toc}
             topicStatus={project.topic_status ?? []}
-            busyTopicId={busyTopicId}
+            busyTopicIds={busyTopicIds}
             onGenerateTopic={onGenerateTopic}
             onOpenTopic={onOpenTopic}
             initialMode={desiredDraftMode}
