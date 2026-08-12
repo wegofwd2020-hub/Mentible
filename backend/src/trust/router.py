@@ -1097,9 +1097,7 @@ async def add_version_feedback(
     )
 
 
-@router.post(
-    "/topic-versions/{topic_version_id}/feedback", response_model=schemas.TopicFeedbackOut
-)
+@router.post("/topic-versions/{topic_version_id}/feedback", response_model=schemas.TopicFeedbackOut)
 async def add_topic_version_feedback(
     topic_version_id: uuid.UUID,
     body: schemas.FeedbackIn,
