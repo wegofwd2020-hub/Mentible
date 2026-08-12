@@ -145,6 +145,9 @@ async def _run(
                 return
 
             resolved_model = model or settings.anthropic_default_model
+            await _write_status(
+                r, job_id, "running"
+            )  # phase: queued -> running (foreground progress)
             try:
                 out = await asyncio.to_thread(
                     generate_topic_draft,
