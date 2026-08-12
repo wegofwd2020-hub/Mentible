@@ -71,6 +71,14 @@ function TrustVersionInner() {
     return m;
   }, [project]);
 
+  // Sibling versions of this same artifact, for the inline "Versions" history
+  // block. Defensive: no matching artifact (still loading, or a bad id) just
+  // yields an empty list — the block itself renders nothing below.
+  const versions = useMemo(
+    () => (project?.artifacts ?? []).find((a) => a.artifact.id === artifactId)?.versions ?? [],
+    [project, artifactId],
+  );
+
   // The web view-mode render preview: built ONCE per version (not inline in
   // JSX). Building it fresh on every render (approve/withdraw reload, theme,
   // busy state) would hand TopicRenderer a new object each time, re-running
@@ -123,9 +131,9 @@ function TrustVersionInner() {
     const go = () => setRegen(true);
     if (version!.is_validated) {
       Alert.alert(
-        "Regenerate a validated draft?",
+        "Revise a validated draft?",
         `This creates a new version. The approval on v${version!.version_no} stays; the new version will need re-approval.`,
-        [{ text: "Cancel", style: "cancel" }, { text: "Regenerate", onPress: go }],
+        [{ text: "Cancel", style: "cancel" }, { text: "Revise", onPress: go }],
       );
     } else { go(); }
   };
@@ -459,6 +467,37 @@ function TrustVersionInner() {
             ) : null}
           </View>
         ) : null}
+        {versions.length > 1 ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Versions</Text>
+            {versions.map((v) => {
+              const isCurrent = v.id === versionId;
+              const row = (
+                <View style={styles.versionRowInner}>
+                  <Text style={styles.bodyText}>
+                    v{v.version_no}
+                    {v.created_at ? ` · ${new Date(v.created_at).toLocaleDateString()}` : ""}
+                    {v.is_validated ? " ✓" : ""}
+                  </Text>
+                  {isCurrent ? <Text style={styles.notesEmpty}>current</Text> : null}
+                </View>
+              );
+              return isCurrent ? (
+                <View key={v.id} style={styles.noteRow}>{row}</View>
+              ) : (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open version ${v.version_no}`}
+                  style={styles.noteRow}
+                  onPress={() => router.push({ pathname: "/trust/version/[versionId]", params: { versionId: v.id, artifactId: String(artifactId), projectId: String(projectId) } })}
+                >
+                  {row}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </Pressable>
@@ -511,6 +550,7 @@ const makeStyles = (c: Palette) => ({
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
   reviseFromNoteBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
