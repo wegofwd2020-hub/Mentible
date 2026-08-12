@@ -35,13 +35,13 @@ function expectNotBold(text: ReturnType<typeof screen.getByText>) {
   expect(StyleSheet.flatten(text.props.style).fontWeight).not.toBe("700");
 }
 
-it("renders the post-variant hook in Playfair and carries no bold (700) weight on the migrated Studio controls", () => {
+it("renders the post-variant hook in Fraunces and carries no bold (700) weight on the migrated Studio controls", () => {
   mockHook({ status: "done", variants: VARIANTS, provenance: "ai-generated" });
   render(<PostsScreen />);
 
-  // (a) heading face: the variant "hook" is the card's Playfair heading.
+  // (a) heading face: the variant "hook" is the card's Fraunces heading.
   const hook = screen.getByText("Hook 0");
-  expect(StyleSheet.flatten(hook.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(hook.props.style).fontFamily).toMatch(/Fraunces/);
 
   // (b) no migrated control carries fontWeight: "700" — the Copy <Button>,
   // the Make posts <Button variant="primary">, and the hook heading itself.

@@ -12,7 +12,7 @@ jest.mock("react-native-safe-area-context", () => {
 });
 
 import { StudioHeader, kickerFor } from "@/components/StudioHeader";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 
 const props = (over: any = {}) => ({
   navigation: { goBack: jest.fn() } as any,
@@ -29,11 +29,11 @@ describe("StudioHeader", () => {
     expect(getByText("PROJECT")).toBeTruthy(); // SECTION_KICKERS["trust/[projectId]"]
   });
 
-  it("renders the wordmark in Playfair, never a raw bold weight", () => {
+  it("renders the wordmark in Fraunces, never a raw bold weight", () => {
     const { getByText } = render(<StudioHeader {...props()} />);
     const wordmark = getByText("MENTIBLE");
     const flat = StyleSheet.flatten(wordmark.props.style);
-    expect(flat.fontFamily).toBe(PLAYFAIR.medium);
+    expect(flat.fontFamily).toBe(FRAUNCES.semibold);
     expect(flat.fontWeight).not.toBe("700");
   });
 

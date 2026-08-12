@@ -61,13 +61,13 @@ function expectNotBold(text: ReturnType<typeof screen.getByText>) {
   expect(StyleSheet.flatten(text.props.style).fontWeight).not.toBe("700");
 }
 
-it("titles the project in Playfair and carries no bold (700) weight on the migrated Studio controls", async () => {
+it("titles the project in Fraunces and carries no bold (700) weight on the migrated Studio controls", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base);
   render(<TrustProjectDetail />);
 
-  // (a) heading face: Playfair, not the retired Fraunces.
+  // (a) heading face: Fraunces, not the retired Playfair.
   const title = await screen.findByText("Stormwater");
-  expect(StyleSheet.flatten(title.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(title.props.style).fontFamily).toMatch(/Fraunces/);
 
   // (b) no migrated control carries fontWeight: "700" — scoped to the
   // Button/Label instances this task actually moved onto the primitives.

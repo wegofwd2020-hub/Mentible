@@ -10,7 +10,7 @@ import { Alert } from "@/lib/alert";
 import { loadApiKey } from "@/secure/keyStore";
 import { type Platform, type PostVariant } from "@/api/derivativesClient";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Label } from "@/components/ui";
 
@@ -215,7 +215,7 @@ const makeStyles = (c: Palette) => ({
   results: { marginTop: spacing.md, gap: spacing.sm },
   // Layout only — the surface, border, and padding now come from <Card>.
   card: { gap: spacing.xs },
-  hook: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  hook: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   postBody: { color: c.text },
   hashtags: { color: c.primary },
   cta: { color: c.text, fontWeight: "500" as const },

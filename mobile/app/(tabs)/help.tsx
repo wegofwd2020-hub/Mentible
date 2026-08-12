@@ -12,7 +12,7 @@ import { searchHelpTopics, HelpTopicView } from "@/help";
 import { HELP_TOPICS } from "@/help-content";
 import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Card, Label } from "@/components/ui";
 
@@ -105,7 +105,7 @@ const makeStyles = (c: Palette) => ({
   title: {
     color: c.text,
     fontSize: typography.sizeXl,
-    fontFamily: PLAYFAIR.semibold,
+    fontFamily: FRAUNCES.semibold,
     letterSpacing: -0.36,
     marginBottom: spacing.xs,
   },

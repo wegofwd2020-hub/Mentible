@@ -37,7 +37,7 @@ const { loadBookIndex, deleteBook } = require("../../src/storage/bookStore") as 
   deleteBook: jest.Mock;
 };
 
-import { PLAYFAIR } from "../../src/constants/fonts";
+import { FRAUNCES } from "../../src/constants/fonts";
 import BooksScreen from "../../app/(tabs)/books";
 
 beforeEach(() => {
@@ -63,12 +63,12 @@ describe("BooksScreen", () => {
     expect(screen.getByLabelText("New book")).toBeTruthy();
   });
 
-  it("renders the empty-state heading in Playfair, never a raw bold weight", async () => {
+  it("renders the empty-state heading in Fraunces, never a raw bold weight", async () => {
     loadBookIndex.mockResolvedValue([]);
     render(<BooksScreen />);
     const heading = await screen.findByText("No books yet");
     const flat = flattenStyle(heading.props.style);
-    expect(flat.fontFamily).toBe(PLAYFAIR.semibold);
+    expect(flat.fontFamily).toBe(FRAUNCES.semibold);
     expect(flat.fontWeight).not.toBe("700");
   });
 

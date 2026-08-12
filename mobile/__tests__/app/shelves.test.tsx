@@ -146,17 +146,18 @@ test("hides the nudge when no starter shelf is present", () => {
 });
 
 // Studio re-skin (straggler sweep, task 2): the screen title and the "Sources"
-// section heading move to Playfair, and neither carries the retired bold
-// (700) weight — the Studio primitives top out at 500.
-test("titles the screen and the Sources section in Playfair, with no bold (700) weight", () => {
+// section heading move to Fraunces (app-chrome headings → Fraunces pass), and
+// neither carries the retired bold (700) weight — the Studio primitives top
+// out at 500.
+test("titles the screen and the Sources section in Fraunces, with no bold (700) weight", () => {
   render(<ShelvesScreen />);
 
   const heading = screen.getByText("Open Shelves");
-  expect(StyleSheet.flatten(heading.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(heading.props.style).fontFamily).toMatch(/Fraunces/);
   expect(StyleSheet.flatten(heading.props.style).fontWeight).not.toBe("700");
 
   const sectionTitle = screen.getByText("Sources");
-  expect(StyleSheet.flatten(sectionTitle.props.style).fontFamily).toMatch(/Playfair/);
+  expect(StyleSheet.flatten(sectionTitle.props.style).fontFamily).toMatch(/Fraunces/);
   expect(StyleSheet.flatten(sectionTitle.props.style).fontWeight).not.toBe("700");
 });
 

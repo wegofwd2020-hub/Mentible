@@ -51,6 +51,22 @@ it("owner sees a primary Revise + secondary Edit text, and no note box", async (
   expect(screen.queryByPlaceholderText("Request a revision…")).toBeNull();
 });
 
+it("owner's Revise is styled as the secondary control (same bucket as Edit text), leaving Approve the single filled primary", async () => {
+  mockRole = "owner";
+  render(<TrustVersion />);
+  await waitFor(() => expect(screen.getByText("H")).toBeTruthy());
+
+  const revise = screen.getByLabelText("Revise draft");
+  const editText = screen.getByLabelText("Edit draft");
+  const approve = screen.getByLabelText(`Approve version 2`);
+
+  // Revise shares the secondary "Edit text" style, and NOT the filled
+  // approve style — this is the two-pill fix (no color-literal asserts).
+  expect(revise.props.style).toEqual(editText.props.style);
+  expect(revise.props.style).not.toEqual(approve.props.style);
+  expect(approve).toBeTruthy();
+});
+
 it("reviewer sees the note box and no Revise/Edit controls", async () => {
   mockRole = "reviewer";
   render(<TrustVersion />);

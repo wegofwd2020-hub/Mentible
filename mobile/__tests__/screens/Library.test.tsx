@@ -74,12 +74,12 @@ describe("LibraryScreen", () => {
       expect(screen.getByText("Your Library is empty")).toBeTruthy();
     });
 
-    // The heading uses the Studio Playfair-heading style, not a bold Inter
+    // The heading uses the Studio Fraunces-heading style, not a bold Inter
     // weight — assert via the primitive's typography, not a color literal.
     const heading = screen.getByText("Your Library is empty");
     const flat = require("react-native").StyleSheet.flatten(heading.props.style);
     expect(flat.fontWeight).not.toBe("700");
-    expect(flat.fontFamily).toBe(require("../../src/constants/fonts").PLAYFAIR.semibold);
+    expect(flat.fontFamily).toBe(require("../../src/constants/fonts").FRAUNCES.semibold);
 
     // "Go to Books" is the one gold-pill primary action on this screen; Import
     // EPUB is present too but as a secondary (ghost) control.

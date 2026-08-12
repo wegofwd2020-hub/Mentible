@@ -17,7 +17,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { spacing, typography, type Palette } from "@/constants/theme";
-import { PLAYFAIR } from "@/constants/fonts";
+import { FRAUNCES } from "@/constants/fonts";
 import { useThemedStyles } from "@/theme";
 import { Button } from "@/components/ui";
 import { IS_DEMO } from "@/constants/demo";
@@ -461,7 +461,7 @@ const makeStyles = (c: Palette) => ({
   demoShelf: { flex: 1, backgroundColor: c.background },
   demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   demoHeader: {
-    color: c.text, fontSize: typography.sizeXl, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36,
+    color: c.text, fontSize: typography.sizeXl, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36,
     marginBottom: spacing.md,
   },
   demoGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.lg },
@@ -488,7 +488,7 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
-  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  emptyTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   emptyBody: {
     fontSize: typography.sizeSm,
     color: c.textMuted,

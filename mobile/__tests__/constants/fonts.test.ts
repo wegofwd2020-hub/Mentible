@@ -16,12 +16,12 @@ describe("resolveFamily", () => {
     });
   });
 
-  describe("heading (Playfair Display)", () => {
-    it("maps weights to Playfair, rounding bold down to 600SemiBold (no bundled 700)", () => {
-      expect(resolveFamily("heading", "400", false)).toBe("PlayfairDisplay_400Regular");
-      expect(resolveFamily("heading", "500", false)).toBe("PlayfairDisplay_500Medium");
-      expect(resolveFamily("heading", "600", false)).toBe("PlayfairDisplay_600SemiBold");
-      expect(resolveFamily("heading", "700", false)).toBe("PlayfairDisplay_600SemiBold");
+  describe("heading (Fraunces)", () => {
+    it("maps weights to Fraunces, with medium rounding to regular (no bundled 500)", () => {
+      expect(resolveFamily("heading", "400", false)).toBe("Fraunces_400Regular");
+      expect(resolveFamily("heading", "500", false)).toBe("Fraunces_400Regular");
+      expect(resolveFamily("heading", "600", false)).toBe("Fraunces_600SemiBold");
+      expect(resolveFamily("heading", "700", false)).toBe("Fraunces_700Bold");
     });
   });
 
@@ -35,15 +35,16 @@ describe("resolveFamily", () => {
   });
 
   // ADR-038 O2 originally added a `brand` arg to pick Fraunces vs the default
-  // serif for headings. Studio reskin P0 retires that split: heading always
-  // resolves to Playfair now, regardless of `brand` — the param stays only for
-  // call-site signature stability. FRAUNCES itself stays defined (fonts.ts) for
-  // any literal references until they migrate.
-  describe("heading brand (retired — heading always resolves to Playfair)", () => {
-    it("ignores a `brand` arg entirely — heading is always Playfair", () => {
-      expect(resolveFamily("heading", "400", false, "fraunces")).toBe("PlayfairDisplay_400Regular");
-      expect(resolveFamily("heading", "600", false, "fraunces")).toBe("PlayfairDisplay_600SemiBold");
-      expect(resolveFamily("heading", "700", false, "fraunces")).toBe("PlayfairDisplay_600SemiBold");
+  // serif for headings. Studio reskin P0 retired that split (heading always
+  // resolved to Playfair, regardless of `brand`); the Fraunces-gold pass then
+  // pointed the heading branch itself at Fraunces — so a `brand` arg is still
+  // ignored, it just lands on Fraunces either way. The param stays only for
+  // call-site signature stability.
+  describe("heading brand (retired — heading always resolves to Fraunces)", () => {
+    it("ignores a `brand` arg entirely — heading is always Fraunces", () => {
+      expect(resolveFamily("heading", "400", false, "fraunces")).toBe("Fraunces_400Regular");
+      expect(resolveFamily("heading", "600", false, "fraunces")).toBe("Fraunces_600SemiBold");
+      expect(resolveFamily("heading", "700", false, "fraunces")).toBe("Fraunces_700Bold");
     });
     it("brand only ever affected heading, never body", () => {
       expect(resolveFamily("body", "700", false, "fraunces")).toBe("Inter_700Bold");

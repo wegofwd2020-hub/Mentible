@@ -8,9 +8,13 @@
 //
 // Three roles:
 //   • body    → Inter             (clean, light sans; fixes the heavy Roboto look)
-//   • heading → Playfair Display  (Studio reskin P0 — see ADR pending; was Source
-//                                  Serif 4, still bundled/defined for any literal
-//                                  references until they're migrated)
+//   • heading → Fraunces          (app-chrome headings → Fraunces pass; was
+//                                  Playfair Display under Studio reskin P0 before
+//                                  that, and Source Serif 4 before that — all
+//                                  still bundled/defined for any literal
+//                                  references until they're migrated. The
+//                                  reader/book-read surface stays on Playfair
+//                                  directly, bypassing this resolver.)
 //   • dyslexic→ OpenDyslexic       (accessibility toggle; overrides everything)
 //
 // Inter, Source Serif 4, Fraunces + Playfair Display come from
@@ -49,15 +53,16 @@ export const FONT_ASSETS = {
   SourceSerif4_400Regular,
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
-  // Fraunces: the SME/Navy-Trust heading brand (ADR-038 O2). Only the SME
-  // surfaces opt in; the rest of the app keeps Source Serif 4. The italics power
-  // the editorial "accent word" (ADR-038 O2 polish).
+  // Fraunces: the app-chrome heading face (2026-08-12 visual pass) and the
+  // SME/Navy-Trust heading brand (ADR-038 O2). The italics power the editorial
+  // "accent word" (ADR-038 O2 polish).
   Fraunces_400Regular,
   Fraunces_600SemiBold,
   Fraunces_700Bold,
   Fraunces_400Regular_Italic,
   Fraunces_600SemiBold_Italic,
-  // Playfair Display: the app-wide heading face (Studio reskin P0).
+  // Playfair Display: retained for the reader/book-content surface (app-chrome
+  // headings moved to Fraunces in the 2026-08-12 visual pass).
   PlayfairDisplay_400Regular,
   PlayfairDisplay_500Medium,
   PlayfairDisplay_600SemiBold,
@@ -89,9 +94,9 @@ const INTER = {
 } as const;
 
 // Source Serif 4 ships no medium here; medium maps to regular. No longer
-// referenced by resolveFamily (heading now always resolves to Playfair —
-// Studio reskin P0); exported (not deleted) for any literal references until
-// they migrate.
+// referenced by resolveFamily (chrome headings resolve to Fraunces as of the
+// 2026-08-12 visual pass; reader/book stays Playfair); exported (not deleted)
+// for any literal references until they migrate.
 export const SERIF = {
   regular: "SourceSerif4_400Regular",
   medium: "SourceSerif4_400Regular",
@@ -146,8 +151,9 @@ const DYSLEXIC = {
 
 // Resolve the concrete family name for a (role, weight), honouring dyslexic mode
 // which overrides both roles so ALL text uses OpenDyslexic. Heading always
-// resolves to Playfair Display (Studio reskin P0) regardless of `brand` — the
-// param is retained only for call-site signature stability (see HeadingBrand).
+// resolves to Fraunces (app-chrome headings → Fraunces pass; Studio reskin P0
+// picked Playfair Display before this) regardless of `brand` — the param is
+// retained only for call-site signature stability (see HeadingBrand).
 export function resolveFamily(
   role: FontRole,
   weight: Weight | undefined,
@@ -156,6 +162,6 @@ export function resolveFamily(
 ): string {
   const b = bucket(weight);
   if (dyslexic) return DYSLEXIC[b];
-  if (role === "heading") return PLAYFAIR[b];
+  if (role === "heading") return FRAUNCES[b];
   return INTER[b];
 }

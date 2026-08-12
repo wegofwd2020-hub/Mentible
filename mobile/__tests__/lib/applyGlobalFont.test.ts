@@ -20,9 +20,9 @@ describe("resolveFamilyForStyle", () => {
     expect(resolveFamilyForStyle({ fontWeight: "700" }, false)).toBe("Inter_700Bold");
   });
 
-  it("treats large + bold text as a Playfair heading", () => {
+  it("treats large + bold text as a Fraunces heading", () => {
     expect(resolveFamilyForStyle({ fontSize: 28, fontWeight: "700" }, false)).toBe(
-      "PlayfairDisplay_600SemiBold",
+      "Fraunces_700Bold",
     );
     // large but not bold → still body
     expect(resolveFamilyForStyle({ fontSize: 28, fontWeight: "400" }, false)).toBe(
@@ -30,11 +30,11 @@ describe("resolveFamilyForStyle", () => {
     );
   });
 
-  it("remaps explicit serif intent to Playfair (the heading resolver, not the bundled serif)", () => {
+  it("remaps explicit serif intent to Fraunces (the heading resolver, not the bundled serif)", () => {
     expect(resolveFamilyForStyle({ fontFamily: "serif", fontWeight: "600" }, false)).toBe(
-      "PlayfairDisplay_600SemiBold",
+      "Fraunces_600SemiBold",
     );
-    expect(resolveFamilyForStyle({ fontFamily: "Georgia" }, false)).toBe("PlayfairDisplay_400Regular");
+    expect(resolveFamilyForStyle({ fontFamily: "Georgia" }, false)).toBe("Fraunces_400Regular");
   });
 
   it("swaps text families to OpenDyslexic in dyslexic mode", () => {
