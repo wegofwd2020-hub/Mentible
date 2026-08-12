@@ -1476,9 +1476,12 @@ function TrustProjectDetailInner() {
     isOwner,
     inputCount: inputs.length,
     tocSubjectCount: project.project.toc?.subjects?.length ?? 0,
-    anyTopicDrafted: (project.topic_status ?? []).some(
-      (s) => s.status === "drafted" || s.status === "validated",
-    ),
+    // Goal reached on ANY draft — a per-topic draft OR a whole-book artifact
+    // version — so the banner never nags after a real draft exists.
+    anyDraftExists:
+      (project.topic_status ?? []).some(
+        (s) => s.status === "drafted" || s.status === "validated",
+      ) || (project.artifacts ?? []).some((a) => a.versions.length > 0),
   });
   const onStepPress = () => {
     if (!step) return;

@@ -1,6 +1,6 @@
 import { nextStep } from "@/lib/nextStep";
 
-const base = { isOwner: true, inputCount: 0, tocSubjectCount: 0, anyTopicDrafted: false };
+const base = { isOwner: true, inputCount: 0, tocSubjectCount: 0, anyDraftExists: false };
 
 it("reviewer / non-owner gets no step", () => {
   expect(nextStep({ ...base, isOwner: false })).toBeNull();
@@ -24,6 +24,10 @@ it("TOC but nothing drafted → generate_topic (Drafts, per-topic)", () => {
   expect(s.target).toEqual({ phase: "create", draftMode: "topic" });
 });
 
-it("a topic already drafted → no step (goal reached)", () => {
-  expect(nextStep({ isOwner: true, inputCount: 2, tocSubjectCount: 1, anyTopicDrafted: true })).toBeNull();
+it("a draft already exists (per-topic OR whole-book) → no step (goal reached)", () => {
+  expect(nextStep({ isOwner: true, inputCount: 2, tocSubjectCount: 1, anyDraftExists: true })).toBeNull();
+});
+
+it("goal reached even with no TOC (e.g. a whole-book draft) → no step", () => {
+  expect(nextStep({ isOwner: true, inputCount: 2, tocSubjectCount: 0, anyDraftExists: true })).toBeNull();
 });

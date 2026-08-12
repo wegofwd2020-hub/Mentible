@@ -1,5 +1,6 @@
 // Which single next action moves an owner toward their first working AI draft.
-// Pure + defensive: returns null for non-owners and once a topic is drafted.
+// Pure + defensive: returns null for non-owners and once any draft exists
+// (per-topic OR whole-book), so the banner retires the moment the goal is met.
 export type NextStep = {
   key: "add_source" | "suggest_structure" | "generate_topic";
   title: string;
@@ -12,9 +13,9 @@ export function nextStep(args: {
   isOwner: boolean;
   inputCount: number;
   tocSubjectCount: number;
-  anyTopicDrafted: boolean;
+  anyDraftExists: boolean;
 }): NextStep | null {
-  if (!args.isOwner || args.anyTopicDrafted) return null;
+  if (!args.isOwner || args.anyDraftExists) return null;
   if (args.inputCount <= 0) {
     return {
       key: "add_source",
