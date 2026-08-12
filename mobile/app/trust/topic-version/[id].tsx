@@ -80,19 +80,20 @@ function TopicVersionViewerInner() {
   // Defensive: any failure (no token yet, network) just leaves the list
   // empty — the block itself renders nothing when there's nothing to show.
   const topicId = topicVersion?.topic_id;
-  useEffect(() => {
+  // Refetch the sibling-versions list. Called on load (below) AND after an
+  // in-place approve/withdraw, so the current row's validated ✓ in the history
+  // block stays in sync with the header badge (both read the same approval).
+  const refreshVersions = useCallback(async () => {
     if (!topicId) return;
-    let live = true;
-    void (async () => {
-      try {
-        const vs = await listTopicVersions(topicId);
-        if (live) setVersions(vs);
-      } catch {
-        if (live) setVersions([]);
-      }
-    })();
-    return () => { live = false; };
+    try {
+      setVersions(await listTopicVersions(topicId));
+    } catch {
+      setVersions([]);
+    }
   }, [topicId, listTopicVersions]);
+  useEffect(() => {
+    void refreshVersions();
+  }, [refreshVersions]);
 
   // Reviewers self-approve in one tap (expert_self). An owner records on a named
   // expert's behalf (operator) — tapping Approve reveals a name field first.
@@ -106,6 +107,7 @@ function TopicVersionViewerInner() {
         // Approval is committed; a failed header refresh must not read as a
         // failed approval, so the reload is best-effort.
         await reload().catch(() => {});
+        await refreshVersions().catch(() => {}); // keep the history ✓ in sync
         Alert.alert(
           "Approved",
           ap.recorded_via === "expert_self" ? "Recorded as expert-validated." : `Recorded as validated by ${ap.expert_name}.`,
@@ -176,6 +178,7 @@ function TopicVersionViewerInner() {
                 await withdrawTopic(String(id));
                 // Withdrawal is committed; the reload is best-effort (see runApprove).
                 await reload().catch(() => {});
+                await refreshVersions().catch(() => {}); // keep the history ✓ in sync
               } catch (e) {
                 Alert.alert("Couldn't withdraw", e instanceof ApiError ? e.userMessage() : "Please try again.");
               } finally {
