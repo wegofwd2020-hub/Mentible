@@ -36,10 +36,17 @@ backend.
 - `FRAUNCES` is already exported (`Fraunces_400/600/700`). Change the interceptor's heading role
   (`fonts.ts` ~line 159: `if (role === "heading") return PLAYFAIR[b];` → `FRAUNCES[b]`).
 - Point the web serif heading stack (in `typography`) at Fraunces.
-- Migrate the **~24 explicit `PLAYFAIR.*` usages across ~21 files** → `FRAUNCES.*` (mechanical:
-  `PLAYFAIR.semibold`→`FRAUNCES.semibold`, `.bold`→`.bold`, `.medium`→`FRAUNCES.medium`). `FRAUNCES`
-  has no bundled `medium` (rounds to regular, per its definition) — acceptable; heading weights in use
-  are semibold/bold. Leave the `PLAYFAIR` constant defined (compiler/stragglers) but unused in-app.
+- Migrate the explicit `PLAYFAIR.*` usages in **app-CHROME screens** → `FRAUNCES.*` (mechanical;
+  `FRAUNCES.medium` exists, rounds to Fraunces_400Regular). Chrome files: `app/(tabs)/*`
+  (books, library, posts, projects, reviews, settings, shelves, help), `app/trust/[projectId].tsx`,
+  `app/trust/topic-version/[id].tsx`, `app/trust/new.tsx`, `src/components/StudioHeader.tsx`,
+  `src/components/SideNav.tsx`.
+- **EXCLUDE the reader / book-content render path — leave it on Playfair:**
+  `app/book/read/[id].tsx`, `src/reader/playfairFont.ts`, `src/components/contentHtml.ts`. That is
+  *book content* typography, which travels with the deferred compiler/book identity, not app chrome.
+  `src/lib/applyGlobalFont.ts` needs no edit (it already recognizes both faces as heading-intent);
+  the single resolver flip is in `fonts.ts`. Leave the `PLAYFAIR` constant defined (reader + compiler
+  + stragglers still use it).
 - Update `mobile/__tests__/lib/applyGlobalFont.test.ts` so the heading-role expectation is Fraunces.
 
 ### B. Warmer dark gold (`mobile/src/constants/theme.ts` → `studioDarkColors` only)
