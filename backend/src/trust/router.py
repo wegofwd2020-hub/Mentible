@@ -31,6 +31,7 @@ from . import (
     project_repo,
     schemas,
     topic_approval_repo,
+    topic_feedback_repo,
     topic_repo,
 )
 from .access import (
@@ -846,6 +847,19 @@ async def get_topic_version(
         is_validated=latest is not None and latest.action == "approve",
         recorded_via=latest.recorded_via if latest and latest.action == "approve" else None,
         generation_meta=tv.generation_meta,
+        feedback=[
+            schemas.TopicFeedbackOut(
+                id=str(f.id),
+                topic_version_id=str(f.topic_version_id),
+                author_kind=f.author_kind,
+                author_name=f.author_name,
+                body=f.body,
+                created_at=f.created_at,
+            )
+            for f in await topic_feedback_repo.list_topic_feedback(
+                conn, topic_version_id=topic_version_id
+            )
+        ],
     )
 
 
@@ -1076,6 +1090,44 @@ async def add_version_feedback(
     return schemas.FeedbackOut(
         id=str(f.id),
         version_id=str(f.version_id),
+        author_kind=f.author_kind,
+        author_name=f.author_name,
+        body=f.body,
+        created_at=f.created_at,
+    )
+
+
+@router.post("/topic-versions/{topic_version_id}/feedback", response_model=schemas.TopicFeedbackOut)
+async def add_topic_version_feedback(
+    topic_version_id: uuid.UUID,
+    body: schemas.FeedbackIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.TopicFeedbackOut:
+    """Record a revision note on a topic version. Owner OR reviewer; author_kind is
+    derived from role (reviewer → expert, owner → operator)."""
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "feedback body is required")
+    project_id = await topic_repo.project_id_for_topic_version(
+        conn, topic_version_id=topic_version_id
+    )
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    role = await _require_role(conn, account, project_id, need_owner=False)
+    author_kind = "expert" if role == "reviewer" else "operator"
+    f = await topic_feedback_repo.add_topic_feedback(
+        conn,
+        topic_version_id=topic_version_id,
+        author_kind=author_kind,
+        author_name=account.email or principal.sub,
+        body=text,
+        recorded_by_sub=principal.sub,
+    )
+    return schemas.TopicFeedbackOut(
+        id=str(f.id),
+        topic_version_id=str(f.topic_version_id),
         author_kind=f.author_kind,
         author_name=f.author_name,
         body=f.body,

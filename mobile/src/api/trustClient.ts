@@ -53,12 +53,17 @@ export interface ProjectSummaryView { id: string; title: string; status: string;
 export interface InvitationView { project_id: string; invited_email: string; role: string; revoked_at: string | null }
 export interface VersionCreatedView { id: string; artifact_id: string; version_no: number; created_at: string | null }
 export interface TopicVersionCreatedView { id: string; topic_id: string; version_no: number; created_at: string | null }
+export interface TopicFeedbackView {
+  id: string; author_kind: string; author_name: string | null;
+  body: string; created_at: string | null;
+}
 export interface TopicVersionDetailView {
   id: string; topic_id: string; title: string;
   content: { sections: DraftSection[] };
   version_no: number; created_at: string | null;
   is_validated: boolean; recorded_via: string | null;
   generation_meta: Record<string, unknown> | null;
+  feedback: TopicFeedbackView[];
 }
 export interface TopicVersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean }
 
@@ -208,6 +213,14 @@ export async function withdrawTopicApproval(
   return (await trustFetch<TopicApprovalView>(
     `/topic-versions/${id}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
   )) as TopicApprovalView;
+}
+
+export async function addTopicFeedback(
+  topicVersionId: string, body: { body: string }, token: string,
+): Promise<TopicFeedbackView> {
+  return (await trustFetch<TopicFeedbackView>(
+    `/topic-versions/${topicVersionId}/feedback`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as TopicFeedbackView;
 }
 
 export async function getTopicVersions(

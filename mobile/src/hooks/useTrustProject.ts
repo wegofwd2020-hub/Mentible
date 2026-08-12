@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, approveVersion, createArtifact, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -147,6 +147,11 @@ export function useTrustProject(projectId: string) {
     return getTopicVersions(projectId, topicId, accessToken);
   }, [accessToken, projectId]);
 
+  const addTopicFeedback = useCallback(async (topicVersionId: string, body: { body: string }): Promise<TopicFeedbackView> => {
+    if (!accessToken) throw new Error("Not signed in");
+    return addTopicFeedbackApi(topicVersionId, body, accessToken);
+  }, [accessToken]);
+
   useEffect(() => {
     if (status === "signed_in") void refresh();
     else setProject(null);
@@ -154,5 +159,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, accessToken };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, accessToken };
 }

@@ -17,6 +17,7 @@ function tv(overrides: Partial<TopicVersionDetailView> = {}): TopicVersionDetail
     is_validated: false,
     recorded_via: null,
     generation_meta: null,
+    feedback: [],
     ...overrides,
   };
 }

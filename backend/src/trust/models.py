@@ -88,6 +88,17 @@ class Feedback:
 
 
 @dataclass(frozen=True)
+class TopicFeedback:
+    id: str
+    topic_version_id: str
+    author_kind: str
+    author_name: str | None
+    body: str
+    recorded_by_sub: str
+    created_at: datetime | None
+
+
+@dataclass(frozen=True)
 class Approval:
     id: str
     version_id: str
