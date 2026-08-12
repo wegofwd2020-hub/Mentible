@@ -33,7 +33,7 @@ describe("StudioHeader", () => {
     const { getByText } = render(<StudioHeader {...props()} />);
     const wordmark = getByText("MENTIBLE");
     const flat = StyleSheet.flatten(wordmark.props.style);
-    expect(flat.fontFamily).toBe(FRAUNCES.medium);
+    expect(flat.fontFamily).toBe(FRAUNCES.semibold);
     expect(flat.fontWeight).not.toBe("700");
   });
 
