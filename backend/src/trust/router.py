@@ -912,7 +912,12 @@ async def create_topic_version_manual(
     title = existing[-1].title
     sections = body.content.get("sections", []) if isinstance(body.content, dict) else []
     source_ids = sorted(
-        {sid for s in sections if isinstance(s, dict) for sid in (s.get("source_ids") or [])}
+        {
+            str(sid)
+            for s in sections
+            if isinstance(s, dict) and isinstance(s.get("source_ids"), list)
+            for sid in s["source_ids"]
+        }
     )
     v = await topic_repo.create_topic_version(
         conn,
