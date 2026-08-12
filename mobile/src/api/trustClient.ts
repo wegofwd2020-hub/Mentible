@@ -58,7 +58,9 @@ export interface TopicVersionDetailView {
   content: { sections: DraftSection[] };
   version_no: number; created_at: string | null;
   is_validated: boolean; recorded_via: string | null;
+  generation_meta: Record<string, unknown> | null;
 }
+export interface TopicVersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean }
 
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/trust${path}`, {
@@ -206,4 +208,12 @@ export async function withdrawTopicApproval(
   return (await trustFetch<TopicApprovalView>(
     `/topic-versions/${id}/approvals/withdraw`, token, { method: "POST", body: JSON.stringify(body) },
   )) as TopicApprovalView;
+}
+
+export async function getTopicVersions(
+  projectId: string, topicId: string, token: string,
+): Promise<TopicVersionSummaryView[]> {
+  return (await trustFetch<TopicVersionSummaryView[]>(
+    `/projects/${projectId}/topics/${topicId}/versions`, token, { method: "GET" },
+  )) as TopicVersionSummaryView[];
 }

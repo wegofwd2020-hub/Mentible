@@ -16,6 +16,7 @@ function tv(overrides: Partial<TopicVersionDetailView> = {}): TopicVersionDetail
     created_at: "2026-08-09T00:00:00Z",
     is_validated: false,
     recorded_via: null,
+    generation_meta: null,
     ...overrides,
   };
 }

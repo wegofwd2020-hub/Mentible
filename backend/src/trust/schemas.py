@@ -210,6 +210,13 @@ class TopicVersionOut(BaseModel):
     created_at: datetime | None
 
 
+class TopicVersionSummaryOut(BaseModel):
+    id: str
+    version_no: int
+    created_at: datetime | None
+    is_validated: bool
+
+
 class TopicVersionDetailOut(BaseModel):
     id: str
     topic_id: str
@@ -219,6 +226,7 @@ class TopicVersionDetailOut(BaseModel):
     created_at: datetime | None
     is_validated: bool
     recorded_via: str | None = None
+    generation_meta: dict | None = None
 
 
 class DraftGenerateIn(BaseModel):

@@ -810,6 +810,39 @@ def test_owner_generates_topic_version():
         assert body["content"]["sections"][0]["source_ids"] == [iid]
 
 
+def test_generate_topic_version_stores_generation_meta():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, iid = _project_with_toc_topic(c)
+        key = "sk-ant-" + "x" * 20
+        with patch(
+            "backend.src.trust.generate_topic.build_provider",
+            return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
+        ):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": key, "guidance": "keep it concise"},
+            )
+        assert r.status_code == 200, r.text
+        version_id = r.json()["id"]
+
+        async def _fetch():
+            conn = await asyncpg.connect(DSN)
+            try:
+                return await topic_repo.get_topic_version(
+                    conn, topic_version_id=uuid.UUID(version_id)
+                )
+            finally:
+                await conn.close()
+
+        tv = asyncio.run(_fetch())
+        assert tv.generation_meta["kind"] == "topic_draft"
+        assert tv.generation_meta["provider_id"] == "anthropic"
+        assert tv.generation_meta["source_input_ids"] == [iid]
+        assert tv.generation_meta["guidance"] == "keep it concise"
+
+
 def test_generate_topic_unknown_topic_404():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
@@ -1103,6 +1136,29 @@ def test_topic_version_detail_owner_reviewer_read_stranger_403_and_404():
         assert body["content"]["sections"][0]["heading"] == "Staff"
         assert body["is_validated"] is False
         assert body["recorded_via"] is None
+        # generated via _topic_version_id() -> generation_meta was stored on generate
+        assert body["generation_meta"]["kind"] == "topic_draft"
+
+        # a topic_version created without generation_meta -> null on the detail response
+        async def _insert_no_meta():
+            conn = await asyncpg.connect(DSN)
+            try:
+                return await topic_repo.create_topic_version(
+                    conn,
+                    project_id=uuid.UUID(pid),
+                    topic_id="t1",
+                    title="No meta",
+                    source_ids=[],
+                    content={"sections": []},
+                    created_by_sub=owner,
+                )
+            finally:
+                await conn.close()
+
+        no_meta_tv = asyncio.run(_insert_no_meta())
+        r = c.get(f"/api/v1/trust/topic-versions/{no_meta_tv.id}")
+        assert r.status_code == 200, r.text
+        assert r.json()["generation_meta"] is None
 
         # owner approves on a named expert's behalf -> validated + recorded_via
         ap = c.post(
@@ -1131,3 +1187,43 @@ def test_topic_version_detail_owner_reviewer_read_stranger_403_and_404():
         # unknown topic version is 404
         _as(owner, owner_email)
         assert c.get(f"/api/v1/trust/topic-versions/{uuid.uuid4()}").status_code == 404
+
+
+def test_topic_versions_list_endpoint():
+    """GET /projects/{id}/topics/{topic_id}/versions returns only that topic's
+    versions (excludes a sibling topic's versions), each with is_validated,
+    ordered by version_no, and 403s for a non-member (mirrors the topic-version
+    detail access test above)."""
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        owner_email = f"{owner}@x.z"
+        _as(owner, owner_email)
+        pid, _iid = _project_with_toc_topic(c)
+        _toc_two_topics(c, pid, _iid)
+
+        tv1 = _topic_version_id(c, pid, topic_id="t1")
+        tv1b = _topic_version_id(c, pid, topic_id="t1")  # second version of t1
+        tv2 = _topic_version_id(c, pid, topic_id="t2")  # a sibling topic's version
+
+        # approve the second t1 version only
+        ap = c.post(
+            f"/api/v1/trust/topic-versions/{tv1b}/approvals",
+            json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
+        )
+        assert ap.status_code == 200, ap.text
+
+        r = c.get(f"/api/v1/trust/projects/{pid}/topics/t1/versions")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert [v["id"] for v in body] == [tv1, tv1b]  # ordered by version_no, t2 excluded
+        by_id = {v["id"]: v for v in body}
+        assert by_id[tv1]["version_no"] == 1
+        assert by_id[tv1]["is_validated"] is False
+        assert by_id[tv1b]["version_no"] == 2
+        assert by_id[tv1b]["is_validated"] is True
+        assert all("created_at" in v for v in body)
+        assert tv2 not in by_id
+
+        # a stranger is 403
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.get(f"/api/v1/trust/projects/{pid}/topics/t1/versions").status_code == 403

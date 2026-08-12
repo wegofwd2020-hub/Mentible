@@ -113,6 +113,7 @@ class TopicVersion:
     version_no: int
     created_by_sub: str
     created_at: datetime | None
+    generation_meta: object | None = None
 
 
 @dataclass(frozen=True)

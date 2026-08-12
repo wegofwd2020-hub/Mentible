@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { getTopicVersion, type TopicVersionDetailView } from "@/api/trustClient";
+import { getTopicVersion, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { Alert } from "@/lib/alert";
@@ -13,6 +13,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { Card, Button } from "@/components/ui";
 import { TopicRenderer } from "@/components/LessonRenderer";
 import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
+import { describeProvenance } from "@/lib/draftProvenance";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -27,8 +28,9 @@ function TopicVersionViewerInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, approveTopic, withdrawTopic, generateTopic } = useTrustProject(String(projectId));
+  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions } = useTrustProject(String(projectId));
   const [topicVersion, setTopicVersion] = useState<TopicVersionDetailView | null>(null);
+  const [versions, setVersions] = useState<TopicVersionSummaryView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [apBusy, setApBusy] = useState(false);
   const [askName, setAskName] = useState(false);
@@ -71,6 +73,28 @@ function TopicVersionViewerInner() {
     return () => { live = false; };
   }, [accessToken, id]);
 
+  // Sibling versions of this same topic, for the inline "Versions" history
+  // block — mirrors trust/version/[versionId].tsx's `versions` memo, but
+  // fetched separately (not derived from `project`): the project payload only
+  // carries the LATEST per-topic status (topic_status), not the full list.
+  // Defensive: any failure (no token yet, network) just leaves the list
+  // empty — the block itself renders nothing when there's nothing to show.
+  const topicId = topicVersion?.topic_id;
+  // Refetch the sibling-versions list. Called on load (below) AND after an
+  // in-place approve/withdraw, so the current row's validated ✓ in the history
+  // block stays in sync with the header badge (both read the same approval).
+  const refreshVersions = useCallback(async () => {
+    if (!topicId) return;
+    try {
+      setVersions(await listTopicVersions(topicId));
+    } catch {
+      setVersions([]);
+    }
+  }, [topicId, listTopicVersions]);
+  useEffect(() => {
+    void refreshVersions();
+  }, [refreshVersions]);
+
   // Reviewers self-approve in one tap (expert_self). An owner records on a named
   // expert's behalf (operator) — tapping Approve reveals a name field first.
   const runApprove = (opts?: { expertName: string }) => {
@@ -83,6 +107,7 @@ function TopicVersionViewerInner() {
         // Approval is committed; a failed header refresh must not read as a
         // failed approval, so the reload is best-effort.
         await reload().catch(() => {});
+        await refreshVersions().catch(() => {}); // keep the history ✓ in sync
         Alert.alert(
           "Approved",
           ap.recorded_via === "expert_self" ? "Recorded as expert-validated." : `Recorded as validated by ${ap.expert_name}.`,
@@ -153,6 +178,7 @@ function TopicVersionViewerInner() {
                 await withdrawTopic(String(id));
                 // Withdrawal is committed; the reload is best-effort (see runApprove).
                 await reload().catch(() => {});
+                await refreshVersions().catch(() => {}); // keep the history ✓ in sync
               } catch (e) {
                 Alert.alert("Couldn't withdraw", e instanceof ApiError ? e.userMessage() : "Please try again.");
               } finally {
@@ -177,7 +203,10 @@ function TopicVersionViewerInner() {
     <View style={styles.screen}>
       <PageContainer style={{ flex: 1 }}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>{topicVersion.title}</Text>
+          <View>
+            <Text style={styles.title}>{topicVersion.title}</Text>
+            <Text style={styles.provenance}>{describeProvenance(topicVersion.generation_meta)}</Text>
+          </View>
           {topicVersion.is_validated ? (
             <View style={styles.badgeRow}>
               <Text accessibilityLabel={`${topicVersion.title} validated`} style={styles.chip}>Validated ✓</Text>
@@ -261,6 +290,37 @@ function TopicVersionViewerInner() {
             />
           </Card>
         ) : null}
+        {versions.length > 1 ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Versions</Text>
+            {versions.map((v) => {
+              const isCurrent = v.id === id;
+              const row = (
+                <View style={styles.versionRowInner}>
+                  <Text style={styles.bodyText}>
+                    v{v.version_no}
+                    {v.created_at ? ` · ${new Date(v.created_at).toLocaleDateString()}` : ""}
+                    {v.is_validated ? " ✓" : ""}
+                  </Text>
+                  {isCurrent ? <Text style={styles.notesEmpty}>current</Text> : null}
+                </View>
+              );
+              return isCurrent ? (
+                <View key={v.id} style={styles.noteRow}>{row}</View>
+              ) : (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open version ${v.version_no}`}
+                  style={styles.noteRow}
+                  onPress={() => router.push({ pathname: "/trust/topic-version/[id]", params: { id: v.id, projectId: String(projectId) } })}
+                >
+                  {row}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </Pressable>
@@ -278,6 +338,7 @@ const makeStyles = (c: Palette) => ({
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
+  provenance: { color: c.textMuted, fontSize: typography.sizeSm, marginTop: 2 },
   badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
@@ -292,4 +353,9 @@ const makeStyles = (c: Palette) => ({
   editRow: { gap: spacing.sm, marginHorizontal: spacing.md },
   input: { color: c.text, fontSize: typography.sizeMd, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
   bodyInput: { minHeight: 80 as const, textAlignVertical: "top" as const },
+  notesBlock: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm },
+  notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
+  noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
 });
