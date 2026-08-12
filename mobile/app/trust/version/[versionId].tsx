@@ -274,8 +274,8 @@ function TrustVersionInner() {
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
             {isOwner ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.approveBtn} onPress={openRegen}>
-                <Text style={styles.approveText}>Revise</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.editBtn} onPress={openRegen}>
+                <Text style={styles.editBtnText}>Revise</Text>
               </Pressable>
             ) : null}
             {isOwner ? (
