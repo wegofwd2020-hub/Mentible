@@ -107,5 +107,8 @@ it("a phase not reachable yet shows a finish-prior-phase note instead of actions
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Feedback:/));
   expect(screen.queryByLabelText(/Approve version/)).toBeNull();
-  expect(screen.getByText(/first/i)).toBeTruthy();
+  // Scoped to the phase-unreachable note itself — a persistent "Add your
+  // first source" next-step banner now also renders (above the tab bar,
+  // regardless of the active tab) and would otherwise also match /first/i.
+  expect(screen.getByText(/Finish Drafts first/i)).toBeTruthy();
 });

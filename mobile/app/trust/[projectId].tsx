@@ -20,6 +20,7 @@ import { getTopicVersion } from "@/api/trustClient";
 import type { ArtifactDetailView, DraftSection, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
 import type { Book, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
+import { nextStep } from "@/lib/nextStep";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
 import { versionTimestamp } from "@/lib/versionTimestamp";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -465,6 +466,7 @@ function DraftsPanel({
   busyTopicId,
   onGenerateTopic,
   onOpenTopic,
+  initialMode,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -483,8 +485,9 @@ function DraftsPanel({
   busyTopicId: string | null;
   onGenerateTopic: (topicId: string) => void;
   onOpenTopic: (versionId: string) => void;
+  initialMode?: "whole" | "topic";
 }) {
-  const [mode, setMode] = useState<"whole" | "topic">("whole");
+  const [mode, setMode] = useState<"whole" | "topic">(initialMode ?? "whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
   const statusByTopic = new Map(topicStatus.map((s) => [s.topic_id, s]));
 
@@ -1143,6 +1146,7 @@ function TrustProjectDetailInner() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
   const [selected, setSelected] = useState<PhaseKey | null>(null);
+  const [desiredDraftMode, setDesiredDraftMode] = useState<"whole" | "topic">("whole");
   const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
   const [compareSel, setCompareSel] = useState<string[]>([]);
   const [tocDraft, setTocDraft] = useState<StructuredTOC | null>(null);
@@ -1464,11 +1468,42 @@ function TrustProjectDetailInner() {
   const active = selected ?? basePhase(phase.currentKey);
   const anyVersion = project.artifacts.some((a) => a.versions.length > 0);
 
+  // The single next action that moves an owner toward a first working AI
+  // draft — Add a source / Suggest a structure / Generate a topic. Pure
+  // (@/lib/nextStep); returns null for reviewers and once a topic is
+  // drafted, so the banner self-retires once the loop is underway.
+  const step = nextStep({
+    isOwner,
+    inputCount: inputs.length,
+    tocSubjectCount: project.project.toc?.subjects?.length ?? 0,
+    anyTopicDrafted: (project.topic_status ?? []).some(
+      (s) => s.status === "drafted" || s.status === "validated",
+    ),
+  });
+  const onStepPress = () => {
+    if (!step) return;
+    if (step.target.draftMode) setDesiredDraftMode(step.target.draftMode);
+    setSelected(step.target.phase);
+  };
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
+        {step ? (
+          <Card style={styles.nextStepCard}>
+            <Text style={styles.nextStepTitle}>{step.title}</Text>
+            <Text style={styles.nextStepBody}>{step.body}</Text>
+            <Button
+              variant="primary"
+              label={step.ctaLabel}
+              onPress={onStepPress}
+              accessibilityLabel={step.ctaLabel}
+              style={styles.nextStepBtn}
+            />
+          </Card>
+        ) : null}
         <PhaseTabBar phase={phase} selected={active} onSelect={setSelected} />
         {active === "capture" ? (
           <SourcesPanel
@@ -1521,6 +1556,7 @@ function TrustProjectDetailInner() {
             busyTopicId={busyTopicId}
             onGenerateTopic={onGenerateTopic}
             onOpenTopic={onOpenTopic}
+            initialMode={desiredDraftMode}
           />
         ) : null}
         {active === "validate" ? (
@@ -1583,6 +1619,12 @@ const makeStyles = (c: Palette) => ({
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: PLAYFAIR.bold, letterSpacing: -0.56 },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
+  // The adaptive "what to do next" banner — self-retires once nextStep()
+  // returns null (reviewer, or a topic is already drafted).
+  nextStepCard: { gap: spacing.sm, marginBottom: spacing.md },
+  nextStepTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
+  nextStepBody: { color: c.textMuted, fontSize: typography.sizeSm },
+  nextStepBtn: { alignSelf: "flex-start" as const },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36 },
   versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
