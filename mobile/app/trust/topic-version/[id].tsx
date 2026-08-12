@@ -28,7 +28,7 @@ function TopicVersionViewerInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions } = useTrustProject(String(projectId));
+  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions, addTopicFeedback } = useTrustProject(String(projectId));
   const [topicVersion, setTopicVersion] = useState<TopicVersionDetailView | null>(null);
   const [versions, setVersions] = useState<TopicVersionSummaryView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,8 @@ function TopicVersionViewerInner() {
   const [regen, setRegen] = useState(false);
   const [guidance, setGuidance] = useState("");
   const [genBusy, setGenBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Build the reader's topic ONCE per version. Building it inline in the JSX
@@ -191,6 +193,27 @@ function TopicVersionViewerInner() {
     );
   };
 
+  // Reviewer-only: leaves a revision note for the owner. Mirrors
+  // trust/version/[versionId].tsx's onAddFeedback — posts via the hook, then
+  // refetches this version (reload, above) so the thread + owner's
+  // "Revise from this note" reflect the new note without a full page reload.
+  const onAddFeedback = () => {
+    const text = note.trim();
+    if (!text) return;
+    setNoteBusy(true);
+    void (async () => {
+      try {
+        await addTopicFeedback(String(id), { body: text });
+        setNote("");
+        await reload().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't send", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setNoteBusy(false);
+      }
+    })();
+  };
+
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!topicVersion) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
 
@@ -290,6 +313,59 @@ function TopicVersionViewerInner() {
             />
           </Card>
         ) : null}
+        <View style={styles.notesBlock}>
+          <Text style={styles.notesTitle}>Revision notes</Text>
+          {!isOwner ? (
+            <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
+          ) : null}
+          {(topicVersion.feedback ?? []).length === 0 ? (
+            <Text style={styles.notesEmpty}>
+              {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
+            </Text>
+          ) : (
+            (topicVersion.feedback ?? []).map((f) => (
+              <View key={f.id} style={styles.noteRow}>
+                <Text style={styles.noteMeta}>
+                  {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
+                  {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
+                </Text>
+                <Text style={styles.noteBody}>{f.body}</Text>
+                {isOwner ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Revise from this note"
+                    style={styles.reviseFromNoteBtn}
+                    onPress={() => { setGuidance(f.body); openRegen(); }}
+                  >
+                    <Text style={styles.reviseFromNoteText}>Revise from this note</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))
+          )}
+          {!isOwner ? (
+            <>
+              <TextInput
+                style={[styles.input, styles.bodyInput]}
+                value={note}
+                onChangeText={setNote}
+                accessibilityLabel="Revision note"
+                placeholder="Request a revision…"
+                placeholderTextColor={theme.textMuted}
+                maxLength={1000}
+                multiline
+              />
+              <Button
+                variant="primary"
+                label="Request a revision"
+                accessibilityLabel="Send revision request"
+                busy={noteBusy}
+                disabled={!note.trim()}
+                onPress={onAddFeedback}
+              />
+            </>
+          ) : null}
+        </View>
         {versions.length > 1 ? (
           <View style={styles.notesBlock}>
             <Text style={styles.notesTitle}>Versions</Text>
@@ -358,4 +434,8 @@ const makeStyles = (c: Palette) => ({
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
   versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
+  noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
+  noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
+  reviseFromNoteBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
+  reviseFromNoteText: { color: c.primary, fontSize: typography.sizeSm },
 });
