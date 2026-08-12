@@ -41,7 +41,10 @@ it("owner with a source sees the format picker and generating a format calls gen
   expect(screen.getByText("Long-form essay")).toBeTruthy();
 
   fireEvent.press(screen.getByLabelText("Start a new LinkedIn post draft"));
-  expect(mock.generateFormat).toHaveBeenCalledWith(expect.objectContaining({ format: "linkedin" }));
+  expect(mock.generateFormat).toHaveBeenCalledWith(
+    expect.objectContaining({ format: "linkedin" }),
+    expect.objectContaining({ onPhase: expect.any(Function) }),
+  );
 });
 
 it("disables the format cards and shows a hint when there are no sources yet", async () => {
