@@ -5,12 +5,14 @@ import uuid
 from unittest.mock import patch
 
 import asyncpg
+import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
+from backend.src.core.redis_dep import get_redis
 from backend.tests.helpers import fake_provider
 from src.trust import topic_repo
 
@@ -28,6 +30,18 @@ def _as(sub, email):
 def _clear():
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _redis():
+    """Override the shared `get_redis` dependency with a fresh fakeredis
+    instance per test (T2). The per-topic generate submit endpoint now writes
+    a BYOK envelope + job status through this dependency; the ambient real
+    Redis reachable in this dev sandbox uses different auth than
+    `settings.redis_url` expects and would otherwise 500 the request."""
+    fake = fakeredis.aioredis.FakeRedis(decode_responses=False)
+    app.dependency_overrides[get_redis] = lambda: fake
+    yield fake
 
 
 def test_session_sync_no_email_no_memberships():
@@ -786,6 +800,60 @@ def _project_with_toc_topic(c, topic_id="t1", source_ids=None):
     return pid, iid
 
 
+def _run_topic_generate_job(c, pid, topic_id, payload):
+    """POST the per-topic generate submit endpoint (async, T2 — 202 + job_id),
+    then run the enqueued Celery task synchronously (`.apply()`, no
+    broker/worker needed) against the SAME fakeredis instance the submit
+    endpoint wrote the envelope/status into (the `_redis` autouse fixture).
+    Returns the submit response; callers poll `GET /jobs/{job_id}` for the
+    outcome. A no-op if submit itself failed (403/404/422) — nothing to run.
+    """
+    fake_redis = app.dependency_overrides[get_redis]()
+    with patch("backend.src.trust.router.generate_topic_task.delay") as mock_delay:
+        r = c.post(f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate", json=payload)
+    if r.status_code == 202:
+        with patch("backend.src.trust.tasks._redis_client", return_value=fake_redis):
+            from backend.src.trust.tasks import generate_topic_task
+
+            generate_topic_task.apply(kwargs=mock_delay.call_args.kwargs).get()
+    return r
+
+
+def test_generate_topic_submit_returns_202_writes_envelope_and_enqueues():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc_topic(c)
+        key = "sk-ant-" + "e" * 20
+        with patch("backend.src.trust.router.generate_topic_task.delay") as mock_delay:
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
+                json={"api_key": key},
+            )
+        assert r.status_code == 202, r.text
+        assert key not in r.text  # ADR-001: the submitted key never leaks into the response
+        body = r.json()
+        assert body["status"] == "queued"
+
+        mock_delay.assert_called_once()
+        kwargs = mock_delay.call_args.kwargs
+        assert kwargs["job_id"] == body["job_id"]
+        assert kwargs["project_id"] == pid
+        assert kwargs["topic_id"] == "t1"
+        assert kwargs["managed"] is False
+        assert kwargs["recorded_by_sub"] == owner
+
+        # The BYOK envelope was written, encrypted — never the plaintext key.
+        fake_redis = app.dependency_overrides[get_redis]()
+        envelope = asyncio.run(fake_redis.get(f"byok:{body['job_id']}"))
+        assert envelope is not None
+        assert key.encode() not in envelope
+
+        # queued status is immediately pollable via the shared jobs endpoint.
+        job = c.get(f"/api/v1/jobs/{body['job_id']}").json()
+        assert job["status"] == "queued"
+
+
 def test_owner_generates_topic_version():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
@@ -796,18 +864,22 @@ def test_owner_generates_topic_version():
             "backend.src.trust.generate_topic.build_provider",
             return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
         ):
-            r = c.post(
-                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
-                json={"api_key": key},
-            )
-        assert r.status_code == 200, r.text
+            r = _run_topic_generate_job(c, pid, "t1", {"api_key": key})
+        assert r.status_code == 202, r.text
         assert key not in r.text  # ADR-001: the submitted key never leaks into the response
-        body = r.json()
-        assert body["topic_id"] == "t1"
-        assert body["title"] == "Reading music"
-        assert body["version_no"] == 1
-        assert body["content"]["sections"][0]["heading"] == "Staff"
-        assert body["content"]["sections"][0]["source_ids"] == [iid]
+
+        job_resp = c.get(f"/api/v1/jobs/{r.json()['job_id']}")
+        assert key not in job_resp.text  # ADR-001: nor into the polled status
+        job = job_resp.json()
+        assert job["status"] == "done"
+        assert job["result"]["topic_id"] == "t1"
+        assert job["result"]["version_no"] == 1
+
+        detail = c.get(f"/api/v1/trust/topic-versions/{job['result']['version_id']}").json()
+        assert detail["topic_id"] == "t1"
+        assert detail["title"] == "Reading music"
+        assert detail["content"]["sections"][0]["heading"] == "Staff"
+        assert detail["content"]["sections"][0]["source_ids"] == [iid]
 
 
 def test_generate_topic_version_stores_generation_meta():
@@ -820,12 +892,13 @@ def test_generate_topic_version_stores_generation_meta():
             "backend.src.trust.generate_topic.build_provider",
             return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
         ):
-            r = c.post(
-                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
-                json={"api_key": key, "guidance": "keep it concise"},
+            r = _run_topic_generate_job(
+                c, pid, "t1", {"api_key": key, "guidance": "keep it concise"}
             )
-        assert r.status_code == 200, r.text
-        version_id = r.json()["id"]
+        assert r.status_code == 202, r.text
+        job = c.get(f"/api/v1/jobs/{r.json()['job_id']}").json()
+        assert job["status"] == "done"
+        version_id = job["result"]["version_id"]
 
         async def _fetch():
             conn = await asyncpg.connect(DSN)
@@ -883,7 +956,7 @@ def test_generate_topic_reviewer_forbidden():
         assert r.status_code == 403
 
 
-def test_generate_topic_bad_model_output_502():
+def test_generate_topic_bad_model_output_becomes_a_failed_job():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
@@ -892,26 +965,26 @@ def test_generate_topic_bad_model_output_502():
             "backend.src.trust.generate_topic.build_provider",
             return_value=fake_provider(text="not json"),
         ):
-            r = c.post(
-                f"/api/v1/trust/projects/{pid}/topics/t1/generate",
-                json={"api_key": "sk-ant-" + "z" * 20},
-            )
-        assert r.status_code == 502
+            r = _run_topic_generate_job(c, pid, "t1", {"api_key": "sk-ant-" + "z" * 20})
+        assert r.status_code == 202, r.text
+        job = c.get(f"/api/v1/jobs/{r.json()['job_id']}").json()
+        assert job["status"] == "failed"
+        assert "error" in job
 
 
 def _topic_version_id(c, pid, topic_id="t1"):
-    """Owner-perspective helper: generate a topic_version and return its id.
-    Assumes `_as(owner, ...)` is already the active principal."""
+    """Owner-perspective helper: submit + synchronously run a topic generate
+    job, return the created topic_version id. Assumes `_as(owner, ...)` is
+    already the active principal."""
     with patch(
         "backend.src.trust.generate_topic.build_provider",
         return_value=fake_provider(text=_TOPIC_DRAFT_JSON),
     ):
-        r = c.post(
-            f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate",
-            json={"api_key": "sk-ant-" + "x" * 20},
-        )
-    assert r.status_code == 200, r.text
-    return r.json()["id"]
+        r = _run_topic_generate_job(c, pid, topic_id, {"api_key": "sk-ant-" + "x" * 20})
+    assert r.status_code == 202, r.text
+    job = c.get(f"/api/v1/jobs/{r.json()['job_id']}").json()
+    assert job["status"] == "done", job
+    return job["result"]["version_id"]
 
 
 def test_reviewer_topic_approval_is_expert_self():

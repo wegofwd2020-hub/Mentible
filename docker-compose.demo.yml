@@ -109,6 +109,65 @@ services:
         max-size: '10m'
         max-file: '5'
 
+  celery-worker:
+    # Durable worker (Phase A trust-async-gen — task_acks_late in
+    # backend/src/core/celery_app.py). Same image as `api`; only the command
+    # differs — this is a Celery worker process, not the FastAPI server, but it
+    # imports the same backend package so it needs the same environment.
+    image: mentible-backend:latest
+    container_name: mentible-celery-worker
+    restart: always
+    command:
+      [
+        'celery',
+        '-A',
+        'backend.src.core.celery_app',
+        'worker',
+        '--loglevel=INFO',
+        '--concurrency=2',
+      ]
+    environment:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      # Required — encrypts server-side BYOK material. No insecure default here
+      # (the dev compose ships a zero key; production must supply a real one).
+      BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?set BYOK_MASTER_KEY in .env.demo (openssl rand -hex 32)}
+      # Required — system-owner secret (ADR-018). No insecure default; production
+      # must supply a real one.
+      SYSTEM_OWNER_SECRET: ${SYSTEM_OWNER_SECRET:?set SYSTEM_OWNER_SECRET in .env.demo (openssl rand -hex 32)}
+      ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
+      # ── User identity + accounts (ADR-014) — OPTIONAL ─────────────────────
+      # Empty ⇒ the anonymous demo (no login, no DB). Set OIDC_ISSUER +
+      # DATABASE_URL in .env.demo to turn identity ON (go-live; see
+      # docs/GO_LIVE.md), then run `alembic upgrade head` against DATABASE_URL.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-authenticated}
+      DATABASE_URL: ${DATABASE_URL:-}
+      # ── Super-admin operator allowlist (ADR-020 D1) — OPTIONAL ────────────
+      # Empty ⇒ no admins. Comma-separated verified emails (case-insensitive).
+      SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
+      SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+      # ── Open Library (ADR-027) ─────────────────────────────────────────────
+      # Mirrored from `api` for import-time parity even though this worker
+      # doesn't (yet) touch the artifact store — no volume mount below since
+      # per-topic generation (T2) doesn't read/write it.
+      ARTIFACT_STORE_DIR: /data/artifacts
+    depends_on:
+      redis:
+        condition: service_healthy
+    # No `ports:` — a worker has nothing to serve.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 768M
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
 # Named volume for the Open Library's published artifacts (ADR-027). Persists
 # across container rebuilds/redeploys so the published_artifact rows keep their
 # files.

@@ -210,6 +210,17 @@ class TopicVersionOut(BaseModel):
     created_at: datetime | None
 
 
+class TopicGenerateJobOut(BaseModel):
+    """Response for the async per-topic generate submit (Phase A, T2).
+
+    The endpoint now returns 202 + this shape immediately; the caller polls
+    `GET /api/v1/jobs/{job_id}` (shared with whole-lesson generation) for the
+    eventual `done`/`failed` status and the created `topic_version` id."""
+
+    job_id: str
+    status: str
+
+
 class TopicVersionContentIn(BaseModel):
     content: dict
 

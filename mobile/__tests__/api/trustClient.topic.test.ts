@@ -1,4 +1,4 @@
-import { generateTopic, getTopicVersion, recordTopicApproval, withdrawTopicApproval } from "@/api/trustClient";
+import { generateTopic, getJob, getTopicVersion, recordTopicApproval, withdrawTopicApproval } from "@/api/trustClient";
 
 function mockFetchOnce(status: number, body: unknown) {
   (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
@@ -9,16 +9,32 @@ function mockFetchOnce(status: number, body: unknown) {
 }
 afterEach(() => jest.restoreAllMocks());
 
-it("generateTopic POSTs to the per-topic generate route with the key in the body", async () => {
-  const created = { id: "tv1", topic_id: "t1", version_no: 1, created_at: null };
-  mockFetchOnce(200, created);
+it("generateTopic POSTs to the per-topic generate route and returns the 202 job handle (Phase A async)", async () => {
+  const accepted = { job_id: "job-1", status: "queued" };
+  mockFetchOnce(202, accepted);
   const out = await generateTopic("p1", "t1", { api_key: "sk-ant-test", provider_id: "anthropic" }, "tok");
-  expect(out.id).toBe("tv1");
+  expect(out).toEqual({ job_id: "job-1", status: "queued" });
   const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
   expect(url).toMatch(/\/trust\/projects\/p1\/topics\/t1\/generate$/);
   expect(init.method).toBe("POST");
   expect(init.headers.Authorization).toBe("Bearer tok");
   expect(JSON.parse(init.body)).toMatchObject({ api_key: "sk-ant-test", provider_id: "anthropic" });
+});
+
+it("getJob GETs the SHARED (non-/trust) /jobs/{id} route and returns status+result", async () => {
+  const done = { status: "done", result: { version_id: "tv1", topic_id: "t1", version_no: 2 } };
+  mockFetchOnce(200, done);
+  const out = await getJob("job-1", "tok");
+  expect(out).toEqual(done);
+  const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
+  expect(url).toMatch(/\/api\/v1\/jobs\/job-1$/);
+  expect(url).not.toMatch(/\/trust\//);
+  expect(init.headers.Authorization).toBe("Bearer tok");
+});
+
+it("getJob throws an ApiError on a non-OK response", async () => {
+  mockFetchOnce(404, { detail: "job not found" });
+  await expect(getJob("missing", "tok")).rejects.toMatchObject({ status: 404 });
 });
 
 it("getTopicVersion GETs the topic version and returns its content", async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateTopic as generateTopicApi, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, generateVersion as generateVersionApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, suggestToc as suggestTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
 import { loadApiKey } from "@/secure/keyStore";
 import type { DraftFormat } from "@/constants/draftFormats";
 
@@ -122,13 +123,21 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, refresh]);
 
-  const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string }) => {
+  // Async per-topic generate (Phase A / T2): submit returns a job_id
+  // immediately, `runTopicGenJob` polls the shared /jobs/{id} until
+  // done|failed. Resolves to the same {id, topic_id, version_no, created_at}
+  // shape the old synchronous call returned, so callers (DraftsPanel's
+  // onGenerateTopic, the topic-viewer's doRegen) don't need to change.
+  const { run: runTopicGenJob } = useGenerateTopicJob();
+
+  const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string }): Promise<TopicVersionCreatedView> => {
     const key = await loadApiKey("anthropic");
     if (!key) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
     if (!accessToken) throw new Error("Not signed in");
-    const v = await generateTopicApi(projectId, topicId, { api_key: key, provider_id: "anthropic", guidance: opts?.guidance }, accessToken);
-    await refresh(); return v;
-  }, [accessToken, projectId, refresh]);
+    const result = await runTopicGenJob({ projectId, topicId, apiKey: key, accessToken, guidance: opts?.guidance });
+    await refresh();
+    return { id: result.version_id, topic_id: result.topic_id, version_no: result.version_no, created_at: null };
+  }, [accessToken, projectId, refresh, runTopicGenJob]);
 
   const approveTopic = useCallback(async (id: string, opts?: { note?: string; expertName?: string }): Promise<TopicApprovalView> => {
     if (!accessToken) throw new Error("Not signed in");

@@ -14,8 +14,16 @@ pydantic[email]>=2.3.0
 # package is a separate change). structlog 26 conflicts until that pin is raised.
 structlog==25.5.0
 
-# Redis (BYOK envelope + job status; later: Celery broker)
+# Redis (BYOK envelope + job status; broker/backend for Celery below)
 redis==8.0.1
+
+# Async job queue (Phase A trust-async-gen — durable worker for per-topic
+# generation). Broker/backend = Redis (above). Intentionally NOT the
+# `celery[redis]` extra: kombu's redis extra caps redis<6.5, which conflicts
+# with the redis==8.0.1 pin above (pip ResolutionImpossible). Kombu's redis
+# transport just needs `redis` importable at runtime (no [redis]-extra-only
+# APIs used) — verified against redis==8.0.1 in a clean venv.
+celery==5.6.3
 
 # Cryptography (BYOK envelope: HKDF + AES-GCM)
 cryptography>=43.0.0

@@ -67,6 +67,19 @@ export interface TopicVersionDetailView {
 }
 export interface TopicVersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean }
 
+// Phase A async per-topic generate (T2): POST .../generate now returns 202 +
+// this job handle immediately; the actual generation runs in a Celery worker.
+export interface TopicGenerateJobOut { job_id: string; status: string }
+// The job's eventual persisted result, once `status` is "done" — polled from
+// the SAME shared GET /api/v1/jobs/{id} endpoint /generate uses (see
+// backend/src/trust/router.py's generate_topic docstring).
+export interface TopicGenerateJobResult { version_id: string; topic_id: string; version_no: number }
+export interface TopicGenerateJobStatusView {
+  status: "queued" | "running" | "done" | "failed";
+  result?: TopicGenerateJobResult;
+  error?: string;
+}
+
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/trust${path}`, {
     ...options,
@@ -187,12 +200,33 @@ export async function saveToc(projectId: string, toc: StructuredTocView, token: 
   await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
 }
 
+// Submits a per-topic generate as an async job (Phase A / T2) — the backend
+// returns 202 + {job_id, status:"queued"} immediately; poll `getJob` below
+// for the eventual `done`/`failed` result. Callers wanting a single
+// submit-then-poll promise should use `useGenerateTopicJob` rather than
+// polling this directly.
 export async function generateTopic(
   projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
-): Promise<TopicVersionCreatedView> {
-  return (await trustFetch<TopicVersionCreatedView>(
+): Promise<TopicGenerateJobOut> {
+  return (await trustFetch<TopicGenerateJobOut>(
     `/projects/${projectId}/topics/${topicId}/generate`, token, { method: "POST", body: JSON.stringify(body) },
-  )) as TopicVersionCreatedView;
+  )) as TopicGenerateJobOut;
+}
+
+// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
+// /generate and /structure also use (backend/src/generate/router.py). The
+// route itself needs no auth (it only reads a Redis-backed status row keyed
+// by job_id, not a project), but `token` is accepted for API-shape
+// consistency with the rest of trustClient and sent as a harmless bearer.
+export async function getJob(jobId: string, token: string): Promise<TopicGenerateJobStatusView> {
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<TopicGenerateJobStatusView>;
 }
 
 export async function getTopicVersion(id: string, token: string): Promise<TopicVersionDetailView> {

@@ -43,6 +43,7 @@ jest.mock("react-native-webview", () => ({
 }));
 
 import { getTopicVersion } from "@/api/trustClient";
+import { Alert } from "@/lib/alert";
 import TopicVersionViewer from "@/../app/trust/topic-version/[id]";
 
 beforeEach(() => { jest.clearAllMocks(); mockRole = "owner"; });
@@ -61,6 +62,23 @@ it("owner sees Revise; pressing it on an unvalidated version reveals the guidanc
     expect(mockGenerateTopic).toHaveBeenCalledWith("t1", { guidance: "Add more detail on ledger lines" }),
   );
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/trust/topic-version/tv2?projectId=p1"));
+});
+
+it("a failed revise surfaces the job's error message, not a bare 'Try again.' (Fix round 1)", async () => {
+  // Mirrors what useGenerateTopicJob.run() actually throws for a `failed`
+  // job — a plain Error carrying job.error, not an ApiError — so this
+  // exercises the exact call-site catch-clause bug: it used to special-case
+  // ApiError only and drop the backend's actionable job.error message.
+  mockGenerateTopic.mockRejectedValue(new Error("rate limited, try again shortly"));
+  const alertSpy = jest.spyOn(Alert, "alert");
+
+  render(<TopicVersionViewer />);
+  fireEvent.press(await screen.findByLabelText("Revise draft"));
+  fireEvent.press(screen.getByLabelText("Generate new version"));
+
+  await waitFor(() =>
+    expect(alertSpy).toHaveBeenCalledWith("Couldn't revise", "rate limited, try again shortly"),
+  );
 });
 
 it("reviewer sees no Revise control; Approve is still present", async () => {

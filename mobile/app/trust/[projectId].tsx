@@ -1255,7 +1255,7 @@ function TrustProjectDetailInner() {
     try {
       await generateTopic(topicId);
     } catch (e) {
-      Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : "Try again.");
+      Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
       setBusyTopicId(null);
     }
