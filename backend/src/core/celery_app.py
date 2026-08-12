@@ -18,8 +18,10 @@ Per-topic trust generation tasks are registered here in Phase A's later task
 from __future__ import annotations
 
 from celery import Celery
+from celery.signals import worker_process_init
 
 from backend.config import settings
+from backend.src.core.log_redaction import configure_logging
 
 celery_app = Celery("mentible", broker=settings.redis_url, backend=settings.redis_url)
 
@@ -31,6 +33,26 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
 )
+
+
+@worker_process_init.connect
+def _init_worker_logging(**_kwargs: object) -> None:
+    """Install the structlog key-redaction filter in every worker process.
+
+    Per CLAUDE.md rule #1 / ADR-001, `redact_keys` is the mandatory backstop
+    against a BYOK key ever reaching a log line. `configure_logging` (which
+    wires it into the structlog processor chain) was previously only called
+    from `backend/main.py` — the uvicorn/API entrypoint — so a worker started
+    via `celery -A backend.src.core.celery_app worker` ran with structlog's
+    default (unredacted) processors.
+
+    `worker_process_init` fires inside each forked/spawned worker child, which
+    is the robust placement: it survives prefork forking and the spawn
+    start-method, and it does NOT fire on a plain `import
+    backend.src.core.celery_app` in the API process or in tests — so it can't
+    clobber their own logging config.
+    """
+    configure_logging(settings.log_level)
 
 
 @celery_app.task(name="ping")
