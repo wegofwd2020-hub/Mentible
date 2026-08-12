@@ -538,29 +538,31 @@ function DraftsPanel({
                 const label = status && status.status !== "not_generated" ? "Regenerate" : "Generate";
                 return (
                   <View key={unit.id} style={styles.topicRow}>
-                    <View style={styles.topicRowLeft}>
-                      <Text style={styles.topicRowTitle}>{unit.title}</Text>
-                      <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
-                    </View>
-                    <View style={styles.topicRowActions}>
-                      {isOwner ? (
-                        <Button
-                          variant="primary"
-                          label={label}
-                          onPress={() => onGenerateTopic(unit.id)}
-                          busy={isBusy}
-                          disabled={isBusy}
-                          accessibilityLabel={`${label} ${unit.title}`}
-                        />
-                      ) : null}
-                      {status?.latest_version_id ? (
-                        <Button
-                          variant="ghost"
-                          label="Open"
-                          onPress={() => onOpenTopic(status.latest_version_id as string)}
-                          accessibilityLabel={`Open ${unit.title}`}
-                        />
-                      ) : null}
+                    <View style={styles.topicRowMain}>
+                      <View style={styles.topicRowLeft}>
+                        <Text style={styles.topicRowTitle}>{unit.title}</Text>
+                        <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                      </View>
+                      <View style={styles.topicRowActions}>
+                        {isOwner ? (
+                          <Button
+                            variant="primary"
+                            label={label}
+                            onPress={() => onGenerateTopic(unit.id)}
+                            busy={isBusy}
+                            disabled={isBusy}
+                            accessibilityLabel={`${label} ${unit.title}`}
+                          />
+                        ) : null}
+                        {status?.latest_version_id ? (
+                          <Button
+                            variant="ghost"
+                            label="Open"
+                            onPress={() => onOpenTopic(status.latest_version_id as string)}
+                            accessibilityLabel={`Open ${unit.title}`}
+                          />
+                        ) : null}
+                      </View>
                     </View>
                     {prog ? <TopicRowProgress startedAt={prog.startedAt} phase={prog.phase} /> : null}
                   </View>
@@ -804,19 +806,21 @@ function FeedbackPanel({
                 const status = statusByTopic.get(unit.id);
                 return (
                   <View key={unit.id} style={styles.topicRow}>
-                    <View style={styles.topicRowLeft}>
-                      <Text style={styles.topicRowTitle}>{unit.title}</Text>
-                      <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
-                    </View>
-                    <View style={styles.topicRowActions}>
-                      {status?.latest_version_id ? (
-                        <Button
-                          variant="ghost"
-                          label="Open"
-                          onPress={() => onOpenTopic(status.latest_version_id as string)}
-                          accessibilityLabel={`Open ${unit.title}`}
-                        />
-                      ) : null}
+                    <View style={styles.topicRowMain}>
+                      <View style={styles.topicRowLeft}>
+                        <Text style={styles.topicRowTitle}>{unit.title}</Text>
+                        <Chip label={topicStatusLabel(status?.status)} active={status?.status === "validated"} />
+                      </View>
+                      <View style={styles.topicRowActions}>
+                        {status?.latest_version_id ? (
+                          <Button
+                            variant="ghost"
+                            label="Open"
+                            onPress={() => onOpenTopic(status.latest_version_id as string)}
+                            accessibilityLabel={`Open ${unit.title}`}
+                          />
+                        ) : null}
+                      </View>
                     </View>
                   </View>
                 );
@@ -1800,12 +1804,21 @@ const makeStyles = (c: Palette) => ({
     backgroundColor: c.surfaceHigh,
   },
   checkboxOn: { backgroundColor: c.primary, borderColor: c.primary },
+  // Column, not row: this wraps the title+actions line AND (when a topic is
+  // generating) the full-width progress bar stacked beneath it. The row
+  // semantics (space-between, centered, horizontal) live on topicRowMain so
+  // the bar isn't crammed onto the same line as the title/buttons.
   topicRow: {
+    flexDirection: "column" as const,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  topicRowMain: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     justifyContent: "space-between" as const,
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    width: "100%" as const,
   },
   topicRowLeft: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, flexShrink: 1 as const },
   // Inter (body), not Playfair — sizeSm sits below the "Playfair only
