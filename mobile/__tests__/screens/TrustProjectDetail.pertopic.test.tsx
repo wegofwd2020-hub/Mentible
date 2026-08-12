@@ -9,8 +9,15 @@ jest.mock("expo-router", () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
-jest.mock("@/lib/alert", () => ({ Alert: { alert: (_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => { btns?.find((b) => b.style !== "cancel")?.onPress?.(); } } }));
+jest.mock("@/lib/alert", () => ({
+  Alert: {
+    alert: jest.fn((_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => {
+      btns?.find((b) => b.style !== "cancel")?.onPress?.();
+    }),
+  },
+}));
 import { useTrustProject } from "@/hooks/useTrustProject";
+import { Alert } from "@/lib/alert";
 
 const toc = {
   subjects: [
@@ -91,6 +98,24 @@ it("pressing Generate on an ungenerated topic calls generateTopic", async () => 
   await waitFor(() => {
     expect(mock.generateTopic).toHaveBeenCalledWith("t2");
   });
+});
+
+it("a failed generate surfaces the job's error message, not a bare 'Try again.' (Fix round 1)", async () => {
+  // Mirrors what useGenerateTopicJob.run() actually throws for a `failed`
+  // job — a plain Error carrying job.error, not an ApiError — so this
+  // exercises the exact call-site catch-clause bug: it used to special-case
+  // ApiError only and drop the backend's actionable job.error message.
+  const mock = base();
+  mock.generateTopic = jest.fn().mockRejectedValue(new Error("no sources for this topic"));
+  (useTrustProject as jest.Mock).mockReturnValue(mock);
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+
+  fireEvent.press(await screen.findByLabelText("Generate Topic Two"));
+  await waitFor(() =>
+    expect(Alert.alert).toHaveBeenCalledWith("Couldn't generate", "no sources for this topic"),
+  );
 });
 
 it("pressing Open on a drafted topic navigates to the topic-version viewer", async () => {

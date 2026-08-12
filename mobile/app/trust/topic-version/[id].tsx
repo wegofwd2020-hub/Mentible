@@ -161,7 +161,7 @@ function TopicVersionViewerInner() {
       setGuidance("");
       router.replace(`/trust/topic-version/${nv.id}?projectId=${projectId}`);
     } catch (e) {
-      Alert.alert("Couldn't revise", e instanceof ApiError ? e.userMessage() : "Try again.");
+      Alert.alert("Couldn't revise", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
     } finally {
       setGenBusy(false);
     }
