@@ -28,7 +28,8 @@ from wegofwd_llm.errors import LLMSchemaError
 from backend.config import settings
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.generate.tasks import _byok_redis_key, _job_status_redis_key
-from backend.src.trust import project_repo, tasks as trust_tasks, topic_repo
+from backend.src.trust import project_repo, topic_repo
+from backend.src.trust import tasks as trust_tasks
 from backend.tests.helpers import fake_provider
 
 DSN = os.environ.get("DATABASE_URL", "")

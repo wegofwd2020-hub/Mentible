@@ -810,9 +810,7 @@ def _run_topic_generate_job(c, pid, topic_id, payload):
     """
     fake_redis = app.dependency_overrides[get_redis]()
     with patch("backend.src.trust.router.generate_topic_task.delay") as mock_delay:
-        r = c.post(
-            f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate", json=payload
-        )
+        r = c.post(f"/api/v1/trust/projects/{pid}/topics/{topic_id}/generate", json=payload)
     if r.status_code == 202:
         with patch("backend.src.trust.tasks._redis_client", return_value=fake_redis):
             from backend.src.trust.tasks import generate_topic_task
