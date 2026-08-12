@@ -71,6 +71,14 @@ function TrustVersionInner() {
     return m;
   }, [project]);
 
+  // Sibling versions of this same artifact, for the inline "Versions" history
+  // block. Defensive: no matching artifact (still loading, or a bad id) just
+  // yields an empty list — the block itself renders nothing below.
+  const versions = useMemo(
+    () => (project?.artifacts ?? []).find((a) => a.artifact.id === artifactId)?.versions ?? [],
+    [project, artifactId],
+  );
+
   // The web view-mode render preview: built ONCE per version (not inline in
   // JSX). Building it fresh on every render (approve/withdraw reload, theme,
   // busy state) would hand TopicRenderer a new object each time, re-running
@@ -123,9 +131,9 @@ function TrustVersionInner() {
     const go = () => setRegen(true);
     if (version!.is_validated) {
       Alert.alert(
-        "Regenerate a validated draft?",
+        "Revise a validated draft?",
         `This creates a new version. The approval on v${version!.version_no} stays; the new version will need re-approval.`,
-        [{ text: "Cancel", style: "cancel" }, { text: "Regenerate", onPress: go }],
+        [{ text: "Cancel", style: "cancel" }, { text: "Revise", onPress: go }],
       );
     } else { go(); }
   };
@@ -266,13 +274,13 @@ function TrustVersionInner() {
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
             {isOwner ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
-                <Text style={styles.editBtnText}>Edit</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.approveBtn} onPress={openRegen}>
+                <Text style={styles.approveText}>Revise</Text>
               </Pressable>
             ) : null}
             {isOwner ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Regenerate draft" style={styles.editBtn} onPress={openRegen}>
-                <Text style={styles.editBtnText}>Regenerate</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
+                <Text style={styles.editBtnText}>Edit text</Text>
               </Pressable>
             ) : null}
             {version.is_validated ? (
@@ -310,6 +318,7 @@ function TrustVersionInner() {
         ) : null}
         {!editing && regen ? (
           <View style={styles.editRow}>
+            <Text style={styles.bodyText}>Revise — describe the change; this creates a new version.</Text>
             <TextInput
               style={[styles.input, styles.bodyInput]}
               value={guidance}
@@ -406,8 +415,13 @@ function TrustVersionInner() {
         {!editing ? (
           <View style={styles.notesBlock}>
             <Text style={styles.notesTitle}>Revision notes</Text>
+            {!isOwner ? (
+              <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
+            ) : null}
             {(version.feedback ?? []).length === 0 ? (
-              <Text style={styles.notesEmpty}>No revision notes yet. Ask for a change below.</Text>
+              <Text style={styles.notesEmpty}>
+                {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
+              </Text>
             ) : (
               (version.feedback ?? []).map((f) => (
                 <View key={f.id} style={styles.noteRow}>
@@ -416,27 +430,72 @@ function TrustVersionInner() {
                     {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
                   </Text>
                   <Text style={styles.noteBody}>{f.body}</Text>
+                  {isOwner ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Revise from this note"
+                      style={styles.reviseFromNoteBtn}
+                      onPress={() => { setGuidance(f.body); openRegen(); }}
+                    >
+                      <Text style={styles.reviseFromNoteText}>Revise from this note</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))
             )}
-            <TextInput
-              style={[styles.input, styles.bodyInput]}
-              value={noteBody}
-              onChangeText={setNoteBody}
-              accessibilityLabel="Revision note"
-              placeholder="Request a revision…"
-              maxLength={1000}
-              multiline
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Send revision request"
-              style={[styles.saveBtn, !noteBody.trim() ? styles.disabledBtn : null]}
-              disabled={noteBusy || !noteBody.trim()}
-              onPress={onAddFeedback}
-            >
-              <Text style={styles.saveBtnText}>{noteBusy ? "Sending…" : "Request a revision"}</Text>
-            </Pressable>
+            {!isOwner ? (
+              <>
+                <TextInput
+                  style={[styles.input, styles.bodyInput]}
+                  value={noteBody}
+                  onChangeText={setNoteBody}
+                  accessibilityLabel="Revision note"
+                  placeholder="Request a revision…"
+                  maxLength={1000}
+                  multiline
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send revision request"
+                  style={[styles.saveBtn, !noteBody.trim() ? styles.disabledBtn : null]}
+                  disabled={noteBusy || !noteBody.trim()}
+                  onPress={onAddFeedback}
+                >
+                  <Text style={styles.saveBtnText}>{noteBusy ? "Sending…" : "Request a revision"}</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        ) : null}
+        {!editing && versions.length > 1 ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Versions</Text>
+            {versions.map((v) => {
+              const isCurrent = v.id === versionId;
+              const row = (
+                <View style={styles.versionRowInner}>
+                  <Text style={styles.bodyText}>
+                    v{v.version_no}
+                    {v.created_at ? ` · ${new Date(v.created_at).toLocaleDateString()}` : ""}
+                    {v.is_validated ? " ✓" : ""}
+                  </Text>
+                  {isCurrent ? <Text style={styles.notesEmpty}>current</Text> : null}
+                </View>
+              );
+              return isCurrent ? (
+                <View key={v.id} style={styles.noteRow}>{row}</View>
+              ) : (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open version ${v.version_no}`}
+                  style={styles.noteRow}
+                  onPress={() => router.push({ pathname: "/trust/version/[versionId]", params: { versionId: v.id, artifactId: String(artifactId), projectId: String(projectId) } })}
+                >
+                  {row}
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.backBtn} onPress={() => router.back()}>
@@ -491,6 +550,9 @@ const makeStyles = (c: Palette) => ({
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
+  reviseFromNoteBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
+  reviseFromNoteText: { color: c.primary, fontSize: typography.sizeSm },
 });

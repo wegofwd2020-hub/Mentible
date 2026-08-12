@@ -28,7 +28,7 @@ import TrustVersion from "@/../app/trust/version/[versionId]";
 it("regenerates with guidance", async () => {
   const { getByText, getByLabelText } = render(<TrustVersion />);
   await waitFor(() => expect(getByText("H")).toBeTruthy());
-  fireEvent.press(getByLabelText("Regenerate draft"));
+  fireEvent.press(getByLabelText("Revise draft"));
   fireEvent.changeText(getByLabelText("Regeneration guidance"), "focus on 2026 costs");
   fireEvent.press(getByLabelText("Generate new version"));
   await waitFor(() => expect(mockGenerateVersion).toHaveBeenCalledWith("a1", { guidance: "focus on 2026 costs" }));
