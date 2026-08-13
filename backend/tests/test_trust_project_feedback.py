@@ -125,6 +125,46 @@ def test_project_feedback_aggregates_artifact_and_topic_notes():
         assert r.status_code == 403
 
 
+def test_project_feedback_isolated_across_projects():
+    """Two projects (A, B) owned by the same account each get a feedback note
+    on a draft. The rollup is scoped by `project_id` in the UNION's WHERE
+    clause (`feedback_repo.list_project_feedback`) — a future edit to that
+    clause could silently leak one project's notes into another, so pin the
+    boundary directly: A's GET must never surface B's note, and vice versa."""
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+
+        def _artifact_feedback_note(pid, body):
+            art = c.post(
+                f"/api/v1/trust/projects/{pid}/artifacts",
+                json={"role": "cornerstone", "format": "book"},
+            ).json()
+            vid = c.post(
+                f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}
+            ).json()["id"]
+            r = c.post(f"/api/v1/trust/versions/{vid}/feedback", json={"body": body})
+            assert r.status_code == 200, r.text
+
+        pid_a = c.post("/api/v1/trust/projects", json={"title": "Project A"}).json()["id"]
+        pid_b = c.post("/api/v1/trust/projects", json={"title": "Project B"}).json()["id"]
+
+        note_a = "PROJECT-A-ONLY: fix the citation on page 3"
+        note_b = "PROJECT-B-ONLY: reword the closing paragraph"
+        _artifact_feedback_note(pid_a, note_a)
+        _artifact_feedback_note(pid_b, note_b)
+
+        body_a = c.get(f"/api/v1/trust/projects/{pid_a}/feedback").json()
+        assert len(body_a) == 1
+        assert body_a[0]["body"] == note_a
+        assert all(item["body"] != note_b for item in body_a)
+
+        body_b = c.get(f"/api/v1/trust/projects/{pid_b}/feedback").json()
+        assert len(body_b) == 1
+        assert body_b[0]["body"] == note_b
+        assert all(item["body"] != note_a for item in body_b)
+
+
 def test_project_feedback_unknown_project_403():
     """No membership row exists for a random project id -> 403, not 404
     (matches `_require_role`'s no-access branch for every other trust route)."""

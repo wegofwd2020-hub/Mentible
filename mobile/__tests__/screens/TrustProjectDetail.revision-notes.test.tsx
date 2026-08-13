@@ -58,7 +58,7 @@ it("shows revision notes across drafts (artifact + topic sources), in received (
     },
     {
       source: "topic", draft_label: "Topic One", format: null, version_no: 1,
-      author_kind: "owner", author_name: null, body: "Needs a diagram.", created_at: "2026-08-01T00:00:00Z",
+      author_kind: "operator", author_name: null, body: "Needs a diagram.", created_at: "2026-08-01T00:00:00Z",
     },
   ]);
   (useTrustProject as jest.Mock).mockReturnValue(base());
@@ -74,7 +74,7 @@ it("shows revision notes across drafts (artifact + topic sources), in received (
 
   expect(screen.getByText("Topic One · v1")).toBeTruthy();
   expect(screen.getByText("Needs a diagram.")).toBeTruthy();
-  expect(screen.getByText(/^owner/)).toBeTruthy();
+  expect(screen.getByText(/^operator/)).toBeTruthy();
 });
 
 it("shows the empty state when there are no revision notes", async () => {
