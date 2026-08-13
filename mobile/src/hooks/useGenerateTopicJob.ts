@@ -10,7 +10,7 @@ const POLL_INTERVAL_MS = 3_000;
 export interface RunGenerateTopicArgs {
   projectId: string;
   topicId: string;
-  apiKey: string;
+  apiKey?: string;
   accessToken: string;
   providerId?: string;
   guidance?: string;
