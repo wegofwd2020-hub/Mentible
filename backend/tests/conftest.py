@@ -15,6 +15,24 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from tests._dbsafety import db_host, looks_remote
+
+# ── DB safety: never let the suite touch a remote/production database. ──────────
+# The repo `.env` may set DATABASE_URL to a Supabase pooler for local app work;
+# pydantic-settings loads `.env`, so an unguarded run would hit prod. An explicitly
+# set env var overrides `.env`, so we pin DATABASE_URL here (to the caller's value,
+# or empty ⇒ DB-backed tests skip) and REFUSE a remote host outright.
+_dsn = os.environ.get("DATABASE_URL", "")
+if looks_remote(_dsn):
+    raise RuntimeError(
+        f"refusing to run tests against a remote DATABASE_URL host '{db_host(_dsn)}'. "
+        "Export a LOCAL test DSN, e.g. "
+        "DATABASE_URL=postgresql://postgres:devlocal@localhost:5439/mentible_test"
+    )
+# Pin it explicitly so the repo `.env`'s (possibly-prod) DATABASE_URL can't leak in
+# via pydantic Settings. Empty when the caller set none ⇒ `skipif(not DSN)` skips.
+os.environ["DATABASE_URL"] = _dsn
+
 # Provide a deterministic master key for tests BEFORE importing config.
 # Real deployments load BYOK_MASTER_KEY from env; tests fix it here.
 os.environ.setdefault("BYOK_MASTER_KEY", "0" * 64)
