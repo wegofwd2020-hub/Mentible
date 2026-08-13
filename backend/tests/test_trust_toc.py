@@ -55,7 +55,7 @@ def test_suggest_toc_returns_subjects(monkeypatch):
         "backend.src.trust.toc_suggest.build_provider",
         lambda *a, **k: fake_provider(text=_GOOD),
     )
-    out = suggest_toc(
+    result = suggest_toc(
         sources=_SOURCES,
         topic="t",
         audience="a",
@@ -64,10 +64,15 @@ def test_suggest_toc_returns_subjects(monkeypatch):
         api_key="sk-ant-" + "x" * 20,
         model="m",
     )
+    out = result.parsed
     assert isinstance(out, _TocOutput)
     assert 1 <= len(out.subjects) <= 6
     assert out.subjects[0].subject_label == "Design basics"
     assert out.subjects[0].topics[0].sources == ["S1"]
+    # suggest_toc returns the full ConformanceResult (not just `.parsed`) so the
+    # caller can meter observed token usage for managed generations.
+    assert result.total_input_tokens > 0
+    assert result.total_output_tokens > 0
 
 
 def test_suggest_toc_requests_full_max_tokens(monkeypatch):

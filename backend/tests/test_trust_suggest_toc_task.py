@@ -25,6 +25,7 @@ from unittest.mock import patch
 import asyncpg
 import fakeredis.aioredis
 import pytest
+from wegofwd_llm.conformance import ConformanceResult
 from wegofwd_llm.errors import LLMSchemaError
 
 from backend.config import settings
@@ -32,6 +33,7 @@ from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.generate.tasks import _byok_redis_key, _job_status_redis_key
 from backend.src.trust import project_repo
 from backend.src.trust import tasks as trust_tasks
+from backend.tests.helpers import llm_response
 
 DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(not DSN, reason="no DB")]
@@ -178,10 +180,20 @@ async def test_task_writes_done_with_toc_result(conn, fake_redis):
     assert all(len(sid) == 36 for sid in unit["source_ids"])  # real input uuids, not S-labels
 
 
-def _fake_toc_output():
+def _fake_toc_output(*, in_tok: int = 100, out_tok: int = 500) -> ConformanceResult:
+    """A fake `ConformanceResult` standing in for `suggest_toc`'s real return
+    (since `_run_suggest` now reads `.parsed` + the observed token counts)."""
     from backend.src.trust.toc_suggest import _TocOutput
 
-    return _TocOutput.model_validate(json.loads(_GOOD))
+    parsed = _TocOutput.model_validate(json.loads(_GOOD))
+    return ConformanceResult(
+        parsed=parsed,
+        response=llm_response(_GOOD, in_tok=in_tok, out_tok=out_tok),
+        attempts=1,
+        repaired=False,
+        total_input_tokens=in_tok,
+        total_output_tokens=out_tok,
+    )
 
 
 async def test_task_uses_the_managed_vault_key_when_managed(conn, fake_redis, monkeypatch):

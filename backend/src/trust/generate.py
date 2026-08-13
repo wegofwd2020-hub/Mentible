@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 
 from pydantic import BaseModel, Field
-from wegofwd_llm.conformance import generate_validated
+from wegofwd_llm.conformance import ConformanceResult, generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.registry import build_provider
 
@@ -52,7 +52,12 @@ def _coerce_draft(obj: object) -> _DraftOutput:
 
 def generate_draft(
     *, sources, artifact_format, topic, audience, goal, provider_id, api_key, model, guidance=None
-) -> _DraftOutput:
+) -> ConformanceResult:
+    """Generate + validate a whole-book/artifact draft. Returns the full
+    `ConformanceResult` (not just `.parsed`) so the caller
+    (`trust.tasks._run_version`) can meter the observed token counts
+    (`total_input_tokens`/`total_output_tokens`) for managed generations — see
+    `_record_trust_usage`. Access the drafted `_DraftOutput` via `.parsed`."""
     prompt = build_draft_prompt(sources, artifact_format, topic, audience, goal, guidance)
     provider = build_provider(provider_id, api_key=api_key, model=model)
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
@@ -60,7 +65,7 @@ def generate_draft(
     def _validate(text: str) -> _DraftOutput:
         return _coerce_draft(parse_json_response(text))
 
-    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
 
 
 def draft_output_to_sections(out: _DraftOutput, sources) -> tuple[list[dict], list[str]]:

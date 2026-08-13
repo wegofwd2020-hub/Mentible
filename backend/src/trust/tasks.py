@@ -29,6 +29,8 @@ import redis.asyncio as redis
 from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSchemaError
 
 from backend.config import settings
+from backend.src.accounts import repo as accounts_repo
+from backend.src.billing import pricing, usage_repo
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
 from backend.src.core.celery_app import celery_app
@@ -70,6 +72,43 @@ async def _db_connect() -> asyncpg.Connection:
     shares the test's own rollback-isolated transaction instead of opening a
     second real connection that can't see uncommitted seed data."""
     return await asyncpg.connect(settings.database_url)
+
+
+async def _record_trust_usage(
+    conn: asyncpg.Connection,
+    *,
+    account_id: uuid.UUID,
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    job_id: uuid.UUID,
+) -> None:
+    """Best-effort managed metering for a trust generation (ADR-005 D6).
+
+    Mirrors `generate.tasks._record_managed_usage`, but takes the trust task's own
+    live `conn` (the trust tasks open their own asyncpg connection rather than
+    acquiring from a pool). Counts/cost only — no key, no content. Metering must
+    NEVER fail the generation — any error is swallowed with a safe warning (the
+    version is already persisted; under-counting is a known, logged gap).
+    """
+    try:
+        cost = pricing.cost_micros(provider, model, input_tokens, output_tokens)
+        await usage_repo.record_usage(
+            conn,
+            account_id=account_id,
+            provider=provider,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_micros=cost,
+            job_id=job_id,
+        )
+        log.info("trust_managed_usage_recorded", job_id=str(job_id), cost_micros=cost)
+    except Exception:
+        # Counts/cost only — no key, no content — so a warning is safe, and metering
+        # is never allowed to fail a generation whose content is already persisted.
+        log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
 
 
 async def _run(
@@ -207,7 +246,7 @@ async def _run(
                     "body": sec.body,
                     "source_ids": [by_label[label] for label in sec.sources if label in by_label],
                 }
-                for sec in out.sections
+                for sec in out.parsed.sections
             ]
             v = await topic_repo.create_topic_version(
                 conn,
@@ -225,6 +264,27 @@ async def _run(
                     **({"guidance": guidance} if guidance else {}),
                 },
             )
+
+            # Meter managed spend server-side (ADR-005 D6) — best-effort, after a
+            # successful generation + persist. BYOK jobs record nothing. The outer
+            # try/except is belt-and-suspenders so even `get_or_create_account`
+            # can't fail the job.
+            if managed:
+                try:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=recorded_by_sub, email=None
+                    )
+                    await _record_trust_usage(
+                        conn,
+                        account_id=acct.id,
+                        provider=provider_id,
+                        model=resolved_model,
+                        input_tokens=out.total_input_tokens,
+                        output_tokens=out.total_output_tokens,
+                        job_id=job_id,
+                    )
+                except Exception:
+                    log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
         finally:
             await conn.close()
 
@@ -414,7 +474,7 @@ async def _run_version(
                 await _write_status(r, job_id, "failed", error="draft generation failed")
                 return
 
-            sections, cited = draft_output_to_sections(out, sources)
+            sections, cited = draft_output_to_sections(out.parsed, sources)
             v = await artifact_repo.create_version(
                 conn,
                 artifact_id=artifact_id,
@@ -428,6 +488,27 @@ async def _run_version(
                     **({"guidance": guidance} if guidance else {}),
                 },
             )
+
+            # Meter managed spend server-side (ADR-005 D6) — best-effort, after a
+            # successful generation + persist. BYOK jobs record nothing. The outer
+            # try/except is belt-and-suspenders so even `get_or_create_account`
+            # can't fail the job.
+            if managed:
+                try:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=recorded_by_sub, email=None
+                    )
+                    await _record_trust_usage(
+                        conn,
+                        account_id=acct.id,
+                        provider=provider_id,
+                        model=resolved_model,
+                        input_tokens=out.total_input_tokens,
+                        output_tokens=out.total_output_tokens,
+                        job_id=job_id,
+                    )
+                except Exception:
+                    log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
         finally:
             await conn.close()
 
@@ -606,7 +687,35 @@ async def _run_suggest(
             return
 
         # (d) Success.
-        toc = toc_output_to_view(out, sources)
+        toc = toc_output_to_view(out.parsed, sources)
+
+        # Meter managed spend server-side (ADR-005 D6) — best-effort, after a
+        # successful generation. BYOK jobs record nothing. Suggest-TOC persists
+        # nothing else to the DB, so the read-only `conn` above was already
+        # closed — open a fresh one just for the usage row. The outer
+        # try/except is belt-and-suspenders so even `_db_connect`/
+        # `get_or_create_account` can't fail the job.
+        if managed:
+            try:
+                usage_conn = await _db_connect()
+                try:
+                    acct = await accounts_repo.get_or_create_account(
+                        usage_conn, idp_sub=recorded_by_sub, email=None
+                    )
+                    await _record_trust_usage(
+                        usage_conn,
+                        account_id=acct.id,
+                        provider=provider_id,
+                        model=resolved_model,
+                        input_tokens=out.total_input_tokens,
+                        output_tokens=out.total_output_tokens,
+                        job_id=job_id,
+                    )
+                finally:
+                    await usage_conn.close()
+            except Exception:
+                log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
+
         await _write_status(r, job_id, "done", result={"toc": toc})
     except Exception:
         # Defense in depth: an unhandled error anywhere above (DB, Redis,

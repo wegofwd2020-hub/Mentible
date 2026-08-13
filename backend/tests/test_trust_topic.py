@@ -251,7 +251,7 @@ def test_generate_topic_draft_returns_sections(monkeypatch):
         "backend.src.trust.generate_topic.build_provider",
         lambda *a, **k: fake_provider(text=_GOOD),
     )
-    out = generate_topic_draft(
+    result = generate_topic_draft(
         sources=_SOURCES,
         topic_title="Reading music",
         subtopics=["Staff & clef"],
@@ -261,9 +261,15 @@ def test_generate_topic_draft_returns_sections(monkeypatch):
         api_key="sk-ant-" + "x" * 20,
         model="m",
     )
+    out = result.parsed
     assert isinstance(out, _TopicDraft)
     assert out.sections[0].heading == "Staff & clef"
     assert out.sections[0].sources == ["S1"]
+    # generate_topic_draft returns the full ConformanceResult (not just
+    # `.parsed`) so the caller can meter observed token usage for managed
+    # generations.
+    assert result.total_input_tokens > 0
+    assert result.total_output_tokens > 0
 
 
 def test_coerce_topic_draft_accepts_sections_as_json_string():

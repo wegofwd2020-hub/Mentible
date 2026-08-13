@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 from pydantic import BaseModel, Field
-from wegofwd_llm.conformance import generate_validated
+from wegofwd_llm.conformance import ConformanceResult, generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.registry import build_provider
 
@@ -50,7 +50,12 @@ def _coerce_topic_draft(obj: object) -> _TopicDraft:
 
 def generate_topic_draft(
     *, sources, topic_title, subtopics, audience, goal, provider_id, api_key, model
-) -> _TopicDraft:
+) -> ConformanceResult:
+    """Generate + validate a per-topic draft. Returns the full `ConformanceResult`
+    (not just `.parsed`) so the caller (`trust.tasks._run`) can meter the observed
+    token counts (`total_input_tokens`/`total_output_tokens`) for managed
+    generations — see `_record_trust_usage`. Access the drafted `_TopicDraft` via
+    `.parsed`."""
     prompt = build_topic_prompt(sources, topic_title, subtopics, audience, goal)
     provider = build_provider(provider_id, api_key=api_key, model=model)
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
@@ -58,4 +63,4 @@ def generate_topic_draft(
     def _validate(text: str) -> _TopicDraft:
         return _coerce_topic_draft(parse_json_response(text))
 
-    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
