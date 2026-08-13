@@ -4,8 +4,10 @@ import { Alert } from "@/lib/alert";
 import { useFocusEffect } from "expo-router";
 import { getManagedStatus, type ManagedStatus } from "@/api/billingClient";
 import { useAuth } from "@/auth/AuthProvider";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { ManagedPlanCard } from "@/components/ManagedPlanCard";
 import { PageContainer } from "@/components/PageContainer";
+import { PlanLimitsCard } from "@/components/PlanLimitsCard";
 import { clearUsage, listUsage, summarizeUsage, type UsageSummary } from "@/storage/usageStore";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
@@ -21,6 +23,7 @@ function fmtCost(n: number | null): string {
 export default function UsageScreen() {
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
+  const { plan, loading: planLoading } = useBillingPlan();
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [managed, setManaged] = useState<ManagedStatus | null>(null);
 
@@ -69,6 +72,10 @@ export default function UsageScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <PageContainer>
+        {/* Free/Pro plan caps + usage + upgrade CTA (T4) — server-sourced,
+            distinct from the managed-token allowance card below it. */}
+        <PlanLimitsCard plan={plan} loading={planLoading} />
+
         {/* Server-sourced managed-plan meter (signed-in users). The device-local BYOK
             ledger below is unaffected. */}
         {managed && <ManagedPlanCard status={managed} />}

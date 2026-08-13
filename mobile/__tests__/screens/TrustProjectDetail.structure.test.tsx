@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 import TrustProjectDetail from "@/../app/trust/[projectId]";
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn() }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 // Not auto-confirming (unlike the sibling TrustProjectDetail.*.test.tsx files)
 // — the confirm-replace tests below need to drive Cancel vs Replace
 // themselves, so `Alert.alert` is a bare spy here and each button's onPress

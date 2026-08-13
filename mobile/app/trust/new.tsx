@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/PageContainer";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { Alert } from "@/lib/alert";
 import { useOwnedProjects } from "@/hooks/useOwnedProjects";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { ApiError } from "@/api/client";
 import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -16,6 +17,11 @@ function NewProjectInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { create } = useOwnedProjects();
+  // Free/Pro new-project cap (T4) — UX only, fails open. plan:null (unknown —
+  // signed out, still loading, or a failed billing fetch) must never disable
+  // Create; the server (T2) is the real gate and 402s on POST /projects.
+  const { plan } = useBillingPlan();
+  const atProjectCap = plan != null && !plan.is_pro && plan.at_project_cap;
   const [title, setTitle] = useState(""); const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState(""); const [goal, setGoal] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +31,17 @@ function NewProjectInner() {
     try {
       const p = await create({ title: title.trim(), topic: topic.trim() || undefined, audience: audience.trim() || undefined, goal: goal.trim() || undefined });
       router.replace(`/trust/${p.id}`);
-    } catch (e) { Alert.alert("Couldn't create", e instanceof ApiError ? e.userMessage() : "Please try again."); }
+    } catch (e) {
+      // Belt-and-suspenders: the atProjectCap wall above is UX only — if a
+      // Free-over-cap create slips through anyway (stale/failed plan fetch),
+      // the server (T2) still 402s. Surface that as an upgrade prompt,
+      // distinct from a generic "Couldn't create" failure.
+      if (e instanceof ApiError && e.status === 402) {
+        Alert.alert("Upgrade to Pro", "You've reached the Free plan's project limit. Upgrade to Pro to start another project.");
+      } else {
+        Alert.alert("Couldn't create", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      }
+    }
     finally { setBusy(false); }
   };
   const field = (label: string, v: string, set: (s: string) => void, placeholder: string) => (
@@ -45,9 +61,11 @@ function NewProjectInner() {
         label="Create project"
         onPress={submit}
         busy={busy}
+        disabled={atProjectCap}
         accessibilityLabel="Create project"
         style={styles.submitBtn}
       />
+      {atProjectCap ? <Text style={styles.capHint}>Free limit reached — upgrade to Pro</Text> : null}
     </PageContainer></ScrollView>
   );
 }
@@ -69,4 +87,5 @@ const makeStyles = (c: Palette) => ({
   // Layout only — the fill/text now come from <Button variant="primary">,
   // which this style overrides onto (Studio re-skin P1).
   submitBtn: { marginTop: spacing.sm },
+  capHint: { color: c.textMuted, fontSize: typography.sizeSm },
 });

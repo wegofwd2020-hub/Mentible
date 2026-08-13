@@ -8,6 +8,7 @@ jest.mock("expo-router", () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 import { useTrustProject } from "@/hooks/useTrustProject";
 
 type Opts = {

@@ -9,6 +9,7 @@ jest.mock("expo-router", () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 jest.mock("@/lib/alert", () => ({
   Alert: {
     alert: jest.fn((_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => {
