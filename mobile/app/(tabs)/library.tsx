@@ -18,6 +18,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
+import { NAV } from "@/constants/labels";
 import { useThemedStyles } from "@/theme";
 import { Button } from "@/components/ui";
 import { IS_DEMO } from "@/constants/demo";
@@ -360,16 +361,16 @@ function EpubLibrary() {
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
-          Finish a book in the Books tab and tap “Save to Library”, or import an EPUB
+          Finish a book in the {NAV.studio} tab and tap “Save to Library”, or import an EPUB
           you already have.
         </Text>
         {importButton}
         {error && <Text style={styles.errorText}>{error}</Text>}
         <Button
           variant="primary"
-          label="Go to Books →"
+          label={`Go to ${NAV.studio} →`}
           onPress={() => router.push("/books")}
-          accessibilityLabel="Go to Books"
+          accessibilityLabel={`Go to ${NAV.studio}`}
         />
       </View>
     );

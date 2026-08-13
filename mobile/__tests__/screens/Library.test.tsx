@@ -81,17 +81,17 @@ describe("LibraryScreen", () => {
     expect(flat.fontWeight).not.toBe("700");
     expect(flat.fontFamily).toBe(require("../../src/constants/fonts").FRAUNCES.semibold);
 
-    // "Go to Books" is the one gold-pill primary action on this screen; Import
+    // "Go to Studio" is the one gold-pill primary action on this screen; Import
     // EPUB is present too but as a secondary (ghost) control.
-    const primaryCta = screen.getByRole("button", { name: "Go to Books" });
+    const primaryCta = screen.getByRole("button", { name: "Go to Studio" });
     expect(primaryCta).toBeTruthy();
     expect(screen.getByRole("button", { name: "Import an EPUB file into your library" })).toBeTruthy();
   });
 
-  it("navigates to Books on the primary CTA", async () => {
+  it("navigates to the Studio (books route) on the primary CTA", async () => {
     render(<LibraryScreen />);
-    await waitFor(() => screen.getByRole("button", { name: "Go to Books" }));
-    fireEvent.press(screen.getByRole("button", { name: "Go to Books" }));
+    await waitFor(() => screen.getByRole("button", { name: "Go to Studio" }));
+    fireEvent.press(screen.getByRole("button", { name: "Go to Studio" }));
     expect(mockPush).toHaveBeenCalledWith("/books");
   });
 });

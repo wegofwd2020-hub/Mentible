@@ -36,5 +36,7 @@ it("rejects with timeoutMessage past the deadline", async () => {
 
 it("throws ApiError on a non-ok fetch", async () => {
   (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, text: async () => "boom", headers: { get: () => null } });
-  await expect(pollJob("j1", "tok", { intervalMs: 1, timeoutMessage: "t/o", failedMessage: "fail" })).rejects.toBeInstanceOf(ApiError);
+  const err = await pollJob("j1", "tok", { intervalMs: 1, timeoutMessage: "t/o", failedMessage: "fail" }).catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(ApiError);
+  expect((err as ApiError).status).toBe(500); // the response status round-trips into ApiError.status
 });
