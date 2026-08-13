@@ -49,7 +49,7 @@ export interface TopicApprovalView {
   id: string; topic_version_id: string; expert_name: string; approved_at: string; recorded_via: string | null;
   action?: string; // "approve" | "withdraw"
 }
-export interface ProjectSummaryView { id: string; title: string; status: string; created_at: string | null }
+export interface ProjectSummaryView { id: string; title: string; status: string; created_at: string | null; topic: string | null; audience: string | null; goal: string | null }
 export interface InvitationView { project_id: string; invited_email: string; role: string; revoked_at: string | null }
 export interface VersionCreatedView { id: string; artifact_id: string; version_no: number; created_at: string | null }
 export interface TopicVersionCreatedView { id: string; topic_id: string; version_no: number; created_at: string | null }
