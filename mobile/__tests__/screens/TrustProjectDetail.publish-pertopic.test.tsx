@@ -32,7 +32,13 @@ const mockGetTopicVersion = jest.fn(async (id: string) => {
     version_no: 1, created_at: null, is_validated: true, recorded_via: "expert_self",
   };
 });
-jest.mock("@/api/trustClient", () => ({ getTopicVersion: (id: string) => mockGetTopicVersion(id) }));
+jest.mock("@/api/trustClient", () => ({
+  getTopicVersion: (id: string) => mockGetTopicVersion(id),
+  // Task 6's on-return progress poller — this file doesn't exercise it, but
+  // the screen calls it unconditionally on focus whenever accessToken is set.
+  getGenerationJob: jest.fn().mockResolvedValue(null),
+  latestGenerationJob: jest.fn().mockResolvedValue(null),
+}));
 import { useTrustProject } from "@/hooks/useTrustProject";
 
 const toc = {

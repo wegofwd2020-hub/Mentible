@@ -13,7 +13,7 @@ from ..accounts import repo as accounts_repo
 from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
-from ..billing import quota
+from ..billing import quota, usage_repo
 from ..billing.access import is_pro, over_cap, resolve_managed_access
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
@@ -24,7 +24,9 @@ from ..generate.tasks import _byok_redis_key, _write_status
 from . import (
     approval_repo,
     artifact_repo,
+    book_gen,
     feedback_repo,
+    generation_job_repo,
     membership_repo,
     project_repo,
     schemas,
@@ -39,7 +41,7 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
-from .tasks import generate_topic_task, generate_version_task, suggest_toc_task
+from .tasks import generate_book_task, generate_topic_task, generate_version_task, suggest_toc_task
 from .toc_util import find_toc_topic
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -795,6 +797,200 @@ async def generate_topic_version(
     )
 
     return schemas.TopicGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.get(
+    "/projects/{project_id}/generate-book/estimate",
+    response_model=schemas.BookEstimateOut,
+)
+async def get_generate_book_estimate(
+    project_id: uuid.UUID,
+    provider_id: str = "anthropic",
+    model: str | None = None,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.BookEstimateOut:
+    """Pre-run token/cost estimate for the whole-book generate fan-out.
+
+    Read-only, but gated `need_owner=True` to match the generate-book action
+    it estimates (the same gate `generate_topic_version` uses)."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+
+    existing_topic_ids = {
+        v.topic_id for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
+    }
+    missing = book_gen.missing_topics(p, existing_topic_ids)
+    all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
+    inputs_by_id = {str(i.id): i for i in all_inputs}
+    resolved_model = model or settings.anthropic_default_model
+    est = book_gen.estimate(missing, inputs_by_id, provider_id, resolved_model)
+
+    # Managed-eligible callers get their remaining headroom; BYOK/ineligible
+    # callers get None — there's no cap to measure against.
+    remaining_micros: int | None = None
+    grant = await resolve_managed_access(
+        conn, account_id=account.id, provider_id=provider_id, principal=principal
+    )
+    if grant is not None:
+        limits = [
+            x
+            for x in (grant.allowance_micros, settings.managed_account_spend_ceiling_micros)
+            if x > 0
+        ]
+        if limits:
+            usage = await usage_repo.period_usage(conn, account_id=account.id, since=grant.since)
+            remaining_micros = min(limits) - usage.cost_micros
+
+    would_exceed = remaining_micros is not None and est.est_cost_micros_max > remaining_micros
+
+    return schemas.BookEstimateOut(
+        missing_topics=est.missing_topics,
+        est_input_tokens=est.est_input_tokens,
+        est_output_tokens_max=est.est_output_tokens_max,
+        est_cost_micros_max=est.est_cost_micros_max,
+        remaining_micros=remaining_micros,
+        would_exceed=would_exceed,
+    )
+
+
+def _generation_job_out(job) -> schemas.GenerationJobOut:
+    return schemas.GenerationJobOut(
+        id=str(job.id),
+        project_id=str(job.project_id),
+        status=job.status,
+        total=job.total,
+        done=job.done,
+        failed_topic_ids=job.failed_topic_ids,
+        created_at=job.created_at,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/generate-book",
+    response_model=schemas.GenerateBookJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def submit_generate_book(
+    project_id: uuid.UUID,
+    body: schemas.GenerateBookIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.GenerateBookJobOut:
+    """Submit the whole-book generate fan-out (ADR-037 book generation, T4).
+
+    Does the synchronous, fail-fast validation (owner-only access, a TOC with
+    at least one still-missing topic, managed eligibility) then creates the
+    durable `generation_job` row — `total=len(missing)` set HERE, computed
+    the SAME way the worker (`trust.tasks._run_book`) computes it
+    (`book_gen.missing_topics` over `topic_repo.list_topic_versions`), since
+    the worker trusts this number rather than recomputing it — and hands the
+    actual sequential fan-out off to `generate_book_task` (Celery), returning
+    202 immediately. Poll `GET /generation-jobs/{job_id}` (or
+    `GET /projects/{project_id}/generation-jobs/latest`) for progress — this
+    job's progress lives in the durable `generation_job` row, not the
+    ephemeral Redis status blob the single-shot generations use.
+    """
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    await _enforce_generation_cap(conn, account, principal)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+
+    existing_topic_ids = {
+        v.topic_id for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
+    }
+    missing = book_gen.missing_topics(p, existing_topic_ids)
+    if not missing:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "no TOC topics left to generate — add a TOC with at least one ungenerated topic",
+        )
+
+    # key handling mirrors generate_topic_version / generate_version /
+    # suggest_project_toc — the actual key (managed vault lookup or BYOK
+    # decrypt) is resolved by the worker, not here. The worker also re-checks
+    # the managed spend cap before EACH topic (a single upfront check here
+    # can't account for spend accrued by topics generated earlier in the same
+    # run), so there's no `over_cap` pre-check on this submit.
+    managed = body.api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+    model = body.model or settings.anthropic_default_model
+
+    job = await generation_job_repo.create(
+        conn, project_id=project_id, total=len(missing), created_by_sub=principal.sub
+    )
+
+    # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
+    # key; the worker reads OUR vault key (ADR-005 D6).
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job.id), body.api_key)
+        await r.set(_byok_redis_key(job.id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    generate_book_task.delay(
+        job_id=str(job.id),
+        project_id=str(project_id),
+        provider_id=body.provider_id,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    # Safe-surface logging only — never the api_key, never the request body.
+    log.info(
+        "generate_book_submitted",
+        job_id=str(job.id),
+        project_id=str(project_id),
+        total=job.total,
+        managed=managed,
+    )
+
+    return schemas.GenerateBookJobOut(job_id=str(job.id), total=job.total)
+
+
+@router.get("/generation-jobs/{job_id}", response_model=schemas.GenerationJobOut)
+async def get_generation_job(
+    job_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.GenerationJobOut:
+    job = await generation_job_repo.get(conn, job_id=job_id)
+    if job is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "generation job not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, job.project_id, need_owner=True)
+    return _generation_job_out(job)
+
+
+@router.get(
+    "/projects/{project_id}/generation-jobs/latest",
+    response_model=schemas.GenerationJobOut | None,
+)
+async def get_latest_generation_job(
+    project_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.GenerationJobOut | None:
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+    job = await generation_job_repo.latest_for_project(conn, project_id=project_id)
+    return _generation_job_out(job) if job is not None else None
 
 
 @router.get("/topic-versions/{topic_version_id}", response_model=schemas.TopicVersionDetailOut)

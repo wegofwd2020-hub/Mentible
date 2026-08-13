@@ -152,6 +152,19 @@ class Membership:
 
 
 @dataclass(frozen=True)
+class GenerationJob:
+    id: str
+    project_id: str
+    kind: str
+    status: str
+    total: int
+    done: int
+    failed_topic_ids: list[str]
+    created_by_sub: str
+    created_at: datetime | None
+
+
+@dataclass(frozen=True)
 class Invitation:
     id: str
     project_id: str

@@ -584,4 +584,28 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "generate-full-book",
+    title: "Generate the whole book at once",
+    featureKey: "generate-full-book",
+    keywords: ["generate", "full book", "whole book", "batch", "fan-out", "outline", "toc", "background", "progress", "missing", "estimate", "cost", "tokens"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Once your outline (the Structure tab) has topics in it, \"Generate full book\" (on the Drafts tab, under Whole book) drafts every topic in one go instead of one at a time — a full-length draft per topic, written in outline order. It's an owner-only action and only appears once the project has an outline.",
+      },
+      {
+        kind: "text",
+        text: "Before it starts, you'll see an estimate — roughly how many tokens the run will use (and, on the managed plan, its approximate cost) — so you can confirm before committing. If you've saved your own Anthropic key (BYOK), the estimate shows tokens only; there's nothing to charge to a managed plan.",
+      },
+      {
+        kind: "text",
+        text: "Generation runs in the background, so you can leave the screen — it doesn't block you from doing anything else in the app. Progress shows while it runs, and the result is waiting for you when you come back, listing any topics that failed so you know what to regenerate individually. Only one whole-book run can be active at a time; the button stays disabled until the current run finishes.",
+      },
+      {
+        kind: "text",
+        text: "It only fills gaps: topics that already have a draft are skipped, so running it again after adding new topics — or after a run that left some topics failed — generates just what's missing rather than redoing everything.",
+      },
+    ],
+  },
 ];

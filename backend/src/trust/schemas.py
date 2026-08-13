@@ -244,6 +244,66 @@ class TopicGenerateJobOut(BaseModel):
     status: str
 
 
+class BookEstimateOut(BaseModel):
+    """Pre-run token/cost estimate for the whole-book generate fan-out (ADR-037).
+
+    `remaining_micros` is the caller's headroom against its managed
+    allowance/ceiling — `None` when the caller has no managed grant (BYOK, or
+    not managed-eligible at all), since there is no cap to measure against.
+    `would_exceed` is only ever True when `remaining_micros` is not None."""
+
+    missing_topics: int
+    est_input_tokens: int
+    est_output_tokens_max: int
+    est_cost_micros_max: int
+    remaining_micros: int | None
+    would_exceed: bool
+
+
+class GenerateBookIn(BaseModel):
+    """Submit body for the whole-book generate fan-out (ADR-037 book
+    generation). Mirrors `DraftGenerateIn`/the per-topic submit body —
+    keyless-aware: an omitted `api_key` means managed (ADR-005 D6). No
+    `guidance` field — `generate_book_task` doesn't take one (each topic is
+    generated with its own TOC-derived title/subtopics, not free-text
+    guidance)."""
+
+    api_key: str | None = Field(default=None, min_length=20, max_length=512)  # None ⇒ managed
+    provider_id: str = "anthropic"
+    model: str | None = None
+
+    @field_validator("provider_id")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in PROVIDER_REGISTRY:
+            raise ValueError(f"unknown provider_id {v!r}")
+        return v
+
+
+class GenerateBookJobOut(BaseModel):
+    """Response for the whole-book generate submit — 202 + this shape
+    immediately. Poll `GET /generation-jobs/{job_id}` (or
+    `GET /projects/{project_id}/generation-jobs/latest`) for progress."""
+
+    job_id: str
+    total: int
+
+
+class GenerationJobOut(BaseModel):
+    """The durable `generation_job` row (ADR-037 book generation) — progress
+    for the whole-book generate fan-out. Unlike the single-shot generations'
+    ephemeral Redis job status, this is a Postgres row the mobile client
+    polls directly."""
+
+    id: str
+    project_id: str
+    status: str
+    total: int
+    done: int
+    failed_topic_ids: list[str]
+    created_at: datetime | None
+
+
 class TopicVersionContentIn(BaseModel):
     content: dict
 

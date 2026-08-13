@@ -14,6 +14,10 @@ jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 const mockListProjectFeedback = jest.fn();
 jest.mock("@/api/trustClient", () => ({
   listProjectFeedback: (projectId: string, token: string) => mockListProjectFeedback(projectId, token),
+  // Task 6's on-return progress poller — this file doesn't exercise it, but
+  // the screen calls it unconditionally on focus whenever accessToken is set.
+  getGenerationJob: jest.fn().mockResolvedValue(null),
+  latestGenerationJob: jest.fn().mockResolvedValue(null),
 }));
 
 import { useTrustProject } from "@/hooks/useTrustProject";

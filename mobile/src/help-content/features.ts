@@ -20,6 +20,7 @@ export const FEATURES = [
   { key: "appearance", label: "Appearance & themes" },
   { key: "sources", label: "Sources (Capture)" },
   { key: "draft-viewer", label: "Reading, editing & regenerating a draft" },
+  { key: "generate-full-book", label: "Generate full book" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
