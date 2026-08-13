@@ -14,7 +14,10 @@ export function useTrustProject(projectId: string) {
   // covers the vendor call. Free/unknown-plan users without a key still get
   // the "add a key" nudge. A saved key is always BYOK, regardless of plan.
   const { plan } = useBillingPlan();
-  const isPro = plan?.is_pro === true;
+  // Fail-open (matches the other useBillingPlan consumers): only block when we KNOW the user is
+  // not Pro. While the plan is loading (plan == null) or Pro, a no-key request goes keyless and the
+  // backend decides (a Free user hitting this window gets the backend's clean 400).
+  const knownNotPro = plan != null && plan.is_pro === false;
   const [project, setProject] = useState<ProjectDetailView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,21 +90,21 @@ export function useTrustProject(projectId: string) {
 
   const generateVersion = useCallback(async (artifactId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }) => {
     const key = await loadApiKey("anthropic");
-    if (!key && !isPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
+    if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
     const v = await runGenerateVersionJob({ artifactId, apiKey: key ?? undefined, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh(); return v;
-  }, [accessToken, isPro, refresh, runGenerateVersionJob]);
+  }, [accessToken, knownNotPro, refresh, runGenerateVersionJob]);
 
   const generateFormat = useCallback(async (fmt: DraftFormat, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
     const key = await loadApiKey("anthropic");
-    if (!key && !isPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
+    if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
     const a = await createArtifact(projectId, { role: fmt.role, format: fmt.format, title: fmt.label }, accessToken);
     const v = await runGenerateVersionJob({ artifactId: a.id, apiKey: key ?? undefined, accessToken, onPhase: opts?.onPhase });
     await refresh();
     return v;
-  }, [accessToken, isPro, projectId, refresh, runGenerateVersionJob]);
+  }, [accessToken, knownNotPro, projectId, refresh, runGenerateVersionJob]);
 
   // Async suggest-TOC (Phase B / T2): submit returns a job_id immediately,
   // `runSuggestTocJob` polls the shared /jobs/{id} until done|failed.
@@ -112,10 +115,10 @@ export function useTrustProject(projectId: string) {
 
   const suggestToc = useCallback(async (opts?: { onPhase?: (p: "queued" | "running") => void }): Promise<StructuredTocView> => {
     const key = await loadApiKey("anthropic");
-    if (!key && !isPro) throw new Error("No API key saved. Add an Anthropic key in Settings to suggest an outline.");
+    if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to suggest an outline.");
     if (!accessToken) throw new Error("Not signed in");
     return runSuggestTocJob({ projectId, apiKey: key ?? undefined, accessToken, onPhase: opts?.onPhase });
-  }, [accessToken, isPro, projectId, runSuggestTocJob]);
+  }, [accessToken, knownNotPro, projectId, runSuggestTocJob]);
 
   const saveToc = useCallback(async (toc: StructuredTocView) => {
     if (!accessToken) throw new Error("Not signed in");
@@ -156,12 +159,12 @@ export function useTrustProject(projectId: string) {
 
   const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }): Promise<TopicVersionCreatedView> => {
     const key = await loadApiKey("anthropic");
-    if (!key && !isPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
+    if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to generate.");
     if (!accessToken) throw new Error("Not signed in");
     const result = await runTopicGenJob({ projectId, topicId, apiKey: key ?? undefined, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh();
     return { id: result.version_id, topic_id: result.topic_id, version_no: result.version_no, created_at: null };
-  }, [accessToken, isPro, projectId, refresh, runTopicGenJob]);
+  }, [accessToken, knownNotPro, projectId, refresh, runTopicGenJob]);
 
   const approveTopic = useCallback(async (id: string, opts?: { note?: string; expertName?: string }): Promise<TopicApprovalView> => {
     if (!accessToken) throw new Error("Not signed in");

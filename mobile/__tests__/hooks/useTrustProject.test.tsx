@@ -3,7 +3,7 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import { Text, Pressable } from "react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
 
-jest.mock("@/api/trustClient", () => ({ getProject: jest.fn(), approveVersion: jest.fn() }));
+jest.mock("@/api/trustClient", () => ({ getProject: jest.fn(), approveVersion: jest.fn(), createArtifact: jest.fn() }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn() }));
 jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: jest.fn() }));
@@ -51,8 +51,10 @@ it("loads the project and approve() calls the client then refreshes", async () =
 
 // Keyless (managed) generation for Pro users with no saved BYOK key (Task 2).
 // Decision: saved key => BYOK (unchanged); no key + Pro => keyless (apiKey
-// undefined, never ""); no key + not-Pro (incl. plan: null) => the existing
-// "No API key saved" throw.
+// undefined, never ""); no key + known not-Pro (is_pro: false) => the
+// "No API key saved" throw. Fail-open: no key + plan: null (still loading)
+// also goes keyless — we only block once we KNOW the user isn't Pro, matching
+// the other useBillingPlan consumers.
 describe("keyless-when-Pro wiring", () => {
   beforeEach(() => {
     (tc.getProject as jest.Mock).mockResolvedValue({ project: { id: "p1", title: "P" }, my_role: "owner", artifacts: [] });
@@ -87,17 +89,20 @@ describe("keyless-when-Pro wiring", () => {
     expect(runSuggest).not.toHaveBeenCalled();
   });
 
-  it("suggestToc: no saved key + plan: null rejects with the add-a-key message", async () => {
+  it("suggestToc: no saved key + plan: null (still loading) resolves keyless, fail-open", async () => {
     (loadApiKey as jest.Mock).mockResolvedValue(null);
-    (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: false });
-    const runSuggest = jest.fn();
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: true });
+    const runSuggest = jest.fn().mockResolvedValue({ subjects: [] });
     (useSuggestTocJob as jest.Mock).mockReturnValue({ run: runSuggest });
 
     const { result } = renderHook(() => useTrustProject("p1"));
     await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
 
-    await expect(result.current.suggestToc()).rejects.toThrow("No API key saved");
-    expect(runSuggest).not.toHaveBeenCalled();
+    await act(async () => {
+      await expect(result.current.suggestToc()).resolves.toEqual({ subjects: [] });
+    });
+    expect(runSuggest).toHaveBeenCalledTimes(1);
+    expect(runSuggest.mock.calls[0][0].apiKey).toBeUndefined();
   });
 
   it("generateTopic: a saved key is always sent as BYOK, regardless of plan", async () => {
@@ -146,5 +151,71 @@ describe("keyless-when-Pro wiring", () => {
 
     await expect(result.current.generateTopic("t1")).rejects.toThrow("No API key saved");
     expect(runTopic).not.toHaveBeenCalled();
+  });
+
+  it("generateVersion: no saved key + Pro resolves and calls the runner with apiKey: undefined", async () => {
+    (loadApiKey as jest.Mock).mockResolvedValue(null);
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: true }, loading: false });
+    const runVersion = jest.fn().mockResolvedValue({ id: "v1", artifact_id: "art1", version_no: 1, created_at: null });
+    (useGenerateVersionJob as jest.Mock).mockReturnValue({ run: runVersion });
+
+    const { result } = renderHook(() => useTrustProject("p1"));
+    await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await expect(result.current.generateVersion("art1")).resolves.toEqual({
+        id: "v1", artifact_id: "art1", version_no: 1, created_at: null,
+      });
+    });
+    expect(runVersion).toHaveBeenCalledTimes(1);
+    expect(runVersion.mock.calls[0][0].apiKey).toBeUndefined();
+  });
+
+  it("generateVersion: no saved key + not-Pro rejects with the add-a-key message", async () => {
+    (loadApiKey as jest.Mock).mockResolvedValue(null);
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+    const runVersion = jest.fn();
+    (useGenerateVersionJob as jest.Mock).mockReturnValue({ run: runVersion });
+
+    const { result } = renderHook(() => useTrustProject("p1"));
+    await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+    await expect(result.current.generateVersion("art1")).rejects.toThrow("No API key saved");
+    expect(runVersion).not.toHaveBeenCalled();
+  });
+
+  it("generateFormat: no saved key + Pro resolves and calls the runner with apiKey: undefined", async () => {
+    (loadApiKey as jest.Mock).mockResolvedValue(null);
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: true }, loading: false });
+    (tc.createArtifact as jest.Mock).mockResolvedValue({ id: "art1" });
+    const runVersion = jest.fn().mockResolvedValue({ id: "v1", artifact_id: "art1", version_no: 1, created_at: null });
+    (useGenerateVersionJob as jest.Mock).mockReturnValue({ run: runVersion });
+
+    const { result } = renderHook(() => useTrustProject("p1"));
+    await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await expect(
+        result.current.generateFormat({ format: "linkedin", label: "LinkedIn post", hint: "180–260 words", role: "derivative" }),
+      ).resolves.toEqual({ id: "v1", artifact_id: "art1", version_no: 1, created_at: null });
+    });
+    expect(runVersion).toHaveBeenCalledTimes(1);
+    expect(runVersion.mock.calls[0][0].apiKey).toBeUndefined();
+  });
+
+  it("generateFormat: no saved key + not-Pro rejects with the add-a-key message", async () => {
+    (loadApiKey as jest.Mock).mockResolvedValue(null);
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+    const runVersion = jest.fn();
+    (useGenerateVersionJob as jest.Mock).mockReturnValue({ run: runVersion });
+
+    const { result } = renderHook(() => useTrustProject("p1"));
+    await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+    await expect(
+      result.current.generateFormat({ format: "linkedin", label: "LinkedIn post", hint: "180–260 words", role: "derivative" }),
+    ).rejects.toThrow("No API key saved");
+    expect(runVersion).not.toHaveBeenCalled();
+    expect(tc.createArtifact).not.toHaveBeenCalled();
   });
 });
