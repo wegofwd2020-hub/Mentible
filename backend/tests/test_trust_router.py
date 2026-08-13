@@ -294,6 +294,24 @@ def test_owned_projects_list_scoped():
         assert {p1, p2}.isdisjoint({p["id"] for p in other})
 
 
+def test_owned_projects_list_includes_topic_audience_goal():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        with_fields = c.post(
+            "/api/v1/trust/projects",
+            json={"title": "P1", "topic": "Stormwater", "audience": "Engineers", "goal": "Certify"},
+        ).json()["id"]
+        without_fields = c.post("/api/v1/trust/projects", json={"title": "P2"}).json()["id"]
+        mine = {p["id"]: p for p in c.get("/api/v1/trust/projects").json()}
+        assert mine[with_fields]["topic"] == "Stormwater"
+        assert mine[with_fields]["audience"] == "Engineers"
+        assert mine[with_fields]["goal"] == "Certify"
+        assert mine[without_fields]["topic"] is None
+        assert mine[without_fields]["audience"] is None
+        assert mine[without_fields]["goal"] is None
+
+
 def test_version_summary_recorded_via():
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
