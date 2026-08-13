@@ -62,6 +62,7 @@ async def export_book(
     request: Request,
     format: str = "epub",
     diagrams: bool = False,
+    principal: Principal | None = Depends(optional_user),
 ) -> Response:
     """Compile a book to an artifact. `format`=epub|pdf; `diagrams`=true renders
     Mermaid → SVG (Chromium; much slower)."""
@@ -72,6 +73,27 @@ async def export_book(
             content={"detail": "format must be 'epub' or 'pdf'."},
         )
     media_type, ext = _FORMATS[fmt]
+
+    # Free/Pro export Pro-wall (T2), mirrored from submit_export below. `cover`
+    # is a UI asset (the mobile Library thumbnail, see exportCoverSync in
+    # mobile/src/api/client.ts) — NEVER gated, for anyone. Gated only for an
+    # authenticated caller (principal is not None); the anonymous/public demo
+    # always passes through ungated, and so does any deployment with no DB
+    # configured (no account store, no gate — same inline
+    # `getattr(request.app.state, "db", None)` pattern as submit_export, not a
+    # `Depends(get_conn)`, which would 503 the no-DB demo).
+    if fmt in ("epub", "pdf") and principal is not None:
+        pool = getattr(request.app.state, "db", None)
+        if pool is not None:
+            async with pool.acquire() as conn:
+                account = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=principal.sub, email=principal.email
+                )
+                if not await is_pro(conn, account_id=account.id):
+                    raise pro_required(
+                        "Exporting a book file is a Pro feature. Read it in-app or "
+                        "copy the text, or upgrade to Pro."
+                    )
 
     raw = await request.body()
     if len(raw) > _MAX_BODY_BYTES:

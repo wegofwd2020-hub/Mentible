@@ -296,3 +296,65 @@ def test_export_anonymous_not_gated(monkeypatch):
         r = c.post("/api/v1/export/jobs?format=epub", content=_BOOK)
         assert r.status_code != 402
         assert r.status_code == 202, r.text
+
+
+# ── Gate 3b: the legacy SYNC /export endpoint (same Pro-wall, no sibling gap) ─
+#
+# `export_book` (POST /api/v1/export, distinct from the async /export/jobs
+# gated above) is the older synchronous handler. The mobile client only calls
+# it for `format=cover` (mobile/src/api/client.ts exportCoverSync) — but epub
+# and pdf are still live formats on it, and without this gate an authenticated
+# Free user could get a full compiled book straight through this sibling
+# endpoint, bypassing the /export/jobs Pro-wall entirely.
+
+
+def test_sync_export_authenticated_free_402_epub():
+    with TestClient(app) as c:
+        sub = f"e-{uuid.uuid4()}"
+        _as_export_principal(sub, f"{sub}@x.z")
+        r = c.post("/api/v1/export?format=epub", content=_BOOK)
+        assert r.status_code == 402, r.text
+        assert "upgrade to Pro" in r.json()["detail"]
+
+
+def test_sync_export_authenticated_free_402_pdf():
+    with TestClient(app) as c:
+        sub = f"e-{uuid.uuid4()}"
+        _as_export_principal(sub, f"{sub}@x.z")
+        r = c.post("/api/v1/export?format=pdf", content=_BOOK)
+        assert r.status_code == 402, r.text
+        assert "upgrade to Pro" in r.json()["detail"]
+
+
+def test_sync_export_authenticated_pro_200(monkeypatch):
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile)
+    sub = f"e-{uuid.uuid4()}"
+    _grant_pro(monkeypatch, sub=sub)
+    with TestClient(app) as c:
+        _as_export_principal(sub, f"{sub}@x.z")
+        r = c.post("/api/v1/export?format=epub", content=_BOOK)
+        assert r.status_code == 200, r.text
+
+
+def test_sync_export_anonymous_not_gated(monkeypatch):
+    """The anonymous/public demo sync export MUST pass through ungated too —
+    mirrors test_export_anonymous_not_gated for /export/jobs."""
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile)
+    with TestClient(app) as c:
+        app.dependency_overrides.pop(optional_user, None)  # no auth header, no override
+        r = c.post("/api/v1/export?format=epub", content=_BOOK)
+        assert r.status_code != 402
+        assert r.status_code == 200, r.text
+
+
+def test_sync_export_cover_never_gated_even_for_free_user(monkeypatch):
+    """format=cover is a UI asset (mobile Library thumbnail, exportCoverSync),
+    not a book download — it must NEVER be gated, even for an authenticated
+    Free caller who WOULD be 402'd on epub/pdf."""
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile)
+    with TestClient(app) as c:
+        sub = f"e-{uuid.uuid4()}"
+        _as_export_principal(sub, f"{sub}@x.z")
+        r = c.post("/api/v1/export?format=cover", content=_BOOK)
+        assert r.status_code != 402
+        assert r.status_code == 200, r.text
