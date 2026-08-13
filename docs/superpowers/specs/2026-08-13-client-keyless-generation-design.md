@@ -14,9 +14,13 @@ instead of throwing.
 
 ## Decision (from brainstorming)
 
-- **Free (not-Pro) user, no saved key:** unchanged — keep the "Add an Anthropic key in Settings" message.
+- **Known-Free (not-Pro) user, no saved key:** keep the "Add an Anthropic key in Settings" message.
 - **Pro user, no saved key:** keyless (managed) — omit `api_key` (backend `managed = body.api_key is None`).
 - **Any user with a saved key:** BYOK as today (the power-user path wins; a saved key means intent to BYOK).
+- **Fail-open (amended post-review):** only throw the no-key message when the user is *known* not-Pro
+  (`plan != null && plan.is_pro === false`), matching the other `useBillingPlan` consumers. While the plan
+  is still loading (`plan == null`), a no-key request goes **keyless** and the backend decides — so a Pro
+  tester generating right after mount doesn't get a spurious "No API key saved" during the fetch window.
 
 ## Confirmed facts
 
