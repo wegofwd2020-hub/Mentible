@@ -1,4 +1,4 @@
-import { generateTopic, getJob, getTopicVersion, recordTopicApproval, withdrawTopicApproval } from "@/api/trustClient";
+import { generateTopic, getTopicVersion, recordTopicApproval, withdrawTopicApproval } from "@/api/trustClient";
 
 function mockFetchOnce(status: number, body: unknown) {
   (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
@@ -21,21 +21,9 @@ it("generateTopic POSTs to the per-topic generate route and returns the 202 job 
   expect(JSON.parse(init.body)).toMatchObject({ api_key: "sk-ant-test", provider_id: "anthropic" });
 });
 
-it("getJob GETs the SHARED (non-/trust) /jobs/{id} route and returns status+result", async () => {
-  const done = { status: "done", result: { version_id: "tv1", topic_id: "t1", version_no: 2 } };
-  mockFetchOnce(200, done);
-  const out = await getJob("job-1", "tok");
-  expect(out).toEqual(done);
-  const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
-  expect(url).toMatch(/\/api\/v1\/jobs\/job-1$/);
-  expect(url).not.toMatch(/\/trust\//);
-  expect(init.headers.Authorization).toBe("Bearer tok");
-});
-
-it("getJob throws an ApiError on a non-OK response", async () => {
-  mockFetchOnce(404, { detail: "job not found" });
-  await expect(getJob("missing", "tok")).rejects.toMatchObject({ status: 404 });
-});
+// The shared GET /api/v1/jobs/{id} poll (formerly trustClient.getJob) moved
+// to the shared @/api/pollJob (see __tests__/api/pollJob.test.ts) — no
+// per-hook getter remains here to test.
 
 it("getTopicVersion GETs the topic version and returns its content", async () => {
   const payload = {

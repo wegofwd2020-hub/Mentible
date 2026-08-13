@@ -1,14 +1,11 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@/api/client";
-import { suggestToc as suggestTocApi, getSuggestTocJob, type StructuredTocView, type SuggestTocJobStatusView } from "@/api/trustClient";
+import { pollJob } from "@/api/pollJob";
+import { suggestToc as suggestTocApi, type StructuredTocView, type SuggestTocJobResult } from "@/api/trustClient";
 
 export type SuggestTocJobUiStatus = "idle" | "generating" | "done" | "failed";
 
 const POLL_INTERVAL_MS = 3_000;
-// Same rationale as useGenerateTopicJob.ts's POLL_TIMEOUT_MS — a whole-book
-// outline suggestion can legitimately take minutes, especially with a
-// schema-repair retry loop server-side.
-const POLL_TIMEOUT_MS = 600_000;
 
 export interface RunSuggestTocArgs {
   projectId: string;
@@ -31,41 +28,12 @@ export interface UseSuggestTocJobResult {
   run: (args: RunSuggestTocArgs) => Promise<StructuredTocView>;
 }
 
-// Polls the shared GET /api/v1/jobs/{id} (see trustClient.getSuggestTocJob)
-// until the job reaches done|failed, or bails past POLL_TIMEOUT_MS.
-// Injectable interval so tests avoid real timers.
-function pollSuggestJob(
-  jobId: string,
-  accessToken: string,
-  intervalMs: number,
-  onPhase?: (p: "queued" | "running") => void,
-): Promise<SuggestTocJobStatusView> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  return new Promise<SuggestTocJobStatusView>((resolve, reject) => {
-    const tick = async () => {
-      if (Date.now() > deadline) {
-        reject(new Error("Timed out waiting for the outline"));
-        return;
-      }
-      try {
-        const job = await getSuggestTocJob(jobId, accessToken);
-        if (job.status === "queued" || job.status === "running") onPhase?.(job.status);
-        if (job.status === "done" || job.status === "failed") {
-          resolve(job);
-        } else {
-          setTimeout(tick, intervalMs);
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    void tick();
-  });
-}
-
 // Submit-then-poll for the Phase B async suggest-TOC job. Exposed as an
 // imperative `run()` (like useGenerateTopicJob.ts) since callers already own
-// their own busy/error UI state around a single awaited promise.
+// their own busy/error UI state around a single awaited promise. Polling
+// itself is the shared `pollJob` (see @/api/pollJob) — this hook only owns
+// the submit call, the per-hook status/error state, and the per-hook
+// timeout/failure messages.
 export function useSuggestTocJob(intervalMs = POLL_INTERVAL_MS): UseSuggestTocJobResult {
   const [status, setStatus] = useState<SuggestTocJobUiStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -80,12 +48,14 @@ export function useSuggestTocJob(intervalMs = POLL_INTERVAL_MS): UseSuggestTocJo
           { api_key: args.apiKey, provider_id: args.providerId ?? "anthropic" },
           args.accessToken,
         );
-        const job = await pollSuggestJob(submitted.job_id, args.accessToken, intervalMs, args.onPhase);
-        if (job.status === "done" && job.result) {
-          setStatus("done");
-          return job.result.toc;
-        }
-        throw new Error(job.error ?? "Couldn't suggest an outline");
+        const result = await pollJob<SuggestTocJobResult>(submitted.job_id, args.accessToken, {
+          intervalMs,
+          timeoutMessage: "Timed out waiting for the outline",
+          failedMessage: "Couldn't suggest an outline",
+          onPhase: args.onPhase,
+        });
+        setStatus("done");
+        return result.toc;
       } catch (err) {
         const message =
           err instanceof ApiError ? err.userMessage() : err instanceof Error ? err.message : "Couldn't suggest an outline";

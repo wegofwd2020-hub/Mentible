@@ -1,14 +1,11 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@/api/client";
-import { generateVersion as generateVersionApi, getGenerateVersionJob, type GenerateVersionJobStatusView } from "@/api/trustClient";
+import { pollJob } from "@/api/pollJob";
+import { generateVersion as generateVersionApi, type GenerateVersionJobResult } from "@/api/trustClient";
 
 export type GenerateVersionJobUiStatus = "idle" | "generating" | "done" | "failed";
 
 const POLL_INTERVAL_MS = 3_000;
-// Same rationale as useGenerateTopicJob.ts's POLL_TIMEOUT_MS — a whole-book
-// (or whole-artifact) draft can legitimately take minutes, and a
-// schema-repair retry loop can push that further.
-const POLL_TIMEOUT_MS = 600_000;
 
 export interface RunGenerateVersionArgs {
   artifactId: string;
@@ -43,43 +40,13 @@ export interface UseGenerateVersionJobResult {
   run: (args: RunGenerateVersionArgs) => Promise<GenerateVersionJobResolved>;
 }
 
-// Polls the shared GET /api/v1/jobs/{id} (see trustClient.getGenerateVersionJob)
-// until the job reaches done|failed, or bails past POLL_TIMEOUT_MS.
-// Injectable interval so tests avoid real timers.
-function pollGenerateVersionJob(
-  jobId: string,
-  accessToken: string,
-  intervalMs: number,
-  onPhase?: (p: "queued" | "running") => void,
-): Promise<GenerateVersionJobStatusView> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  return new Promise<GenerateVersionJobStatusView>((resolve, reject) => {
-    const tick = async () => {
-      if (Date.now() > deadline) {
-        reject(new Error("Timed out waiting for generation"));
-        return;
-      }
-      try {
-        const job = await getGenerateVersionJob(jobId, accessToken);
-        if (job.status === "queued" || job.status === "running") onPhase?.(job.status);
-        if (job.status === "done" || job.status === "failed") {
-          resolve(job);
-        } else {
-          setTimeout(tick, intervalMs);
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    void tick();
-  });
-}
-
 // Submit-then-poll for the Phase C async whole-book/whole-artifact generate
 // job. Mirrors useGenerateTopicJob's poll loop, exposed as an imperative
 // `run()` since both trust call sites (useTrustProject's generateVersion and
 // generateFormat) already own their own busy/error UI state around a single
-// awaited promise.
+// awaited promise. Polling itself is the shared `pollJob` (see
+// @/api/pollJob) — this hook only owns the submit call, the per-hook
+// status/error state, and the per-hook timeout/failure messages.
 export function useGenerateVersionJob(intervalMs = POLL_INTERVAL_MS): UseGenerateVersionJobResult {
   const [status, setStatus] = useState<GenerateVersionJobUiStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -94,12 +61,14 @@ export function useGenerateVersionJob(intervalMs = POLL_INTERVAL_MS): UseGenerat
           { api_key: args.apiKey, provider_id: args.providerId ?? "anthropic", guidance: args.guidance },
           args.accessToken,
         );
-        const job = await pollGenerateVersionJob(submitted.job_id, args.accessToken, intervalMs, args.onPhase);
-        if (job.status === "done" && job.result) {
-          setStatus("done");
-          return { id: job.result.version_id, artifact_id: job.result.artifact_id, version_no: job.result.version_no, created_at: null };
-        }
-        throw new Error(job.error ?? "Draft generation failed");
+        const result = await pollJob<GenerateVersionJobResult>(submitted.job_id, args.accessToken, {
+          intervalMs,
+          timeoutMessage: "Timed out waiting for generation",
+          failedMessage: "Draft generation failed",
+          onPhase: args.onPhase,
+        });
+        setStatus("done");
+        return { id: result.version_id, artifact_id: result.artifact_id, version_no: result.version_no, created_at: null };
       } catch (err) {
         const message =
           err instanceof ApiError ? err.userMessage() : err instanceof Error ? err.message : "Draft generation failed";

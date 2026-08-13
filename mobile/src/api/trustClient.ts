@@ -72,13 +72,10 @@ export interface TopicVersionSummaryView { id: string; version_no: number; creat
 export interface TopicGenerateJobOut { job_id: string; status: string }
 // The job's eventual persisted result, once `status` is "done" — polled from
 // the SAME shared GET /api/v1/jobs/{id} endpoint /generate uses (see
-// backend/src/trust/router.py's generate_topic docstring).
+// backend/src/trust/router.py's generate_topic docstring) via the shared
+// `pollJob<TopicGenerateJobResult>` (@/api/pollJob, used by
+// useGenerateTopicJob).
 export interface TopicGenerateJobResult { version_id: string; topic_id: string; version_no: number }
-export interface TopicGenerateJobStatusView {
-  status: "queued" | "running" | "done" | "failed";
-  result?: TopicGenerateJobResult;
-  error?: string;
-}
 
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/trust${path}`, {
@@ -157,17 +154,13 @@ export async function createVersion(
 
 // Phase C async whole-book/whole-artifact generate (T1/T2): POST
 // .../versions/generate now returns 202 + this job handle immediately; the
-// actual generation runs in a Celery worker. Poll `getGenerateVersionJob`
-// below (or use `useGenerateVersionJob`) for the eventual `done`/`failed`
-// result, off the SAME shared GET /api/v1/jobs/{id} endpoint /generate, the
-// per-topic generate, and suggest-toc jobs also use.
+// actual generation runs in a Celery worker. Poll via the shared
+// `pollJob<GenerateVersionJobResult>` (@/api/pollJob, used by
+// useGenerateVersionJob) for the eventual `done`/`failed` result, off the
+// SAME shared GET /api/v1/jobs/{id} endpoint /generate, the per-topic
+// generate, and suggest-toc jobs also use.
 export interface VersionGenerateJobOut { job_id: string; status: string }
 export interface GenerateVersionJobResult { version_id: string; artifact_id: string; version_no: number }
-export interface GenerateVersionJobStatusView {
-  status: "queued" | "running" | "done" | "failed";
-  result?: GenerateVersionJobResult;
-  error?: string;
-}
 
 export async function generateVersion(
   artifactId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
@@ -175,20 +168,6 @@ export async function generateVersion(
   return (await trustFetch<VersionGenerateJobOut>(
     `/artifacts/${artifactId}/versions/generate`, token, { method: "POST", body: JSON.stringify(body) },
   )) as VersionGenerateJobOut;
-}
-
-// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
-// /generate, /structure, suggest-toc, and the per-topic generate job also
-// use. Same fetch/ApiError shape as `getJob`/`getSuggestTocJob`.
-export async function getGenerateVersionJob(jobId: string, token: string): Promise<GenerateVersionJobStatusView> {
-  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body);
-  }
-  return res.json() as Promise<GenerateVersionJobStatusView>;
 }
 
 export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {
@@ -217,14 +196,11 @@ export async function deleteInput(inputId: string, token: string): Promise<void>
 
 // Phase B async suggest-TOC (T1/T2): POST .../suggest-toc now returns 202 +
 // this job handle immediately; the actual outline generation runs in a
-// Celery worker. Poll `getSuggestTocJob` below (or use `useSuggestTocJob`)
-// for the eventual `done`/`failed` result.
+// Celery worker. Poll via the shared `pollJob<SuggestTocJobResult>`
+// (@/api/pollJob, used by useSuggestTocJob) for the eventual `done`/`failed`
+// result.
 export interface TocSuggestJobOut { job_id: string; status: string }
-export interface SuggestTocJobStatusView {
-  status: "queued" | "running" | "done" | "failed";
-  result?: { toc: StructuredTocView };
-  error?: string;
-}
+export interface SuggestTocJobResult { toc: StructuredTocView }
 
 export async function suggestToc(
   projectId: string, body: { api_key: string; provider_id?: string }, token: string,
@@ -234,51 +210,21 @@ export async function suggestToc(
   )) as TocSuggestJobOut;
 }
 
-// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
-// /generate, /structure, and the per-topic generate job also use (see
-// getJob below). Same fetch/ApiError shape.
-export async function getSuggestTocJob(jobId: string, token: string): Promise<SuggestTocJobStatusView> {
-  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body);
-  }
-  return res.json() as Promise<SuggestTocJobStatusView>;
-}
-
 export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
   await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
 }
 
 // Submits a per-topic generate as an async job (Phase A / T2) — the backend
-// returns 202 + {job_id, status:"queued"} immediately; poll `getJob` below
-// for the eventual `done`/`failed` result. Callers wanting a single
-// submit-then-poll promise should use `useGenerateTopicJob` rather than
-// polling this directly.
+// returns 202 + {job_id, status:"queued"} immediately; poll via the shared
+// `pollJob<TopicGenerateJobResult>` (@/api/pollJob) for the eventual
+// `done`/`failed` result. Callers wanting a single submit-then-poll promise
+// should use `useGenerateTopicJob` rather than polling this directly.
 export async function generateTopic(
   projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
 ): Promise<TopicGenerateJobOut> {
   return (await trustFetch<TopicGenerateJobOut>(
     `/projects/${projectId}/topics/${topicId}/generate`, token, { method: "POST", body: JSON.stringify(body) },
   )) as TopicGenerateJobOut;
-}
-
-// Polls the SHARED (non-/trust-prefixed) GET /api/v1/jobs/{id} endpoint that
-// /generate and /structure also use (backend/src/generate/router.py). The
-// route itself needs no auth (it only reads a Redis-backed status row keyed
-// by job_id, not a project), but `token` is accepted for API-shape
-// consistency with the rest of trustClient and sent as a harmless bearer.
-export async function getJob(jobId: string, token: string): Promise<TopicGenerateJobStatusView> {
-  const res = await fetch(`${resolveBaseUrl()}/api/v1/jobs/${jobId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body);
-  }
-  return res.json() as Promise<TopicGenerateJobStatusView>;
 }
 
 export async function getTopicVersion(id: string, token: string): Promise<TopicVersionDetailView> {
