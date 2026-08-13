@@ -47,3 +47,30 @@ async def list_feedback(conn, *, version_id) -> list[Feedback]:
         version_id,
     )
     return [_feedback(r) for r in rows]
+
+
+async def list_project_feedback(conn, *, project_id) -> list[dict]:
+    """Project-wide revision-notes rollup — every `feedback` (artifact-version)
+    and `topic_feedback` (topic-version) note across the project, newest first.
+    Shaped directly for `schemas.ProjectFeedbackItemOut`; read-only, no writes."""
+    rows = await conn.fetch(
+        """
+        SELECT 'artifact' AS source, COALESCE(a.title, a.format) AS draft_label,
+               a.format AS format, v.version_no AS version_no,
+               f.author_kind, f.author_name, f.body, f.created_at
+          FROM feedback f
+          JOIN artifact_version v ON f.version_id = v.id
+          JOIN artifact a ON v.artifact_id = a.id
+         WHERE a.project_id = $1
+        UNION ALL
+        SELECT 'topic' AS source, tv.title AS draft_label,
+               NULL AS format, tv.version_no AS version_no,
+               tf.author_kind, tf.author_name, tf.body, tf.created_at
+          FROM topic_feedback tf
+          JOIN topic_version tv ON tf.topic_version_id = tv.id
+         WHERE tv.project_id = $1
+        ORDER BY created_at DESC, draft_label
+        """,
+        project_id,
+    )
+    return [dict(r) for r in rows]

@@ -16,8 +16,8 @@ import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
-import { getTopicVersion } from "@/api/trustClient";
-import type { ArtifactDetailView, DraftSection, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import { getTopicVersion, listProjectFeedback } from "@/api/trustClient";
+import type { ArtifactDetailView, DraftSection, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
 import type { PlanStatus } from "@/api/billingClient";
 import type { Book, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
@@ -78,6 +78,14 @@ function sourceDate(createdAt: string | null): string | null {
   if (!createdAt) return null;
   const d = new Date(createdAt);
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+}
+
+// Meta line for a Revision-notes row: "who · when", omitting the timestamp
+// when created_at is missing/unparseable rather than leaving a trailing "· ".
+function revisionMetaText(item: ProjectFeedbackItem): string {
+  const who = item.author_name ?? item.author_kind;
+  const ts = versionTimestamp(item.created_at);
+  return ts ? `${who} · ${ts}` : who;
 }
 
 // True when the outline has at least one topic to lose — gates the
@@ -772,6 +780,7 @@ function FeedbackPanel({
   topicStatus,
   bookValidated,
   onOpenTopic,
+  feedbackLog,
 }: {
   styles: Styles;
   theme: ThemeShape;
@@ -792,6 +801,7 @@ function FeedbackPanel({
   topicStatus: TopicStatusView[];
   bookValidated: boolean;
   onOpenTopic: (versionId: string) => void;
+  feedbackLog: ProjectFeedbackItem[];
 }) {
   const [mode, setMode] = useState<"whole" | "topic">("whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
@@ -980,6 +990,25 @@ function FeedbackPanel({
       ) : null}
         </>
       ) : null}
+      {/* Project-wide, read-only revision log (T2) — every feedback note
+          across every draft (whole-book AND per-topic), newest-first
+          (server-ordered). Sits below the whole/topic review content, set
+          apart by its own header + a top divider so the panel doesn't read
+          as one blob. Independent of the whole/topic toggle above. */}
+      <View style={styles.revisionSection}>
+        <Text style={styles.artifactTitle}>Revision notes</Text>
+        {feedbackLog.length === 0 ? (
+          <Text style={styles.emptyText}>No revision notes yet.</Text>
+        ) : (
+          feedbackLog.map((item, i) => (
+            <Card key={`${item.source}-${item.draft_label}-${item.version_no}-${i}`} style={styles.revisionRow}>
+              <Label tone="secondary">{item.draft_label} · v{item.version_no}</Label>
+              <Text style={styles.revisionBody} numberOfLines={6}>{item.body}</Text>
+              <Text style={styles.revisionMeta}>{revisionMetaText(item)}</Text>
+            </Card>
+          ))
+        )}
+      </View>
     </View>
   );
 }
@@ -1244,6 +1273,11 @@ function TrustProjectDetailInner() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [addSourceBusy, setAddSourceBusy] = useState(false);
   const [selected, setSelected] = useState<PhaseKey | null>(null);
+  // Project-wide Revision-notes log (T2) — fetched only while the Feedback
+  // phase is showing (see the effect below). Non-critical/read-only: a fetch
+  // failure fails open to [] rather than surfacing an Alert or breaking the
+  // panel.
+  const [feedbackLog, setFeedbackLog] = useState<ProjectFeedbackItem[]>([]);
   const [desiredDraftMode, setDesiredDraftMode] = useState<"whole" | "topic">("whole");
   const [compareArtifactId, setCompareArtifactId] = useState<string | null>(null);
   const [compareSel, setCompareSel] = useState<string[]>([]);
@@ -1320,6 +1354,32 @@ function TrustProjectDetailInner() {
       void refresh();
     }, [refresh]),
   );
+
+  // Revision-notes log (T2): fetch project-wide feedback only while the
+  // Feedback phase is showing and the user is signed in. Must sit above the
+  // loading/error/!project early returns below (rules-of-hooks — same
+  // constraint as the `selected`-seed effect above), so it re-derives the
+  // active phase inline rather than reading the later `active` const. Fails
+  // open on any rejection — this section is read-only/non-critical and must
+  // never error the panel.
+  useEffect(() => {
+    if (!project || !accessToken) return;
+    const isOwnerNow = project.my_role === "owner";
+    const activeNow = selected ?? basePhase(deriveProjectPhase(project, isOwnerNow).currentKey);
+    if (activeNow !== "validate") return;
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => listProjectFeedback(String(projectId), accessToken))
+      .then((items) => {
+        if (!cancelled) setFeedbackLog(items);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedbackLog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project, selected, accessToken, projectId]);
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -1766,6 +1826,7 @@ function TrustProjectDetailInner() {
             topicStatus={project.topic_status ?? []}
             bookValidated={project.book_validated ?? false}
             onOpenTopic={onOpenTopic}
+            feedbackLog={feedbackLog}
           />
         ) : null}
         {active === "share" ? (
@@ -1987,4 +2048,17 @@ const makeStyles = (c: Palette) => ({
     padding: spacing.md,
   },
   rollupText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  // Project-wide Revision-notes log (T2) — a top divider (not a full
+  // border) sets it apart from the whole/topic review content above without
+  // reading as a second, separately-bordered panel.
+  revisionSection: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    gap: spacing.sm,
+  },
+  revisionRow: { gap: spacing.xs },
+  revisionBody: { color: c.text, fontSize: typography.sizeSm },
+  revisionMeta: { color: c.textMuted, fontSize: typography.sizeXs },
 });
