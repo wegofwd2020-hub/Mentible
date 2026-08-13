@@ -33,6 +33,16 @@ _MANAGED_EMAILS: frozenset[str] = frozenset(
 _MANAGED_SUBS: frozenset[str] = _parse_csv(settings.managed_plan_subs)
 
 
+def is_staff_allowlisted(*, sub: str | None, email: str | None) -> bool:
+    """True iff `sub`/`email` is on the internal managed-staff allowlist — the
+    provider-agnostic half of `is_managed_eligible`. Exposed separately so
+    provider-agnostic checks (e.g. `access.is_pro`) can reuse it without a
+    `provider_id` / configured managed key (that part is `is_managed_eligible`-only)."""
+    return (bool(email) and email.strip().lower() in _MANAGED_EMAILS) or (
+        bool(sub) and sub in _MANAGED_SUBS
+    )
+
+
 def is_managed_eligible(principal: Principal | None, provider_id: str) -> bool:
     """True iff `principal` may use the managed path for `provider_id`.
 
@@ -44,9 +54,6 @@ def is_managed_eligible(principal: Principal | None, provider_id: str) -> bool:
     """
     if principal is None:
         return False
-    on_allowlist = (
-        bool(principal.email) and principal.email.strip().lower() in _MANAGED_EMAILS
-    ) or (bool(principal.sub) and principal.sub in _MANAGED_SUBS)
-    if not on_allowlist:
+    if not is_staff_allowlisted(sub=principal.sub, email=principal.email):
         return False
     return get_managed_key(provider_id) is not None

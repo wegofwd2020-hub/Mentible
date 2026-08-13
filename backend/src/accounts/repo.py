@@ -75,6 +75,15 @@ async def get_account(conn: asyncpg.Connection, *, idp_sub: str) -> Account | No
     return _account(row) if row else None
 
 
+async def get_account_by_id(conn: asyncpg.Connection, *, account_id: UUID) -> Account | None:
+    row = await conn.fetchrow(
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "FROM account WHERE id = $1",
+        account_id,
+    )
+    return _account(row) if row else None
+
+
 async def list_accounts(conn: asyncpg.Connection, *, limit: int, offset: int) -> list[Account]:
     """Admin-only listing (ADR-020 D3.1), newest first. Metadata only — no keys,
     no content. Page with limit/offset; pair with count_accounts for the total."""

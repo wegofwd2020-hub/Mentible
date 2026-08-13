@@ -30,9 +30,10 @@ from backend.src.accounts.schemas import (
     ManagedEntitlementView,
     ManagedStatusView,
     ManagedUsageView,
+    PlanStatusView,
 )
 from backend.src.auth.principal import Principal
-from backend.src.billing import entitlement_repo, plans, revenuecat, usage_repo
+from backend.src.billing import entitlement_repo, plans, quota, revenuecat, usage_repo
 from backend.src.db.deps import get_conn
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
@@ -90,6 +91,32 @@ async def get_my_managed_status(
         ),
         allowance_micros=allowance,
         window_start=window_start,
+    )
+
+
+@router.get("/plan-status", response_model=PlanStatusView)
+async def get_plan_status(
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> PlanStatusView:
+    """The caller's Free/Pro status (T1 foundation): whether they're Pro
+    (provider-agnostic — `access.is_pro`), the Free caps, current usage
+    (projects owned + generations in the rolling window), and whether either cap
+    is reached. Computes only — no enforcement (that's T2)."""
+    account = await accounts_repo.get_or_create_account(
+        conn, idp_sub=principal.sub, email=principal.email
+    )
+    ps = await quota.plan_status(conn, account_id=account.id, sub=principal.sub)
+    return PlanStatusView(
+        is_pro=ps.is_pro,
+        caps={
+            "max_projects": ps.max_projects,
+            "max_generations": ps.max_generations,
+            "gen_window_days": ps.gen_window_days,
+        },
+        usage={"projects": ps.projects, "generations": ps.generations},
+        at_project_cap=ps.at_project_cap,
+        at_generation_cap=ps.at_generation_cap,
     )
 
 
