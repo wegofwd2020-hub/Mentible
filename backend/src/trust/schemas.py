@@ -244,6 +244,22 @@ class TopicGenerateJobOut(BaseModel):
     status: str
 
 
+class BookEstimateOut(BaseModel):
+    """Pre-run token/cost estimate for the whole-book generate fan-out (ADR-037).
+
+    `remaining_micros` is the caller's headroom against its managed
+    allowance/ceiling — `None` when the caller has no managed grant (BYOK, or
+    not managed-eligible at all), since there is no cap to measure against.
+    `would_exceed` is only ever True when `remaining_micros` is not None."""
+
+    missing_topics: int
+    est_input_tokens: int
+    est_output_tokens_max: int
+    est_cost_micros_max: int
+    remaining_micros: int | None
+    would_exceed: bool
+
+
 class TopicVersionContentIn(BaseModel):
     content: dict
 

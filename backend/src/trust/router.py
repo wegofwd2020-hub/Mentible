@@ -13,7 +13,7 @@ from ..accounts import repo as accounts_repo
 from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
-from ..billing import quota
+from ..billing import quota, usage_repo
 from ..billing.access import is_pro, over_cap, resolve_managed_access
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
@@ -24,6 +24,7 @@ from ..generate.tasks import _byok_redis_key, _write_status
 from . import (
     approval_repo,
     artifact_repo,
+    book_gen,
     feedback_repo,
     membership_repo,
     project_repo,
@@ -795,6 +796,65 @@ async def generate_topic_version(
     )
 
     return schemas.TopicGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.get(
+    "/projects/{project_id}/generate-book/estimate",
+    response_model=schemas.BookEstimateOut,
+)
+async def get_generate_book_estimate(
+    project_id: uuid.UUID,
+    provider_id: str = "anthropic",
+    model: str | None = None,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.BookEstimateOut:
+    """Pre-run token/cost estimate for the whole-book generate fan-out.
+
+    Read-only, but gated `need_owner=True` to match the generate-book action
+    it estimates (the same gate `generate_topic_version` uses)."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=True)
+
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+
+    existing_topic_ids = {
+        v.topic_id for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
+    }
+    missing = book_gen.missing_topics(p, existing_topic_ids)
+    all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
+    inputs_by_id = {str(i.id): i for i in all_inputs}
+    resolved_model = model or settings.anthropic_default_model
+    est = book_gen.estimate(missing, inputs_by_id, provider_id, resolved_model)
+
+    # Managed-eligible callers get their remaining headroom; BYOK/ineligible
+    # callers get None — there's no cap to measure against.
+    remaining_micros: int | None = None
+    grant = await resolve_managed_access(
+        conn, account_id=account.id, provider_id=provider_id, principal=principal
+    )
+    if grant is not None:
+        limits = [
+            x
+            for x in (grant.allowance_micros, settings.managed_account_spend_ceiling_micros)
+            if x > 0
+        ]
+        if limits:
+            usage = await usage_repo.period_usage(conn, account_id=account.id, since=grant.since)
+            remaining_micros = min(limits) - usage.cost_micros
+
+    would_exceed = remaining_micros is not None and est.est_cost_micros_max > remaining_micros
+
+    return schemas.BookEstimateOut(
+        missing_topics=est.missing_topics,
+        est_input_tokens=est.est_input_tokens,
+        est_output_tokens_max=est.est_output_tokens_max,
+        est_cost_micros_max=est.est_cost_micros_max,
+        remaining_micros=remaining_micros,
+        would_exceed=would_exceed,
+    )
 
 
 @router.get("/topic-versions/{topic_version_id}", response_model=schemas.TopicVersionDetailOut)
