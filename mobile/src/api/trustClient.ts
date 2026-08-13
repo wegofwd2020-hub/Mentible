@@ -270,3 +270,16 @@ export async function createTopicVersion(
     `/projects/${projectId}/topics/${topicId}/versions`, token, { method: "POST", body: JSON.stringify({ content }) },
   )) as TopicVersionCreatedView;
 }
+
+// Project-wide "Revision notes" log (T2): all feedback across every draft in
+// the project — both whole-book artifact versions AND per-topic versions —
+// newest-first. Read-only; the Feedback phase's Revision-notes section fails
+// open to an empty list on any fetch error rather than erroring the panel.
+export interface ProjectFeedbackItem {
+  source: string; draft_label: string; format: string | null; version_no: number;
+  author_kind: string; author_name: string | null; body: string; created_at: string | null;
+}
+
+export async function listProjectFeedback(projectId: string, token: string): Promise<ProjectFeedbackItem[]> {
+  return (await trustFetch<ProjectFeedbackItem[]>(`/projects/${projectId}/feedback`, token)) as ProjectFeedbackItem[];
+}
