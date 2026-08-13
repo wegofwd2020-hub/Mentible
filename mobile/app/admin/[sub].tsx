@@ -6,10 +6,16 @@ import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import {
   deleteUser,
+  getEntitlement,
   getUser,
+  grantEntitlement,
+  listPlans,
   reactivateUser,
+  revokeEntitlement,
   suspendUser,
   type AdminUserDetail,
+  type EntitlementView,
+  type PlanSummary,
 } from "@/api/adminClient";
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -40,6 +46,8 @@ export default function AdminUserScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<PlanSummary[]>([]);
+  const [entitlement, setEntitlement] = useState<EntitlementView | null>(null);
 
   const load = useCallback(async () => {
     if (!accessToken || !sub) return;
@@ -52,7 +60,55 @@ export default function AdminUserScreen() {
     } finally {
       setLoading(false);
     }
+    // Fail-soft: the Plan section is a bonus panel — if the plans/entitlement
+    // fetch fails, leave it empty/null rather than breaking the user load above.
+    try {
+      const [planList, ent] = await Promise.all([
+        listPlans(accessToken),
+        getEntitlement(accessToken, sub),
+      ]);
+      setPlans(planList);
+      setEntitlement(ent);
+    } catch {
+      setPlans([]);
+      setEntitlement(null);
+    }
   }, [accessToken, sub]);
+
+  const planDisplay = useCallback(
+    (id: string) => plans.find((p) => p.id === id)?.display ?? id,
+    [plans],
+  );
+
+  const onGrant = useCallback(
+    async (planId: string) => {
+      if (!accessToken || !sub) return;
+      setBusy(true);
+      try {
+        const ent = await grantEntitlement(accessToken, sub, planId);
+        setEntitlement(ent);
+        Alert.alert("Plan granted", planDisplay(planId));
+      } catch (e) {
+        Alert.alert("Couldn’t grant", e instanceof Error ? e.message : "Try again.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [accessToken, sub, planDisplay],
+  );
+
+  const onRevoke = useCallback(async () => {
+    if (!accessToken || !sub || !entitlement) return;
+    setBusy(true);
+    try {
+      const ent = await revokeEntitlement(accessToken, sub, entitlement.plan_id);
+      setEntitlement(ent);
+    } catch (e) {
+      Alert.alert("Couldn’t revoke", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [accessToken, sub, entitlement]);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,6 +210,33 @@ export default function AdminUserScreen() {
             </View>
           ))
         )}
+
+        <Text style={styles.section}>Plan</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {entitlement ? planDisplay(entitlement.plan_id) : "No managed plan — Free"}
+          </Text>
+          {entitlement ? <Text style={styles.muted}>{entitlement.status}</Text> : null}
+        </View>
+        {plans.map((p) => (
+          <Pressable
+            key={p.id}
+            style={[styles.action, busy && styles.actionDisabled]}
+            disabled={busy}
+            onPress={() => onGrant(p.id)}
+          >
+            <Text style={styles.actionText}>Grant {p.display}</Text>
+          </Pressable>
+        ))}
+        {entitlement && entitlement.status === "active" ? (
+          <Pressable
+            style={[styles.action, busy && styles.actionDisabled]}
+            disabled={busy}
+            onPress={onRevoke}
+          >
+            <Text style={styles.actionText}>Revoke plan</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={[styles.action, busy && styles.actionDisabled]}

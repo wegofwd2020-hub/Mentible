@@ -1,4 +1,12 @@
-import { deleteUser, getUser, listUsers, suspendUser } from "../../src/api/adminClient";
+import {
+  deleteUser,
+  getUser,
+  grantEntitlement,
+  listPlans,
+  listUsers,
+  revokeEntitlement,
+  suspendUser,
+} from "../../src/api/adminClient";
 
 global.fetch = jest.fn();
 const mockFetch = global.fetch as jest.Mock;
@@ -67,5 +75,47 @@ describe("adminClient", () => {
     const d = await getUser(TOKEN, "u1");
     expect(d.devices[0].device_id).toBe("d1");
     expect(d.device_count).toBe(1);
+  });
+
+  it("listPlans GETs /admin/plans with the Bearer token", async () => {
+    const plans = [
+      { id: "managed_unlimited", display: "Managed Unlimited", allowance_micros: 0, managed_providers: ["anthropic"] },
+    ];
+    mockResponse(plans);
+    const res = await listPlans(TOKEN);
+    const [url, init] = call();
+    expect(url).toContain("/api/v1/admin/plans");
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(res).toEqual(plans);
+  });
+
+  it("grantEntitlement PUTs the entitlement with status active", async () => {
+    mockResponse({
+      plan_id: "managed_unlimited",
+      status: "active",
+      period_start: "t1",
+      period_end: "t2",
+    });
+    const res = await grantEntitlement(TOKEN, "sub-1", "managed_unlimited");
+    const [url, init] = call();
+    expect(url).toContain("/api/v1/admin/users/sub-1/entitlement");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ plan_id: "managed_unlimited", status: "active" });
+    expect(res.status).toBe("active");
+  });
+
+  it("revokeEntitlement PUTs the entitlement with status canceled", async () => {
+    mockResponse({
+      plan_id: "managed_unlimited",
+      status: "canceled",
+      period_start: "t1",
+      period_end: "t2",
+    });
+    const res = await revokeEntitlement(TOKEN, "sub-1", "managed_unlimited");
+    const [url, init] = call();
+    expect(url).toContain("/api/v1/admin/users/sub-1/entitlement");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ plan_id: "managed_unlimited", status: "canceled" });
+    expect(res.status).toBe("canceled");
   });
 });
