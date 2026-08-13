@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 
 from pydantic import BaseModel, Field
-from wegofwd_llm.conformance import generate_validated
+from wegofwd_llm.conformance import ConformanceResult, generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.registry import build_provider
 
@@ -51,7 +51,14 @@ class _TocOutput(BaseModel):
     subjects: list[_TocSubject] = Field(min_length=1, max_length=6)
 
 
-def suggest_toc(*, sources, topic, audience, goal, provider_id, api_key, model) -> _TocOutput:
+def suggest_toc(
+    *, sources, topic, audience, goal, provider_id, api_key, model
+) -> ConformanceResult:
+    """Generate + validate a suggested TOC. Returns the full `ConformanceResult`
+    (not just `.parsed`) so the caller (`trust.tasks._run_suggest`) can meter the
+    observed token counts (`total_input_tokens`/`total_output_tokens`) for managed
+    generations — see `_record_trust_usage`. Access the suggested `_TocOutput` via
+    `.parsed`."""
     prompt = build_toc_prompt(sources, topic, audience, goal)
     provider = build_provider(provider_id, api_key=api_key, model=model)
     req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
@@ -59,7 +66,7 @@ def suggest_toc(*, sources, topic, audience, goal, provider_id, api_key, model) 
     def _validate(text: str) -> _TocOutput:
         return _TocOutput.model_validate(parse_json_response(text))
 
-    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
 
 
 def toc_output_to_view(out: _TocOutput, sources) -> dict:
