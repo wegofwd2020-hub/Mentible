@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
+import { ApiError } from "@/api/client";
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ projectId: "p1" }),
@@ -12,15 +13,23 @@ jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
 // mock PublishPanel's useBillingPlan() would call the real useAuth(), which
 // throws outside an AuthProvider.
 jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
-jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
+const mockAlert = jest.fn();
+jest.mock("@/lib/alert", () => ({ Alert: { alert: (...args: unknown[]) => mockAlert(...args) } }));
 const mockSaveBook = jest.fn(async (_b: unknown) => {});
 jest.mock("@/storage/bookStore", () => ({ saveBook: (b: unknown) => mockSaveBook(b) }));
 const mockTrackedExport = jest.fn(async (_book: unknown, _fmt: string, _opts: unknown) => ({ artifact: new ArrayBuffer(8) }));
 jest.mock("@/lib/trackedExport", () => ({ trackedExport: (book: unknown, fmt: string, opts: unknown) => mockTrackedExport(book, fmt, opts) }));
 const mockDownloadArtifact = jest.fn(async (_bytes: ArrayBuffer, _filename: string, _mime: string) => ({}));
+const mockSaveEpub = jest.fn(async (_input: unknown) => ({ id: "b1" }));
 jest.mock("@/storage/epubLibrary", () => ({
   downloadArtifact: (bytes: ArrayBuffer, filename: string, mime: string) => mockDownloadArtifact(bytes, filename, mime),
+  saveEpub: (input: unknown) => mockSaveEpub(input),
 }));
+const mockExportBook = jest.fn(async (_book: unknown, _opts: unknown) => ({ artifact: new ArrayBuffer(2) }));
+jest.mock("@/api/client", () => {
+  const actual = jest.requireActual("@/api/client");
+  return { ...actual, exportBook: (book: unknown, opts: unknown) => mockExportBook(book, opts) };
+});
 const mockGetTopicVersion = jest.fn(async (id: string) => {
   const bySections: Record<string, { heading: string; body: string; source_ids: string[] }[]> = {
     tv1: [{ heading: "H1", body: "Body one", source_ids: [] }],
@@ -112,7 +121,7 @@ it("per-topic view shows the rollup and a Publish/Add-to-Library control", async
   expect(screen.getByLabelText("Download book as PDF")).toBeTruthy();
 });
 
-it("book_validated:true — Add to Library assembles topics then saves the book", async () => {
+it("book_validated:true — Add to Library assembles topics, saves Studio copy, and compiles+saves to Library", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(base({ bookValidated: true }));
   render(<TrustProjectDetail />);
   fireEvent.press(await screen.findByLabelText(/Publish:/));
@@ -122,14 +131,68 @@ it("book_validated:true — Add to Library assembles topics then saves the book"
 
   await waitFor(() => expect(mockGetTopicVersion).toHaveBeenCalledWith("tv1"));
   await waitFor(() => expect(mockGetTopicVersion).toHaveBeenCalledWith("tv2"));
+  // Studio copy (kept)
   await waitFor(() => expect(mockSaveBook).toHaveBeenCalled());
 
   const savedBook = mockSaveBook.mock.calls[0][0] as {
+    id: string;
+    title: string;
     toc: { subjects: { units: { id: string; title: string }[] }[] };
   };
   const units = savedBook.toc.subjects.flatMap((s) => s.units);
   expect(units).toHaveLength(2);
   expect(units.map((u) => u.title).sort()).toEqual(["Topic One", "Topic Two"]);
+
+  // Library copy: compiled EPUB via trackedExport, best-effort cover via
+  // exportBook, then saveEpub — this is what makes it show up in the Library
+  // tab (listEpubs), which saveBook alone never did.
+  await waitFor(() => expect(mockTrackedExport).toHaveBeenCalledWith(expect.anything(), "epub", { diagrams: true }));
+  await waitFor(() => expect(mockSaveEpub).toHaveBeenCalledWith({
+    bookId: savedBook.id,
+    title: savedBook.title,
+    bytes: expect.any(ArrayBuffer),
+    coverBytes: expect.any(ArrayBuffer),
+  }));
+
+  // "Added" only fires after saveEpub resolves, not right after saveBook.
+  await waitFor(() => expect(mockAlert).toHaveBeenCalledWith("Added", "Added to your Library."));
+  const savedBookOrder = mockSaveBook.mock.invocationCallOrder[0]!;
+  const savedEpubOrder = mockSaveEpub.mock.invocationCallOrder[0]!;
+  const alertOrder = mockAlert.mock.invocationCallOrder[0]!;
+  expect(savedBookOrder).toBeLessThan(alertOrder);
+  expect(savedEpubOrder).toBeLessThan(alertOrder);
+});
+
+it("a 402 on the compile step shows the upgrade prompt — saveEpub not called, no Added alert", async () => {
+  mockTrackedExport.mockRejectedValueOnce(new ApiError(402, JSON.stringify({ detail: "Pro plan required" })));
+  (useTrustProject as jest.Mock).mockReturnValue(base({ bookValidated: true }));
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Publish:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+
+  fireEvent.press(await screen.findByLabelText("Add book to Library"));
+
+  await waitFor(() => expect(mockAlert).toHaveBeenCalled());
+  const [title] = mockAlert.mock.calls[0] as [string, string];
+  expect(title).toBe("Upgrade to Pro");
+  expect(mockSaveEpub).not.toHaveBeenCalled();
+  expect(mockAlert).not.toHaveBeenCalledWith("Added", expect.anything());
+});
+
+it("a generic compile failure shows Couldn't add — saveEpub not called, no Added alert", async () => {
+  mockTrackedExport.mockRejectedValueOnce(new Error("network down"));
+  (useTrustProject as jest.Mock).mockReturnValue(base({ bookValidated: true }));
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Publish:/));
+  fireEvent.press(await screen.findByLabelText("Per topic"));
+
+  fireEvent.press(await screen.findByLabelText("Add book to Library"));
+
+  await waitFor(() => expect(mockAlert).toHaveBeenCalled());
+  const [title] = mockAlert.mock.calls[0] as [string, string];
+  expect(title).toBe("Couldn't add");
+  expect(mockSaveEpub).not.toHaveBeenCalled();
+  expect(mockAlert).not.toHaveBeenCalledWith("Added", expect.anything());
 });
 
 it("book_validated:false — Publish actions are disabled with a validate-first hint", async () => {

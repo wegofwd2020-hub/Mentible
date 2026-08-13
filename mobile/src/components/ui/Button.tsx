@@ -8,6 +8,10 @@ interface Props {
   label: string;
   onPress: () => void;
   busy?: boolean;
+  /** Text shown in place of `label` while `busy` — defaults to "…". Use for a
+   *  long-running action (e.g. an EPUB compile) where a bare ellipsis doesn't
+   *  read as in-progress. */
+  busyLabel?: string;
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -22,6 +26,7 @@ export function Button({
   label,
   onPress,
   busy = false,
+  busyLabel = "…",
   disabled = false,
   accessibilityLabel,
   style,
@@ -43,7 +48,7 @@ export function Button({
         style,
       ]}
     >
-      <Text style={variant === "primary" ? styles.primaryText : styles.ghostText}>{busy ? "…" : label}</Text>
+      <Text style={variant === "primary" ? styles.primaryText : styles.ghostText}>{busy ? busyLabel : label}</Text>
     </Pressable>
   );
 }

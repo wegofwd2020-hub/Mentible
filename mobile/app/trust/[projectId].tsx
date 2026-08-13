@@ -7,14 +7,14 @@ import { PhaseNav } from "@/components/PhaseNav";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
-import { ApiError } from "@/api/client";
+import { ApiError, exportBook } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
 import { artifactToBook } from "@/lib/artifactToBook";
 import { topicsToBook } from "@/lib/topicsToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
-import { downloadArtifact } from "@/storage/epubLibrary";
+import { downloadArtifact, saveEpub } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
 import { estimateBook, generateBook, getGenerationJob, getTopicVersion, latestGenerationJob, listProjectFeedback } from "@/api/trustClient";
 import type { ArtifactDetailView, DraftSection, GenerationJob, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
@@ -1198,6 +1198,7 @@ function PublishPanel({
                   label="Add to Library"
                   onPress={onPublishToLibrary}
                   busy={pubBusy === "book:lib"}
+                  busyLabel="Compiling EPUB…"
                   disabled={!bookValidated || pubBusy !== null}
                   accessibilityLabel="Add book to Library"
                 />
@@ -1259,6 +1260,7 @@ function PublishPanel({
                   label="Add to Library"
                   onPress={() => onAddToLibrary(version.id, title, artifact.format)}
                   busy={pubBusy === `${version.id}:lib`}
+                  busyLabel="Compiling EPUB…"
                   disabled={pubBusy !== null}
                   accessibilityLabel={`Add ${title} to Library`}
                 />
@@ -1728,9 +1730,21 @@ function TrustProjectDetailInner() {
       try {
         const v = await loadVersionContent(versionId);
         const book = artifactToBook(v.content?.sections ?? [], title, inputs);
-        await saveBook(book);
+        await saveBook(book); // Studio copy (kept)
+        const { artifact: bytes } = await trackedExport(book, "epub", { diagrams: true });
+        let coverBytes: ArrayBuffer | undefined;
+        try {
+          coverBytes = (await exportBook(book, { format: "cover" })).artifact;
+        } catch {
+          coverBytes = undefined;
+        }
+        await saveEpub({ bookId: book.id, title: book.title, bytes, coverBytes });
         Alert.alert("Added", "Added to your Library.");
       } catch (e) {
+        if (e instanceof ApiError && e.status === 402) {
+          onDownloadError(e);
+          return;
+        }
         Alert.alert("Couldn't add", e instanceof ApiError ? e.userMessage() : "Please try again.");
       } finally {
         setPubBusy(null);
@@ -1796,9 +1810,21 @@ function TrustProjectDetailInner() {
     void (async () => {
       try {
         const book = await assembleBook();
-        await saveBook(book);
+        await saveBook(book); // Studio copy (kept)
+        const { artifact: bytes } = await trackedExport(book, "epub", { diagrams: true });
+        let coverBytes: ArrayBuffer | undefined;
+        try {
+          coverBytes = (await exportBook(book, { format: "cover" })).artifact;
+        } catch {
+          coverBytes = undefined;
+        }
+        await saveEpub({ bookId: book.id, title: book.title, bytes, coverBytes });
         Alert.alert("Added", "Added to your Library.");
       } catch (e) {
+        if (e instanceof ApiError && e.status === 402) {
+          onDownloadError(e);
+          return;
+        }
         Alert.alert("Couldn't add", e instanceof ApiError ? e.userMessage() : "Please try again.");
       } finally {
         setPubBusy(null);
