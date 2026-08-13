@@ -120,6 +120,17 @@ generate can now return 402 for Free users — ship backend + web together so th
 yourself Pro** (via `PUT /admin/users/{sub}/entitlement`, a `managed_*` plan) to keep dogfooding unwalled;
 the staff allowlist also keeps internal users Pro.
 
+## Scope boundary — public Open-Library publishing is intentionally FREE (decided 2026-08-13)
+
+The Pro-wall gates **private downloads** of the compiled EPUB/PDF (the Publish-panel EPUB/PDF download +
+both `/export` handlers). It does **NOT** gate **`POST /library/{book_id}/publish`** (→ the public Open
+Library, ADR-027/028) or the published-artifact download — those stay **free by design**. Rationale:
+publishing gives the book to the **public community catalog** (a different value exchange than a private
+copy) and is the Open-Library moat we want to encourage; walling it behind Pro would suppress it. **Known,
+accepted consequence:** a Free user *can* obtain the compiled EPUB/PDF by publishing it publicly (thereby
+giving the content to the catalog). This is the intended boundary, not a bypass to close. (Surfaced by the
+whole-branch review; user decision: keep public-publish free + document it here.)
+
 ## Out of scope (later)
 
 - Payment rail (Slice C — Stripe web vs RevenueCat mobile). A real checkout / upgrade flow (this slice's
