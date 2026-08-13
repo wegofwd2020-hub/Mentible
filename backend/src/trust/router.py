@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import redis.asyncio as redis
@@ -12,6 +13,8 @@ from ..accounts import repo as accounts_repo
 from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
+from ..billing import quota
+from ..billing.access import is_pro
 from ..billing.eligibility import is_managed_eligible
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
@@ -62,6 +65,22 @@ async def _require_role(
     return role
 
 
+async def _enforce_generation_cap(
+    conn: asyncpg.Connection, account: Account, principal: Principal
+) -> None:
+    """402 when a Free-plan account is at/over the rolling generations cap.
+    Pro accounts are never capped. Placed before any job/envelope is created
+    on the 3 trust generate submits (T2 — the server-side gate)."""
+    if await is_pro(conn, account_id=account.id):
+        return
+    since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
+    if await quota.count_generations(conn, principal.sub, since) >= settings.free_max_generations:
+        raise quota.pro_required(
+            f"Free plan is limited to {settings.free_max_generations} generations "
+            f"per {settings.free_gen_window_days} days — upgrade to Pro."
+        )
+
+
 @router.post("/session/sync", response_model=schemas.SessionSyncOut)
 async def session_sync(
     principal: Principal = Depends(require_active_user),
@@ -92,6 +111,12 @@ async def create_project(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.ProjectOut:
     account = await _account(conn, principal)
+    if not await is_pro(conn, account_id=account.id):
+        if await quota.count_projects(conn, account.id) >= settings.free_max_projects:
+            raise quota.pro_required(
+                f"Free plan is limited to {settings.free_max_projects} projects "
+                "— upgrade to Pro for more."
+            )
     p = await project_repo.create_project(
         conn,
         owner_account_id=account.id,
@@ -322,6 +347,7 @@ async def generate_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
+    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -541,6 +567,7 @@ async def suggest_project_toc(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
+    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -668,6 +695,7 @@ async def generate_topic_version(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, need_owner=True)
+    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:

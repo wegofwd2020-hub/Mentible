@@ -23,6 +23,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import JSONResponse
 
 from backend.config import settings
+from backend.src.accounts import repo as accounts_repo
+from backend.src.auth.deps import optional_user
+from backend.src.auth.principal import Principal
+from backend.src.billing.access import is_pro
+from backend.src.billing.quota import pro_required
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
 from backend.src.core.redis_dep import get_redis
@@ -138,6 +143,7 @@ async def submit_export(
     format: str = "epub",
     diagrams: bool = False,
     r: redis.Redis = Depends(get_redis),
+    principal: Principal | None = Depends(optional_user),
 ) -> ExportSubmitResponse:
     """Submit a book for async compilation. Returns 202 + job_id; poll
     GET /export/jobs/{id} then download /export/jobs/{id}/artifact.
@@ -167,6 +173,22 @@ async def submit_export(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": str(exc)},
         )
+
+    # Free/Pro export Pro-wall (T2). Gated ONLY for an authenticated caller — the
+    # anonymous/public demo (no principal) always passes through ungated, and so
+    # does any deployment with no DB configured (no account store, no gate).
+    if principal is not None:
+        pool = getattr(request.app.state, "db", None)
+        if pool is not None:
+            async with pool.acquire() as conn:
+                account = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=principal.sub, email=principal.email
+                )
+                if not await is_pro(conn, account_id=account.id):
+                    raise pro_required(
+                        "Exporting a book file is a Pro feature. Read it in-app or "
+                        "copy the text, or upgrade to Pro."
+                    )
 
     job_id = uuid.uuid4()
     await r.set(

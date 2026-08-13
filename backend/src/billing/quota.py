@@ -14,9 +14,17 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import asyncpg
+from fastapi import HTTPException
 
 from backend.config import settings
 from backend.src.billing.access import is_pro
+
+
+def pro_required(detail: str) -> HTTPException:
+    """A consistent 402 (Payment Required) for a Free-plan-over-cap gate — the
+    server-side enforcement (T2). The client keys UI off this status + the
+    `detail` string; keep the message actionable ("… upgrade to Pro.")."""
+    return HTTPException(status_code=402, detail=detail)
 
 
 @dataclass(frozen=True)
