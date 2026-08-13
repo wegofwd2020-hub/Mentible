@@ -2,24 +2,41 @@ import { act, renderHook } from "@testing-library/react-native";
 
 jest.mock("@/api/trustClient", () => ({
   generateVersion: jest.fn(),
-  getGenerateVersionJob: jest.fn(),
 }));
 
-import { generateVersion, getGenerateVersionJob } from "@/api/trustClient";
+import { generateVersion } from "@/api/trustClient";
 import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 
 const mockGenerateVersion = generateVersion as jest.Mock;
-const mockGetGenerateVersionJob = getGenerateVersionJob as jest.Mock;
+
+// The hook now polls the shared GET /api/v1/jobs/{id} via @/api/pollJob,
+// which calls global.fetch directly (no more trustClient.getGenerateVersionJob)
+// — see __tests__/api/pollJob.test.ts for the poll-mechanics coverage
+// (queued -> running -> done, timeout, failed, ApiError). Here we only mock
+// fetch to drive the hook's own submit/status/message wiring.
+function mockJobSequence(views: object[]) {
+  const fn = jest.fn();
+  views.forEach((v) =>
+    fn.mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => v, text: async () => JSON.stringify(v),
+      headers: { get: () => null },
+    }),
+  );
+  (global as unknown as { fetch: jest.Mock }).fetch = fn;
+  return fn;
+}
 
 beforeEach(() => jest.clearAllMocks());
 afterEach(() => jest.useRealTimers());
 
 it("submits the generate then polls /jobs/{id} through queued -> running -> done, resolving with the reconstructed version", async () => {
   mockGenerateVersion.mockResolvedValue({ job_id: "job-1", status: "queued" });
-  mockGetGenerateVersionJob
-    .mockResolvedValueOnce({ status: "queued" })
-    .mockResolvedValueOnce({ status: "running" })
-    .mockResolvedValueOnce({ status: "done", result: { version_id: "v2", artifact_id: "a1", version_no: 2 } });
+  const mockFetch = mockJobSequence([
+    { status: "queued" },
+    { status: "running" },
+    { status: "done", result: { version_id: "v2", artifact_id: "a1", version_no: 2 } },
+  ]);
 
   const onPhase = jest.fn();
   const { result } = renderHook(() => useGenerateVersionJob(1));
@@ -39,15 +56,17 @@ it("submits the generate then polls /jobs/{id} through queued -> running -> done
   expect(mockGenerateVersion).toHaveBeenCalledWith(
     "a1", { api_key: "sk-ant-x", provider_id: "anthropic", guidance: undefined }, "tok",
   );
-  expect(mockGetGenerateVersionJob).toHaveBeenCalledTimes(3);
-  expect(mockGetGenerateVersionJob).toHaveBeenNthCalledWith(1, "job-1", "tok");
+  expect(mockFetch).toHaveBeenCalledTimes(3);
+  const [url, init] = mockFetch.mock.calls[0];
+  expect(url).toMatch(/\/api\/v1\/jobs\/job-1$/);
+  expect(init.headers.Authorization).toBe("Bearer tok");
   expect(onPhase).toHaveBeenCalledWith("queued");
   expect(onPhase).toHaveBeenCalledWith("running");
 });
 
 it("passes guidance through to the submit call", async () => {
   mockGenerateVersion.mockResolvedValue({ job_id: "job-1", status: "queued" });
-  mockGetGenerateVersionJob.mockResolvedValue({ status: "done", result: { version_id: "v2", artifact_id: "a1", version_no: 2 } });
+  mockJobSequence([{ status: "done", result: { version_id: "v2", artifact_id: "a1", version_no: 2 } }]);
 
   const { result } = renderHook(() => useGenerateVersionJob(1));
   await act(async () => {
@@ -61,7 +80,7 @@ it("passes guidance through to the submit call", async () => {
 
 it("throws and sets status/error to failed when the job resolves failed", async () => {
   mockGenerateVersion.mockResolvedValue({ job_id: "job-1", status: "queued" });
-  mockGetGenerateVersionJob.mockResolvedValue({ status: "failed", error: "generation failed" });
+  mockJobSequence([{ status: "failed", error: "generation failed" }]);
 
   const { result } = renderHook(() => useGenerateVersionJob(1));
 
@@ -82,6 +101,8 @@ it("throws and sets status/error to failed when the job resolves failed", async 
 
 it("throws when the submit itself rejects (e.g. no key / network)", async () => {
   mockGenerateVersion.mockRejectedValue(new Error("No API key saved."));
+  const mockFetch = jest.fn();
+  (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
 
   const { result } = renderHook(() => useGenerateVersionJob(1));
 
@@ -96,5 +117,5 @@ it("throws when the submit itself rejects (e.g. no key / network)", async () => 
 
   expect((caught as Error).message).toBe("No API key saved.");
   expect(result.current.status).toBe("failed");
-  expect(mockGetGenerateVersionJob).not.toHaveBeenCalled();
+  expect(mockFetch).not.toHaveBeenCalled();
 });

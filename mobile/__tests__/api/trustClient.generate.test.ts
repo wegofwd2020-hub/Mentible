@@ -1,4 +1,4 @@
-import { generateVersion, getGenerateVersionJob } from "@/api/trustClient";
+import { generateVersion } from "@/api/trustClient";
 
 function mockFetchOnce(status: number, body: unknown) {
   (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
@@ -28,18 +28,6 @@ it("includes guidance in the request body when provided", async () => {
   expect(JSON.parse(init.body).guidance).toBe("focus on cost");
 });
 
-it("getGenerateVersionJob GETs the SHARED (non-/trust) /jobs/{id} route and returns status+result", async () => {
-  const done = { status: "done", result: { version_id: "v1", artifact_id: "a1", version_no: 3 } };
-  mockFetchOnce(200, done);
-  const out = await getGenerateVersionJob("job-1", "tok");
-  expect(out).toEqual(done);
-  const [url, init] = (global as unknown as { fetch: jest.Mock }).fetch.mock.calls[0];
-  expect(url).toMatch(/\/api\/v1\/jobs\/job-1$/);
-  expect(url).not.toMatch(/\/trust\//);
-  expect(init.headers.Authorization).toBe("Bearer tok");
-});
-
-it("getGenerateVersionJob throws an ApiError on a non-OK response", async () => {
-  mockFetchOnce(404, { detail: "job not found" });
-  await expect(getGenerateVersionJob("missing", "tok")).rejects.toMatchObject({ status: 404 });
-});
+// The shared GET /api/v1/jobs/{id} poll (formerly trustClient.getGenerateVersionJob)
+// moved to the shared @/api/pollJob (see __tests__/api/pollJob.test.ts) — no
+// per-hook getter remains here to test.

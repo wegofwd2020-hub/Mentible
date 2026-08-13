@@ -1,14 +1,11 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@/api/client";
-import { generateTopic as generateTopicApi, getJob, type TopicGenerateJobResult, type TopicGenerateJobStatusView } from "@/api/trustClient";
+import { pollJob } from "@/api/pollJob";
+import { generateTopic as generateTopicApi, type TopicGenerateJobResult } from "@/api/trustClient";
 
 export type TopicGenerateJobUiStatus = "idle" | "generating" | "done" | "failed";
 
 const POLL_INTERVAL_MS = 3_000;
-// Same rationale as client.ts's POLL_TIMEOUT_MS for the whole-lesson /generate
-// poll — a topic draft can legitimately take minutes, and a schema-repair
-// retry loop can push that further.
-const POLL_TIMEOUT_MS = 600_000;
 
 export interface RunGenerateTopicArgs {
   projectId: string;
@@ -34,44 +31,14 @@ export interface UseGenerateTopicJobResult {
   run: (args: RunGenerateTopicArgs) => Promise<TopicGenerateJobResult>;
 }
 
-// Polls the shared GET /api/v1/jobs/{id} (see trustClient.getJob) until the
-// job reaches done|failed, or bails past POLL_TIMEOUT_MS. Injectable interval
-// so tests avoid real timers.
-function pollTopicJob(
-  jobId: string,
-  accessToken: string,
-  intervalMs: number,
-  onPhase?: (p: "queued" | "running") => void,
-): Promise<TopicGenerateJobStatusView> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  return new Promise<TopicGenerateJobStatusView>((resolve, reject) => {
-    const tick = async () => {
-      if (Date.now() > deadline) {
-        reject(new Error("Timed out waiting for generation"));
-        return;
-      }
-      try {
-        const job = await getJob(jobId, accessToken);
-        if (job.status === "queued" || job.status === "running") onPhase?.(job.status);
-        if (job.status === "done" || job.status === "failed") {
-          resolve(job);
-        } else {
-          setTimeout(tick, intervalMs);
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    void tick();
-  });
-}
-
 // Submit-then-poll for the Phase A async per-topic generate job. Mirrors
 // useStructureJob's poll loop, but exposed as an imperative `run()` (like
 // useGenerateTopic.ts's book-authoring counterpart) since both trust call
 // sites already own their own busy/error UI state around a single awaited
 // promise, rather than subscribing to a live jobId the way the Structure
-// screen's suggest-outline flow does.
+// screen's suggest-outline flow does. Polling itself is the shared
+// `pollJob` (see @/api/pollJob) — this hook only owns the submit call, the
+// per-hook status/error state, and the per-hook timeout/failure messages.
 export function useGenerateTopicJob(intervalMs = POLL_INTERVAL_MS): UseGenerateTopicJobResult {
   const [status, setStatus] = useState<TopicGenerateJobUiStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -87,12 +54,14 @@ export function useGenerateTopicJob(intervalMs = POLL_INTERVAL_MS): UseGenerateT
           { api_key: args.apiKey, provider_id: args.providerId ?? "anthropic", guidance: args.guidance },
           args.accessToken,
         );
-        const job = await pollTopicJob(submitted.job_id, args.accessToken, intervalMs, args.onPhase);
-        if (job.status === "done" && job.result) {
-          setStatus("done");
-          return job.result;
-        }
-        throw new Error(job.error ?? "Generation failed");
+        const result = await pollJob<TopicGenerateJobResult>(submitted.job_id, args.accessToken, {
+          intervalMs,
+          timeoutMessage: "Timed out waiting for generation",
+          failedMessage: "Generation failed",
+          onPhase: args.onPhase,
+        });
+        setStatus("done");
+        return result;
       } catch (err) {
         const message =
           err instanceof ApiError ? err.userMessage() : err instanceof Error ? err.message : "Generation failed";
