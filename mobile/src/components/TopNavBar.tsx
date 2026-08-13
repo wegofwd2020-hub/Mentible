@@ -6,6 +6,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import { NAV_TABS, NAV_ORDER } from "./navItems";
+import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
 // Mentible mark that jumps to Library (home). Replaces the default bottom tab bar
@@ -78,6 +79,7 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
           );
         })}
       </ScrollView>
+      <ChromeUsageMeter style={styles.meter} />
     </View>
   );
 }
@@ -148,4 +150,11 @@ const makeStyles = (c: Palette) => ({
     color: c.tileOffGlyph,
   },
   tileLabelActive: { color: c.tileOnGlyph },
+  // Absent when the meter is hidden (BYOK/anonymous) — no layout to preserve
+  // then. Centered under the scrollable nav row when present.
+  meter: {
+    alignSelf: "center" as const,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
 });

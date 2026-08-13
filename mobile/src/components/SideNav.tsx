@@ -7,6 +7,7 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { NAV_TABS, NAV_ORDER } from "./navItems";
+import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // A persistent left sidebar version of TopNavBar for wide screens (isDesktop):
 // the same destinations + navigation, laid out as a full-height 256px column so
@@ -56,6 +57,7 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
           </Pressable>
         );
       })}
+      <ChromeUsageMeter style={styles.meter} />
     </View>
   );
 }
@@ -69,4 +71,7 @@ const makeStyles = (c: Palette) => ({
   rowActive: { backgroundColor: c.primary },
   rowLabel: { color: c.text, fontSize: typography.sizeMd, fontWeight: "500" as const },
   rowLabelActive: { color: c.primaryText },
+  // Absent when the meter is hidden (BYOK/anonymous) — no layout to preserve
+  // then. Sits below the nav list when present.
+  meter: { marginTop: spacing.sm, marginHorizontal: spacing.sm },
 });
