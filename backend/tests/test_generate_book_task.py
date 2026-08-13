@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -32,6 +32,7 @@ import pytest
 from wegofwd_llm.conformance import ConformanceResult
 
 from backend.config import settings
+from backend.src.billing import eligibility, entitlement_repo
 from backend.src.billing.access import ManagedAccess
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.generate.tasks import _byok_redis_key
@@ -268,6 +269,107 @@ async def test_ceiling_halt_stops_before_the_over_cap_topic(conn, fake_redis, mo
     versions = await topic_repo.list_topic_versions(conn, project_id=pid)
     topic_ids = {v.topic_id for v in versions}
     assert topic_ids == {"u1", "u2"}
+
+
+# ── 4. Worker Principal reconstruction — staff allowlist vs. entitlement ────────
+#
+# `resolve_managed_access` resolves a managed grant two ways: a plan entitlement
+# (keyed by `account_id` alone) OR the staff allowlist (`is_managed_eligible`,
+# which needs a real `Principal` — `sub`/`email` — and returns False immediately
+# for `principal=None`). These two tests call `_run_book` WITHOUT stubbing
+# `resolve_managed_access`, so they exercise the real eligibility resolution
+# end to end.
+
+
+async def test_staff_allowlist_managed_book_generates_not_halted(conn, fake_redis, monkeypatch):
+    """A MANAGED account eligible ONLY via the config staff allowlist (no
+    entitlement row) must still generate the topic and finish 'done' — proving
+    `_run_book` reconstructs a real `Principal` from the account instead of
+    calling `resolve_managed_access(principal=None)`, which would make
+    `is_managed_eligible` return False and halt the book at topic 0 even
+    though the Task-4 submit endpoint (a real Principal) already accepted it."""
+    sub = f"staff-{uuid.uuid4()}"
+    email = f"staff-{uuid.uuid4()}@example.com"
+    # Pre-seed the account with its real stored email — `_run_book` reads it
+    # back via `get_or_create_account(..., email=None)`, which must NOT wipe it.
+    await conn.execute("INSERT INTO account (idp_sub, email) VALUES ($1, $2)", sub, email)
+
+    pid, _source_ids = await _project_with_toc(conn, unit_ids=("u1",), skip_first_version=True)
+    job_id = await _make_job(conn, project_id=pid, total=1)
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
+    monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset())
+    monkeypatch.setattr(eligibility, "_MANAGED_EMAILS", frozenset({email}))
+
+    with patch(
+        "backend.src.trust.tasks.generate_topic_draft",
+        side_effect=lambda **kw: _draft(kw["topic_title"]),
+    ) as mock_gen:
+        await trust_tasks._run_book(
+            job_id=job_id,
+            project_id=pid,
+            provider_id="anthropic",
+            model="m",
+            managed=True,
+            recorded_by_sub=sub,
+        )
+
+    assert mock_gen.call_count == 1
+
+    job = await generation_job_repo.get(conn, job_id=job_id)
+    assert job.status == "done"  # NOT 'halted' — the allowlist path resolved
+    assert job.done == 1
+    assert job.failed_topic_ids == []
+
+    versions = await topic_repo.list_topic_versions(conn, project_id=pid)
+    assert {v.topic_id for v in versions} == {"u1"}
+
+    # The account's stored email must have survived the internal
+    # `get_or_create_account(..., email=None)` read (no accidental NULL-out).
+    row = await conn.fetchrow("SELECT email FROM account WHERE idp_sub = $1", sub)
+    assert row["email"] == email
+
+
+async def test_entitlement_managed_book_still_generates(conn, fake_redis, monkeypatch):
+    """The entitlement path (no staff allowlist at all) still resolves and
+    generates — the Principal-reconstruction fix must not regress the
+    account_id-keyed entitlement branch of `resolve_managed_access`."""
+    sub = f"ent-{uuid.uuid4()}"
+    account_id = await conn.fetchval("INSERT INTO account (idp_sub) VALUES ($1) RETURNING id", sub)
+    now = datetime.now(UTC)
+    await entitlement_repo.set_entitlement(
+        conn,
+        account_id=account_id,
+        plan_id="managed_basic",
+        status="active",
+        period_start=now - timedelta(days=1),
+        period_end=now + timedelta(days=29),
+    )
+
+    pid, _source_ids = await _project_with_toc(conn, unit_ids=("u1",), skip_first_version=True)
+    job_id = await _make_job(conn, project_id=pid, total=1)
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
+    monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset())
+    monkeypatch.setattr(eligibility, "_MANAGED_EMAILS", frozenset())
+
+    with patch(
+        "backend.src.trust.tasks.generate_topic_draft",
+        side_effect=lambda **kw: _draft(kw["topic_title"]),
+    ) as mock_gen:
+        await trust_tasks._run_book(
+            job_id=job_id,
+            project_id=pid,
+            provider_id="anthropic",
+            model="m",
+            managed=True,
+            recorded_by_sub=sub,
+        )
+
+    assert mock_gen.call_count == 1
+
+    job = await generation_job_repo.get(conn, job_id=job_id)
+    assert job.status == "done"
+    assert job.done == 1
+    assert job.failed_topic_ids == []
 
 
 # ── The Celery task wrapper itself ──────────────────────────────────────────────

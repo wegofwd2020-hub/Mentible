@@ -30,6 +30,7 @@ from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSch
 
 from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
+from backend.src.auth.principal import Principal
 from backend.src.billing import pricing, usage_repo
 from backend.src.billing.access import over_cap, resolve_managed_access
 from backend.src.billing.vault import get_managed_key
@@ -864,8 +865,16 @@ async def _run_book(
             unit_id = str(unit.get("id"))
 
             if managed:
+                # Reconstruct a minimal Principal so the staff-allowlist half of
+                # `resolve_managed_access` (email/sub, not just an entitlement row)
+                # matches what the Task-4 submit endpoint already checked with a
+                # real Principal — `principal=None` here would silently make an
+                # allowlist-only (no-entitlement) account halt at topic 0.
+                principal = Principal(
+                    sub=recorded_by_sub, email=acct.email, issuer=settings.oidc_issuer
+                )
                 grant = await resolve_managed_access(
-                    conn, account_id=account_id, provider_id=provider_id, principal=None
+                    conn, account_id=account_id, provider_id=provider_id, principal=principal
                 )
                 if grant is None or await over_cap(conn, account_id=account_id, access=grant):
                     log.info("book_generation_halted_over_cap", job_id=str(job_id))
