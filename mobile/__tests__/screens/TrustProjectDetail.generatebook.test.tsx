@@ -26,11 +26,19 @@ jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn() }));
 
 const mockEstimateBook = jest.fn();
 const mockGenerateBook = jest.fn();
+// getGenerationJob/latestGenerationJob are Task 6's progress + on-return
+// pollers (see TrustProjectDetail.bookgenprogress.test.tsx) — stubbed here
+// to a no-op resolved-null default since this file only exercises the
+// estimate/confirm/submit flow, not the resulting progress surface.
+const mockGetGenerationJob = jest.fn().mockResolvedValue(null);
+const mockLatestGenerationJob = jest.fn().mockResolvedValue(null);
 jest.mock("@/api/trustClient", () => ({
   getTopicVersion: jest.fn(),
   listProjectFeedback: jest.fn(),
   estimateBook: (...args: unknown[]) => mockEstimateBook(...args),
   generateBook: (...args: unknown[]) => mockGenerateBook(...args),
+  getGenerationJob: (...args: unknown[]) => mockGetGenerationJob(...args),
+  latestGenerationJob: (...args: unknown[]) => mockLatestGenerationJob(...args),
 }));
 
 import { useTrustProject } from "@/hooks/useTrustProject";

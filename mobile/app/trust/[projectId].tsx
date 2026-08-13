@@ -16,8 +16,8 @@ import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
-import { estimateBook, generateBook, getTopicVersion, listProjectFeedback } from "@/api/trustClient";
-import type { ArtifactDetailView, DraftSection, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import { estimateBook, generateBook, getGenerationJob, getTopicVersion, latestGenerationJob, listProjectFeedback } from "@/api/trustClient";
+import type { ArtifactDetailView, DraftSection, GenerationJob, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { PlanStatus } from "@/api/billingClient";
 import type { Book, StructuredTOC, Subtopic } from "@/types/book";
@@ -37,6 +37,40 @@ type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
 
 type GenProgress = { startedAt: number; phase: "queued" | "running" };
+
+// Whole-book generation progress polling cadence (T6) — the same 3s cadence
+// pollJob's callers use elsewhere in this file, applied by hand here since
+// this polls the durable Postgres `generation_job` row (GET
+// /generation-jobs/{id}) rather than the ephemeral Redis job status pollJob
+// targets, so it can't reuse pollJob's fetch shape directly.
+const BOOK_GEN_POLL_MS = 3_000;
+
+// Renders the whole-book generation status line(s) for a `generation_job`
+// row, whichever surface produced it (the active local poll, or the
+// on-focus latest-job fetch when there's no local job). `running`/`queued`
+// -> the in-progress line; `done`/`halted` -> the on-return "ready" line
+// with the failed topic ids so the owner knows what to regenerate via the
+// existing per-topic Generate; any other status (e.g. a job-level `failed`
+// before any topic ran) renders nothing — there's no useful "book
+// generated" claim to make about it.
+function BookGenSurface({ job, styles }: { job: GenerationJob; styles: Styles }) {
+  if (job.status === "running" || job.status === "queued") {
+    return <Text style={styles.genHint}>{`Generating chapters… ${job.done}/${job.total}`}</Text>;
+  }
+  if (job.status === "done" || job.status === "halted") {
+    return (
+      <View>
+        <Text style={styles.emptyText}>
+          {`Book generated ✓ (${job.done}/${job.total} · ${job.failed_topic_ids.length} failed)`}
+        </Text>
+        {job.failed_topic_ids.length > 0 ? (
+          <Text style={styles.genHint}>{`Failed: ${job.failed_topic_ids.join(", ")}`}</Text>
+        ) : null}
+      </View>
+    );
+  }
+  return null;
+}
 
 // A tiny wrapper so the per-topic .map() can render a live elapsed-time bar:
 // useElapsedMs is a hook and cannot be called directly inside a loop body.
@@ -506,6 +540,7 @@ function DraftsPanel({
   atGenerationCap,
   onGenerateBook,
   bookGenBusy,
+  bookGenJob,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -534,6 +569,12 @@ function DraftsPanel({
   // this panel only renders the button + busy state.
   onGenerateBook: () => void;
   bookGenBusy: boolean;
+  // Progress + on-return "ready" surface (T6) — either the actively-polled
+  // local job or the latest job fetched on focus when there's no local one.
+  // null whenever there's nothing to show (no job yet, or the last fetch
+  // failed — fail-open, see BookGenSurface above and the effects in
+  // TrustProjectDetailInner).
+  bookGenJob: GenerationJob | null;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">(initialMode ?? "whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
@@ -667,6 +708,7 @@ function DraftsPanel({
               {atGenerationCap ? (
                 <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
               ) : null}
+              {bookGenJob ? <BookGenSurface job={bookGenJob} styles={styles} /> : null}
             </View>
           ) : null}
           {artifacts.length === 0 ? (
@@ -1307,6 +1349,10 @@ function TrustProjectDetailInner() {
   // button). Seam for Task 6: read/poll bookGenJobId.
   const [bookGenBusy, setBookGenBusy] = useState(false);
   const [bookGenJobId, setBookGenJobId] = useState<string | null>(null);
+  // The generation_job row currently shown in DraftsPanel's whole-book
+  // block (T6) — populated either by the active-job poll below or by the
+  // on-focus latest-job fetch when there's no active local job.
+  const [bookGenJob, setBookGenJob] = useState<GenerationJob | null>(null);
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -1420,6 +1466,65 @@ function TrustProjectDetailInner() {
       cancelled = true;
     };
   }, [project, selected, accessToken, projectId]);
+
+  // Whole-book generation progress (T6): once onGenerateBook stores a
+  // job_id in bookGenJobId, poll the durable generation_job row (GET
+  // /generation-jobs/{id}) — NOT the ephemeral Redis job status pollJob
+  // targets, since this run can span well past a single request's
+  // lifetime — at BOOK_GEN_POLL_MS. Stops itself at a terminal status
+  // (done/halted/failed) rather than running forever, and a `done` job
+  // triggers refresh() so the newly generated topic versions show. Fails
+  // open on any fetch error: the progress surface just disappears rather
+  // than showing a broken state.
+  useEffect(() => {
+    if (!bookGenJobId || !accessToken) return;
+    let cancelled = false;
+    const jobId = bookGenJobId;
+    const poll = async () => {
+      try {
+        const job = await getGenerationJob(jobId, accessToken);
+        if (cancelled) return;
+        setBookGenJob(job);
+        if (job.status === "done" || job.status === "halted" || job.status === "failed") {
+          if (job.status === "done") void refresh();
+          setBookGenJobId(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setBookGenJob(null);
+          setBookGenJobId(null);
+        }
+      }
+    };
+    void poll();
+    const timer = setInterval(poll, BOOK_GEN_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [bookGenJobId, accessToken, refresh]);
+
+  // On-return "ready" surface (T6): with no active local job (a fresh
+  // mount, or the owner navigating back after leaving mid-run), fetch the
+  // project's latest generation_job row on every focus and render its
+  // status via the same BookGenSurface. Read-only/non-critical — fails
+  // open to nothing (no surface, screen intact) on any fetch error.
+  useFocusEffect(
+    useCallback(() => {
+      if (bookGenJobId || !accessToken) return;
+      let cancelled = false;
+      void latestGenerationJob(String(projectId), accessToken)
+        .then((job) => {
+          if (!cancelled) setBookGenJob(job);
+        })
+        .catch(() => {
+          if (!cancelled) setBookGenJob(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [bookGenJobId, accessToken, projectId]),
+  );
 
   if (loading && !project) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
@@ -1901,6 +2006,7 @@ function TrustProjectDetailInner() {
             atGenerationCap={atGenerationCap}
             onGenerateBook={onGenerateBook}
             bookGenBusy={bookGenBusy}
+            bookGenJob={bookGenJob}
           />
         ) : null}
         {active === "validate" ? (
