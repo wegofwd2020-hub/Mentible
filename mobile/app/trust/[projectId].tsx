@@ -29,6 +29,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Chip, Label } from "@/components/ui";
 import { GenerateProgressBar } from "@/components/GenerateProgressBar";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 
 type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
@@ -984,6 +985,7 @@ function PublishPanel({
   bookValidated,
   onPublishToLibrary,
   onPublishDownload,
+  onUpgrade,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -998,11 +1000,17 @@ function PublishPanel({
   bookValidated: boolean;
   onPublishToLibrary: () => void;
   onPublishDownload: (fmt: "epub" | "pdf") => void;
+  onUpgrade: () => void;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">("whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
   const totalTopics = toc?.subjects.reduce((sum, s) => sum + s.units.length, 0) ?? 0;
   const validatedTopics = topicStatus.filter((s) => s.status === "validated").length;
+  // Client-side UX only (T3) — the server (T2) is the real gate on export
+  // submission. plan:null means "unknown" (signed out, still loading, or the
+  // billing fetch failed) and must fail OPEN — never wall on a billing hiccup.
+  const { plan } = useBillingPlan();
+  const walled = plan != null && plan.is_pro === false;
 
   const publishable = artifacts
     .map(({ artifact, versions }) => {
@@ -1054,22 +1062,33 @@ function PublishPanel({
                   disabled={!bookValidated || pubBusy !== null}
                   accessibilityLabel="Add book to Library"
                 />
-                <Button
-                  variant="primary"
-                  label="Download EPUB"
-                  onPress={() => onPublishDownload("epub")}
-                  busy={pubBusy === "book:epub"}
-                  disabled={!bookValidated || pubBusy !== null}
-                  accessibilityLabel="Download book as EPUB"
-                />
-                <Button
-                  variant="primary"
-                  label="Download PDF"
-                  onPress={() => onPublishDownload("pdf")}
-                  busy={pubBusy === "book:pdf"}
-                  disabled={!bookValidated || pubBusy !== null}
-                  accessibilityLabel="Download book as PDF"
-                />
+                {walled ? (
+                  <Button
+                    variant="primary"
+                    label="Upgrade to Pro to download"
+                    onPress={onUpgrade}
+                    accessibilityLabel="Upgrade to Pro to download the book"
+                  />
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      label="Download EPUB"
+                      onPress={() => onPublishDownload("epub")}
+                      busy={pubBusy === "book:epub"}
+                      disabled={!bookValidated || pubBusy !== null}
+                      accessibilityLabel="Download book as EPUB"
+                    />
+                    <Button
+                      variant="primary"
+                      label="Download PDF"
+                      onPress={() => onPublishDownload("pdf")}
+                      busy={pubBusy === "book:pdf"}
+                      disabled={!bookValidated || pubBusy !== null}
+                      accessibilityLabel="Download book as PDF"
+                    />
+                  </>
+                )}
               </View>
               {!bookValidated ? (
                 <Text style={styles.emptyText}>Validate all topics first — {validatedTopics}/{totalTopics}</Text>
@@ -1104,22 +1123,33 @@ function PublishPanel({
                   disabled={pubBusy !== null}
                   accessibilityLabel={`Add ${title} to Library`}
                 />
-                <Button
-                  variant="primary"
-                  label="Download EPUB"
-                  onPress={() => onDownloadAsset(version.id, title, "epub")}
-                  busy={pubBusy === `${version.id}:epub`}
-                  disabled={pubBusy !== null}
-                  accessibilityLabel={`Download ${title} as EPUB`}
-                />
-                <Button
-                  variant="primary"
-                  label="Download PDF"
-                  onPress={() => onDownloadAsset(version.id, title, "pdf")}
-                  busy={pubBusy === `${version.id}:pdf`}
-                  disabled={pubBusy !== null}
-                  accessibilityLabel={`Download ${title} as PDF`}
-                />
+                {walled ? (
+                  <Button
+                    variant="primary"
+                    label="Upgrade to Pro to download"
+                    onPress={onUpgrade}
+                    accessibilityLabel={`Upgrade to Pro to download ${title}`}
+                  />
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      label="Download EPUB"
+                      onPress={() => onDownloadAsset(version.id, title, "epub")}
+                      busy={pubBusy === `${version.id}:epub`}
+                      disabled={pubBusy !== null}
+                      accessibilityLabel={`Download ${title} as EPUB`}
+                    />
+                    <Button
+                      variant="primary"
+                      label="Download PDF"
+                      onPress={() => onDownloadAsset(version.id, title, "pdf")}
+                      busy={pubBusy === `${version.id}:pdf`}
+                      disabled={pubBusy !== null}
+                      accessibilityLabel={`Download ${title} as PDF`}
+                    />
+                  </>
+                )}
               </View>
             ) : (
               <>
@@ -1373,6 +1403,22 @@ function TrustProjectDetailInner() {
     })();
   };
 
+  // Belt-and-suspenders: the client-side plan-status wall (PublishPanel) is UX
+  // only — if a Free user's download slips through anyway (stale/failed plan
+  // fetch), the server (T2) still 402s the export submit. Surface that as an
+  // upgrade prompt, distinct from a generic download failure.
+  const onDownloadError = (e: unknown) => {
+    if (e instanceof ApiError && e.status === 402) {
+      Alert.alert("Upgrade to Pro", "Downloading EPUB/PDF is a Pro feature. Upgrade to Pro to download.");
+      return;
+    }
+    Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+  };
+
+  const onUpgrade = () => {
+    router.push("/usage");
+  };
+
   const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf") => {
     setPubBusy(`${versionId}:${fmt}`);
     void (async () => {
@@ -1382,7 +1428,7 @@ function TrustProjectDetailInner() {
         const res = await trackedExport(book, fmt, { diagrams: true });
         await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, fmt === "epub" ? "application/epub+zip" : "application/pdf");
       } catch (e) {
-        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+        onDownloadError(e);
       } finally {
         setPubBusy(null);
       }
@@ -1437,7 +1483,7 @@ function TrustProjectDetailInner() {
           fmt === "epub" ? "application/epub+zip" : "application/pdf",
         );
       } catch (e) {
-        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+        onDownloadError(e);
       } finally {
         setPubBusy(null);
       }
@@ -1684,6 +1730,7 @@ function TrustProjectDetailInner() {
             bookValidated={project.book_validated ?? false}
             onPublishToLibrary={onPublishToLibrary}
             onPublishDownload={onPublishDownload}
+            onUpgrade={onUpgrade}
           />
         ) : null}
         <PhaseNav phaseKey={active} onSelect={setSelected} />
