@@ -74,24 +74,19 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `GET /api/v1/admin/plans -> list[PlanSummary]` where `PlanSummary = { id: str, display: str, allowance_micros: int, managed_providers: list[str] }` (super-admin only).
 
-- [ ] **Step 1: Write the failing test** in `backend/tests/test_admin_api.py` (reuse the file's existing super-admin TestClient + auth fixtures — mirror an existing `/users` test for the admin-token headers):
+- [ ] **Step 1: Write the failing test** in `backend/tests/test_admin_api.py`. The file provides one fixture, `admin_client` (a `TestClient` with `require_super_admin` overridden to pass), and module constants `ADMIN` (= `/api/v1/admin`). Mirror an existing `/users` test:
 
 ```python
-def test_admin_plans_lists_catalog_for_super_admin(super_admin_client):
-    res = super_admin_client.get("/api/v1/admin/plans")
-    assert res.status_code == 200
-    plans = {p["id"]: p for p in res.json()}
-    assert "managed_unlimited" in plans
+def test_admin_plans_lists_catalog(admin_client):
+    r = admin_client.get(f"{ADMIN}/plans")
+    assert r.status_code == 200
+    plans = {p["id"]: p for p in r.json()}
     assert plans["managed_unlimited"]["allowance_micros"] == 0
     assert "anthropic" in plans["managed_basic"]["managed_providers"]
     assert isinstance(plans["managed_basic"]["managed_providers"], list)
-
-
-def test_admin_plans_forbidden_for_non_admin(non_admin_client):
-    assert non_admin_client.get("/api/v1/admin/plans").status_code == 403
 ```
 
-(Use whatever fixture names the file already provides for a super-admin vs a plain authenticated caller; match the existing tests' style rather than the placeholder names above.)
+Do NOT add a per-route 403 test: `/admin/plans` uses the identical `Depends(require_super_admin)` as every other admin route, and that dependency's 403 behaviour is already covered by `test_super_admin.py::test_require_super_admin_forbids_ordinary_user`. A duplicate would be a test-hygiene defect.
 
 - [ ] **Step 2: Run it — FAIL** (`404`, route missing).
 
@@ -276,7 +271,7 @@ This is a **super-admin operator** surface, not a user-facing feature (the cover
 
 - [ ] `cd backend && ruff check . && ruff format --check . && python -m pytest tests/test_admin_api.py -q`; `cd mobile && npx jest && npx tsc --noEmit && npx eslint .`.
 - [ ] `docker compose -f docker-compose.demo.yml config` parses; both services carry the 7 managed vars.
-- [ ] Grant → `managed_unlimited` sets `is_pro`; Revoke sets status `canceled`. Non-admin → 403 on `/admin/plans`.
+- [ ] Grant → `managed_unlimited` sets `is_pro`; Revoke sets status `canceled`. `/admin/plans` is super-admin-gated by the shared `require_super_admin` dependency (403 behaviour already covered in `test_super_admin.py`).
 - [ ] **Deploy:** backend refresh (ships the compose change; recreate `api` + `celery-worker` to reload env) + web deploy (the console UI). No migration. Then set prod secrets (`MANAGED_ANTHROPIC_API_KEY`, optional `MANAGED_PLAN_EMAILS`, `MANAGED_ACCOUNT_SPEND_CEILING_MICROS`) in `.env.demo` and grant the first cohort.
 
 ## Out of scope
