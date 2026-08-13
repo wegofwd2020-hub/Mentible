@@ -70,6 +70,21 @@ Builds the full app (demo off) from `origin/main`, publishes to
 **Supabase → Authentication → URL Configuration → Redirect URLs**
 (`https://mambakkam.net/app/mentible/`). Email/password works without it.
 
+> **⚠ Mobile Google is a SEPARATE redirect from web.** The Android/iOS app doesn't
+> redirect to the web origin — it uses the deep link **`mentible://auth-callback`**
+> (`makeRedirectUri({ scheme: "mentible", path: "auth-callback" })` →
+> PKCE `exchangeCodeForSession`, `mobile/src/auth/googleSignIn.ts`). That deep link
+> must ALSO be in the Redirect URLs allowlist, or "Continue with Google" on the app
+> completes at Google but silently fails to establish a session (a system Google
+> account gets added, the app stays signed out). Add **both**:
+> ```
+> mentible://auth-callback
+> mentible://**          # safety wildcard — makeRedirectUri can vary the exact path
+> ```
+> Web working does NOT imply mobile works — they are independent allowlist entries.
+> (Also in the go-live checklist: `docs/GO_LIVE.md` step 3b.) The client code is
+> correct; this is purely the Supabase dashboard allowlist.
+
 ### Production backend (only when backend code changed)
 
 The prod backend at `/opt/mentible` is **root-owned and not a git repo**, so a
