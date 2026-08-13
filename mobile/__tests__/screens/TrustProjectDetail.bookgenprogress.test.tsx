@@ -7,10 +7,13 @@ import TrustProjectDetail from "@/../app/trust/[projectId]";
 // active local job polls GET /generation-jobs/{id} (getGenerationJob) and
 // renders "Generating chapters… {done}/{total}"; with no active local job,
 // a project focus fetches the latest generation_job row (latestGenerationJob)
-// and renders per its status — running shows the same progress line,
-// done/halted show "Book generated ✓ (done/total · failed)" listing the
-// failed topic ids so the owner can regenerate them via the existing
-// per-topic Generate. Any fetch error fails open: no surface, screen intact.
+// and renders per its status — queued shows "Starting…", running shows the
+// same progress line, done/halted show "Book generated ✓ (done/total ·
+// failed)" listing the failed topic ids so the owner can regenerate them via
+// the existing per-topic Generate, and failed shows "Generation failed — try
+// again." (fix round, final-review Finding A) so a job caught mid-progress
+// doesn't just vanish with no explanation. Any fetch error fails open: no
+// surface, screen intact.
 
 // Unlike the plain `(cb) => cb()` shape used elsewhere in this file's sibling
 // tests, this mock fires the callback once per mount (via a real useEffect
@@ -103,6 +106,7 @@ const openDrafts = async () => {
 
 const runningJob = { id: "g1", project_id: "p1", status: "running", total: 2, done: 1, failed_topic_ids: [], created_at: null };
 const doneJob = { id: "g1", project_id: "p1", status: "done", total: 2, done: 2, failed_topic_ids: ["t2"], created_at: null };
+const failedJob = { id: "g1", project_id: "p1", status: "failed", total: 2, done: 0, failed_topic_ids: [], created_at: null };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -166,6 +170,15 @@ it("on focus with no active job, a running latest job renders the progress line"
   await openDrafts();
 
   expect(await screen.findByText("Generating chapters… 1/2")).toBeTruthy();
+});
+
+it("on focus with no active job, a failed latest job renders a 'try again' surface (final-review Finding A)", async () => {
+  mockLatestGenerationJob.mockResolvedValue(failedJob);
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  await openDrafts();
+
+  expect(await screen.findByText("Generation failed — try again.")).toBeTruthy();
+  expect(screen.queryByText(/Generating chapters/)).toBeNull();
 });
 
 it("fails open on a latest-job fetch rejection — no surface, screen intact", async () => {

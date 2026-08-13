@@ -47,14 +47,21 @@ const BOOK_GEN_POLL_MS = 3_000;
 
 // Renders the whole-book generation status line(s) for a `generation_job`
 // row, whichever surface produced it (the active local poll, or the
-// on-focus latest-job fetch when there's no local job). `running`/`queued`
-// -> the in-progress line; `done`/`halted` -> the on-return "ready" line
-// with the failed topic ids so the owner knows what to regenerate via the
-// existing per-topic Generate; any other status (e.g. a job-level `failed`
-// before any topic ran) renders nothing — there's no useful "book
-// generated" claim to make about it.
+// on-focus latest-job fetch when there's no local job). `queued` -> a
+// "starting" line so the pre-`running` window reads as in-progress rather
+// than a bare 0/N; `running` -> the in-progress line; `done`/`halted` -> the
+// on-return "ready" line with the failed topic ids so the owner knows what
+// to regenerate via the existing per-topic Generate; `failed` (the outer
+// except + early infra-failure exits in `_run_book`, e.g. managed-key/BYOK
+// envelope problems) -> a clear "try again" line, so a poll that caught the
+// job mid-progress doesn't just vanish with no explanation. Fetch errors are
+// handled separately (fail-open, unchanged) — this is only about a
+// successfully-fetched job whose status is `failed`.
 function BookGenSurface({ job, styles }: { job: GenerationJob; styles: Styles }) {
-  if (job.status === "running" || job.status === "queued") {
+  if (job.status === "queued") {
+    return <Text style={styles.genHint}>Starting…</Text>;
+  }
+  if (job.status === "running") {
     return <Text style={styles.genHint}>{`Generating chapters… ${job.done}/${job.total}`}</Text>;
   }
   if (job.status === "done" || job.status === "halted") {
@@ -68,6 +75,9 @@ function BookGenSurface({ job, styles }: { job: GenerationJob; styles: Styles })
         ) : null}
       </View>
     );
+  }
+  if (job.status === "failed") {
+    return <Text style={styles.genError}>Generation failed — try again.</Text>;
   }
   return null;
 }
@@ -2130,6 +2140,9 @@ const makeStyles = (c: Palette) => ({
   // emphasis instead, matching the kindText tile-label treatment below.
   genCardLabel: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
   genHint: { color: c.textMuted, fontSize: typography.sizeXs },
+  // Same sizing as genHint, but the error token — the job-level `failed`
+  // surface in BookGenSurface (final-review Finding A).
+  genError: { color: c.error, fontSize: typography.sizeXs },
   genPlus: { color: c.primary, fontSize: typography.sizeMd, fontWeight: "700" as const, alignSelf: "flex-end" as const },
   ownerBlock: {
     backgroundColor: c.surface,

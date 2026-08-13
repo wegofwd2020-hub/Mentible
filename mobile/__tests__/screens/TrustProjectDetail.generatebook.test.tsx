@@ -28,9 +28,16 @@ const mockEstimateBook = jest.fn();
 const mockGenerateBook = jest.fn();
 // getGenerationJob/latestGenerationJob are Task 6's progress + on-return
 // pollers (see TrustProjectDetail.bookgenprogress.test.tsx) — stubbed here
-// to a no-op resolved-null default since this file only exercises the
-// estimate/confirm/submit flow, not the resulting progress surface.
-const mockGetGenerationJob = jest.fn().mockResolvedValue(null);
+// to a no-op since this file only exercises the estimate/confirm/submit
+// flow, not the resulting progress surface. getGenerationJob's contract is
+// `Promise<GenerationJob>` (never null, unlike latestGenerationJob) — a
+// running-shaped stub lets the poll effect this file's "stores the job_id"
+// tests trigger resolve cleanly instead of throwing on `job.status` (which
+// the catch swallows, but the trailing setState still landed after the
+// test's await chain, producing act() warnings on paired suites).
+const mockGetGenerationJob = jest.fn().mockResolvedValue({
+  id: "g1", project_id: "p1", status: "running", total: 2, done: 0, failed_topic_ids: [], created_at: null,
+});
 const mockLatestGenerationJob = jest.fn().mockResolvedValue(null);
 jest.mock("@/api/trustClient", () => ({
   getTopicVersion: jest.fn(),
@@ -166,6 +173,11 @@ it("confirming submits generateBook with the resolved (keyless) key and stores t
   await waitFor(() => confirmBtn?.onPress?.());
 
   await waitFor(() => expect(mockGenerateBook).toHaveBeenCalledWith("p1", "tok", { apiKey: undefined }));
+  // Drain the poll effect's resulting setBookGenJob update inside an
+  // act-wrapped waitFor, rather than leaving it to resolve after the test
+  // returns (which is what produced the paired-suite act() warnings this
+  // fix round addresses — see the mockGetGenerationJob stub comment above).
+  expect(await screen.findByText(/Generating chapters/)).toBeTruthy();
 });
 
 it("confirming with a saved BYOK key passes it through to generateBook", async () => {
@@ -186,6 +198,9 @@ it("confirming with a saved BYOK key passes it through to generateBook", async (
   await waitFor(() => confirmBtn?.onPress?.());
 
   await waitFor(() => expect(mockGenerateBook).toHaveBeenCalledWith("p1", "tok", { apiKey: "sk-ant-abc" }));
+  // See the comment on the previous test — drains the poll effect's
+  // resulting state update inside an act-wrapped waitFor.
+  expect(await screen.findByText(/Generating chapters/)).toBeTruthy();
 });
 
 it("a Free plan with no saved key shows the 'add a key' error instead of submitting keyless", async () => {
