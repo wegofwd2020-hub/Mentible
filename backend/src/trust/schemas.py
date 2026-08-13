@@ -57,6 +57,9 @@ class ProjectSummaryOut(BaseModel):
     title: str
     status: str
     created_at: datetime | None
+    topic: str | None = None
+    audience: str | None = None
+    goal: str | None = None
 
 
 class ArtifactCreateIn(BaseModel):

@@ -438,6 +438,9 @@ async def list_owned_projects(
             title=p.title,
             status=p.status,
             created_at=p.created_at,
+            topic=p.topic,
+            audience=p.audience,
+            goal=p.goal,
         )
         for p in projects
     ]
