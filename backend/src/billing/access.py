@@ -26,9 +26,10 @@ import asyncpg
 import structlog
 
 from backend.config import settings
+from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, usage_repo
-from backend.src.billing.eligibility import is_managed_eligible
+from backend.src.billing.eligibility import is_managed_eligible, is_staff_allowlisted
 
 log = structlog.get_logger(__name__)
 
@@ -65,6 +66,26 @@ async def resolve_managed_access(
         return ManagedAccess(settings.managed_period_cost_cap_micros, window_start, "staff")
 
     return None
+
+
+async def is_pro(conn: asyncpg.Connection, *, account_id: UUID) -> bool:
+    """Pro = an active managed entitlement OR the staff allowlist — the single,
+    **provider-agnostic** gate for Free/Pro feature gating (T1 foundation; not the
+    per-provider `resolve_managed_access`, which needs a `provider_id` and a
+    configured managed key for that provider). An account with an active
+    entitlement for ANY provider, or one whose IdP sub/email is on the internal
+    managed-staff allowlist, is Pro regardless of which provider it actually uses.
+    """
+    now = datetime.now(UTC)
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account_id)
+    if ent is not None and ent.status == "active" and ent.period_start <= now < ent.period_end:
+        return True
+
+    account = await accounts_repo.get_account_by_id(conn, account_id=account_id)
+    if account is not None and is_staff_allowlisted(sub=account.idp_sub, email=account.email):
+        return True
+
+    return False
 
 
 async def over_cap(conn: asyncpg.Connection, *, account_id: UUID, access: ManagedAccess) -> bool:

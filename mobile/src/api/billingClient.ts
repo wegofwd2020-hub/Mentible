@@ -41,3 +41,37 @@ export async function getManagedStatus(token: string): Promise<ManagedStatus> {
   }
   return res.json() as Promise<ManagedStatus>;
 }
+
+export interface PlanCaps {
+  max_projects: number;
+  max_generations: number;
+  gen_window_days: number;
+}
+
+export interface PlanUsage {
+  projects: number;
+  generations: number;
+}
+
+// Free/Pro plan status (T1). Backs the client-side export Pro-wall (T3) — UX
+// only, the server (T2) is the real gate on export submission (402 when a
+// Free user hits it).
+export interface PlanStatus {
+  is_pro: boolean;
+  caps: PlanCaps;
+  usage: PlanUsage;
+  at_project_cap: boolean;
+  at_generation_cap: boolean;
+}
+
+/** The signed-in user's Free/Pro plan status + usage against caps. */
+export async function getPlanStatus(token: string): Promise<PlanStatus> {
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/billing/plan-status`, {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<PlanStatus>;
+}

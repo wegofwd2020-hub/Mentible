@@ -145,6 +145,11 @@ class Settings(BaseSettings):
     revenuecat_product_plan_map: str = Field(
         default="", description="comma-separated RevenueCat product_id:plan_id pairs"
     )
+    # Free/Pro gating caps (T1 foundation — no enforcement here, see quota.py). Free =
+    # not `is_pro`. Pro (an active entitlement or the staff allowlist) is never capped.
+    free_max_projects: int = Field(default=2, ge=0)
+    free_max_generations: int = Field(default=20, ge=0)
+    free_gen_window_days: int = Field(default=30, ge=1)
 
     # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
     # The account + per-provider credential-set DB. OPTIONAL, like identity: empty

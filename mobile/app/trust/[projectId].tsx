@@ -18,6 +18,7 @@ import { downloadArtifact } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
 import { getTopicVersion } from "@/api/trustClient";
 import type { ArtifactDetailView, DraftSection, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import type { PlanStatus } from "@/api/billingClient";
 import type { Book, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { nextStep } from "@/lib/nextStep";
@@ -29,6 +30,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Chip, Label } from "@/components/ui";
 import { GenerateProgressBar } from "@/components/GenerateProgressBar";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 
 type Styles = ReturnType<typeof makeStyles>;
 type ThemeShape = ReturnType<typeof useTheme>;
@@ -405,6 +407,7 @@ function StructurePanel({
   suggestElapsedMs,
   sourceLabel,
   inputsEmpty,
+  atGenerationCap,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -416,6 +419,11 @@ function StructurePanel({
   suggestElapsedMs: number;
   sourceLabel: (id: string) => string;
   inputsEmpty: boolean;
+  // Free-plan generation cap (T4) — UX only, fails open when the plan is
+  // unknown (see atGenerationCap's derivation in TrustProjectDetailInner).
+  // The server (T2) is the real gate; a 402 here still shows the upgrade
+  // Alert from onSuggest's catch.
+  atGenerationCap: boolean;
 }) {
   return (
     <View style={styles.structureBlock}>
@@ -431,12 +439,15 @@ function StructurePanel({
               label="Suggest from sources"
               onPress={onSuggest}
               busy={suggestBusy}
-              disabled={inputsEmpty}
+              disabled={inputsEmpty || atGenerationCap}
               accessibilityLabel="Suggest outline from sources"
             />
           </View>
           {suggestGen ? <GenerateProgressBar phase={suggestGen.phase} elapsedMs={suggestElapsedMs} /> : null}
           {inputsEmpty ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+          {!inputsEmpty && atGenerationCap ? (
+            <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
+          ) : null}
           <TopicTreeEditor toc={toc} onChange={onChangeToc} sourceLabel={sourceLabel} />
         </>
       ) : (
@@ -483,6 +494,7 @@ function DraftsPanel({
   onGenerateTopic,
   onOpenTopic,
   initialMode,
+  atGenerationCap,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -502,6 +514,10 @@ function DraftsPanel({
   onGenerateTopic: (topicId: string) => void;
   onOpenTopic: (versionId: string) => void;
   initialMode?: "whole" | "topic";
+  // Free-plan generation cap (T4) — UX only, fails open when the plan is
+  // unknown. The server (T2) is the real gate; a 402 here still shows the
+  // upgrade Alert from onGenerateFormat/onGenerateTopic's catch.
+  atGenerationCap: boolean;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">(initialMode ?? "whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
@@ -555,7 +571,7 @@ function DraftsPanel({
                             label={label}
                             onPress={() => onGenerateTopic(unit.id)}
                             busy={isBusy}
-                            disabled={isBusy}
+                            disabled={isBusy || atGenerationCap}
                             accessibilityLabel={`${label} ${unit.title}`}
                           />
                         ) : null}
@@ -569,6 +585,9 @@ function DraftsPanel({
                         ) : null}
                       </View>
                     </View>
+                    {isOwner && !isBusy && atGenerationCap ? (
+                      <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
+                    ) : null}
                     {prog ? <TopicRowProgress startedAt={prog.startedAt} phase={prog.phase} /> : null}
                   </View>
                 );
@@ -589,7 +608,7 @@ function DraftsPanel({
                 {DRAFT_FORMATS.map((f) => {
                   const prog = formatGen.get(f.format);
                   const busy = prog !== undefined;
-                  const disabled = busy || inputs.length === 0;
+                  const disabled = busy || inputs.length === 0 || atGenerationCap;
                   return (
                     <Pressable
                       key={f.format}
@@ -610,6 +629,9 @@ function DraftsPanel({
                 })}
               </View>
               {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
+              {inputs.length > 0 && atGenerationCap ? (
+                <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
+              ) : null}
             </View>
           ) : null}
           {artifacts.length === 0 ? (
@@ -984,6 +1006,8 @@ function PublishPanel({
   bookValidated,
   onPublishToLibrary,
   onPublishDownload,
+  onUpgrade,
+  plan,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -998,11 +1022,19 @@ function PublishPanel({
   bookValidated: boolean;
   onPublishToLibrary: () => void;
   onPublishDownload: (fmt: "epub" | "pdf") => void;
+  onUpgrade: () => void;
+  // Single source of truth (T4): fetched once in TrustProjectDetailInner and
+  // threaded down, rather than each panel calling useBillingPlan itself.
+  // Client-side UX only (T3) — the server (T2) is the real gate on export
+  // submission. plan:null means "unknown" (signed out, still loading, or the
+  // billing fetch failed) and must fail OPEN — never wall on a billing hiccup.
+  plan: PlanStatus | null;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">("whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
   const totalTopics = toc?.subjects.reduce((sum, s) => sum + s.units.length, 0) ?? 0;
   const validatedTopics = topicStatus.filter((s) => s.status === "validated").length;
+  const walled = plan != null && plan.is_pro === false;
 
   const publishable = artifacts
     .map(({ artifact, versions }) => {
@@ -1054,22 +1086,33 @@ function PublishPanel({
                   disabled={!bookValidated || pubBusy !== null}
                   accessibilityLabel="Add book to Library"
                 />
-                <Button
-                  variant="primary"
-                  label="Download EPUB"
-                  onPress={() => onPublishDownload("epub")}
-                  busy={pubBusy === "book:epub"}
-                  disabled={!bookValidated || pubBusy !== null}
-                  accessibilityLabel="Download book as EPUB"
-                />
-                <Button
-                  variant="primary"
-                  label="Download PDF"
-                  onPress={() => onPublishDownload("pdf")}
-                  busy={pubBusy === "book:pdf"}
-                  disabled={!bookValidated || pubBusy !== null}
-                  accessibilityLabel="Download book as PDF"
-                />
+                {walled ? (
+                  <Button
+                    variant="primary"
+                    label="Upgrade to Pro to download"
+                    onPress={onUpgrade}
+                    accessibilityLabel="Upgrade to Pro to download the book"
+                  />
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      label="Download EPUB"
+                      onPress={() => onPublishDownload("epub")}
+                      busy={pubBusy === "book:epub"}
+                      disabled={!bookValidated || pubBusy !== null}
+                      accessibilityLabel="Download book as EPUB"
+                    />
+                    <Button
+                      variant="primary"
+                      label="Download PDF"
+                      onPress={() => onPublishDownload("pdf")}
+                      busy={pubBusy === "book:pdf"}
+                      disabled={!bookValidated || pubBusy !== null}
+                      accessibilityLabel="Download book as PDF"
+                    />
+                  </>
+                )}
               </View>
               {!bookValidated ? (
                 <Text style={styles.emptyText}>Validate all topics first — {validatedTopics}/{totalTopics}</Text>
@@ -1104,22 +1147,33 @@ function PublishPanel({
                   disabled={pubBusy !== null}
                   accessibilityLabel={`Add ${title} to Library`}
                 />
-                <Button
-                  variant="primary"
-                  label="Download EPUB"
-                  onPress={() => onDownloadAsset(version.id, title, "epub")}
-                  busy={pubBusy === `${version.id}:epub`}
-                  disabled={pubBusy !== null}
-                  accessibilityLabel={`Download ${title} as EPUB`}
-                />
-                <Button
-                  variant="primary"
-                  label="Download PDF"
-                  onPress={() => onDownloadAsset(version.id, title, "pdf")}
-                  busy={pubBusy === `${version.id}:pdf`}
-                  disabled={pubBusy !== null}
-                  accessibilityLabel={`Download ${title} as PDF`}
-                />
+                {walled ? (
+                  <Button
+                    variant="primary"
+                    label="Upgrade to Pro to download"
+                    onPress={onUpgrade}
+                    accessibilityLabel={`Upgrade to Pro to download ${title}`}
+                  />
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      label="Download EPUB"
+                      onPress={() => onDownloadAsset(version.id, title, "epub")}
+                      busy={pubBusy === `${version.id}:epub`}
+                      disabled={pubBusy !== null}
+                      accessibilityLabel={`Download ${title} as EPUB`}
+                    />
+                    <Button
+                      variant="primary"
+                      label="Download PDF"
+                      onPress={() => onDownloadAsset(version.id, title, "pdf")}
+                      busy={pubBusy === `${version.id}:pdf`}
+                      disabled={pubBusy !== null}
+                      accessibilityLabel={`Download ${title} as PDF`}
+                    />
+                  </>
+                )}
               </View>
             ) : (
               <>
@@ -1160,6 +1214,13 @@ function TrustProjectDetailInner() {
   const styles = useThemedStyles(makeStyles);
   const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
+  // Free/Pro plan status (T1/T4) — fetched once here (single source of truth)
+  // and threaded down to Structure/Drafts (generation cap) and Publish
+  // (export wall, T3). Client-side UX only — the server (T2) is the real
+  // gate on every submit; plan:null (unknown — signed out, still loading, or
+  // a failed billing fetch) must fail OPEN and never disable anything.
+  const { plan } = useBillingPlan();
+  const atGenerationCap = plan != null && !plan.is_pro && plan.at_generation_cap;
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -1279,6 +1340,20 @@ function TrustProjectDetailInner() {
     }
   };
 
+  // Belt-and-suspenders (T4), mirroring onDownloadError below: the client-side
+  // generation-cap wall (atGenerationCap) is UX only — if a Free-over-cap
+  // request slips through anyway (stale/failed plan fetch, or a race with
+  // another generation), the server (T2) still 402s the submit. Surface that
+  // as an upgrade prompt distinct from a generic "Couldn't generate"/"Couldn't
+  // suggest" failure. Returns true when it handled the error.
+  const onGenerateCapError = (e: unknown): boolean => {
+    if (e instanceof ApiError && e.status === 402) {
+      Alert.alert("Upgrade to Pro", "You've reached the Free plan's generation limit. Upgrade to Pro to keep generating.");
+      return true;
+    }
+    return false;
+  };
+
   const onGenerateFormat = async (fmt: DraftFormat) => {
     setFormatGen((cur) => new Map(cur).set(fmt.format, { startedAt: Date.now(), phase: "queued" }));
     try {
@@ -1292,7 +1367,9 @@ function TrustProjectDetailInner() {
         }),
       });
     } catch (e) {
-      Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      if (!onGenerateCapError(e)) {
+        Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      }
     } finally {
       setFormatGen((cur) => {
         const next = new Map(cur);
@@ -1318,7 +1395,9 @@ function TrustProjectDetailInner() {
         }),
       });
     } catch (e) {
-      Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      if (!onGenerateCapError(e)) {
+        Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      }
     } finally {
       setTopicGen((cur) => {
         const next = new Map(cur);
@@ -1373,6 +1452,22 @@ function TrustProjectDetailInner() {
     })();
   };
 
+  // Belt-and-suspenders: the client-side plan-status wall (PublishPanel) is UX
+  // only — if a Free user's download slips through anyway (stale/failed plan
+  // fetch), the server (T2) still 402s the export submit. Surface that as an
+  // upgrade prompt, distinct from a generic download failure.
+  const onDownloadError = (e: unknown) => {
+    if (e instanceof ApiError && e.status === 402) {
+      Alert.alert("Upgrade to Pro", "Downloading EPUB/PDF is a Pro feature. Upgrade to Pro to download.");
+      return;
+    }
+    Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+  };
+
+  const onUpgrade = () => {
+    router.push("/usage");
+  };
+
   const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf") => {
     setPubBusy(`${versionId}:${fmt}`);
     void (async () => {
@@ -1382,7 +1477,7 @@ function TrustProjectDetailInner() {
         const res = await trackedExport(book, fmt, { diagrams: true });
         await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, fmt === "epub" ? "application/epub+zip" : "application/pdf");
       } catch (e) {
-        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+        onDownloadError(e);
       } finally {
         setPubBusy(null);
       }
@@ -1437,7 +1532,7 @@ function TrustProjectDetailInner() {
           fmt === "epub" ? "application/epub+zip" : "application/pdf",
         );
       } catch (e) {
-        Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
+        onDownloadError(e);
       } finally {
         setPubBusy(null);
       }
@@ -1486,7 +1581,9 @@ function TrustProjectDetailInner() {
         await suggestToc({ onPhase: (phase) => setSuggestGen((p) => (p ? { ...p, phase } : p)) }),
       );
     } catch (e) {
-      Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      if (!onGenerateCapError(e)) {
+        Alert.alert("Couldn't suggest", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+      }
       setSuggestBusy(false);
       return;
     } finally {
@@ -1622,6 +1719,7 @@ function TrustProjectDetailInner() {
             suggestElapsedMs={suggestElapsedMs}
             sourceLabel={sourceLabel}
             inputsEmpty={inputs.length === 0}
+            atGenerationCap={atGenerationCap}
           />
         ) : null}
         {active === "create" ? (
@@ -1644,6 +1742,7 @@ function TrustProjectDetailInner() {
             onGenerateTopic={onGenerateTopic}
             onOpenTopic={onOpenTopic}
             initialMode={desiredDraftMode}
+            atGenerationCap={atGenerationCap}
           />
         ) : null}
         {active === "validate" ? (
@@ -1684,6 +1783,8 @@ function TrustProjectDetailInner() {
             bookValidated={project.book_validated ?? false}
             onPublishToLibrary={onPublishToLibrary}
             onPublishDownload={onPublishDownload}
+            onUpgrade={onUpgrade}
+            plan={plan}
           />
         ) : null}
         <PhaseNav phaseKey={active} onSelect={setSelected} />

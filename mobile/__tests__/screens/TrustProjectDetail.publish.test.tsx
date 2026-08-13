@@ -4,6 +4,10 @@ import TrustProjectDetail from "@/../app/trust/[projectId]";
 
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: jest.fn() }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
+// plan:null (fail-open) — unrelated to this test's assertions; without this
+// mock PublishPanel's useBillingPlan() would call the real useAuth(), which
+// throws outside an AuthProvider.
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 const mockCopyText = jest.fn(async (_t: string) => {});
 jest.mock("@/lib/clipboard", () => ({ copyText: (t: string) => mockCopyText(t) }));

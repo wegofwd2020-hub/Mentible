@@ -5,6 +5,7 @@ import TrustProjectDetail from "@/../app/trust/[projectId]";
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 import { useTrustProject } from "@/hooks/useTrustProject";
 
 const base = {

@@ -159,6 +159,35 @@ class ManagedStatusView(BaseModel):
     window_start: datetime
 
 
+class PlanCapsView(BaseModel):
+    """Free-tier caps (T1 foundation, ADR-005/037). Not enforced here — the caps a
+    Free account is measured against; a Pro account is never at either cap."""
+
+    max_projects: int
+    max_generations: int
+    gen_window_days: int
+
+
+class PlanUsageView(BaseModel):
+    """The account's current usage against the Free caps."""
+
+    projects: int
+    generations: int
+
+
+class PlanStatusView(BaseModel):
+    """GET /api/v1/billing/plan-status — Free/Pro status for gating UI (T1
+    foundation). `is_pro` is provider-agnostic (`access.is_pro`): an active
+    entitlement for any provider, or the staff allowlist. `at_*_cap` is always
+    False for a Pro account."""
+
+    is_pro: bool
+    caps: PlanCapsView
+    usage: PlanUsageView
+    at_project_cap: bool
+    at_generation_cap: bool
+
+
 class CredentialUpsert(BaseModel):
     source: str  # validated against CREDENTIAL_SOURCES in the route
     status: str = "unverified"
