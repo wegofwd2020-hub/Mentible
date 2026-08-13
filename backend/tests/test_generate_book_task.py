@@ -199,6 +199,41 @@ async def test_missing_only_generates_the_missing_topics(conn, fake_redis):
     assert topic_ids == {"u1", "u2", "u3"}  # u1's pre-seeded version + the 2 new ones
 
 
+async def test_worker_rewrites_total_from_its_own_missing(conn, fake_redis):
+    # F3 (fix round, final review): `total` is frozen at submit time
+    # (len(missing) as of the submit request); if the TOC changed before the
+    # worker picked the job up, the worker's own `missing` can differ from
+    # that stale snapshot, skewing done/total ("9/8", or a complete job
+    # reading unfinished). `_run_book` must re-write `total` from its own
+    # `missing` right after flipping status to "running" — simulate a
+    # submit-time total (1) that undercounts what the worker actually finds
+    # missing (2: u2, u3) and assert the persisted `total` reflects the
+    # worker's real count, with `done == total` on a clean run.
+    pid, _source_ids = await _project_with_toc(conn)  # u1 has a version; u2, u3 missing
+    job_id = await _make_job(conn, project_id=pid, total=1)
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.tasks.generate_topic_draft",
+        side_effect=lambda **kw: _draft(kw["topic_title"]),
+    ) as mock_gen:
+        await trust_tasks._run_book(
+            job_id=job_id,
+            project_id=pid,
+            provider_id="anthropic",
+            model="m",
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert mock_gen.call_count == 2
+
+    job = await generation_job_repo.get(conn, job_id=job_id)
+    assert job.total == 2  # the worker's own missing count, not the stale submit-time 1
+    assert job.done == job.total
+    assert job.status == "done"
+
+
 # ── 2. Continue-on-fail ───────────────────────────────────────────────────────
 
 

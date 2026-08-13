@@ -589,6 +589,13 @@ function DraftsPanel({
   const [mode, setMode] = useState<"whole" | "topic">(initialMode ?? "whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
   const statusByTopic = new Map(topicStatus.map((s) => [s.topic_id, s]));
+  // A book-generation job already in flight (queued/running) — distinct from
+  // bookGenBusy (the local estimate/submit flag, reset in onGenerateBook's
+  // `finally` well before the durable job finishes). Without this, the button
+  // re-enables the moment the confirm dialog's submit resolves, letting the
+  // owner launch a SECOND concurrent book job that re-generates every topic
+  // the first hasn't reached yet.
+  const bookGenActive = bookGenJob?.status === "queued" || bookGenJob?.status === "running";
 
   return (
     <View style={styles.artifactsWrap}>
@@ -712,7 +719,7 @@ function DraftsPanel({
                 label="Generate full book"
                 onPress={onGenerateBook}
                 busy={bookGenBusy}
-                disabled={bookGenBusy || atGenerationCap}
+                disabled={bookGenBusy || atGenerationCap || bookGenActive}
                 accessibilityLabel="Generate full book"
               />
               {atGenerationCap ? (
@@ -1633,7 +1640,11 @@ function TrustProjectDetailInner() {
   // Key resolution mirrors generateFormat/generateTopic/suggestToc in
   // useTrustProject.ts exactly: loadApiKey, then the knownNotPro guard, then
   // apiKey: key ?? undefined so a Pro/unknown-plan user with no saved key still
-  // goes keyless (managed) rather than being blocked client-side.
+  // goes keyless (managed) rather than being blocked client-side. The key is
+  // resolved BEFORE the confirm message is built (not just before submit) —
+  // the est_cost_micros_max `$` figure comes from OUR managed-plan pricing
+  // table, which is meaningless (and misleading) for a BYOK submitter paying
+  // their own vendor rate; a saved key gets a tokens-only message instead.
   const onGenerateBook = async () => {
     if (!accessToken) return;
     setBookGenBusy(true);
@@ -1646,12 +1657,17 @@ function TrustProjectDetailInner() {
       return;
     }
 
-    const dollars = (est.est_cost_micros_max / 1e6).toFixed(2);
-    const lines = [
-      `Generate ${est.missing_topics} topic${est.missing_topics === 1 ? "" : "s"} — up to ~${est.est_output_tokens_max} tokens (~$${dollars} on your managed plan).`,
-    ];
-    if (est.would_exceed) {
-      lines.push("This would exceed your remaining plan allowance.");
+    const key = await loadApiKey("anthropic");
+    const topicsWord = `${est.missing_topics} topic${est.missing_topics === 1 ? "" : "s"}`;
+    const lines: string[] = [];
+    if (key) {
+      lines.push(`Generate ${topicsWord} — up to ~${est.est_output_tokens_max} tokens.`);
+    } else {
+      const dollars = (est.est_cost_micros_max / 1e6).toFixed(2);
+      lines.push(`Generate ${topicsWord} — up to ~${est.est_output_tokens_max} tokens (~$${dollars} on your managed plan).`);
+      if (est.would_exceed) {
+        lines.push("This would exceed your remaining plan allowance.");
+      }
     }
     lines.push("Proceed?");
 
@@ -1662,7 +1678,6 @@ function TrustProjectDetailInner() {
         onPress: () => {
           void (async () => {
             try {
-              const key = await loadApiKey("anthropic");
               if (!key && knownNotPro) {
                 throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
               }

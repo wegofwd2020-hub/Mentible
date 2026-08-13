@@ -39,7 +39,7 @@ async def get(conn, *, job_id) -> GenerationJob | None:
 
 
 async def update_progress(
-    conn, *, job_id, done=None, status=None, add_failed_topic_id=None
+    conn, *, job_id, done=None, status=None, total=None, add_failed_topic_id=None
 ) -> None:
     sets = ["updated_at = now()"]
     args: list = []
@@ -50,6 +50,9 @@ async def update_progress(
     if status is not None:
         args.append(status)
         sets.append(f"status = ${len(args)}")
+    if total is not None:
+        args.append(total)
+        sets.append(f"total = ${len(args)}")
     if add_failed_topic_id is not None:
         args.append(add_failed_topic_id)
         sets.append(f"failed_topic_ids = array_append(failed_topic_ids, ${len(args)})")

@@ -104,6 +104,7 @@ const openDrafts = async () => {
   fireEvent.press(await screen.findByLabelText(/Drafts:/));
 };
 
+const queuedJob = { id: "g1", project_id: "p1", status: "queued", total: 2, done: 0, failed_topic_ids: [], created_at: null };
 const runningJob = { id: "g1", project_id: "p1", status: "running", total: 2, done: 1, failed_topic_ids: [], created_at: null };
 const doneJob = { id: "g1", project_id: "p1", status: "done", total: 2, done: 2, failed_topic_ids: ["t2"], created_at: null };
 const failedJob = { id: "g1", project_id: "p1", status: "failed", total: 2, done: 0, failed_topic_ids: [], created_at: null };
@@ -190,4 +191,43 @@ it("fails open on a latest-job fetch rejection — no surface, screen intact", a
   expect(screen.queryByText(/Generating chapters/)).toBeNull();
   expect(screen.queryByText(/Book generated/)).toBeNull();
   expect(await screen.findByLabelText("Generate full book")).toBeTruthy();
+});
+
+// Fix round (final review, Finding F1): the button previously re-enabled the
+// instant onGenerateBook's local bookGenBusy flag cleared (its `finally`),
+// well before the durable generation_job finishes — letting the owner launch
+// a second concurrent book job that re-generates every topic the first
+// hasn't reached yet. It must also stay disabled off the on-focus
+// latest-job surface (a fresh mount / navigate-back-mid-run with no active
+// local poll), not just the active local poll.
+it("disables Generate full book while a job is queued or running, and a press does nothing", async () => {
+  mockLatestGenerationJob.mockResolvedValue(runningJob);
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  await openDrafts();
+
+  const btn = await screen.findByLabelText("Generate full book");
+  expect(btn.props.accessibilityState?.disabled).toBe(true);
+
+  fireEvent.press(btn);
+  expect(mockEstimateBook).not.toHaveBeenCalled();
+  expect(mockGenerateBook).not.toHaveBeenCalled();
+  expect(mockAlert).not.toHaveBeenCalled();
+});
+
+it("also disables Generate full book while a job is queued (Starting…)", async () => {
+  mockLatestGenerationJob.mockResolvedValue(queuedJob);
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  await openDrafts();
+
+  const btn = await screen.findByLabelText("Generate full book");
+  expect(btn.props.accessibilityState?.disabled).toBe(true);
+});
+
+it("re-enables Generate full book once the job reaches a terminal status (done)", async () => {
+  mockLatestGenerationJob.mockResolvedValue(doneJob);
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  await openDrafts();
+
+  const btn = await screen.findByLabelText("Generate full book");
+  expect(btn.props.accessibilityState?.disabled).toBe(false);
 });

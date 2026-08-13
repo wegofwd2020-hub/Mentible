@@ -53,6 +53,24 @@ async def test_update_progress_done_and_status(conn):
     assert got.status == "running"
 
 
+async def test_update_progress_total_rewrite(conn):
+    # F3 (fix round, final review): `total` is frozen at submit time
+    # (len(missing) as of the submit request); if the TOC changed before the
+    # worker picked the job up, the worker's own `missing` count can differ
+    # from that snapshot, skewing done/total. `_run_book` re-writes `total`
+    # from its own `missing` right after it flips status to "running" — this
+    # asserts the repo primitive that write relies on sets `total` in the
+    # dynamic SET, the same pattern as `done`/`status`.
+    project_id = await _project(conn)
+    job = await generation_job_repo.create(
+        conn, project_id=project_id, total=3, created_by_sub="op"
+    )
+    await generation_job_repo.update_progress(conn, job_id=job.id, status="running", total=8)
+    got = await generation_job_repo.get(conn, job_id=job.id)
+    assert got.total == 8
+    assert got.status == "running"
+
+
 async def test_update_progress_add_failed_topic_id_appends(conn):
     project_id = await _project(conn)
     job = await generation_job_repo.create(

@@ -140,6 +140,10 @@ hand-clicked per-topic generate.
   BYOK). The estimate + `would_exceed` warning is the soft, pre-run signal.
 - BYOK fan-out: no ceiling (their key), no estimate cost in $ (tokens only).
 - Idempotent-ish: generate-missing means a re-run only fills gaps; approved topics are never touched.
+- **Durability caveat (fix round, final review, F2):** BYOK book jobs are durable only within the BYOK
+  envelope TTL (`byok_redis_ttl_seconds`, ≤600s) — a job redelivered after worker loss past that TTL fails
+  (`envelope_missing`) and the owner must re-submit, which generate-missing then resumes cleanly. **Managed**
+  jobs are fully durable (the vault key, not a per-job Redis envelope, so there's nothing to expire).
 
 ## Testing
 

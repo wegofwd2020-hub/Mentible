@@ -203,6 +203,51 @@ it("confirming with a saved BYOK key passes it through to generateBook", async (
   expect(await screen.findByText(/Generating chapters/)).toBeTruthy();
 });
 
+// Fix round (final review, Finding F4): the confirm dialog used to always
+// hardcode a "~$X on your managed plan" line, even for a submitter with a
+// saved BYOK key — the `$` figure comes from OUR managed-plan pricing table,
+// not the user's own vendor rate, so it's misleading for BYOK. The key is
+// now resolved before the message is built: a saved key gets a tokens-only
+// message; no key keeps the managed-plan `$` line (+ would_exceed warning).
+it("BYOK (saved key): the confirm message shows tokens only, no $ and no 'managed plan'", async () => {
+  mockEstimateBook.mockResolvedValue({
+    missing_topics: 2, est_input_tokens: 500, est_output_tokens_max: 16384,
+    est_cost_micros_max: 450000, remaining_micros: null, would_exceed: true,
+  });
+  (loadApiKey as jest.Mock).mockResolvedValue("sk-ant-abc");
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Generate full book"));
+
+  await waitFor(() => expect(mockAlert).toHaveBeenCalled());
+  const [, message] = mockAlert.mock.calls[0] as [string, string];
+  expect(message).toContain("2");
+  expect(message).toContain("16384");
+  expect(message).not.toContain("$");
+  expect(message).not.toMatch(/managed plan/i);
+  // would_exceed is a managed-plan allowance warning — irrelevant to BYOK,
+  // so it must not leak into the BYOK message either.
+  expect(message).not.toMatch(/exceed/i);
+});
+
+it("no saved key (managed): the confirm message keeps the $ figure and 'managed plan'", async () => {
+  mockEstimateBook.mockResolvedValue({
+    missing_topics: 2, est_input_tokens: 500, est_output_tokens_max: 16384,
+    est_cost_micros_max: 450000, remaining_micros: 1000000, would_exceed: false,
+  });
+  (loadApiKey as jest.Mock).mockResolvedValue(null);
+  (useTrustProject as jest.Mock).mockReturnValue(base());
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText(/Drafts:/));
+  fireEvent.press(await screen.findByLabelText("Generate full book"));
+
+  await waitFor(() => expect(mockAlert).toHaveBeenCalled());
+  const [, message] = mockAlert.mock.calls[0] as [string, string];
+  expect(message).toContain("$0.45");
+  expect(message).toMatch(/managed plan/i);
+});
+
 it("a Free plan with no saved key shows the 'add a key' error instead of submitting keyless", async () => {
   mockPlan = { is_pro: false, at_generation_cap: false };
   mockEstimateBook.mockResolvedValue({

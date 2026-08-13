@@ -851,7 +851,15 @@ async def _run_book(
         inputs_by_id = {str(i.id): i for i in all_inputs}
         resolved_model = model or settings.anthropic_default_model
 
-        await generation_job_repo.update_progress(conn, job_id=job_id, status="running")
+        # `total` was frozen at submit time (`len(missing)` as of the submit
+        # request); if the TOC changed before this worker picked the job up,
+        # that snapshot can drift from what THIS run actually attempts,
+        # skewing done/total ("9/8", or a complete job reading unfinished).
+        # Re-write it here from the `missing` just computed above so it always
+        # reflects this run's real attempt count.
+        await generation_job_repo.update_progress(
+            conn, job_id=job_id, status="running", total=len(missing)
+        )
 
         account_id = None
         if managed:
