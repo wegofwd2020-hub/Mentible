@@ -9,7 +9,7 @@ const POLL_INTERVAL_MS = 3_000;
 
 export interface RunSuggestTocArgs {
   projectId: string;
-  apiKey: string;
+  apiKey?: string;
   accessToken: string;
   providerId?: string;
   // Called on each poll tick with the job's current status, for callers

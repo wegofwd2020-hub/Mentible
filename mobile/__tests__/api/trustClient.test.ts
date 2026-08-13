@@ -1,4 +1,4 @@
-import { syncSession, getProject, approveVersion, withdrawApproval, addFeedback } from "@/api/trustClient";
+import { syncSession, getProject, approveVersion, withdrawApproval, addFeedback, suggestToc, generateVersion, generateTopic } from "@/api/trustClient";
 
 const okJson = (body: unknown) =>
   Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
@@ -53,4 +53,69 @@ it("throws ApiError on a non-ok response", async () => {
   jest.spyOn(global, "fetch").mockImplementation(() =>
     Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve("no access") } as Response));
   await expect(getProject("p1", "tok")).rejects.toMatchObject({ status: 403 });
+});
+
+describe("keyless generation", () => {
+  it("suggestToc without api_key omits it from the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    await suggestToc("p1", { provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ provider_id: "anthropic" });
+    expect(body).not.toHaveProperty("api_key");
+  });
+
+  it("suggestToc with api_key includes it in the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    const apiKey = "sk-ant-" + "x".repeat(20);
+    await suggestToc("p1", { api_key: apiKey, provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ api_key: apiKey, provider_id: "anthropic" });
+    expect(body).toHaveProperty("api_key", apiKey);
+  });
+
+  it("generateVersion without api_key omits it from the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    await generateVersion("a1", { provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ provider_id: "anthropic" });
+    expect(body).not.toHaveProperty("api_key");
+  });
+
+  it("generateVersion with api_key includes it in the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    const apiKey = "sk-ant-" + "x".repeat(20);
+    await generateVersion("a1", { api_key: apiKey, provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ api_key: apiKey, provider_id: "anthropic" });
+    expect(body).toHaveProperty("api_key", apiKey);
+  });
+
+  it("generateTopic without api_key omits it from the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    await generateTopic("p1", "t1", { provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ provider_id: "anthropic" });
+    expect(body).not.toHaveProperty("api_key");
+  });
+
+  it("generateTopic with api_key includes it in the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", status: "queued" }));
+    const apiKey = "sk-ant-" + "x".repeat(20);
+    await generateTopic("p1", "t1", { api_key: apiKey, provider_id: "anthropic" }, "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ api_key: apiKey, provider_id: "anthropic" });
+    expect(body).toHaveProperty("api_key", apiKey);
+  });
 });

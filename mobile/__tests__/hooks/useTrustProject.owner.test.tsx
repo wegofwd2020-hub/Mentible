@@ -4,6 +4,7 @@ import { Text, Pressable } from "react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
 jest.mock("@/api/trustClient", () => ({ getProject: jest.fn(), approveVersion: jest.fn(), createArtifact: jest.fn(), createVersion: jest.fn(), invite: jest.fn() }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: { is_pro: false }, loading: false }) }));
 import * as tc from "@/api/trustClient";
 function Probe() {
   const { addArtifact, invite } = useTrustProject("p1");

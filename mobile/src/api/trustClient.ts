@@ -163,7 +163,7 @@ export interface VersionGenerateJobOut { job_id: string; status: string }
 export interface GenerateVersionJobResult { version_id: string; artifact_id: string; version_no: number }
 
 export async function generateVersion(
-  artifactId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
+  artifactId: string, body: { api_key?: string; provider_id?: string; model?: string; guidance?: string }, token: string,
 ): Promise<VersionGenerateJobOut> {
   return (await trustFetch<VersionGenerateJobOut>(
     `/artifacts/${artifactId}/versions/generate`, token, { method: "POST", body: JSON.stringify(body) },
@@ -203,7 +203,7 @@ export interface TocSuggestJobOut { job_id: string; status: string }
 export interface SuggestTocJobResult { toc: StructuredTocView }
 
 export async function suggestToc(
-  projectId: string, body: { api_key: string; provider_id?: string }, token: string,
+  projectId: string, body: { api_key?: string; provider_id?: string }, token: string,
 ): Promise<TocSuggestJobOut> {
   return (await trustFetch<TocSuggestJobOut>(
     `/projects/${projectId}/suggest-toc`, token, { method: "POST", body: JSON.stringify(body) },
@@ -220,7 +220,7 @@ export async function saveToc(projectId: string, toc: StructuredTocView, token: 
 // `done`/`failed` result. Callers wanting a single submit-then-poll promise
 // should use `useGenerateTopicJob` rather than polling this directly.
 export async function generateTopic(
-  projectId: string, topicId: string, body: { api_key: string; provider_id?: string; model?: string; guidance?: string }, token: string,
+  projectId: string, topicId: string, body: { api_key?: string; provider_id?: string; model?: string; guidance?: string }, token: string,
 ): Promise<TopicGenerateJobOut> {
   return (await trustFetch<TopicGenerateJobOut>(
     `/projects/${projectId}/topics/${topicId}/generate`, token, { method: "POST", body: JSON.stringify(body) },
