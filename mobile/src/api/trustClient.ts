@@ -283,3 +283,67 @@ export interface ProjectFeedbackItem {
 export async function listProjectFeedback(projectId: string, token: string): Promise<ProjectFeedbackItem[]> {
   return (await trustFetch<ProjectFeedbackItem[]>(`/projects/${projectId}/feedback`, token)) as ProjectFeedbackItem[];
 }
+
+// Whole-book generate fan-out (ADR-037 book generation, T4/T5): unlike the
+// other generate submits, progress lives in a durable Postgres
+// `generation_job` row (not the ephemeral Redis job status), since the run
+// is a sequential fan-out over every still-missing TOC topic and can span
+// well past a single request's lifetime. `estimateBook` is a read-only
+// pre-run token/cost estimate the mobile client shows in a confirm before
+// `generateBook` submits the fan-out; `getGenerationJob`/
+// `latestGenerationJob` poll that row's progress (`done`/`total`,
+// `failed_topic_ids`) once submitted.
+export interface BookEstimate {
+  missing_topics: number;
+  est_input_tokens: number;
+  est_output_tokens_max: number;
+  est_cost_micros_max: number;
+  // Caller's remaining headroom against its managed allowance/ceiling — null
+  // when the caller has no managed grant (BYOK, or not managed-eligible at
+  // all), since there's no cap to measure against.
+  remaining_micros: number | null;
+  // Only ever true when remaining_micros is not null.
+  would_exceed: boolean;
+}
+export interface GenerateBookJobOut { job_id: string; total: number }
+export interface GenerationJob {
+  id: string;
+  project_id: string;
+  status: string;
+  total: number;
+  done: number;
+  failed_topic_ids: string[];
+  created_at: string | null;
+}
+
+export async function estimateBook(projectId: string, token: string): Promise<BookEstimate> {
+  return (await trustFetch<BookEstimate>(
+    `/projects/${projectId}/generate-book/estimate`, token, { method: "GET" },
+  )) as BookEstimate;
+}
+
+// Keyless-aware like generateVersion/generateTopic/suggestToc, but with a
+// camelCase `apiKey` options object (rather than forwarding a snake_case
+// body) since this is the only trust client method Task 5 introduces
+// alongside its call site — an omitted/undefined apiKey omits `api_key`
+// from the POST body entirely (never sends `""`), which is what the
+// backend's `GenerateBookIn` (api_key: str | None = None ⇒ managed) expects.
+export async function generateBook(
+  projectId: string, token: string, opts?: { apiKey?: string },
+): Promise<GenerateBookJobOut> {
+  const body: { api_key?: string } = {};
+  if (opts?.apiKey) body.api_key = opts.apiKey;
+  return (await trustFetch<GenerateBookJobOut>(
+    `/projects/${projectId}/generate-book`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as GenerateBookJobOut;
+}
+
+export async function getGenerationJob(jobId: string, token: string): Promise<GenerationJob> {
+  return (await trustFetch<GenerationJob>(`/generation-jobs/${jobId}`, token, { method: "GET" })) as GenerationJob;
+}
+
+export async function latestGenerationJob(projectId: string, token: string): Promise<GenerationJob | null> {
+  return (await trustFetch<GenerationJob>(
+    `/projects/${projectId}/generation-jobs/latest`, token, { method: "GET" },
+  )) as GenerationJob | null;
+}

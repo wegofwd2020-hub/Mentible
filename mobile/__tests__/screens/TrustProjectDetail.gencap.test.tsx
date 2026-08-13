@@ -99,7 +99,10 @@ it("Free plan at the generation cap — whole-book Start-a-new-draft is disabled
 
   const btn = await screen.findByLabelText("Start a new LinkedIn post draft");
   expect(btn.props.accessibilityState?.disabled).toBe(true);
-  expect(screen.getByText("Free limit reached — upgrade to Pro")).toBeTruthy();
+  // Two hints now render in this view: the "Start a new draft" grid AND the
+  // (Task 5) "Generate full book" block below it, both gated on the same
+  // atGenerationCap.
+  expect(screen.getAllByText("Free limit reached — upgrade to Pro").length).toBeGreaterThan(0);
 });
 
 it("Pro plan — whole-book Start-a-new-draft stays enabled even if at_generation_cap is somehow set", async () => {

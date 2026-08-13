@@ -1,4 +1,4 @@
-import { syncSession, getProject, approveVersion, withdrawApproval, addFeedback, suggestToc, generateVersion, generateTopic } from "@/api/trustClient";
+import { syncSession, getProject, approveVersion, withdrawApproval, addFeedback, suggestToc, generateVersion, generateTopic, estimateBook, generateBook, getGenerationJob, latestGenerationJob } from "@/api/trustClient";
 
 const okJson = (body: unknown) =>
   Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
@@ -117,5 +117,79 @@ describe("keyless generation", () => {
     const body = JSON.parse(init.body as string);
     expect(body).toEqual({ api_key: apiKey, provider_id: "anthropic" });
     expect(body).toHaveProperty("api_key", apiKey);
+  });
+
+  it("generateBook without apiKey omits api_key from the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", total: 3 }));
+    await generateBook("p1", "tok");
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({});
+    expect(body).not.toHaveProperty("api_key");
+  });
+
+  it("generateBook with apiKey includes api_key in the POST body", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", total: 3 }));
+    const apiKey = "sk-ant-" + "x".repeat(20);
+    await generateBook("p1", "tok", { apiKey });
+    const [, init] = spy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ api_key: apiKey });
+  });
+});
+
+describe("generate-book estimate + job status", () => {
+  it("estimateBook GETs the estimate endpoint and returns the estimate", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({
+        missing_topics: 3, est_input_tokens: 1200, est_output_tokens_max: 24576,
+        est_cost_micros_max: 450000, remaining_micros: 100000, would_exceed: true,
+      }));
+    const out = await estimateBook("p1", "tok");
+    expect(out).toEqual({
+      missing_topics: 3, est_input_tokens: 1200, est_output_tokens_max: 24576,
+      est_cost_micros_max: 450000, remaining_micros: 100000, would_exceed: true,
+    });
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain("/api/v1/trust/projects/p1/generate-book/estimate");
+    expect(init.method).toBe("GET");
+  });
+
+  it("generateBook POSTs to the generate-book endpoint and returns the job handle", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ job_id: "j1", total: 3 }));
+    const out = await generateBook("p1", "tok");
+    expect(out).toEqual({ job_id: "j1", total: 3 });
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain("/api/v1/trust/projects/p1/generate-book");
+    expect(init.method).toBe("POST");
+  });
+
+  it("getGenerationJob GETs the generation-jobs endpoint", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ id: "j1", project_id: "p1", status: "running", total: 3, done: 1, failed_topic_ids: [], created_at: null }));
+    const out = await getGenerationJob("j1", "tok");
+    expect(out.status).toBe("running");
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain("/api/v1/trust/generation-jobs/j1");
+    expect(init.method).toBe("GET");
+  });
+
+  it("latestGenerationJob GETs the project's latest generation job", async () => {
+    const spy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      okJson({ id: "j1", project_id: "p1", status: "done", total: 3, done: 3, failed_topic_ids: [], created_at: null }));
+    const out = await latestGenerationJob("p1", "tok");
+    expect(out?.id).toBe("j1");
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain("/api/v1/trust/projects/p1/generation-jobs/latest");
+    expect(init.method).toBe("GET");
+  });
+
+  it("latestGenerationJob returns null when the project has no generation job yet", async () => {
+    jest.spyOn(global, "fetch").mockImplementation(() => okJson(null));
+    const out = await latestGenerationJob("p1", "tok");
+    expect(out).toBeNull();
   });
 });

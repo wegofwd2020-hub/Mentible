@@ -16,8 +16,9 @@ import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
-import { getTopicVersion, listProjectFeedback } from "@/api/trustClient";
+import { estimateBook, generateBook, getTopicVersion, listProjectFeedback } from "@/api/trustClient";
 import type { ArtifactDetailView, DraftSection, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import { loadApiKey } from "@/secure/keyStore";
 import type { PlanStatus } from "@/api/billingClient";
 import type { Book, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
@@ -503,6 +504,8 @@ function DraftsPanel({
   onOpenTopic,
   initialMode,
   atGenerationCap,
+  onGenerateBook,
+  bookGenBusy,
 }: {
   styles: Styles;
   isOwner: boolean;
@@ -526,6 +529,11 @@ function DraftsPanel({
   // unknown. The server (T2) is the real gate; a 402 here still shows the
   // upgrade Alert from onGenerateFormat/onGenerateTopic's catch.
   atGenerationCap: boolean;
+  // Whole-book generate fan-out (ADR-037 book generation, T5) — the pre-run
+  // estimate/confirm and submit both live in the parent (TrustProjectDetailInner);
+  // this panel only renders the button + busy state.
+  onGenerateBook: () => void;
+  bookGenBusy: boolean;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">(initialMode ?? "whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
@@ -638,6 +646,25 @@ function DraftsPanel({
               </View>
               {inputs.length === 0 ? <Text style={styles.emptyText}>Add a source first</Text> : null}
               {inputs.length > 0 && atGenerationCap ? (
+                <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
+              ) : null}
+            </View>
+          ) : null}
+          {isOwner && hasToc ? (
+            <View style={styles.genBlock}>
+              <Text style={styles.artifactTitle}>Generate the whole book</Text>
+              <Text style={styles.genHint}>
+                Generates every topic in the outline that doesn't have a draft yet, one after another.
+              </Text>
+              <Button
+                variant="primary"
+                label="Generate full book"
+                onPress={onGenerateBook}
+                busy={bookGenBusy}
+                disabled={bookGenBusy || atGenerationCap}
+                accessibilityLabel="Generate full book"
+              />
+              {atGenerationCap ? (
                 <Text style={styles.emptyText}>Free limit reached — upgrade to Pro</Text>
               ) : null}
             </View>
@@ -1250,6 +1277,12 @@ function TrustProjectDetailInner() {
   // a failed billing fetch) must fail OPEN and never disable anything.
   const { plan } = useBillingPlan();
   const atGenerationCap = plan != null && !plan.is_pro && plan.at_generation_cap;
+  // Same "fail open unless we KNOW the user is Free" guard useTrustProject's
+  // other generators apply before going keyless (managed) — see
+  // src/hooks/useTrustProject.ts. Computed locally here since the
+  // Generate-full-book flow calls the trustClient methods directly (not
+  // through useTrustProject) so Task 6's polling can own the job lifecycle.
+  const knownNotPro = plan != null && plan.is_pro === false;
   const [inviteEmail, setInviteEmail] = useState("");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -1267,6 +1300,13 @@ function TrustProjectDetailInner() {
   // Per-id busy gates each row independently; the value also carries the
   // startedAt/phase the per-row progress bar renders.
   const [topicGen, setTopicGen] = useState<ReadonlyMap<string, GenProgress>>(new Map());
+  // Whole-book generate fan-out (ADR-037 book generation, T5): bookGenBusy
+  // covers the estimate fetch AND the submit (there's no per-topic progress
+  // to show here — Task 6 polls the durable generation_job row via the
+  // job_id this stores and renders progress from that, not from this
+  // button). Seam for Task 6: read/poll bookGenJobId.
+  const [bookGenBusy, setBookGenBusy] = useState(false);
+  const [bookGenJobId, setBookGenJobId] = useState<string | null>(null);
   const [sourceKind, setSourceKind] = useState<"transcript" | "note" | "link">("note");
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
@@ -1469,6 +1509,62 @@ function TrustProjectDetailInner() {
 
   const onOpenTopic = (versionId: string) =>
     router.push(`/trust/topic-version/${versionId}?projectId=${projectId}`);
+
+  // Whole-book generate fan-out (ADR-037 book generation, T5): a pre-run
+  // estimate/confirm, then submit. Calls trustClient's estimateBook/generateBook
+  // directly (not through useTrustProject — this is the only trust generator
+  // whose progress lives in the durable generation_job row rather than the
+  // ephemeral Redis job status the other generators poll via useGenerate*Job).
+  // Key resolution mirrors generateFormat/generateTopic/suggestToc in
+  // useTrustProject.ts exactly: loadApiKey, then the knownNotPro guard, then
+  // apiKey: key ?? undefined so a Pro/unknown-plan user with no saved key still
+  // goes keyless (managed) rather than being blocked client-side.
+  const onGenerateBook = async () => {
+    if (!accessToken) return;
+    setBookGenBusy(true);
+    let est;
+    try {
+      est = await estimateBook(String(projectId), accessToken);
+    } catch (e) {
+      Alert.alert("Couldn't estimate", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      setBookGenBusy(false);
+      return;
+    }
+
+    const dollars = (est.est_cost_micros_max / 1e6).toFixed(2);
+    const lines = [
+      `Generate ${est.missing_topics} topic${est.missing_topics === 1 ? "" : "s"} — up to ~${est.est_output_tokens_max} tokens (~$${dollars} on your managed plan).`,
+    ];
+    if (est.would_exceed) {
+      lines.push("This would exceed your remaining plan allowance.");
+    }
+    lines.push("Proceed?");
+
+    Alert.alert("Generate full book?", lines.join("\n\n"), [
+      { text: "Cancel", style: "cancel", onPress: () => setBookGenBusy(false) },
+      {
+        text: "Generate",
+        onPress: () => {
+          void (async () => {
+            try {
+              const key = await loadApiKey("anthropic");
+              if (!key && knownNotPro) {
+                throw new Error("No API key saved. Add an Anthropic key in Settings to generate a draft.");
+              }
+              const job = await generateBook(String(projectId), accessToken, { apiKey: key ?? undefined });
+              setBookGenJobId(job.job_id);
+            } catch (e) {
+              if (!onGenerateCapError(e)) {
+                Alert.alert("Couldn't generate", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Try again.");
+              }
+            } finally {
+              setBookGenBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
 
   const onCompare = (artifactId: string) => {
     if (compareSel.length !== 2) return;
@@ -1803,6 +1899,8 @@ function TrustProjectDetailInner() {
             onOpenTopic={onOpenTopic}
             initialMode={desiredDraftMode}
             atGenerationCap={atGenerationCap}
+            onGenerateBook={onGenerateBook}
+            bookGenBusy={bookGenBusy}
           />
         ) : null}
         {active === "validate" ? (
