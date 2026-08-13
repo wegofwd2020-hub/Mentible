@@ -14,8 +14,7 @@ from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing import quota
-from ..billing.access import is_pro
-from ..billing.eligibility import is_managed_eligible
+from ..billing.access import is_pro, over_cap, resolve_managed_access
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
 from ..core.rate_limit import enforce_rate_limit
@@ -364,9 +363,21 @@ async def generate_version(
     # worker, not here.
     managed = body.api_key is None
     if managed:
-        if not is_managed_eligible(principal, body.provider_id):
+        # Entitlement-aware managed gate (mirror generate/router.py): a plan
+        # entitlement OR the staff allowlist, then the allowance/ceiling cap —
+        # so a console-granted plan enables keyless generation here too, and the
+        # spend ceiling binds on this surface. `account` is resolved just above.
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
             )
     model = body.model or settings.anthropic_default_model
 
@@ -587,9 +598,21 @@ async def suggest_project_toc(
     # worker, not here.
     managed = body.api_key is None
     if managed:
-        if not is_managed_eligible(principal, body.provider_id):
+        # Entitlement-aware managed gate (mirror generate/router.py): a plan
+        # entitlement OR the staff allowlist, then the allowance/ceiling cap —
+        # so a console-granted plan enables keyless generation here too, and the
+        # spend ceiling binds on this surface. `account` is resolved just above.
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
             )
     model = body.model or settings.anthropic_default_model
 
@@ -722,9 +745,21 @@ async def generate_topic_version(
     # not here.
     managed = body.api_key is None
     if managed:
-        if not is_managed_eligible(principal, body.provider_id):
+        # Entitlement-aware managed gate (mirror generate/router.py): a plan
+        # entitlement OR the staff allowlist, then the allowance/ceiling cap —
+        # so a console-granted plan enables keyless generation here too, and the
+        # spend ceiling binds on this surface. `account` is resolved just above.
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
             )
     model = body.model or settings.anthropic_default_model
 

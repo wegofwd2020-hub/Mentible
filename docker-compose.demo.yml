@@ -71,6 +71,18 @@ services:
       # Empty ⇒ no admins. Comma-separated verified emails (case-insensitive).
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
       SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+      # ── Managed billing (ADR-005 D6) — grant testers Pro + keyless managed gen ──
+      # MANAGED_ANTHROPIC_API_KEY is OUR provider credential (ADR-001 discipline);
+      # empty ⇒ managed off (testers fall back to BYOK). MANAGED_PLAN_EMAILS/SUBS =
+      # the staff-allowlist cohort ⇒ Pro. The spend ceiling backstops even an
+      # "unlimited" plan (0 ⇒ uncapped). FREE_* tune the Free caps without a rebuild.
+      MANAGED_ANTHROPIC_API_KEY: ${MANAGED_ANTHROPIC_API_KEY:-}
+      MANAGED_PLAN_EMAILS: ${MANAGED_PLAN_EMAILS:-}
+      MANAGED_PLAN_SUBS: ${MANAGED_PLAN_SUBS:-}
+      MANAGED_ACCOUNT_SPEND_CEILING_MICROS: ${MANAGED_ACCOUNT_SPEND_CEILING_MICROS:-0}
+      FREE_MAX_PROJECTS: ${FREE_MAX_PROJECTS:-2}
+      FREE_MAX_GENERATIONS: ${FREE_MAX_GENERATIONS:-20}
+      FREE_GEN_WINDOW_DAYS: ${FREE_GEN_WINDOW_DAYS:-30}
       # ── Open Library (ADR-027) — published artifacts live on a persistent
       # volume so a redeploy doesn't orphan the published_artifact registry rows.
       ARTIFACT_STORE_DIR: /data/artifacts
@@ -148,6 +160,18 @@ services:
       # Empty ⇒ no admins. Comma-separated verified emails (case-insensitive).
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
       SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+      # ── Managed billing (ADR-005 D6) — grant testers Pro + keyless managed gen ──
+      # MANAGED_ANTHROPIC_API_KEY is OUR provider credential (ADR-001 discipline);
+      # empty ⇒ managed off (testers fall back to BYOK). MANAGED_PLAN_EMAILS/SUBS =
+      # the staff-allowlist cohort ⇒ Pro. The spend ceiling backstops even an
+      # "unlimited" plan (0 ⇒ uncapped). FREE_* tune the Free caps without a rebuild.
+      MANAGED_ANTHROPIC_API_KEY: ${MANAGED_ANTHROPIC_API_KEY:-}
+      MANAGED_PLAN_EMAILS: ${MANAGED_PLAN_EMAILS:-}
+      MANAGED_PLAN_SUBS: ${MANAGED_PLAN_SUBS:-}
+      MANAGED_ACCOUNT_SPEND_CEILING_MICROS: ${MANAGED_ACCOUNT_SPEND_CEILING_MICROS:-0}
+      FREE_MAX_PROJECTS: ${FREE_MAX_PROJECTS:-2}
+      FREE_MAX_GENERATIONS: ${FREE_MAX_GENERATIONS:-20}
+      FREE_GEN_WINDOW_DAYS: ${FREE_GEN_WINDOW_DAYS:-30}
       # ── Open Library (ADR-027) ─────────────────────────────────────────────
       # Mirrored from `api` for import-time parity even though this worker
       # doesn't (yet) touch the artifact store — no volume mount below since

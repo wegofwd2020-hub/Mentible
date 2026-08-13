@@ -120,6 +120,15 @@ class EntitlementView(BaseModel):
     period_end: datetime
 
 
+class PlanSummary(BaseModel):
+    """A managed plan from the registry (admin picker). Not an account's entitlement."""
+
+    id: str
+    display: str
+    allowance_micros: int
+    managed_providers: list[str]
+
+
 class ManagedUsageView(BaseModel):
     """Server-side managed usage over the current window (ADR-005 D6, Phase 5)."""
 

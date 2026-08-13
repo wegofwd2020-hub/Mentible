@@ -29,6 +29,7 @@ from backend.src.accounts.schemas import (
     CredentialView,
     EntitlementView,
     GrantEntitlementRequest,
+    PlanSummary,
 )
 from backend.src.admin import audit
 from backend.src.auth import identity_admin
@@ -247,6 +248,25 @@ async def grant_entitlement(
         period_start=ent.period_start,
         period_end=ent.period_end,
     )
+
+
+@router.get("/plans", response_model=list[PlanSummary])
+async def list_plans(_admin: Principal = Depends(require_super_admin)) -> list[PlanSummary]:
+    """The managed-plan catalog for the admin grant picker (super-admin; read-only)."""
+    out: list[PlanSummary] = []
+    for pid in sorted(plans.plan_ids()):
+        plan = plans.get_plan(pid)
+        if plan is None:
+            continue
+        out.append(
+            PlanSummary(
+                id=plan.id,
+                display=plan.display,
+                allowance_micros=plan.allowance_micros,
+                managed_providers=sorted(plan.managed_providers),
+            )
+        )
+    return out
 
 
 @router.get("/billing/usage-summary", response_model=BillingUsageSummaryView)

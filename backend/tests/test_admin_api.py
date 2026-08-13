@@ -202,6 +202,15 @@ def test_grant_replaces_existing_entitlement(admin_client):
     assert got["status"] == "canceled"
 
 
+def test_admin_plans_lists_catalog(admin_client):
+    r = admin_client.get(f"{ADMIN}/plans")
+    assert r.status_code == 200
+    plans = {p["id"]: p for p in r.json()}
+    assert plans["managed_unlimited"]["allowance_micros"] == 0
+    assert "anthropic" in plans["managed_basic"]["managed_providers"]
+    assert isinstance(plans["managed_basic"]["managed_providers"], list)
+
+
 def test_grant_unknown_plan_422(admin_client):
     r = admin_client.put(f"{ADMIN}/users/{TARGET}/entitlement", json={"plan_id": "no-such-plan"})
     assert r.status_code == 422

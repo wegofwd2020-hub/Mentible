@@ -84,3 +84,47 @@ export async function reactivateUser(token: string, sub: string): Promise<AdminU
 export async function deleteUser(token: string, sub: string): Promise<void> {
   await adminFetch(`/users/${encodeURIComponent(sub)}`, token, { method: "DELETE" });
 }
+
+export interface PlanSummary {
+  id: string;
+  display: string;
+  allowance_micros: number;
+  managed_providers: string[];
+}
+
+export interface EntitlementView {
+  plan_id: string;
+  status: string;
+  period_start: string;
+  period_end: string;
+}
+
+export async function listPlans(token: string): Promise<PlanSummary[]> {
+  return (await adminFetch<PlanSummary[]>(`/plans`, token)) as PlanSummary[];
+}
+
+export async function getEntitlement(token: string, sub: string): Promise<EntitlementView | null> {
+  return adminFetch<EntitlementView>(`/users/${encodeURIComponent(sub)}/entitlement`, token);
+}
+
+export async function grantEntitlement(
+  token: string,
+  sub: string,
+  planId: string,
+): Promise<EntitlementView> {
+  return (await adminFetch<EntitlementView>(`/users/${encodeURIComponent(sub)}/entitlement`, token, {
+    method: "PUT",
+    body: JSON.stringify({ plan_id: planId, status: "active" }),
+  })) as EntitlementView;
+}
+
+export async function revokeEntitlement(
+  token: string,
+  sub: string,
+  planId: string,
+): Promise<EntitlementView> {
+  return (await adminFetch<EntitlementView>(`/users/${encodeURIComponent(sub)}/entitlement`, token, {
+    method: "PUT",
+    body: JSON.stringify({ plan_id: planId, status: "canceled" }),
+  })) as EntitlementView;
+}
