@@ -40,10 +40,6 @@ class TocSaveIn(BaseModel):
     toc: dict
 
 
-class TocSuggestOut(BaseModel):
-    toc: dict
-
-
 class TocSuggestJobOut(BaseModel):
     """Response for the async suggest-TOC submit (Phase B, T1).
 
