@@ -264,6 +264,20 @@ class TopicFeedbackOut(BaseModel):
     created_at: datetime | None
 
 
+class ProjectFeedbackItemOut(BaseModel):
+    """One row of the project-wide revision-notes rollup — a `feedback` (artifact
+    version) or `topic_feedback` (topic version) note, tagged by `source`."""
+
+    source: str  # "artifact" | "topic"
+    draft_label: str
+    format: str | None
+    version_no: int
+    author_kind: str  # "expert" | "operator"
+    author_name: str | None
+    body: str
+    created_at: datetime | None
+
+
 class TopicVersionDetailOut(BaseModel):
     id: str
     topic_id: str

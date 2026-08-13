@@ -832,6 +832,24 @@ async def list_topic_version_history(
     ]
 
 
+@router.get(
+    "/projects/{project_id}/feedback",
+    response_model=list[schemas.ProjectFeedbackItemOut],
+)
+async def list_project_feedback(
+    project_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> list[schemas.ProjectFeedbackItemOut]:
+    """Project-wide revision-notes rollup — every feedback note across every
+    artifact version and topic version in the project, newest first.
+    Read-only; owner OR reviewer."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    rows = await feedback_repo.list_project_feedback(conn, project_id=project_id)
+    return [schemas.ProjectFeedbackItemOut(**r) for r in rows]
+
+
 @router.post(
     "/projects/{project_id}/topics/{topic_id}/versions",
     response_model=schemas.TopicVersionOut,
