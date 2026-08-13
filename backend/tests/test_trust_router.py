@@ -2,6 +2,7 @@ import asyncio
 import json as _json
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import asyncpg
@@ -9,9 +10,12 @@ import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.config import settings
 from backend.main import app
+from backend.src.accounts import repo as accounts_repo
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
+from backend.src.billing import entitlement_repo
 from backend.src.core.redis_dep import get_redis
 from backend.tests.helpers import fake_provider
 from src.trust import topic_repo
@@ -657,6 +661,65 @@ def test_generate_version_submit_returns_202_writes_envelope_and_enqueues():
         # queued status is immediately pollable via the shared jobs endpoint.
         job = c.get(f"/api/v1/jobs/{body['job_id']}").json()
         assert job["status"] == "queued"
+
+
+def test_generate_version_managed_gate_honors_plan_entitlement(monkeypatch):
+    """The managed (keyless) gate on the trust generate-version endpoint must
+    mirror /generate: a plan entitlement (the console-grant path) — not only the
+    config staff allowlist — unlocks keyless generation. Regression test for the
+    Critical finding where the 3 trust generators still gated on
+    `is_managed_eligible` (allowlist-only) after `resolve_managed_access` was
+    wired into /generate. All 3 trust generators share this identical gate
+    block (`generate_version`, `suggest_project_toc`, `generate_topic_version`)
+    — this one representative test covers all three.
+    """
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        _pid, aid = _artifact_with_source(c)
+
+        async def _account_id() -> uuid.UUID:
+            conn = await asyncpg.connect(DSN)
+            try:
+                acct = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=owner, email=f"{owner}@x.z"
+                )
+                return acct.id
+            finally:
+                await conn.close()
+
+        account_id = asyncio.run(_account_id())
+
+        # No entitlement and not on the staff allowlist ⇒ managed submit refused.
+        with patch("backend.src.trust.router.generate_version_task.delay"):
+            r = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json={})
+        assert r.status_code == 400
+        assert "api_key is required" in r.text
+
+        # Grant a managed_unlimited entitlement (what the admin console does).
+        async def _grant() -> None:
+            conn = await asyncpg.connect(DSN)
+            try:
+                now = datetime.now(UTC)
+                await entitlement_repo.set_entitlement(
+                    conn,
+                    account_id=account_id,
+                    plan_id="managed_unlimited",
+                    status="active",
+                    period_start=now - timedelta(days=1),
+                    period_end=now + timedelta(days=30),
+                )
+            finally:
+                await conn.close()
+
+        asyncio.run(_grant())
+        monkeypatch.setattr(settings, "managed_anthropic_api_key", "sk-ant-" + "x" * 20)
+
+        with patch("backend.src.trust.router.generate_version_task.delay") as mock_delay:
+            r = c.post(f"/api/v1/trust/artifacts/{aid}/versions/generate", json={})
+        assert r.status_code == 202, r.text  # was 400 before the fix
+        mock_delay.assert_called_once()
+        assert mock_delay.call_args.kwargs["managed"] is True
 
 
 def test_generate_version_unknown_artifact_404():
