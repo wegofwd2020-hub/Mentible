@@ -11,12 +11,15 @@ import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
 import { useSeedStarterSources } from "@/hooks/useSeedStarterSources";
 import { FONT_ASSETS } from "@/constants/fonts";
 import { applyGlobalFont } from "@/lib/applyGlobalFont";
+import { registerWebFonts } from "@/lib/webFonts";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
 import { colors } from "@/constants/theme";
 import { ThemeProvider } from "@/theme";
 
 // Install the global text-font interceptor before any component renders (native-only).
 applyGlobalFont();
+// Register the canonical @font-face families + Inter default (web-only; no-op on native).
+registerWebFonts();
 
 export default function RootLayout() {
   // Seed the default shareable library on first run (ADR-017, #111).
