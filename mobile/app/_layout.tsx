@@ -16,7 +16,15 @@ import { applyGlobalFont } from "@/lib/applyGlobalFont";
 import { registerWebFonts } from "@/lib/webFonts";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
 import { studioLightColors } from "@/constants/theme";
-import { ThemeProvider } from "@/theme";
+import { ThemeProvider, useThemeControls } from "@/theme";
+
+// Status-bar icons must contrast with the theme ground: dark icons on the light
+// (cream) default, light icons on the dark (navy) theme. Lives inside ThemeProvider
+// so it reacts to a switch. (StatusBar is a no-op on web.)
+function ThemedStatusBar() {
+  const { themeName } = useThemeControls();
+  return <StatusBar style={themeName === "studio-dark" ? "light" : "dark"} />;
+}
 
 // Install the global text-font interceptor before any component renders (native-only).
 applyGlobalFont();
@@ -57,7 +65,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <StatusBar style="dark" />
+        <ThemedStatusBar />
         {/* Re-key on the font mode so flipping the dyslexia toggle re-applies the
             interceptor across the whole tree immediately. */}
         <AppBackground>
