@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt, buildTopicInstructions } from "@/hooks/topicPrompt";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
 import type { StructuredTOC, Subtopic } from "@/types/book";
@@ -72,6 +73,12 @@ export function useGenerateAll({
   alreadyDone,
   intervalMs,
 }: UseGenerateAllArgs): UseGenerateAllResult {
+  // A Pro plan's managed key covers the vendor call, so a missing BYOK key
+  // only blocks Free/unknown-plan users. Fail-open: while the plan is loading
+  // (plan == null) or Pro, a no-key run goes keyless and the backend decides.
+  const { plan } = useBillingPlan();
+  const knownNotPro = plan != null && plan.is_pro === false;
+
   const doneSet = useMemo(() => new Set(alreadyDone ?? []), [alreadyDone]);
 
   const targets = useMemo<Target[]>(() => {
@@ -147,7 +154,7 @@ export function useGenerateAll({
 
     (async () => {
       const apiKey = await getApiKey();
-      if (!apiKey) {
+      if (!apiKey && knownNotPro) {
         setErrorMsg("No API key saved. Go to Settings and paste your Anthropic key.");
         setRunning(false);
         return;
@@ -169,7 +176,7 @@ export function useGenerateAll({
           const res = await submitGenerate(
             buildGenerateRequest({
               topic: buildTopicPrompt(t.title, t.subtopics),
-              apiKey,
+              apiKey: apiKey ?? undefined,
               params,
               targetPages: perTopicPages,
               instructions: buildTopicInstructions(t.subtopics, t.instructions),
@@ -222,7 +229,7 @@ export function useGenerateAll({
       setRunning(false);
       if (!cancelledRef.current) setFinished(true);
     })();
-  }, [running, targets, doneSet, params, getApiKey, onTopicDone, intervalMs, setStatus, buildInitialProgress]);
+  }, [running, targets, doneSet, params, getApiKey, onTopicDone, intervalMs, setStatus, buildInitialProgress, knownNotPro]);
 
   const cancel = useCallback(() => {
     cancelledRef.current = true;

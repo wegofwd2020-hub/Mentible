@@ -69,7 +69,10 @@ export interface GenerateRequest {
   // lesson — requires `source_text` below (backend 422s a quiz request without
   // it). D13 still holds for the book-authoring lesson path.
   format: "lesson" | "quiz";
-  api_key: string;
+  // Omit entirely (never send "") for a keyless managed-plan request — the
+  // backend resolves the vendor key from the caller's entitlement instead.
+  // Present = BYOK, passed through per-request (ADR-001).
+  api_key?: string;
   // LLM selection (BYOK). Omitted = backend default (anthropic + its default
   // model). The key in api_key must match the chosen provider's format.
   provider_id?: string;

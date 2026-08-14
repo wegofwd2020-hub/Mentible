@@ -15,7 +15,10 @@ export interface MakePostRequest {
   platform: Platform;
   tone?: string;
   image?: { media_type: string; data: string }; // optional reference (FR-1b) — transient, never stored
-  api_key: string; // BYOK-only this slice — always sent (never logged/stored)
+  // Omit entirely (never send "") for a keyless managed-plan request — the
+  // backend resolves the vendor key from the caller's entitlement instead.
+  // Present = BYOK, passed through per-request (never logged/stored).
+  api_key?: string;
   provider_id?: string; // default "anthropic"; omit → server default
   model?: string;
 }

@@ -4,7 +4,10 @@ import type { GenerateRequest } from "@/types/lesson";
 
 interface BuildArgs {
   topic: string;
-  apiKey: string;
+  // Omit (or pass undefined) for a keyless managed-plan request — the backend
+  // resolves the vendor key from the caller's entitlement instead. Present =
+  // BYOK, passed through per-request (ADR-001).
+  apiKey?: string;
   params: GenerationParams;
   // Per-lesson page target; overrides params.pages (the batch loop passes the
   // whole-book target divided across topics). Omit to use params.pages.
@@ -39,6 +42,7 @@ export function buildGenerateRequest({
     provider_id: params.provider ?? "anthropic",
     ...(params.model ? { model: params.model } : {}),
     ...(trimmed ? { instructions: trimmed } : {}),
-    api_key: apiKey,
+    // Never send api_key: "" — omit the field entirely for a keyless request.
+    ...(apiKey ? { api_key: apiKey } : {}),
   };
 }

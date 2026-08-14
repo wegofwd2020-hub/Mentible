@@ -5,12 +5,15 @@ jest.mock("../../src/api/client", () => ({
   pollUntilDone: jest.fn(),
 }));
 
+jest.mock("../../src/hooks/useBillingPlan", () => ({ useBillingPlan: jest.fn() }));
+
 const { submitGenerate, pollUntilDone } = require("../../src/api/client") as {
   submitGenerate: jest.Mock;
   pollUntilDone: jest.Mock;
 };
 
 import { useGenerateAll } from "../../src/hooks/useGenerateAll";
+import { useBillingPlan } from "../../src/hooks/useBillingPlan";
 import type { StructuredTOC } from "../../src/types/book";
 import type { GenerationParams } from "../../src/types/generationParams";
 
@@ -55,6 +58,10 @@ const getApiKey = () => Promise.resolve("sk-ant-FAKE_KEY_test_12345");
 beforeEach(() => {
   jest.clearAllMocks();
   submitGenerate.mockImplementation(() => Promise.resolve({ job_id: "j", status: "queued" }));
+  // Fail-open default (matches the other useBillingPlan consumers) — most
+  // tests here don't care about Pro/Free, only the keyless-when-Pro suite
+  // below overrides this per-case.
+  (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: false });
 });
 
 describe("useGenerateAll", () => {
@@ -282,7 +289,8 @@ describe("useGenerateAll", () => {
     expect(byId).toEqual({ t1: "done", t2: "pending" });
   });
 
-  it("surfaces an error and does not generate when no API key is saved", async () => {
+  it("surfaces an error and does not generate when no API key is saved and known not-Pro", async () => {
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
     const { result } = renderHook(() =>
       useGenerateAll({
         toc: toc(),
@@ -297,5 +305,49 @@ describe("useGenerateAll", () => {
 
     expect(submitGenerate).not.toHaveBeenCalled();
     expect(result.current.running).toBe(false);
+  });
+
+  // Keyless (managed) generation for Pro users with no saved BYOK key (mirrors
+  // the trust hook's #433 fix).
+  describe("keyless-when-Pro wiring", () => {
+    it("no saved key + Pro generates every topic keyless (no api_key) with no error", async () => {
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: true }, loading: false });
+      pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+      const onTopicDone = jest.fn();
+
+      const { result } = renderHook(() =>
+        useGenerateAll({
+          toc: toc(),
+          params: params(),
+          getApiKey: () => Promise.resolve(null),
+          onTopicDone,
+          intervalMs: 1,
+        }),
+      );
+      act(() => result.current.start());
+      await waitFor(() => expect(result.current.finished).toBe(true));
+
+      expect(result.current.errorMsg).toBeNull();
+      expect(result.current.doneCount).toBe(2);
+      expect(submitGenerate).toHaveBeenCalledTimes(2);
+      for (const call of submitGenerate.mock.calls) {
+        expect("api_key" in call[0]).toBe(false);
+      }
+    });
+
+    it("a saved key is always sent as BYOK, regardless of plan", async () => {
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+      pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+      const { result } = renderHook(() =>
+        useGenerateAll({ toc: toc(), params: params(), getApiKey, onTopicDone: jest.fn(), intervalMs: 1 }),
+      );
+      act(() => result.current.start());
+      await waitFor(() => expect(result.current.finished).toBe(true));
+
+      expect(submitGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ api_key: "sk-ant-FAKE_KEY_test_12345" }),
+      );
+    });
   });
 });
