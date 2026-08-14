@@ -3,13 +3,13 @@ import { render } from "@testing-library/react-native";
 import { themes } from "@/constants/theme";
 
 // Capture the screenOptions the Tabs navigator is configured with. The bottom-tab
-// scene container has NO background of its own — without an explicit dark
+// scene container has NO background of its own — without an explicit themed
 // `sceneStyle`, each tab screen falls back to React Navigation's default scene
 // background, which follows the DEVICE colour scheme (white on a light-mode
-// device). Because the app palette is always dark (near-white `colors.text`),
-// any tab screen that doesn't paint its own background then renders invisible
-// text. This guards the fix: the navigator paints the dark app background so
-// every tab screen is legible regardless of the device scheme.
+// device). Any tab screen that doesn't paint its own background would then risk
+// illegible text against a mismatched ground. This guards the fix: the navigator
+// paints the current theme's background so every tab screen is legible regardless
+// of the device scheme.
 let capturedScreenOptions: Record<string, unknown> | undefined;
 let capturedTabBar: ((props: unknown) => unknown) | undefined;
 
@@ -57,10 +57,10 @@ beforeEach(() => {
   (useResponsive as jest.Mock).mockReturnValue({ width: 500, isTablet: false, isDesktop: false });
 });
 
-it("paints the dark app background on the tab scene container", () => {
+it("paints the current theme's background on the tab scene container", () => {
   render(<TabLayout />);
   const sceneStyle = capturedScreenOptions?.["sceneStyle"] as { backgroundColor?: string } | undefined;
-  expect(sceneStyle?.backgroundColor).toBe(themes["studio-dark"].background);
+  expect(sceneStyle?.backgroundColor).toBe(themes["studio-light"].background);
 });
 
 it("uses a left SideNav on desktop widths", () => {

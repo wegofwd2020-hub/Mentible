@@ -14,9 +14,9 @@ function Probe() {
   return <Text testID="name">{themeName}</Text>;
 }
 
-it("defaults to studio-dark before any stored value loads", async () => {
+it("defaults to studio-light before any stored value loads", async () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
-  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
 });
 
 it("switcher lists only the two Studio themes, both real", () => {

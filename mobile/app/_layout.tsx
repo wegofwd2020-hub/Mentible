@@ -13,7 +13,7 @@ import { FONT_ASSETS } from "@/constants/fonts";
 import { applyGlobalFont } from "@/lib/applyGlobalFont";
 import { registerWebFonts } from "@/lib/webFonts";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
-import { colors } from "@/constants/theme";
+import { studioLightColors } from "@/constants/theme";
 import { ThemeProvider } from "@/theme";
 
 // Install the global text-font interceptor before any component renders (native-only).
@@ -38,20 +38,20 @@ export default function RootLayout() {
   // Hold first paint until bundled fonts + the saved mode are ready (matches the
   // splash background to avoid a flash of system-font text).
   if (!fontsLoaded || !modeReady) {
-    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+    return <View style={{ flex: 1, backgroundColor: studioLightColors.background }} />;
   }
 
   return (
     <ThemeProvider>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         {/* Re-key on the font mode so flipping the dyslexia toggle re-applies the
             interceptor across the whole tree immediately. */}
         <Stack
           key={dyslexic ? "font-dyslexic" : "font-default"}
           screenOptions={{
             header: (props) => <StudioHeader {...props} />,
-            contentStyle: { backgroundColor: colors.background },
+            contentStyle: { backgroundColor: studioLightColors.background },
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
