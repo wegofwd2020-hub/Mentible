@@ -3,16 +3,18 @@
 Unlike /generate (async job + poll — a lesson can take minutes), a derivative
 post is small enough to generate inline and return in the same request. Key
 selection mirrors `generate/router.py`'s BYOK-vs-managed split: a key in the
-body is BYOK; its absence selects the managed path, gated by
-`is_managed_eligible` (a generic 400 on ineligibility — never reveals allowlist
-membership). The handler NEVER logs or echoes the api_key.
+body is BYOK; its absence selects the managed path, resolved the same way as
+/generate (accounts_repo -> billing.access.resolve_managed_access -> over_cap),
+with the Phase-1 staff allowlist (`is_managed_eligible`) as the no-DB fallback.
+Ineligible/over-cap never reveals allowlist or entitlement detail. The handler
+NEVER logs or echoes the api_key.
 """
 
 from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from wegofwd_llm.errors import (
     LLMAuthError,
     LLMError,
@@ -21,8 +23,10 @@ from wegofwd_llm.errors import (
 )
 
 from backend.config import settings
+from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
+from backend.src.billing import access
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
@@ -41,15 +45,18 @@ log = get_logger("derivatives")
 )
 async def make_post(
     body: DerivativeRequest,
+    request: Request,
     principal: Principal | None = Depends(optional_user),
 ) -> DerivativeResponse:
     """Generate 3 platform-scoped promotional post variants for `body.source_text`.
 
     Key path (mirrors /generate — ADR-005 D6): a key in the body is BYOK; its
-    absence selects the managed path, which requires an eligible principal
-    (else a generic 400, no allowlist detail). Runs the (blocking) provider
-    call off the event loop via `asyncio.to_thread`. A model that never returns
-    schema-valid JSON within the repair budget surfaces as a 502 — never the key.
+    absence selects the managed path — a DB-backed plan entitlement or the staff
+    allowlist grants access (400 if neither, 429 if the grant's cap is already
+    spent), same as /generate's `resolve_managed_access` -> `over_cap` fork.
+    Runs the (blocking) provider call off the event loop via `asyncio.to_thread`.
+    A model that never returns schema-valid JSON within the repair budget
+    surfaces as a 502 — never the key.
     """
     # A reference image requires vision — Anthropic-only this slice (FR-1b).
     if body.image is not None and body.provider_id != "anthropic":
@@ -60,14 +67,29 @@ async def make_post(
 
     managed = body.api_key is None
     if managed:
-        # SCOPE (slice 1, deliberate): the managed gate here is the Phase-1 staff
-        # allowlist ONLY. /generate additionally resolves DB-backed managed-plan
-        # entitlement + cap (accounts_repo -> resolve_managed_access -> over_cap
-        # -> 429); this endpoint does NOT yet, so a real managed-plan customer is
-        # rejected with the same generic 400 as any ineligible caller. Fails
-        # closed (never leaks the key or allowlist membership). Wiring the full
-        # DB entitlement path is a follow-up (metering was deferred for this slice).
-        if not is_managed_eligible(principal, body.provider_id):
+        db_pool = getattr(request.app.state, "db", None)
+        if db_pool is not None and principal is not None:
+            async with db_pool.acquire() as conn:
+                account = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=principal.sub, email=principal.email
+                )
+                grant = await access.resolve_managed_access(
+                    conn,
+                    account_id=account.id,
+                    provider_id=body.provider_id,
+                    principal=principal,
+                )
+                if grant is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="an api_key is required for this request",
+                    )
+                if await access.over_cap(conn, account_id=account.id, access=grant):
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="managed allowance exhausted; try again later or add your own key",
+                    )
+        elif not is_managed_eligible(principal, body.provider_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="an api_key is required for this request",

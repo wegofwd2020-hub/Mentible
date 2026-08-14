@@ -9,12 +9,24 @@ Anthropic, no live DB.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import asyncpg
 import pytest
+from fastapi.testclient import TestClient
 from wegofwd_llm.errors import LLMAuthError, LLMRateLimitError
 
+from backend.config import settings
+from backend.main import app
+from backend.src.accounts import repo as accounts_repo
+from backend.src.auth.deps import optional_user
+from backend.src.auth.principal import Principal
+from backend.src.billing import eligibility, entitlement_repo, plans, usage_repo
 from backend.src.derivatives.schemas import DerivativeResponse, PostVariant
 from backend.tests.helpers import fake_provider
 
@@ -209,3 +221,166 @@ async def test_image_non_anthropic_provider_400(client):
     body = r.json()
     assert "anthropic" in body["detail"].lower()
     assert "sk-" + "y" * 40 not in json.dumps(body)
+
+
+# ── HTTP: the managed-entitlement fork (mirrors /generate — ADR-005 D6 Phase 3) ──
+#
+# These run against a REAL Postgres (local `mentible_test`, e.g. port 5439 — NEVER
+# the repo `.env`'s prod pooler; see `tests/conftest.py`'s DB-safety guard) because
+# `resolve_managed_access` reads real `account` / `entitlement` / `usage_event`
+# rows — `resolve_managed_access` itself is never stubbed here. They start the
+# app's real lifespan (`with TestClient(app) as c:`), which wires a genuine
+# `app.state.db` pool — unlike this file's other tests, which run the async
+# `client` fixture with no DB and so only ever exercise the no-DB (staff-allowlist,
+# unmetered) fallback fork.
+
+DSN = os.environ.get("DATABASE_URL", "")
+_managed_db = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set (no account DB)")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_managed_db_state():
+    """Reset `app.state.db` around every test in this file so a real pool opened
+    by one of the managed-entitlement tests below never leaks into a `client`
+    fixture test that expects the no-DB path (mirrors test_managed_billing.py's
+    `_isolate_db_state`)."""
+    prior = getattr(app.state, "db", None)
+    app.state.db = None
+    yield
+    app.state.db = prior
+
+
+def _principal(sub: str, email: str | None = None) -> Principal:
+    return Principal(sub=sub, email=email, issuer="test")
+
+
+def _seed_account_and_entitlement(*, sub: str, email: str, plan_id: str) -> uuid.UUID:
+    """Create the account + an active entitlement on their own committed
+    connection (not the app pool) so the rows are visible to the request the
+    TestClient makes. Returns the account id."""
+
+    async def _run() -> uuid.UUID:
+        conn = await asyncpg.connect(DSN)
+        try:
+            acct = await accounts_repo.get_or_create_account(conn, idp_sub=sub, email=email)
+            now = datetime.now(UTC)
+            await entitlement_repo.set_entitlement(
+                conn,
+                account_id=acct.id,
+                plan_id=plan_id,
+                status="active",
+                period_start=now - timedelta(days=1),
+                period_end=now + timedelta(days=29),
+            )
+            return acct.id
+        finally:
+            await conn.close()
+
+    return asyncio.run(_run())
+
+
+def _record_usage(account_id: uuid.UUID, *, cost_micros: int) -> None:
+    async def _run() -> None:
+        conn = await asyncpg.connect(DSN)
+        try:
+            await usage_repo.record_usage(
+                conn,
+                account_id=account_id,
+                provider="anthropic",
+                model="claude-sonnet-4-6",
+                input_tokens=100,
+                output_tokens=100,
+                cost_micros=cost_micros,
+                job_id=uuid.uuid4(),
+            )
+        finally:
+            await conn.close()
+
+    asyncio.run(_run())
+
+
+@_managed_db
+def test_managed_entitlement_grants_access_not_400(monkeypatch):
+    """A real `managed_unlimited` entitlement — not the staff allowlist — lets a
+    no-`api_key` request through the DB-backed grant path (mirrors /generate's
+    `resolve_managed_access` fork). `resolve_managed_access` is not stubbed:
+    this exercises the real account + entitlement rows end to end."""
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", "sk-ant-" + "x" * 20)
+    sub = f"ent-{uuid.uuid4()}"
+    email = f"{sub}@x.z"
+    with TestClient(app) as c:
+        _seed_account_and_entitlement(sub=sub, email=email, plan_id="managed_unlimited")
+        app.dependency_overrides[optional_user] = lambda: _principal(sub, email)
+        try:
+            with patch(
+                "backend.src.derivatives.generate.build_provider",
+                return_value=fake_provider(text=_GOOD),
+            ):
+                r = c.post("/api/v1/derivatives/post", json={"source_text": "s"})
+        finally:
+            app.dependency_overrides.pop(optional_user, None)
+    assert r.status_code != 400
+
+
+@_managed_db
+def test_managed_staff_allowlist_still_grants_access_not_400(monkeypatch):
+    """The Phase-1 staff allowlist still works through the DB-backed fork (no
+    entitlement row needed) — mirrors /generate's `source="staff"` grant."""
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", "sk-ant-" + "x" * 20)
+    sub = f"staff-{uuid.uuid4()}"
+    email = f"{sub}@x.z"
+    monkeypatch.setattr(eligibility, "_MANAGED_EMAILS", frozenset({email.lower()}))
+    monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset())
+    with TestClient(app) as c:
+        app.dependency_overrides[optional_user] = lambda: _principal(sub, email)
+        try:
+            with patch(
+                "backend.src.derivatives.generate.build_provider",
+                return_value=fake_provider(text=_GOOD),
+            ):
+                r = c.post("/api/v1/derivatives/post", json={"source_text": "s"})
+        finally:
+            app.dependency_overrides.pop(optional_user, None)
+    assert r.status_code != 400
+
+
+@_managed_db
+def test_managed_neither_entitlement_nor_staff_400(monkeypatch):
+    """No entitlement row and not staff-allowlisted → the generic 400 via the
+    real DB path (`resolve_managed_access` resolves to None)."""
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", "sk-ant-" + "x" * 20)
+    monkeypatch.setattr(eligibility, "_MANAGED_EMAILS", frozenset())
+    monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset())
+    sub = f"none-{uuid.uuid4()}"
+    email = f"{sub}@x.z"
+    with TestClient(app) as c:
+        app.dependency_overrides[optional_user] = lambda: _principal(sub, email)
+        try:
+            r = c.post("/api/v1/derivatives/post", json={"source_text": "s"})
+        finally:
+            app.dependency_overrides.pop(optional_user, None)
+    assert r.status_code == 400
+    assert "api_key is required" in r.json()["detail"]
+
+
+@_managed_db
+def test_managed_over_cap_429(monkeypatch):
+    """An entitled account whose usage already meets its plan allowance is
+    refused 429 before any generation runs (mirrors /generate's `over_cap`
+    pre-flight gate) — no stub on `resolve_managed_access` or `over_cap`."""
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", "sk-ant-" + "x" * 20)
+    sub = f"cap-{uuid.uuid4()}"
+    email = f"{sub}@x.z"
+    account_id = _seed_account_and_entitlement(sub=sub, email=email, plan_id="managed_basic")
+    allowance = plans.get_plan("managed_basic").allowance_micros
+    _record_usage(account_id, cost_micros=allowance)
+    with TestClient(app) as c:
+        app.dependency_overrides[optional_user] = lambda: _principal(sub, email)
+        try:
+            mock_generate_post = MagicMock()
+            with patch("backend.src.derivatives.router.generate_post", mock_generate_post):
+                r = c.post("/api/v1/derivatives/post", json={"source_text": "s"})
+        finally:
+            app.dependency_overrides.pop(optional_user, None)
+    assert r.status_code == 429
+    mock_generate_post.assert_not_called()
