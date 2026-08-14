@@ -479,6 +479,55 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "project-fields",
+    title: "New Project fields: Title, Topic, Audience, Goal",
+    featureKey: "project-fields",
+    keywords: [
+      "title", "topic", "audience", "goal", "new project", "field", "fields",
+      "limit", "required", "steering", "angle", "prompt", "sources", "grounded",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "The New Project form has four fields — Title, Topic, Audience, Goal. Only Title is required. The important thing to know: these are STEERING context, not the content itself. They tell the AI the angle and voice of the work; the actual material comes from the Sources (Inputs) you add inside the project afterward. When it generates, the model is told to use only your sources and invent nothing — so Title/Topic/Audience/Goal just frame how it writes what the sources contain. Don't paste your whole subject into Topic; give a short angle here, then feed the real material as Sources.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          {
+            term: "Title  (required · up to 120 characters)",
+            def: "The name of the project — what you see in the Projects list. It does not steer generation; make it a clear, human name. E.g. \"Dishwasher drain-pump replacement — DIY guide\".",
+          },
+          {
+            term: "Topic  (optional · up to 500 characters)",
+            def: "The specific insight or ANGLE you want — one or two sentences, not the whole subject. This is the field people most often overfill. Keep it to the lens and let the Sources carry the detail. E.g. \"End-to-end drain-pump replacement on a residential dishwasher — safe diagnosis, exact tools and parts, and the common DIY mistakes.\"",
+          },
+          {
+            term: "Audience  (optional)",
+            def: "Who the work is for — sets reading level, assumed knowledge, and tone. E.g. \"First-time DIY homeowners with basic hand tools\" or \"Senior engineering leaders\".",
+          },
+          {
+            term: "Goal  (optional)",
+            def: "What the reader should be able to do afterward, or why the piece exists. E.g. \"safely replace the pump without a service call\".",
+          },
+        ],
+      },
+      {
+        kind: "text",
+        text: "Behind the scenes each field slots into one line of the prompt: \"…outlining a long-form work ON <topic> FOR <audience> so the reader can <goal>. Using ONLY the sources below…\". A blank field just drops its clause. You can edit any of these later — nothing is locked in at creation.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Title: a clear name (required).",
+          "Topic: a short angle — not the full subject.",
+          "Audience + Goal: who it's for and what they should get out of it.",
+          "Create the project, then add your real material on the Input tab as Sources — that's what the draft is built from.",
+        ],
+      },
+    ],
+  },
+  {
     id: "reviews",
     title: "Review & approve a project",
     featureKey: "reviews",
