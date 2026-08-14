@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mentible",
     "slug": "studybuddy-q",
-    "version": "0.2.11",
+    "version": "0.2.12",
     "orientation": "default",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.wegofwd2020.studybuddyq",
-      "versionCode": 23,
+      "versionCode": 24,
       "permissions": ["android.permission.INTERNET"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
