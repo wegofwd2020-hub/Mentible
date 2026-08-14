@@ -18,13 +18,21 @@ function Probe() {
       <Text testID="name">{themeName}</Text>
       <Text testID="bg">{c.background}</Text>
       <Text testID="switch" onPress={() => setTheme("forest-moss")}>go</Text>
+      <Text testID="switch-dark" onPress={() => setTheme("studio-dark")}>dark</Text>
     </>
   );
 }
 
 beforeEach(() => jest.clearAllMocks());
 
-it("defaults to studio-dark when nothing is persisted", async () => {
+it("defaults to studio-light when nothing is persisted", async () => {
+  render(<ThemeProvider><Probe /></ThemeProvider>);
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
+  expect(screen.getByTestId("bg").props.children).toBe(themes["studio-light"].background);
+});
+
+it("a persisted studio-dark still wins over the studio-light default", async () => {
+  (loadThemeName as jest.Mock).mockResolvedValueOnce("studio-dark");
   render(<ThemeProvider><Probe /></ThemeProvider>);
   await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
   expect(screen.getByTestId("bg").props.children).toBe(themes["studio-dark"].background);
@@ -39,13 +47,22 @@ it("loads a persisted theme on mount", async () => {
 
 it("setTheme updates the palette and persists", async () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
-  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
   act(() => { screen.getByTestId("switch").props.onPress(); });
   await waitFor(() => expect(screen.getByTestId("bg").props.children).toBe(themes["forest-moss"].background));
   expect(saveThemeName).toHaveBeenCalledWith("forest-moss");
 });
 
-it("useTheme falls back to Studio (dark) with no provider (compat shim)", () => {
-  render(<Probe />);
+it("setTheme(\"studio-dark\") still switches away from the studio-light default", async () => {
+  render(<ThemeProvider><Probe /></ThemeProvider>);
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
+  act(() => { screen.getByTestId("switch-dark").props.onPress(); });
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-dark"));
   expect(screen.getByTestId("bg").props.children).toBe(themes["studio-dark"].background);
+  expect(saveThemeName).toHaveBeenCalledWith("studio-dark");
+});
+
+it("useTheme falls back to Studio (light) with no provider (compat shim)", () => {
+  render(<Probe />);
+  expect(screen.getByTestId("bg").props.children).toBe(themes["studio-light"].background);
 });

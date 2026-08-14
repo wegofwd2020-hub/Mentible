@@ -85,7 +85,7 @@ export default function EntryDetailScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   content: { paddingVertical: spacing.lg },
   missing: { color: c.textMuted, marginTop: spacing.lg },
 });

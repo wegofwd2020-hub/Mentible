@@ -172,7 +172,7 @@ export default function TrustCompare() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   body: { padding: spacing.md, gap: spacing.md },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl, gap: spacing.md },
   title: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },

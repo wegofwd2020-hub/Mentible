@@ -190,7 +190,7 @@ function makeStyles(c: Palette) {
   return {
     scroll: {
       flex: 1,
-      backgroundColor: c.background,
+      backgroundColor: "transparent",
     },
     scrollContent: {
       flexGrow: 1,

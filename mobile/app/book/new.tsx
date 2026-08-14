@@ -275,12 +275,12 @@ function NewBookScreenInner() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   tocInputDesktop: { minHeight: 300 },
   centered: {
     flex: 1 as const,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
     gap: spacing.sm,

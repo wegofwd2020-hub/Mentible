@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/theme";
 import { themes } from "@/constants/theme";
 import { Button, Card, Chip, Label } from "@/components/ui";
 
-const t = themes["studio-dark"];
+const t = themes["studio-light"];
 
 function renderThemed(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);

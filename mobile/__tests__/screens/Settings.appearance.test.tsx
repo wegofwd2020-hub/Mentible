@@ -33,14 +33,14 @@ it("shows a tile for only the two switchable Studio themes and applies one on ta
   for (const label of ["Manuscript", "Reading", "Gilded Noir", "Forest & Moss", "Navy Trust"]) {
     expect(screen.queryByLabelText(new RegExp(`^Theme: ${label}`))).toBeNull();
   }
-  fireEvent.press(screen.getByLabelText(/^Theme: Studio Light$/));
+  fireEvent.press(screen.getByLabelText(/^Theme: Studio Light( \(selected\))?$/));
   await waitFor(() => expect(saveThemeName).toHaveBeenCalledWith("studio-light"));
 });
 
 it("colours each tile's caption from that tile's OWN palette, not the active theme", async () => {
-  // Active theme = studio-dark (default). The light tile (Studio Light) must
+  // Active theme = studio-light (default). The dark tile (Studio) must
   // render its caption in its own textSecondary, else the label collapses to
-  // near-invisible on the light tile background.
+  // near-invisible on the dark tile background.
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
   const studioLight = await screen.findByText("Studio Light");
   expect(flatColor(studioLight.props.style)).toBe(themes["studio-light"].textSecondary);

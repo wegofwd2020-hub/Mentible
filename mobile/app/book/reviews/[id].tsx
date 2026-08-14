@@ -315,11 +315,11 @@ export default function BookReviewsScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   centered: {
     flex: 1,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
   },

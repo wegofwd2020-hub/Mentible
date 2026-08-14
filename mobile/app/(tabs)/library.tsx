@@ -459,7 +459,7 @@ function EpubLibrary() {
 
 const makeStyles = (c: Palette) => ({
   // Demo Library (bundled-books shelf) — small, left-packed cover thumbnails.
-  demoShelf: { flex: 1, backgroundColor: c.background },
+  demoShelf: { flex: 1, backgroundColor: "transparent" },
   demoContent: { padding: spacing.md, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   demoHeader: {
     color: c.text, fontSize: typography.sizeXl, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36,
@@ -472,7 +472,7 @@ const makeStyles = (c: Palette) => ({
   demoTileTitle: { fontSize: typography.sizeXs, fontWeight: "500" as const, color: c.text },
   demoTileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
-  list: { flex: 1, backgroundColor: c.background },
+  list: { flex: 1, backgroundColor: "transparent" },
   gridContent: { padding: spacing.md },
   gridWide: { maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   screen: { flex: 1 },
@@ -482,7 +482,7 @@ const makeStyles = (c: Palette) => ({
   errorText: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.xs, textAlign: "center" as const },
   empty: {
     flex: 1,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     justifyContent: "center" as const,
     alignItems: "center" as const,
     padding: spacing.xl,

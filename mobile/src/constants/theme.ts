@@ -3,6 +3,26 @@
 // (Platform is used only by the typography block below, for web-vs-native fonts.)
 import { Platform } from "react-native";
 
+// Per-channel linear interpolation between two "#rrggbb" hex colors. Used to
+// derive the app-background gradient's warmer bottom stop from a palette's
+// `background` token (see `bgGradientEnd` below) without hand-picking a
+// second hex per palette. `t` is clamped to [0, 1]; an out-of-shape hex
+// throws rather than silently producing a wrong color.
+export function mix(hexA: string, hexB: string, t: number): string {
+  const parse = (hex: string): [number, number, number] => {
+    const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
+    if (!m) throw new Error(`mix(): invalid hex color "${hex}"`);
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+  };
+  const [ar, ag, ab] = parse(hexA);
+  const [br, bg, bb] = parse(hexB);
+  const clamped = Math.min(1, Math.max(0, t));
+  const lerp = (a: number, b: number) => Math.round(a + (b - a) * clamped);
+  const toHex = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${toHex(lerp(ar, br))}${toHex(lerp(ag, bg))}${toHex(lerp(ab, bb))}`;
+}
+
 // Colours derive from the brand mark ("growing mind"): indigo = mind,
 // green = growth, red-orange = the "M" / primary action, teal = the book.
 // See docs/adr/ADR-006 (brand) and docs/adr/ADR-007 (book template palette);
@@ -59,6 +79,12 @@ export const colors = {
   warning: "#f59e0b",
 
   white: "#ffffff",
+
+  // Flat: the app-background gradient's bottom stop equals `background` on
+  // every palette except the Studio pair (see `bgGradientEnd` on
+  // `studioLightColors`/`studioDarkColors`), so non-Studio surfaces render
+  // an unchanged, solid fill.
+  bgGradientEnd: "#14152a",
 } as const;
 
 export const spacing = {
@@ -117,7 +143,13 @@ export const typography = {
 // ── Additional palettes (for a future theme switcher; see the v1.1 accounts
 // work). Same keys as `colors` so a ThemeProvider can swap one for another. ──
 
-export type Palette = Record<keyof typeof colors, string>;
+// `bgGradientEnd` is optional: `AppBackground` falls back to `background`
+// when a palette doesn't set it, so most palettes below stay flat by simply
+// omitting it (or, where written out for clarity, setting it equal to
+// `background`).
+export type Palette = Record<Exclude<keyof typeof colors, "bgGradientEnd">, string> & {
+  bgGradientEnd?: string;
+};
 
 // "Manuscript" — light, warm-paper theme that bridges the app to the printed
 // book (indigo ink, green growth, red-orange action on parchment).
@@ -155,6 +187,7 @@ export const manuscriptColors: Palette = {
   warning: "#b06a00",
 
   white: "#ffffff",
+  bgGradientEnd: "#faf7f1", // flat — same as `background`
 };
 
 // "Reading" — sepia, low-glare reader theme for the book reader (the authored
@@ -193,6 +226,7 @@ export const readingColors: Palette = {
   warning: "#9a6300",
 
   white: "#ffffff",
+  bgGradientEnd: "#f3e9d2", // flat — same as `background`
 };
 
 // "Gilded Noir" — editorial charcoal + single gold accent (reader-leaning,
@@ -210,6 +244,7 @@ export const gildedNoirColors: Palette = {
   tileSubGlyph: "#a8a29e",
   success: "#7fae86", error: "#c96a5c", warning: "#d1a24c",
   white: "#ffffff",
+  bgGradientEnd: "#0d0d0d", // flat — same as `background`
 };
 
 // "Forest & Moss" — greenhouse-at-dusk green + moss accent (reader-leaning,
@@ -227,6 +262,7 @@ export const forestMossColors: Palette = {
   tileSubGlyph: "#a8a29e",
   success: "#7fae86", error: "#c96a5c", warning: "#d1a24c",
   white: "#ffffff",
+  bgGradientEnd: "#1a3c2a", // flat — same as `background`
 };
 
 // "Navy Trust" — the SME studio brand (ADR-038): deep navy + a single restrained
@@ -247,6 +283,7 @@ export const navyTrustColors: Palette = {
   tileSubGlyph: "#98a0b5",
   success: "#7fae86", error: "#d1705a", warning: "#d6b25e",
   white: "#ffffff",
+  bgGradientEnd: "#101828", // flat — same as `background`
 };
 
 // "Studio" — the Studio re-skin's new navy identity (dark) and its light
@@ -265,6 +302,9 @@ export const studioDarkColors: Palette = {
   tileSubGlyph: "#93A6C6",
   success: "#8FCBAD", error: "#E29B9B", warning: "#E7C98A",
   white: "#ffffff",
+  // Subtle warm-gold gradient bottom stop (Slice B, lovable-background):
+  // navy background warmed 15% toward the Studio gold accent.
+  bgGradientEnd: mix("#0A0E1A", "#D6A94B", 0.15),
 };
 
 export const studioLightColors: Palette = {
@@ -279,6 +319,9 @@ export const studioLightColors: Palette = {
   tileSubGlyph: "#6C7A8F",
   success: "#356E56", error: "#9C4A48", warning: "#8A6A22",
   white: "#ffffff",
+  // Subtle warm-gold gradient bottom stop (Slice B, lovable-background):
+  // cream background warmed 15% toward the Studio gold accent.
+  bgGradientEnd: mix("#F7F5F0", "#D6A94B", 0.15),
 };
 
 export const themes = {

@@ -50,6 +50,7 @@ import {
 import { Text, TextInput } from "react-native";
 import { resolveFamilyForStyle } from "@/lib/applyGlobalFont";
 import { isDyslexic } from "@/state/fontMode";
+import { studioLightColors } from "@/constants/theme";
 
 const STYLE_ID = "mentible-web-fonts";
 
@@ -123,9 +124,19 @@ function faceRule(spec: FaceSpec): string {
 // JS before RNW ever emits CSS, sidestepping the cascade entirely.
 const DEFAULT_TEXT_RULE = `html, body, #root {\n  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;\n}`;
 
+// Paints the web page's actual ground (the html/body/#root stack sitting
+// behind whatever RN-web renders) to the Studio (light/cream) background —
+// otherwise it's the browser's default white, visible as a flash/edge outside
+// our themed content. This is the app's default theme's background
+// (constants/theme.ts studioLightColors.background); it's a static rule, not
+// theme-reactive, since registerWebFonts runs once at module load, before any
+// ThemeProvider — a persisted studio-dark choice repaints via the themed
+// screens themselves, not this page-ground layer.
+const ROOT_BACKGROUND_RULE = `html, body, #root {\n  background-color: ${studioLightColors.background};\n}`;
+
 export function registerWebFonts(): void {
   if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
-  const css = [...FACES.map(faceRule), DEFAULT_TEXT_RULE].join("\n\n");
+  const css = [...FACES.map(faceRule), DEFAULT_TEXT_RULE, ROOT_BACKGROUND_RULE].join("\n\n");
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = css;

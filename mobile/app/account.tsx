@@ -242,7 +242,7 @@ const makeStyles = (c: Palette) => ({
   // ScrollView must own a bounded height (flex:1) to actually scroll; otherwise it
   // grows to its content and the page overflows the viewport with no scrollbar
   // (PageContainer goes *inside* the ScrollView — see its doc + settings.tsx).
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 as const, paddingBottom: spacing.xl },
   // A destructive action + its HelpHint on one row (the button's own marginTop
   // moves to the row via actionBtn).

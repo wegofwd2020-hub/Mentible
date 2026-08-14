@@ -5,7 +5,7 @@ import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { deriveProjectPhase } from "@/lib/projectPhase";
 import { themes } from "@/constants/theme";
 
-const t = themes["studio-dark"];
+const t = themes["studio-light"];
 
 const input = { id: "i", kind: "note", title: null, content: "x", source_ref: null, created_at: null };
 const detail = (over: any = {}) => ({ project: { id: "p", title: "P", topic: null }, my_role: "owner", artifacts: [], inputs: [], ...over }) as any;

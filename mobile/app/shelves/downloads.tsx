@@ -92,7 +92,7 @@ export default function DownloadsScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   content: { paddingVertical: spacing.lg },
   title: { color: c.text, fontSize: typography.sizeXxl, fontWeight: "700" as const },
   headerRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginVertical: spacing.md },

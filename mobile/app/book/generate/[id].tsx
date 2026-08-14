@@ -282,7 +282,7 @@ function GenerateAllScreenInner() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   page: { padding: spacing.md, gap: spacing.sm },
   // Desktop: cap + center, lay controls and progress side by side.
@@ -297,7 +297,7 @@ const makeStyles = (c: Palette) => ({
   colRight: { flex: 6 },
   centered: {
     flex: 1 as const,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
     padding: spacing.xl,

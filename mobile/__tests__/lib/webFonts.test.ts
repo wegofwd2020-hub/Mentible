@@ -200,6 +200,12 @@ describe("registerWebFonts (web)", () => {
     expect(css).not.toMatch(/!important/);
   });
 
+  it("paints the page ground (html/body/#root) to the Studio (light) background", () => {
+    registerWebFonts();
+    const css = document.getElementById(STYLE_ID)?.textContent ?? "";
+    expect(css).toMatch(/html,\s*body,\s*#root\s*\{[^}]*background-color:\s*#F7F5F0/);
+  });
+
   it("is idempotent — a second call does not append a second style tag", () => {
     registerWebFonts();
     registerWebFonts();
