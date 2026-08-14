@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { TopNavBar } from "@/components/TopNavBar";
 import { SideNav } from "@/components/SideNav";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useTheme } from "@/theme";
 
 // Navigation swaps by width: a custom TOP, center-aligned bar (TopNavBar) with
 // square icon+label tiles and a leading Mentible mark on narrow/tablet widths,
@@ -10,23 +11,26 @@ import { useResponsive } from "@/hooks/useResponsive";
 // order here doesn't drive the visual order; TopNavBar/SideNav render an
 // explicit sequence.
 //
-// `sceneStyle` is TRANSPARENT (Slice B, lovable-background) so the root
-// `AppBackground` gradient (mounted above the Stack in `app/_layout.tsx`)
-// shows through every tab. Previously this painted the selected theme's flat
-// `background` so a themed page with no background of its own wouldn't fall
-// back to React Navigation's device-colour-scheme default; that job now
-// belongs to `AppBackground`, which every theme (including the flat,
-// non-Studio ones) still resolves correctly via its `bgGradientEnd ?? background`
-// fallback.
+// `sceneStyle` MUST be OPAQUE (the theme's flat `background`). On web,
+// `react-native-screens` is inactive, so `bottom-tabs` can't detach inactive
+// tab scenes — `MaybeScreen` falls back to a plain `<View style={[absoluteFill,
+// { zIndex: isFocused ? 0 : -1 }]}>` and EVERY tab scene stays mounted, stacked,
+// and visible; only the active scene's opaque fill hides the ones beneath it.
+// Slice B (lovable-background) briefly made this `transparent` to let the root
+// `AppBackground` gradient show through — but that removed the only thing hiding
+// inactive tabs on web, so Shelves/Library/Projects all rendered on top of each
+// other (reported 2026-08-14). The gradient still shows on every non-(tabs)
+// Stack route; the tab surfaces use the flat theme ground.
 export default function TabLayout() {
   const { isDesktop } = useResponsive();
+  const theme = useTheme();
   return (
     <Tabs
       tabBar={(props) => (isDesktop ? <SideNav {...props} /> : <TopNavBar {...props} />)}
       screenOptions={{
         headerShown: false,
         tabBarPosition: isDesktop ? "left" : "top",
-        sceneStyle: { backgroundColor: "transparent" },
+        sceneStyle: { backgroundColor: theme.background },
       }}
     >
       <Tabs.Screen name="index" />
