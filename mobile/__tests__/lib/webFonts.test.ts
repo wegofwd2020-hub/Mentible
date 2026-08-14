@@ -34,9 +34,46 @@ jest.mock("@expo-google-fonts/source-serif-4", () => ({
   SourceSerif4_700Bold: "SourceSerif4_700Bold",
 }));
 
-import { registerWebFonts } from "../../src/lib/webFonts.web";
+// react-native-web's Text/TextInput are forwardRef components exposing a
+// patchable `.render` — that shape isn't guaranteed under the native
+// react-native package this jsdom test otherwise resolves, so fake it here
+// with the same shape (React.forwardRef) and a render that returns a real
+// element (needed for React.cloneElement inside the interceptor).
+jest.mock("react-native", () => {
+  const actualReactNative = jest.requireActual("react-native");
+  const actualReact = jest.requireActual("react");
+  const forwardRefComponent = (displayName: string) =>
+    actualReact.forwardRef((props: Record<string, unknown>, _ref: unknown) =>
+      actualReact.createElement(displayName, props),
+    );
+  const overrides: Record<string, unknown> = {
+    Text: forwardRefComponent("Text"),
+    TextInput: forwardRefComponent("TextInput"),
+  };
+  // A Proxy (not a spread) so every other export — Platform, FlatList, etc.,
+  // several of which are lazy getters that eagerly explode under jsdom if
+  // forced — stays exactly as real react-native provides it.
+  return new Proxy(actualReactNative, {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && prop in overrides) return overrides[prop];
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+});
+
+import { Text, TextInput } from "react-native";
+import { registerWebFonts, installWebTextFontInterceptor } from "../../src/lib/webFonts.web";
 
 const STYLE_ID = "mentible-web-fonts";
+
+// Invokes a forwardRef component's current (possibly patched) `.render` the
+// same way React itself would — positional (props, ref).
+function renderWith(Component: unknown, props: Record<string, unknown>) {
+  return (Component as { render: (props: unknown, ref: unknown) => unknown }).render(
+    props,
+    null,
+  );
+}
 
 // Parses the injected stylesheet text into a list of @font-face blocks with
 // their family/weight/style, plus the leftover (non-@font-face) text.
@@ -56,6 +93,47 @@ function parseFaces(css: string) {
   const rest = css.replace(re, "");
   return { faces, rest };
 }
+
+// Runs BEFORE the registerWebFonts describe below (Jest executes `it`s in
+// declaration order) so the very first assertion here sees Text/TextInput's
+// pristine, un-patched .render — registerWebFonts() itself calls
+// installWebTextFontInterceptor(), which would otherwise have already
+// patched them by the time a later block ran this check.
+describe("installWebTextFontInterceptor (web)", () => {
+  it("patches Text.render and TextInput.render with an idempotent sentinel", () => {
+    const beforeText = (Text as { render?: unknown }).render;
+    const beforeTextInput = (TextInput as { render?: unknown }).render;
+    installWebTextFontInterceptor();
+    expect((Text as { render?: unknown }).render).not.toBe(beforeText);
+    expect((TextInput as { render?: unknown }).render).not.toBe(beforeTextInput);
+
+    // A second install must not double-wrap (mirrors applyGlobalFont's sentinel).
+    const afterFirst = (Text as { render?: unknown }).render;
+    installWebTextFontInterceptor();
+    expect((Text as { render?: unknown }).render).toBe(afterFirst);
+  });
+
+  it("assigns Inter to an un-styled Text element", () => {
+    installWebTextFontInterceptor();
+    const el = renderWith(Text, { children: "Your account syncs…" }) as {
+      props: { style?: unknown[] };
+    };
+    const flat = Object.assign({}, ...(el.props.style as Record<string, unknown>[]));
+    expect(flat.fontFamily).toBe("Inter_400Regular");
+    expect(flat.fontWeight).toBe("normal");
+  });
+
+  it("leaves an explicit icon family untouched (no fontFamily override added)", () => {
+    installWebTextFontInterceptor();
+    const el = renderWith(Text, {
+      style: { fontFamily: "Ionicons", fontSize: 20 },
+    }) as { props: { style: unknown } };
+    // resolveFamilyForStyle returns null for icon fonts, so the interceptor
+    // must return the element from the wrapped render unmodified — not a
+    // cloneElement with an appended style entry.
+    expect(el.props.style).toEqual({ fontFamily: "Ionicons", fontSize: 20 });
+  });
+});
 
 describe("registerWebFonts (web)", () => {
   afterEach(() => {

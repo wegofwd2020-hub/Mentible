@@ -14,8 +14,20 @@
 // synthesizes the right face from font-weight, same as it would for any real
 // variable/static web font family.
 //
-// applyGlobalFont (native-only interceptor) has no equivalent on web; this is
-// the web half of "un-styled Text gets a sane default font".
+// applyGlobalFont (native-only interceptor) skips web entirely (an explicit
+// `if (Platform.OS === "web") return`), NOT because its patch mechanism fails
+// there — react-native-web's Text/TextInput are forwardRef components that
+// expose the same patchable `.render`. The @font-face + inheritance-only
+// default rule above can't beat RNW's per-Text reset class (same (0,1,0)
+// specificity, and the reset directly matches while our rule only inherits —
+// see the DEFAULT_TEXT_RULE comment for the full empirical trail), so
+// installWebTextFontInterceptor (below) resolves the family in JS and adds it
+// to the element's `style`, which RNW turns into a second, directly-matching
+// atomic class that wins over the reset class. This closes the residual gap
+// noted above (un-styled top-level Text staying on the system stack). It
+// deliberately does NOT mirror applyGlobalFont's wrap-the-output shape — see
+// the comment on patchWebText for why RNW needs the opposite (wrap the
+// INPUT).
 import { Asset } from "expo-asset";
 import {
   Inter_400Regular,
@@ -35,6 +47,9 @@ import {
   SourceSerif4_600SemiBold,
   SourceSerif4_700Bold,
 } from "@expo-google-fonts/source-serif-4";
+import { Text, TextInput } from "react-native";
+import { resolveFamilyForStyle } from "@/lib/applyGlobalFont";
+import { isDyslexic } from "@/state/fontMode";
 
 const STYLE_ID = "mentible-web-fonts";
 
@@ -103,10 +118,9 @@ function faceRule(spec: FaceSpec): string {
 // own (nested Text-in-Text, which resolves `font: inherit`, and any raw DOM
 // content outside RNW's Text, e.g. reader HTML that doesn't set its own
 // font). Un-styled top-level RNW <Text> (nav labels, an un-styled "Sign in")
-// stays on the system stack after this file — see the task report for the
-// residual gap and a recommended follow-up (a web-side interceptor mirroring
-// applyGlobalFont's `resolveFamilyForStyle`, which resolves this in JS before
-// RNW ever emits CSS, sidestepping the cascade entirely).
+// stays on the system stack after just this CSS rule — that residual gap is
+// closed below by installWebTextFontInterceptor, which resolves the family in
+// JS before RNW ever emits CSS, sidestepping the cascade entirely.
 const DEFAULT_TEXT_RULE = `html, body, #root {\n  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;\n}`;
 
 export function registerWebFonts(): void {
@@ -116,4 +130,57 @@ export function registerWebFonts(): void {
   style.id = STYLE_ID;
   style.textContent = css;
   document.head.appendChild(style);
+  installWebTextFontInterceptor();
+}
+
+// Same resolver + idempotent-sentinel idea as applyGlobalFont.ts's `patch()`
+// (native), but NOT the same wrap point, and deliberately so — verified by
+// instrumenting a real local export (`npx expo export -p web` + serve,
+// inspected with Playwright): RNW's Text.render (node_modules/
+// react-native-web/src/exports/Text/index.js) doesn't forward `props.style`
+// down to the element it returns. It resolves `props.style` into atomic CSS
+// classNames ITSELF, inside its own render body, via its own createElement,
+// and returns a plain host element ('div'/'span'/'a') whose `props.style` is
+// already gone (converted to `className`). So wrapping the OUTPUT the way
+// applyGlobalFont does (inspect `element.props.style` after calling orig())
+// sees `undefined` for every element and resolves every one of them to the
+// same default body family — confirmed by a real render trace where a
+// Fraunces heading and a plain paragraph both computed `Inter_400Regular`.
+// Native's Text.render has no such transform (style flows to the native host
+// component untouched), which is why applyGlobalFont's read-the-output
+// pattern is correct THERE. On web the resolution has to happen on the INPUT:
+// compute the family from the incoming props.style, append it to a NEW style
+// array, and call the real Text.render with that augmented props object so
+// RNW's own class-generation pipeline (and its insertion-order cascade win —
+// see the DEFAULT_TEXT_RULE comment) processes our addition like any other
+// style.
+function patchWebText(Component: { render?: (...args: unknown[]) => unknown }) {
+  const orig = Component.render;
+  if (
+    typeof orig !== "function" ||
+    (orig as { __mentibleWebFontPatched?: boolean }).__mentibleWebFontPatched
+  ) {
+    return;
+  }
+  const patched = function (this: unknown, ...args: unknown[]) {
+    const props = args[0] as { style?: unknown } | undefined;
+    const family = resolveFamilyForStyle(props?.style, isDyslexic());
+    if (!family) return orig.apply(this, args);
+    const nextProps = {
+      ...props,
+      style: [props?.style, { fontFamily: family, fontWeight: "normal" as const }],
+    };
+    const nextArgs = [nextProps, ...args.slice(1)];
+    return orig.apply(this, nextArgs);
+  };
+  (patched as { __mentibleWebFontPatched?: boolean }).__mentibleWebFontPatched = true;
+  Component.render = patched;
+}
+
+// Install once (idempotent via the per-Component sentinel above). Exported so
+// a jsdom test can call it directly without going through the whole
+// registerWebFonts() DOM-injection path.
+export function installWebTextFontInterceptor(): void {
+  patchWebText(Text as unknown as { render?: (...args: unknown[]) => unknown });
+  patchWebText(TextInput as unknown as { render?: (...args: unknown[]) => unknown });
 }
