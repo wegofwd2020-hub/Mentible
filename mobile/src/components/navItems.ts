@@ -17,13 +17,13 @@ export const NAV_TABS: Record<string, { label: string; active: IconName; inactiv
   about: { label: NAV.about, active: "information-circle", inactive: "information-circle-outline" },
 };
 
-// Visual order. Projects/Reviews/Posts need a backend account (ADR-037) and are
+// Visual order. Shelves, Studio (books) and Posts are intentionally HIDDEN from
+// the nav — their routes stay registered (reachable elsewhere / by link), they're
+// just not shown here. Projects/Reviews need a backend account (ADR-037) and stay
 // omitted from the demo build.
 export const NAV_ORDER: string[] = [
   "library",
-  "shelves",
-  "books",
-  ...(IS_DEMO ? [] : ["projects", "reviews", "posts"]),
+  ...(IS_DEMO ? [] : ["projects", "reviews"]),
   "settings",
   "help",
   "about",
