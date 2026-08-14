@@ -5,12 +5,15 @@ jest.mock("../../src/api/client", () => ({
   pollUntilDone: jest.fn(),
 }));
 
+jest.mock("../../src/hooks/useBillingPlan", () => ({ useBillingPlan: jest.fn() }));
+
 const { submitGenerate, pollUntilDone } = require("../../src/api/client") as {
   submitGenerate: jest.Mock;
   pollUntilDone: jest.Mock;
 };
 
 import { useGenerateTopic } from "../../src/hooks/useGenerateTopic";
+import { useBillingPlan } from "../../src/hooks/useBillingPlan";
 import type { GenerationParams } from "../../src/types/generationParams";
 
 const PARAMS: GenerationParams = {
@@ -40,6 +43,10 @@ const getApiKey = () => Promise.resolve("sk-ant-FAKE_KEY_test_12345");
 beforeEach(() => {
   jest.clearAllMocks();
   submitGenerate.mockImplementation(() => Promise.resolve({ job_id: "j", status: "queued" }));
+  // Fail-open default (matches the other useBillingPlan consumers) — most
+  // tests here don't care about Pro/Free, only the keyless-when-Pro suite
+  // below overrides this per-case.
+  (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: false });
 });
 
 describe("useGenerateTopic", () => {
@@ -127,7 +134,8 @@ describe("useGenerateTopic", () => {
     expect(result.current.error).toBe("boom");
   });
 
-  it("returns null and reports a missing API key without calling the API", async () => {
+  it("returns null and reports a missing API key without calling the API when known not-Pro", async () => {
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
     const { result } = renderHook(() =>
       useGenerateTopic({ getApiKey: () => Promise.resolve(null), intervalMs: 1 }),
     );
@@ -140,5 +148,64 @@ describe("useGenerateTopic", () => {
     expect(lesson).toBeNull();
     expect(result.current.error).toMatch(/No API key/);
     expect(submitGenerate).not.toHaveBeenCalled();
+  });
+
+  // Keyless (managed) generation for Pro users with no saved BYOK key (mirrors
+  // the trust hook's #433 fix). Decision: saved key => BYOK (unchanged); no key
+  // + Pro => keyless (apiKey omitted, never ""); no key + not-Pro (incl.
+  // plan: null, fail-open) => the existing "No API key saved" message.
+  describe("keyless-when-Pro wiring", () => {
+    it("no saved key + Pro sends a keyless request (no api_key) and sets no error", async () => {
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: true }, loading: false });
+      pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+      const { result } = renderHook(() =>
+        useGenerateTopic({ getApiKey: () => Promise.resolve(null), intervalMs: 1 }),
+      );
+
+      let lesson: unknown = "unset";
+      await act(async () => {
+        lesson = await result.current.run({ title: "Dynamics", subtopics: [], params: PARAMS });
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(lesson).not.toBeNull();
+      expect(submitGenerate).toHaveBeenCalledTimes(1);
+      const sent = submitGenerate.mock.calls[0][0];
+      expect(sent.api_key).toBeUndefined();
+      expect("api_key" in sent).toBe(false);
+    });
+
+    it("no saved key + plan still loading (null) sends a keyless request (fail-open)", async () => {
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: true });
+      pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+      const { result } = renderHook(() =>
+        useGenerateTopic({ getApiKey: () => Promise.resolve(null), intervalMs: 1 }),
+      );
+
+      await act(async () => {
+        await result.current.run({ title: "Dynamics", subtopics: [], params: PARAMS });
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(submitGenerate).toHaveBeenCalledTimes(1);
+      expect(submitGenerate.mock.calls[0][0].api_key).toBeUndefined();
+    });
+
+    it("a saved key is always sent as BYOK, regardless of plan", async () => {
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+      pollUntilDone.mockResolvedValue({ status: "done", result: LESSON });
+
+      const { result } = renderHook(() =>
+        useGenerateTopic({ getApiKey, intervalMs: 1 }),
+      );
+
+      await act(async () => {
+        await result.current.run({ title: "Dynamics", subtopics: [], params: PARAMS });
+      });
+
+      expect(submitGenerate.mock.calls[0][0].api_key).toBe("sk-ant-FAKE_KEY_test_12345");
+    });
   });
 });

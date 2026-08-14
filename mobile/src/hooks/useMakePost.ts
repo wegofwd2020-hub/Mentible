@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@/api/client";
 import { makePost, type Platform, type PostVariant } from "@/api/derivativesClient";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 
 export type MakePostStatus = "idle" | "generating" | "done" | "failed";
 
@@ -26,13 +27,19 @@ export interface UseMakePostResult {
 }
 
 // Stateless one-shot: source text -> 3 platform-scoped post variants over the
-// synchronous /derivatives/post endpoint (no polling). BYOK-only — a missing
-// key is a friendly hard failure, mirroring useGenerateTopic's guard.
+// synchronous /derivatives/post endpoint (no polling). A Pro plan's managed
+// key covers the vendor call, so a missing BYOK key only blocks Free/unknown-
+// plan users — a friendly hard failure, mirroring useGenerateTopic's guard.
 export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
   const [status, setStatus] = useState<MakePostStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [variants, setVariants] = useState<PostVariant[]>([]);
   const [provenance, setProvenance] = useState<string | null>(null);
+
+  // Fail-open: while the plan is loading (plan == null) or Pro, a no-key run
+  // goes keyless and the backend decides.
+  const { plan } = useBillingPlan();
+  const knownNotPro = plan != null && plan.is_pro === false;
 
   const reset = useCallback(() => {
     setStatus("idle");
@@ -47,7 +54,7 @@ export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
       setStatus("generating");
 
       const apiKey = await getApiKey();
-      if (!apiKey) {
+      if (!apiKey && knownNotPro) {
         setError("No API key saved. Go to Settings and paste your Anthropic key.");
         setStatus("failed");
         return;
@@ -59,7 +66,9 @@ export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
           platform,
           ...(tone ? { tone } : {}),
           ...(image ? { image } : {}),
-          api_key: apiKey,
+          // Never send api_key: "" — omit the field entirely for a keyless
+          // (managed-plan) request.
+          ...(apiKey ? { api_key: apiKey } : {}),
           provider_id: "anthropic",
         });
         setVariants(res.variants);
@@ -76,7 +85,7 @@ export function useMakePost({ getApiKey }: UseMakePostArgs): UseMakePostResult {
         setStatus("failed");
       }
     },
-    [getApiKey],
+    [getApiKey, knownNotPro],
   );
 
   return { status, error, variants, provenance, run, reset };

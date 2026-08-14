@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { buildTopicPrompt, buildTopicInstructions } from "@/hooks/topicPrompt";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { buildGenerateRequest } from "@/lib/buildGenerateRequest";
 import { recordUsage } from "@/storage/usageStore";
 import type { GenerationParams } from "@/types/generationParams";
@@ -51,13 +52,19 @@ export function useGenerateTopic({
   const [status, setStatus] = useState<TopicGenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
+  // A Pro plan's managed key covers the vendor call, so a missing BYOK key
+  // only blocks Free/unknown-plan users. Fail-open: while the plan is loading
+  // (plan == null) or Pro, a no-key run goes keyless and the backend decides.
+  const { plan } = useBillingPlan();
+  const knownNotPro = plan != null && plan.is_pro === false;
+
   const run = useCallback(
     async ({ title, subtopics, params, instructions }: RunTopicArgs): Promise<TopicGenResult | null> => {
       setError(null);
       setStatus("generating");
 
       const apiKey = await getApiKey();
-      if (!apiKey) {
+      if (!apiKey && knownNotPro) {
         setError("No API key saved. Go to Settings and paste your Anthropic key.");
         setStatus("failed");
         return null;
@@ -67,7 +74,7 @@ export function useGenerateTopic({
         const res = await submitGenerate(
           buildGenerateRequest({
             topic: buildTopicPrompt(title, subtopics),
-            apiKey,
+            apiKey: apiKey ?? undefined,
             params,
             instructions: buildTopicInstructions(subtopics, instructions),
           }),
@@ -105,7 +112,7 @@ export function useGenerateTopic({
         return null;
       }
     },
-    [getApiKey, intervalMs],
+    [getApiKey, intervalMs, knownNotPro],
   );
 
   return { status, error, run };

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { ApiError, pollUntilDone, submitGenerate } from "@/api/client";
 import { IS_DEMO } from "@/constants/demo";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { randomUUID } from "@/lib/uuid";
 import { chapterPlainText } from "@/openshelves/chapterText";
 import { loadApiKey } from "@/secure/keyStore";
@@ -44,6 +45,13 @@ export function useGenerateChapterQuiz(): UseGenerateChapterQuizResult {
   const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
 
+  // A Pro plan's managed key covers the vendor call, so a missing BYOK key
+  // only blocks Free/unknown-plan users. Fail-open: while the plan is loading
+  // (plan == null) or Pro, a no-key generate goes keyless and the backend
+  // decides.
+  const { plan } = useBillingPlan();
+  const knownNotPro = plan != null && plan.is_pro === false;
+
   const generate = useCallback(
     async (bookId: string, chapterId: string): Promise<QuizSet | null> => {
       // Safety net, same contract as submitGenerate's own IS_DEMO guard: a demo
@@ -63,7 +71,7 @@ export function useGenerateChapterQuiz(): UseGenerateChapterQuizResult {
         }
 
         const apiKey = await loadApiKey(book.generationParams?.provider);
-        if (!apiKey) {
+        if (!apiKey && knownNotPro) {
           setError("No API key saved. Go to Settings and paste your Anthropic key.");
           setStatus("failed");
           return null;
@@ -79,7 +87,9 @@ export function useGenerateChapterQuiz(): UseGenerateChapterQuizResult {
           language: QUIZ_LANGUAGE,
           format: "quiz",
           source_text: sourceText,
-          api_key: apiKey,
+          // Never send api_key: "" — omit the field entirely for a keyless
+          // (managed-plan) request.
+          ...(apiKey ? { api_key: apiKey } : {}),
           ...(book.generationParams?.provider ? { provider_id: book.generationParams.provider } : {}),
         };
 
@@ -120,7 +130,7 @@ export function useGenerateChapterQuiz(): UseGenerateChapterQuizResult {
         return null;
       }
     },
-    [],
+    [knownNotPro],
   );
 
   return { status, error, truncated, generate };

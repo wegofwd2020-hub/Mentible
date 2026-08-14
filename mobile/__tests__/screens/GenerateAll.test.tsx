@@ -21,6 +21,14 @@ jest.mock("../../src/api/client", () => ({
 
 jest.mock("../../src/secure/keyStore", () => ({ loadApiKey: jest.fn() }));
 
+// useGenerateAll now consults the Pro/Free plan (keyless-when-Pro). This
+// screen's tests exercise the BYOK path (a key is always supplied), so a
+// harmless fail-open default (plan: null) keeps the existing assertions
+// unaffected.
+jest.mock("../../src/hooks/useBillingPlan", () => ({
+  useBillingPlan: () => ({ plan: null, loading: false }),
+}));
+
 jest.mock("../../src/storage/bookStore", () => ({
   loadBook: jest.fn(),
   saveBook: jest.fn().mockResolvedValue(undefined),

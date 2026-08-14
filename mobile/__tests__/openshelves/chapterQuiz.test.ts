@@ -22,6 +22,7 @@ jest.mock("@/secure/keyStore", () => ({
 jest.mock("@/storage/usageStore", () => ({
   recordUsage: jest.fn(),
 }));
+jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: jest.fn() }));
 // A mutable mock (not the real, build-time-inlined IS_DEMO — see
 // __tests__/constants/demo.test.ts) so the "demo build blocks" case below can
 // flip it at runtime without jest.resetModules() (which duplicates React and
@@ -42,6 +43,7 @@ const demoModule = require("@/constants/demo") as { IS_DEMO: boolean };
 
 import { chapterPlainText, MAX_QUIZ_SOURCE } from "@/openshelves/chapterText";
 import { useGenerateChapterQuiz } from "@/hooks/useGenerateChapterQuiz";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import type { Book, ImportedChapter, QuizSet } from "@/types/book";
 
 function chapter(over: Partial<ImportedChapter> = {}): ImportedChapter {
@@ -121,6 +123,10 @@ describe("useGenerateChapterQuiz", () => {
     jest.clearAllMocks();
     loadApiKey.mockResolvedValue("sk-ant-FAKE_KEY_test_12345");
     submitGenerate.mockResolvedValue({ job_id: "j1", status: "queued" });
+    // Fail-open default (matches the other useBillingPlan consumers) — most
+    // tests here don't care about Pro/Free, only the keyless-when-Pro suite
+    // below overrides this per-case.
+    (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: false });
   });
 
   it("submits format:quiz with the chapter's plaintext as source_text", async () => {
@@ -226,6 +232,79 @@ describe("useGenerateChapterQuiz", () => {
     expect(result.current.status).toBe("failed");
     expect(result.current.error).toBe("boom");
     expect(saveBook).not.toHaveBeenCalled();
+  });
+
+  // Keyless (managed) generation for Pro users with no saved BYOK key (mirrors
+  // the trust hook's #433 fix). Decision: saved key => BYOK (unchanged); no key
+  // + Pro => keyless (api_key omitted, never ""); no key + not-Pro (incl.
+  // plan: null, fail-open) => the existing "No API key saved" message.
+  describe("keyless-when-Pro wiring", () => {
+    it("no saved key + Pro sends a keyless request (no api_key) and sets no error", async () => {
+      loadApiKey.mockResolvedValue(null);
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: true }, loading: false });
+      loadBook.mockResolvedValue(book());
+      pollUntilDone.mockResolvedValue({ status: "done", result: QUIZ });
+
+      const { result } = renderHook(() => useGenerateChapterQuiz());
+      let out: QuizSet | null = null;
+      await act(async () => {
+        out = await result.current.generate("bk-1", "c1");
+      });
+
+      expect(out).toEqual(QUIZ);
+      expect(result.current.status).toBe("done");
+      expect(result.current.error).toBeNull();
+      expect(submitGenerate).toHaveBeenCalledTimes(1);
+      const sent = submitGenerate.mock.calls[0][0];
+      expect("api_key" in sent).toBe(false);
+    });
+
+    it("no saved key + not-Pro sets the add-a-key error without calling submitGenerate", async () => {
+      loadApiKey.mockResolvedValue(null);
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+      loadBook.mockResolvedValue(book());
+
+      const { result } = renderHook(() => useGenerateChapterQuiz());
+      let out: QuizSet | null = null;
+      await act(async () => {
+        out = await result.current.generate("bk-1", "c1");
+      });
+
+      expect(out).toBeNull();
+      expect(result.current.status).toBe("failed");
+      expect(result.current.error).toMatch(/No API key/);
+      expect(submitGenerate).not.toHaveBeenCalled();
+    });
+
+    it("no saved key + plan still loading (null) sends a keyless request (fail-open)", async () => {
+      loadApiKey.mockResolvedValue(null);
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: null, loading: true });
+      loadBook.mockResolvedValue(book());
+      pollUntilDone.mockResolvedValue({ status: "done", result: QUIZ });
+
+      const { result } = renderHook(() => useGenerateChapterQuiz());
+      await act(async () => {
+        await result.current.generate("bk-1", "c1");
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(submitGenerate).toHaveBeenCalledTimes(1);
+      expect("api_key" in submitGenerate.mock.calls[0][0]).toBe(false);
+    });
+
+    it("a saved key is always sent as BYOK, regardless of plan", async () => {
+      loadApiKey.mockResolvedValue("sk-ant-FAKE_KEY_test_12345");
+      (useBillingPlan as jest.Mock).mockReturnValue({ plan: { is_pro: false }, loading: false });
+      loadBook.mockResolvedValue(book());
+      pollUntilDone.mockResolvedValue({ status: "done", result: QUIZ });
+
+      const { result } = renderHook(() => useGenerateChapterQuiz());
+      await act(async () => {
+        await result.current.generate("bk-1", "c1");
+      });
+
+      expect(submitGenerate.mock.calls[0][0].api_key).toBe("sk-ant-FAKE_KEY_test_12345");
+    });
   });
 
   it("blocks in a demo build without calling submitGenerate", async () => {
