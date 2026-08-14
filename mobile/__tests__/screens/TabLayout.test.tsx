@@ -2,10 +2,13 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 
 // Capture the screenOptions the Tabs navigator is configured with. The bottom-tab
-// scene container's `sceneStyle` is TRANSPARENT (Slice B, lovable-background) so
-// the root `AppBackground` gradient — mounted above the Stack in `app/_layout.tsx`,
-// which every tab screen sits inside — shows through instead of a flat theme fill.
-// This guards that: the navigator no longer paints an opaque background of its own.
+// scene container's `sceneStyle` MUST be OPAQUE (the theme background). On web,
+// react-native-screens is inactive, so bottom-tabs can't detach inactive tab
+// scenes — every scene stays mounted, stacked, and visible; only the active
+// scene's opaque fill hides the ones beneath it. A brief TRANSPARENT sceneStyle
+// (Slice B, lovable-background) removed that cover and made Shelves/Library/
+// Projects render on top of each other. This guards that the scene fill stays
+// opaque so that can't regress.
 let capturedScreenOptions: Record<string, unknown> | undefined;
 let capturedTabBar: ((props: unknown) => unknown) | undefined;
 
@@ -53,10 +56,15 @@ beforeEach(() => {
   (useResponsive as jest.Mock).mockReturnValue({ width: 500, isTablet: false, isDesktop: false });
 });
 
-it("leaves the tab scene container transparent so the root gradient shows through", () => {
+it("paints an OPAQUE tab scene fill so inactive tabs can't bleed through on web", () => {
   render(<TabLayout />);
   const sceneStyle = capturedScreenOptions?.["sceneStyle"] as { backgroundColor?: string } | undefined;
-  expect(sceneStyle?.backgroundColor).toBe("transparent");
+  const bg = sceneStyle?.backgroundColor;
+  // Must be an opaque colour (a hex from the theme), never "transparent" — that
+  // was the regression that let stacked tab scenes show through each other.
+  expect(bg).toBeDefined();
+  expect(bg).not.toBe("transparent");
+  expect(bg).toMatch(/^#[0-9a-fA-F]{6}$/);
 });
 
 it("uses a left SideNav on desktop widths", () => {
