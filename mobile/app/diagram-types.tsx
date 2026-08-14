@@ -156,7 +156,7 @@ export default function DiagramTypesScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 as const },
   intro: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
   bold: { fontWeight: "700" as const, color: c.text },

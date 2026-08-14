@@ -91,12 +91,12 @@ export default function ReadBookScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   title: { fontSize: typography.sizeLg, fontFamily: PLAYFAIR.semibold, letterSpacing: -0.36, color: c.text, marginBottom: spacing.sm },
   centered: {
     flex: 1,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
     padding: spacing.xl,

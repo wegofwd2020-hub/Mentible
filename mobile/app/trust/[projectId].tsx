@@ -2115,7 +2115,7 @@ export default function TrustProjectDetail() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   center: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   body: { padding: spacing.md, gap: spacing.md },
   // Fraunces bakes the weight into the family name, so no fontWeight here (a

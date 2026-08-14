@@ -334,8 +334,8 @@ function OneLine({ styles }: { styles: ReturnType<typeof makeStyles> }) {
 }
 
 const makeStyles = (c: Palette) => ({
-  safe: { flex: 1 as const, backgroundColor: c.background },
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  safe: { flex: 1 as const, backgroundColor: "transparent" },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   container: { padding: spacing.md, paddingBottom: spacing.xxl },
 
   switcher: {

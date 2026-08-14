@@ -378,11 +378,11 @@ function BooksScreenInner() {
 }
 
 const makeStyles = (c: Palette) => ({
-  list: { flex: 1, backgroundColor: c.background },
+  list: { flex: 1, backgroundColor: "transparent" },
   header: { marginBottom: spacing.md },
   rowMetaRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   empty: {
-    flex: 1, backgroundColor: c.background, justifyContent: "center" as const,
+    flex: 1, backgroundColor: "transparent", justifyContent: "center" as const,
     alignItems: "center" as const, padding: spacing.xl, gap: spacing.md,
   },
   emptyIcon: { fontSize: 48 },
@@ -399,7 +399,7 @@ const makeStyles = (c: Palette) => ({
   tileMeta: { fontSize: typography.sizeXs, color: c.textMuted },
 
   // Wide split
-  split: { flex: 1, flexDirection: "row" as const, backgroundColor: c.background, maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
+  split: { flex: 1, flexDirection: "row" as const, backgroundColor: "transparent", maxWidth: MAX_WIDE_WIDTH, width: "100%" as const, alignSelf: "center" as const },
   leftPane: { flex: 4, borderRightColor: c.border, borderRightWidth: 1 },
   leftContent: { padding: spacing.md },
   rowSep: { height: spacing.sm },
@@ -411,7 +411,7 @@ const makeStyles = (c: Palette) => ({
   rowMain: { flex: 1, gap: 2 },
   rowTitle: { fontSize: typography.sizeSm, fontWeight: "500" as const, color: c.text },
   rowMeta: { fontSize: typography.sizeXs, color: c.textMuted },
-  rightPane: { flex: 6, backgroundColor: c.background },
+  rightPane: { flex: 6, backgroundColor: "transparent" },
 
   // Detail panel
   detailEmpty: { flex: 1, alignItems: "center" as const, justifyContent: "center" as const, gap: spacing.sm, padding: spacing.xl },

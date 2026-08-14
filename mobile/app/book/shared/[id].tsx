@@ -147,7 +147,7 @@ const makeStyles = (c: Palette) => ({
   backBtnText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeSm },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   title: { fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text },
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: "transparent" },
   topicBar: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
   topicBody: { flex: 1 },
   back: { fontSize: typography.sizeSm, fontWeight: "700" as const, color: c.primary },

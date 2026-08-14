@@ -100,7 +100,7 @@ export default function HelpScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   title: {
     color: c.text,

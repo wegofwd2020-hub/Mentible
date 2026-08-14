@@ -142,7 +142,7 @@ function ImportBookScreenInner() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   label: {
     fontSize: typography.sizeSm,

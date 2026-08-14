@@ -520,7 +520,7 @@ export default function TrustVersion() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   body: { padding: spacing.md, gap: spacing.md },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },

@@ -119,7 +119,7 @@ export default function NewProjectScreen() {
   );
 }
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background }, body: { padding: spacing.md, gap: spacing.md },
+  scroll: { flex: 1, backgroundColor: "transparent" }, body: { padding: spacing.md, gap: spacing.md },
   // Centers the form on wide/tablet-web while staying full-width on phone.
   content: { width: "100%" as const, maxWidth: 640, alignSelf: "center" as const, gap: spacing.md },
   backLink: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },

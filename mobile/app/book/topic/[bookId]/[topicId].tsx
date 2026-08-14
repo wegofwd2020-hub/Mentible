@@ -284,12 +284,12 @@ export default function BookTopicScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  screen: { flex: 1, backgroundColor: c.background },
+  screen: { flex: 1, backgroundColor: "transparent" },
   trust: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   body: { flex: 1 },
   centered: {
     flex: 1,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
     padding: spacing.xl,

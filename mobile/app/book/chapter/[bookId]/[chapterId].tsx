@@ -138,13 +138,13 @@ export default function ReadChapterScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   centered: {
     flex: 1,
     alignItems: "center" as const,
     justifyContent: "center" as const,
     padding: spacing.lg,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
   },
   missing: { fontSize: typography.sizeMd, color: c.textSecondary, textAlign: "center" as const },
   quizBar: {

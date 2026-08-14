@@ -173,11 +173,11 @@ function SavedBookScreenInner() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   centered: {
     flex: 1 as const,
-    backgroundColor: c.background,
+    backgroundColor: "transparent",
     alignItems: "center" as const,
     justifyContent: "center" as const,
     padding: spacing.xl,

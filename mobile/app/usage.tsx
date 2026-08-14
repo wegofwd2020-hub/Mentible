@@ -165,7 +165,7 @@ function Stat({ label, value, styles }: { label: string; value: string; styles: 
 const makeStyles = (c: Palette) => ({
   // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer goes
   // inside and supplies the padding+gap the old `content` style did.
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 as const },
   disclaimer: {
     backgroundColor: c.surface,

@@ -256,7 +256,7 @@ export default function AdminUserScreen() {
 
 const makeStyles = (c: Palette) => ({
   // ScrollView owns a bounded height (flex:1) so it scrolls; PageContainer inside.
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 as const, paddingBottom: spacing.xl },
   email: { color: c.text, fontSize: typography.sizeXl, fontWeight: "700" as const },
   sub: { color: c.textMuted, fontSize: typography.sizeXs, fontFamily: "monospace" as const, marginTop: 2 },

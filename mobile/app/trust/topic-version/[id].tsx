@@ -527,7 +527,7 @@ export default function TopicVersionViewer() {
 }
 
 const makeStyles = (c: Palette) => ({
-  screen: { flex: 1 as const, backgroundColor: c.background },
+  screen: { flex: 1 as const, backgroundColor: "transparent" },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },

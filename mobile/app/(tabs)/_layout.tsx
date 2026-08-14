@@ -2,7 +2,6 @@ import { Tabs } from "expo-router";
 import { TopNavBar } from "@/components/TopNavBar";
 import { SideNav } from "@/components/SideNav";
 import { useResponsive } from "@/hooks/useResponsive";
-import { useTheme } from "@/theme";
 
 // Navigation swaps by width: a custom TOP, center-aligned bar (TopNavBar) with
 // square icon+label tiles and a leading Mentible mark on narrow/tablet widths,
@@ -11,24 +10,23 @@ import { useTheme } from "@/theme";
 // order here doesn't drive the visual order; TopNavBar/SideNav render an
 // explicit sequence.
 //
-// `sceneStyle` paints the SELECTED THEME's background on the tab scene container.
-// Without it, the bottom-tab scene falls back to React Navigation's default scene
-// background (which follows the device colour scheme), and — because a tab screen
-// that paints no background of its own would show through — the page would ignore
-// the user's chosen theme. Sourcing it from `useTheme()` (not the static `colors`)
-// makes every tab follow the selected theme at the source; previously it was
-// pinned to the Study palette, so themed pages that set their own background
-// changed but plain ones (e.g. Posts) stayed dark.
+// `sceneStyle` is TRANSPARENT (Slice B, lovable-background) so the root
+// `AppBackground` gradient (mounted above the Stack in `app/_layout.tsx`)
+// shows through every tab. Previously this painted the selected theme's flat
+// `background` so a themed page with no background of its own wouldn't fall
+// back to React Navigation's device-colour-scheme default; that job now
+// belongs to `AppBackground`, which every theme (including the flat,
+// non-Studio ones) still resolves correctly via its `bgGradientEnd ?? background`
+// fallback.
 export default function TabLayout() {
   const { isDesktop } = useResponsive();
-  const theme = useTheme();
   return (
     <Tabs
       tabBar={(props) => (isDesktop ? <SideNav {...props} /> : <TopNavBar {...props} />)}
       screenOptions={{
         headerShown: false,
         tabBarPosition: isDesktop ? "left" : "top",
-        sceneStyle: { backgroundColor: theme.background },
+        sceneStyle: { backgroundColor: "transparent" },
       }}
     >
       <Tabs.Screen name="index" />

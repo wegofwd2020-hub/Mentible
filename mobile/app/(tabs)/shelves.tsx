@@ -134,7 +134,7 @@ export default function ShelvesScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   content: { paddingVertical: spacing.lg },
   heading: { color: c.text, fontSize: typography.sizeXl, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36, marginBottom: spacing.xs },
   blurb: { color: c.textMuted, fontSize: typography.sizeMd, marginBottom: spacing.md },

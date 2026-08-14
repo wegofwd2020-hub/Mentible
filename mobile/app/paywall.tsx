@@ -186,7 +186,7 @@ export default function PaywallScreen() {
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1 as const, backgroundColor: c.background },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 as const },
   previewBanner: {
     backgroundColor: c.surface,

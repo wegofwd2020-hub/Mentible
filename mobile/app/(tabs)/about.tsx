@@ -84,7 +84,7 @@ function Row({ label, value, styles }: { label: string; value: string; styles: R
 }
 
 const makeStyles = (c: Palette) => ({
-  scroll: { flex: 1, backgroundColor: c.background },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   scrollContent: { flexGrow: 1 },
   brandHeader: { alignItems: "center" as const, paddingTop: spacing.sm },
   brandCard: {
