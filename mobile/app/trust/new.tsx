@@ -122,8 +122,20 @@ const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: "transparent" }, body: { padding: spacing.md, gap: spacing.md },
   // Centers the form on wide/tablet-web while staying full-width on phone.
   content: { width: "100%" as const, maxWidth: 640, alignSelf: "center" as const, gap: spacing.md },
-  backLink: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
-  backLinkText: { color: c.textMuted, fontSize: typography.sizeSm },
+  // A clearly-tappable pill — this screen has no persistent side/top nav (it's a
+  // non-(tabs) route), so this is the primary way back to Projects.
+  backLink: {
+    alignSelf: "flex-start" as const,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.full,
+    backgroundColor: c.surface,
+  },
+  backLinkText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
   heading: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   subhead: { color: c.textSecondary, fontSize: typography.sizeMd, marginTop: -spacing.sm },
   field: { gap: spacing.xs },
