@@ -254,6 +254,35 @@ def _principal(sub: str, email: str | None = None) -> Principal:
     return Principal(sub=sub, email=email, issuer="test")
 
 
+# Committed rows the managed tests seed (account/entitlement/usage_event) must be
+# purged after each test — they persist on their own connection (not the app pool's
+# rolled-back transaction), so a leaked `usage_event` breaks other files' global
+# "no usage recorded" asserts (e.g. test_trust_usage_metering) when the whole suite
+# runs against one CI database.
+_SEEDED_ACCOUNTS: list[uuid.UUID] = []
+
+
+@pytest.fixture(autouse=True)
+def _purge_seeded_managed_rows():
+    yield
+    if not DSN or not _SEEDED_ACCOUNTS:
+        _SEEDED_ACCOUNTS.clear()
+        return
+
+    async def _run() -> None:
+        conn = await asyncpg.connect(DSN)
+        try:
+            for account_id in _SEEDED_ACCOUNTS:
+                await conn.execute("DELETE FROM usage_event WHERE account_id = $1", account_id)
+                await conn.execute("DELETE FROM entitlement WHERE account_id = $1", account_id)
+                await conn.execute("DELETE FROM account WHERE id = $1", account_id)
+        finally:
+            await conn.close()
+
+    asyncio.run(_run())
+    _SEEDED_ACCOUNTS.clear()
+
+
 def _seed_account_and_entitlement(*, sub: str, email: str, plan_id: str) -> uuid.UUID:
     """Create the account + an active entitlement on their own committed
     connection (not the app pool) so the rows are visible to the request the
@@ -276,7 +305,9 @@ def _seed_account_and_entitlement(*, sub: str, email: str, plan_id: str) -> uuid
         finally:
             await conn.close()
 
-    return asyncio.run(_run())
+    account_id = asyncio.run(_run())
+    _SEEDED_ACCOUNTS.append(account_id)  # purged by _purge_seeded_managed_rows
+    return account_id
 
 
 def _record_usage(account_id: uuid.UUID, *, cost_micros: int) -> None:
