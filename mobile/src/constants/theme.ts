@@ -324,6 +324,39 @@ export const studioLightColors: Palette = {
   bgGradientEnd: mix("#F7F5F0", "#D6A94B", 0.15),
 };
 
+// Studio family, dark base + a MATCHED (per-theme) warm accent — a dark-forest
+// variant of studio-dark. Same token structure; brass accent instead of gold.
+export const studioGreenColors: Palette = {
+  background: "#0B1710", surface: "#14261B", surfaceHigh: "#1C3324",
+  border: "#2E4636", borderLight: "#47604E",
+  text: "#F1F7F2", textSecondary: "#C6E0CE", textMuted: "#93B6A0",
+  primary: "#C4A83C", primaryText: "#0B1710",
+  brand: "#C4A83C", brandText: "#0B1710",
+  growth: "#C4A83C", growthText: "#0B1710",
+  tileOffFace: "#14261B", tileOffGlyph: "#C4A83C", tileOffShadow: "#060D08",
+  tileOnFace: "#C4A83C", tileOnGlyph: "#0B1710", tileOnHi: "#D9C46A", tileOnLo: "#9A8330",
+  tileSubGlyph: "#93B6A0",
+  success: "#8FCBAD", error: "#E29B9B", warning: "#E7C98A",
+  white: "#ffffff",
+  bgGradientEnd: mix("#0B1710", "#C4A83C", 0.15),
+};
+
+// Studio family, deep-oxblood base + a MATCHED warm copper/amber accent.
+export const studioCrimsonColors: Palette = {
+  background: "#180A0C", surface: "#2A1216", surfaceHigh: "#35181D",
+  border: "#4A2A2E", borderLight: "#6A4147",
+  text: "#FBF1F2", textSecondary: "#ECC9CD", textMuted: "#C89AA0",
+  primary: "#E0954A", primaryText: "#180A0C",
+  brand: "#E0954A", brandText: "#180A0C",
+  growth: "#E0954A", growthText: "#180A0C",
+  tileOffFace: "#2A1216", tileOffGlyph: "#E0954A", tileOffShadow: "#0D0507",
+  tileOnFace: "#E0954A", tileOnGlyph: "#180A0C", tileOnHi: "#EDB278", tileOnLo: "#B47338",
+  tileSubGlyph: "#C89AA0",
+  success: "#8FCBAD", error: "#E29B9B", warning: "#E7C98A",
+  white: "#ffffff",
+  bgGradientEnd: mix("#180A0C", "#E0954A", 0.15),
+};
+
 export const themes = {
   study: colors as unknown as Palette,
   manuscript: manuscriptColors,
@@ -333,6 +366,8 @@ export const themes = {
   "navy-trust": navyTrustColors,
   "studio-dark": studioDarkColors,
   "studio-light": studioLightColors,
+  "studio-green": studioGreenColors,
+  "studio-crimson": studioCrimsonColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
@@ -340,7 +375,7 @@ export type ThemeName = keyof typeof themes;
 // Studio re-skin (P0): the theme switcher shows only the two Studio palettes.
 // Every other palette above stays DEFINED (a not-yet-migrated surface, e.g.
 // the reader, may still reference one) — only the switcher's LIST is trimmed.
-export const SWITCHABLE_THEMES: ThemeName[] = ["studio-dark", "studio-light"];
+export const SWITCHABLE_THEMES: ThemeName[] = ["studio-dark", "studio-light", "studio-green", "studio-crimson"];
 
 export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "light" | "sepia" }> = {
   study: { label: "Study", mode: "dark" },
@@ -351,4 +386,6 @@ export const THEME_META: Record<ThemeName, { label: string; mode: "dark" | "ligh
   "navy-trust": { label: "Navy Trust", mode: "dark" },
   "studio-dark": { label: "Studio", mode: "dark" },
   "studio-light": { label: "Studio Light", mode: "light" },
+  "studio-green": { label: "Studio Green", mode: "dark" },
+  "studio-crimson": { label: "Studio Crimson", mode: "dark" },
 };

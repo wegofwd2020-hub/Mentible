@@ -19,7 +19,7 @@ it("defaults to studio-light before any stored value loads", async () => {
   await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
 });
 
-it("switcher lists only the two Studio themes, both real", () => {
-  expect(SWITCHABLE_THEMES).toEqual(["studio-dark", "studio-light"]);
+it("switcher lists the four Studio themes, all real", () => {
+  expect(SWITCHABLE_THEMES).toEqual(["studio-dark", "studio-light", "studio-green", "studio-crimson"]);
   for (const n of SWITCHABLE_THEMES) expect(themes[n]).toBeDefined();
 });
