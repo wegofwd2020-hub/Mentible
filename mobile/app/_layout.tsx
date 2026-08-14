@@ -15,7 +15,7 @@ import { FONT_ASSETS } from "@/constants/fonts";
 import { applyGlobalFont } from "@/lib/applyGlobalFont";
 import { registerWebFonts } from "@/lib/webFonts";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
-import { studioLightColors } from "@/constants/theme";
+import { studioLightColors, THEME_META } from "@/constants/theme";
 import { ThemeProvider, useThemeControls } from "@/theme";
 
 // Status-bar icons must contrast with the theme ground: dark icons on the light
@@ -23,7 +23,9 @@ import { ThemeProvider, useThemeControls } from "@/theme";
 // so it reacts to a switch. (StatusBar is a no-op on web.)
 function ThemedStatusBar() {
   const { themeName } = useThemeControls();
-  return <StatusBar style={themeName === "studio-dark" ? "light" : "dark"} />;
+  // Mode-driven: any DARK theme (navy / green / crimson) needs light status-bar
+  // icons; light/sepia themes need dark icons. (StatusBar is a no-op on web.)
+  return <StatusBar style={THEME_META[themeName].mode === "dark" ? "light" : "dark"} />;
 }
 
 // Install the global text-font interceptor before any component renders (native-only).
