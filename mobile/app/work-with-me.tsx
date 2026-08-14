@@ -1,6 +1,6 @@
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
-import { Button, Card, Label } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { BRAND_CONTACT } from "@/constants/brand";
 import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -67,7 +67,7 @@ export default function WorkWithMeScreen() {
           </Text>
 
           {/* Book */}
-          <Label tone="secondary">Booking asks a couple of quick questions so I can prep.</Label>
+          <Text style={styles.bookHint}>Booking asks a couple of quick questions so I can prep.</Text>
           <Button
             variant="primary"
             label="Book a 30-minute conversation"
@@ -75,7 +75,7 @@ export default function WorkWithMeScreen() {
             accessibilityLabel="Book a 30-minute conversation"
             style={styles.book}
           />
-          <Pressable onPress={emailMe} accessibilityRole="button" accessibilityLabel="Email me instead" style={styles.mailto}>
+          <Pressable onPress={emailMe} accessibilityRole="link" accessibilityLabel="Email me instead" style={styles.mailto}>
             <Text style={styles.mailtoText}>Prefer email? Reach me directly.</Text>
           </Pressable>
         </View>
@@ -86,11 +86,12 @@ export default function WorkWithMeScreen() {
 
 const makeStyles = (c: Palette) => ({
   scroll: { flex: 1, backgroundColor: "transparent" },
-  body: { padding: spacing.md },
+  body: { flexGrow: 1 },
   content: { width: "100%" as const, maxWidth: 720, alignSelf: "center" as const, gap: spacing.md },
   h1: { color: c.text, fontFamily: FRAUNCES.bold, fontSize: typography.sizeXxl, letterSpacing: -0.5 },
   h2: { color: c.text, fontFamily: FRAUNCES.bold, fontSize: typography.sizeXl, marginTop: spacing.md },
   subhead: { color: c.textSecondary, fontSize: typography.sizeMd, lineHeight: 24 },
+  bookHint: { color: c.textSecondary, fontSize: typography.sizeSm },
   tiers: { gap: spacing.sm },
   tier: { gap: spacing.xs },
   tierTitle: { color: c.text, fontSize: typography.sizeLg, fontWeight: "600" as const },
