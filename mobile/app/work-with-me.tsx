@@ -6,10 +6,11 @@ import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 
-// Build-time config (baked like EXPO_PUBLIC_API_BASE_URL). Placeholder default so the
-// build never breaks; the owner sets the real Calendly/Cal.com event URL at deploy.
+// Build-time config (baked like EXPO_PUBLIC_API_BASE_URL). Default is a STAND-IN
+// Calendly handle ("my-handle") — swap to the real event slug (here or via
+// EXPO_PUBLIC_SCHEDULER_URL) before advertising the page, or the Book button 404s.
 export const SCHEDULER_URL: string =
-  process.env.EXPO_PUBLIC_SCHEDULER_URL ?? "https://calendly.com/REPLACE_ME/30min";
+  process.env.EXPO_PUBLIC_SCHEDULER_URL ?? "https://calendly.com/my-handle/30min";
 
 const TIERS: { title: string; body: string }[] = [
   { title: "Discovery", body: "A scoped conversation to map your expertise and pick a first artifact." },
