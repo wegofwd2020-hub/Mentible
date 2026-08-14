@@ -2,6 +2,7 @@ import React from "react";
 import { Linking } from "react-native";
 import { render, fireEvent } from "@testing-library/react-native";
 import WorkWithMeScreen, { SCHEDULER_URL } from "@/../app/work-with-me";
+import { BRAND_CONTACT } from "@/constants/brand";
 
 describe("WorkWithMeScreen", () => {
   beforeEach(() => {
@@ -27,6 +28,6 @@ describe("WorkWithMeScreen", () => {
   it("offers a mailto fallback", () => {
     const { getByLabelText } = render(<WorkWithMeScreen />);
     fireEvent.press(getByLabelText("Email me instead"));
-    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/^mailto:wegofwd2020@gmail\.com/));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining(`mailto:${BRAND_CONTACT}`));
   });
 });

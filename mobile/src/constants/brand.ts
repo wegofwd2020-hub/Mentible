@@ -14,4 +14,4 @@ export const BRAND_TAGLINE = "Author Yourself";
 
 // App author / maintainer — surfaced on the About screen.
 export const BRAND_AUTHOR = "Sivakumar Mambakkam [Siva]";
-export const BRAND_CONTACT = "wegofwd2020@gmail.com";
+export const BRAND_CONTACT = "siva.mambakkam@kaundinyalabs.com";
