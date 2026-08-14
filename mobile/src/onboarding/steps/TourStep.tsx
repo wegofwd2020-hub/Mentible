@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { IS_DEMO } from "@/constants/demo";
-import { NAV } from "@/constants/labels";
+import { NAV_ORDER, NAV_TABS } from "@/components/navItems";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import { WizardScaffold } from "../WizardScaffold";
@@ -11,16 +11,29 @@ import type { WizardStepProps } from "./types";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-// The top-nav tabs, mirroring TopNavBar (same icons + shared NAV labels) so
-// the tour reads exactly like the real menu.
-const TABS: { icon: IconName; label: string; blurb: string }[] = [
-  { icon: "library-outline", label: NAV.library, blurb: "Your finished books — tap a cover to read." },
-  { icon: "albums-outline", label: NAV.shelves, blurb: "Browse free book catalogs and download books to read offline." },
-  { icon: "create-outline", label: NAV.studio, blurb: "Create and edit your own books." },
-  { icon: "settings-outline", label: NAV.settings, blurb: "Your LLM keys and preferences." },
-  { icon: "help-circle-outline", label: NAV.help, blurb: "Guides — and you can replay these walkthroughs." },
-  { icon: "information-circle-outline", label: NAV.about, blurb: "Version and privacy." },
-];
+// One-line description per nav destination. Keyed by route name so the tour can
+// be DERIVED from the real nav below (rather than a hand-kept parallel list that
+// drifts when the menu changes). Extra keys (shelves/books/posts) are harmless —
+// they only render if that route is put back into NAV_ORDER.
+const TAB_BLURBS: Record<string, string> = {
+  library: "Your finished books — tap a cover to read.",
+  projects: "Capture your expertise into a project — draft it, get it validated, then publish.",
+  reviews: "Review and approve projects you've been invited to validate.",
+  settings: "Your themes, LLM keys and preferences.",
+  help: "Guides — and you can replay these walkthroughs.",
+  about: "Version and privacy.",
+  shelves: "Browse free book catalogs and download books to read offline.",
+  books: "Create and edit your own books.",
+  posts: "Turn your work into shareable posts.",
+};
+
+// The tour tabs mirror the REAL menu exactly — same order, same labels/icons, and
+// the same demo filtering — because both come from NAV_ORDER + NAV_TABS.
+const TABS: { icon: IconName; label: string; blurb: string }[] = NAV_ORDER.map((name) => ({
+  icon: NAV_TABS[name].inactive as IconName,
+  label: NAV_TABS[name].label,
+  blurb: TAB_BLURBS[name] ?? "",
+}));
 
 const READ_STEPS = [
   "Open Library and tap a book cover.",
@@ -57,7 +70,7 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
         stepIndex={stepIndex}
         stepCount={stepCount}
         title="Meet your tabs"
-        subtitle="Mentible has six places, along the top of the app."
+        subtitle="Your menu, along the top of the app."
         helpTopic="reading-a-book"
         primaryLabel="Next"
         onPrimary={() => setPage(1)}
