@@ -86,6 +86,10 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="work-with-me"
+                options={{ title: "Work with me", headerBackTitle: "Back" }}
+              />
+              <Stack.Screen
                 name="diagram-types"
                 options={{
                   title: "Diagram types",
