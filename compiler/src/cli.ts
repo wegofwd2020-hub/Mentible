@@ -2,20 +2,22 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { compileEpub } from "./epub";
 import { compilePdf } from "./pdfRender";
+import { compileDocx } from "./docx";
 import { PuppeteerMermaidRenderer } from "./mermaid";
 import { buildCoverSvgFile, coverInputForBook } from "./cover";
 import { renderCoverPng } from "./coverRaster";
 import type { Book } from "./types";
 
-// compile <book.json|-> [-o out|-] [--format epub|pdf|cover] [--mermaid]
+// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover] [--mermaid]
 //   input      a path, or "-" / omitted to read book JSON from stdin
 //   -o         a path, or "-" to write to stdout (default when reading stdin)
 //   --format   epub (default) | pdf (Vivliostyle textbook layout) |
-//              cover (a PNG thumbnail of the book's cover, for the Library)
+//              docx (Word) | cover (a PNG thumbnail of the book's cover, for
+//              the Library)
 //   --mermaid  render diagrams to inline SVG (needs a headless browser); else
 //              diagrams fall back to a readable text placeholder.
 
-type Format = "epub" | "pdf" | "cover";
+type Format = "epub" | "pdf" | "cover" | "docx";
 
 function parseArgs(argv: string[]): {
   input?: string;
@@ -32,7 +34,7 @@ function parseArgs(argv: string[]): {
     if (a === "--mermaid") mermaid = true;
     else if (a === "--format") {
       const f = argv[++i];
-      format = f === "pdf" ? "pdf" : f === "cover" ? "cover" : "epub";
+      format = f === "pdf" ? "pdf" : f === "cover" ? "cover" : f === "docx" ? "docx" : "epub";
     } else if (a === "--pdf") format = "pdf";
     else if (a === "-o") output = argv[++i];
     else if (!input) input = a;
@@ -59,7 +61,9 @@ async function main(): Promise<void> {
       ? await compilePdf(book, mermaidOpt)
       : format === "cover"
         ? await renderCoverPng(buildCoverSvgFile(coverInputForBook(book)))
-        : await compileEpub(book, mermaidOpt);
+        : format === "docx"
+          ? await compileDocx(book)
+          : await compileEpub(book, mermaidOpt);
 
   // Write to stdout when asked, or by default when input came from stdin.
   const toStdout = output === "-" || (fromStdin && !output);

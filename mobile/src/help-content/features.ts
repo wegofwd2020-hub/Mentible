@@ -22,6 +22,7 @@ export const FEATURES = [
   { key: "draft-viewer", label: "Reading, editing & regenerating a draft" },
   { key: "generate-full-book", label: "Generate full book" },
   { key: "project-fields", label: "New Project fields (Title, Topic, Audience, Goal)" },
+  { key: "word-export", label: "Word (.docx) export" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];

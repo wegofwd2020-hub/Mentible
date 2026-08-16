@@ -62,6 +62,10 @@ export interface PlanStatus {
   usage: PlanUsage;
   at_project_cap: boolean;
   at_generation_cap: boolean;
+  // Per-format export entitlements, e.g. ["export_docx", "export_epub",
+  // "export_pdf"] for Pro, [] for Free. Backs the client-side per-format
+  // download wall (T5) — UX only, the server is the real gate (402).
+  features: string[];
 }
 
 /** The signed-in user's Free/Pro plan status + usage against caps. */

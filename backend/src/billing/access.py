@@ -88,6 +88,30 @@ async def is_pro(conn: asyncpg.Connection, *, account_id: UUID) -> bool:
     return False
 
 
+async def account_features(conn: asyncpg.Connection, *, account_id: UUID) -> frozenset[str]:
+    """The capability flags this account holds: its active plan's `features`, OR the
+    full export set for a staff-allowlisted account, else empty. Mirrors `is_pro`'s
+    active-window + staff-allowlist logic exactly, but returns the granted flag set
+    instead of a bool (T-P0-3 — the per-feature entitlement axis)."""
+    now = datetime.now(UTC)
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account_id)
+    if ent is not None and ent.status == "active" and ent.period_start <= now < ent.period_end:
+        plan = plans.get_plan(ent.plan_id)
+        if plan is not None:
+            return plan.features
+
+    account = await accounts_repo.get_account_by_id(conn, account_id=account_id)
+    if account is not None and is_staff_allowlisted(sub=account.idp_sub, email=account.email):
+        return plans.EXPORT_FEATURES
+
+    return frozenset()
+
+
+async def has_feature(conn: asyncpg.Connection, *, account_id: UUID, feature: str) -> bool:
+    """True iff the account's active plan (or the staff allowlist) grants `feature`."""
+    return feature in await account_features(conn, account_id=account_id)
+
+
 async def over_cap(conn: asyncpg.Connection, *, account_id: UUID, access: ManagedAccess) -> bool:
     """True iff the request should be refused on cost grounds — over the plan allowance OR
     over the hard per-account spend ceiling (Phase 6, O7), whichever binds.

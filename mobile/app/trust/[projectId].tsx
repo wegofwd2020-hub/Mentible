@@ -95,13 +95,27 @@ const SOURCE_KINDS: { value: "transcript" | "note" | "link"; label: string }[] =
   { value: "link", label: "Link" },
 ];
 
-// Long-form assets get real Add-to-Library + EPUB/PDF export in Publish
+// Long-form assets get real Add-to-Library + EPUB/PDF/Word export in Publish
 // (they reuse the same book/compiler machinery as authored Books); social
 // assets (linkedin/x_thread/reel/podcast) stay Copy-only.
 const LONG_FORM = new Set(["book", "essay", "guide"]);
 
 const slug = (t: string) =>
   t.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "asset";
+
+const EXPORT_MIME: Record<"epub" | "pdf" | "docx", string> = {
+  epub: "application/epub+zip",
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+// Per-format download gate (T5), independent of the whole-group `walled` Free
+// wall below: `plan == null` (signed out / still loading / a failed billing
+// fetch) fails OPEN — the button shows and the server's 402 is the real gate.
+// A known plan must carry `export_<fmt>` in its `features` array.
+function canExport(plan: PlanStatus | null, fmt: "epub" | "pdf" | "docx"): boolean {
+  return plan == null || plan.features?.includes(`export_${fmt}`) === true;
+}
 
 // Collapses the synthetic "create_artifact" sub-state (Drafts, no artifact
 // yet) into the "create" tab key. Module-level so both the seed effect
@@ -1126,8 +1140,10 @@ function FeedbackPanel({
 }
 
 // Publish (share phase): export each APPROVED asset's validated version as plain
-// text or Markdown (client-side; content fetched on demand). PDF/Word are an
-// honest, disabled "Pro — coming soon" row (billing is dormant — ADR-005/paywall).
+// text or Markdown (client-side; content fetched on demand), or — for long-form
+// assets — as EPUB/PDF/Word. Each of EPUB/PDF/Word is gated per-format on the
+// plan's `features` (`canExport`, T5); a Free user instead sees a single
+// "Upgrade to Pro to download" control for the whole group (`walled`, unchanged).
 // A `Whole book | Per topic` toggle (only rendered once the project has a TOC —
 // Slice D, mirroring the C2b/C2c toggles) switches to a rollup header
 // (`{validated}/{total} topics validated` + book_validated indicator) plus a
@@ -1157,12 +1173,12 @@ function PublishPanel({
   pubBusy: string | null;
   onCopyAsset: (versionId: string, fmt: "text" | "markdown", title: string) => void;
   onAddToLibrary: (versionId: string, title: string, format: string) => void;
-  onDownloadAsset: (versionId: string, title: string, fmt: "epub" | "pdf") => void;
+  onDownloadAsset: (versionId: string, title: string, fmt: "epub" | "pdf" | "docx") => void;
   toc: StructuredTocView | undefined;
   topicStatus: TopicStatusView[];
   bookValidated: boolean;
   onPublishToLibrary: () => void;
-  onPublishDownload: (fmt: "epub" | "pdf") => void;
+  onPublishDownload: (fmt: "epub" | "pdf" | "docx") => void;
   onUpgrade: () => void;
   // Single source of truth (T4): fetched once in TrustProjectDetailInner and
   // threaded down, rather than each panel calling useBillingPlan itself.
@@ -1253,6 +1269,16 @@ function PublishPanel({
                       disabled={!bookValidated || pubBusy !== null}
                       accessibilityLabel="Download book as PDF"
                     />
+                    {canExport(plan, "docx") ? (
+                      <Button
+                        variant="primary"
+                        label="Download Word"
+                        onPress={() => onPublishDownload("docx")}
+                        busy={pubBusy === "book:docx"}
+                        disabled={!bookValidated || pubBusy !== null}
+                        accessibilityLabel="Download book as Word"
+                      />
+                    ) : null}
                   </>
                 )}
               </View>
@@ -1315,6 +1341,16 @@ function PublishPanel({
                       disabled={pubBusy !== null}
                       accessibilityLabel={`Download ${title} as PDF`}
                     />
+                    {canExport(plan, "docx") ? (
+                      <Button
+                        variant="primary"
+                        label="Download Word"
+                        onPress={() => onDownloadAsset(version.id, title, "docx")}
+                        busy={pubBusy === `${version.id}:docx`}
+                        disabled={pubBusy !== null}
+                        accessibilityLabel={`Download ${title} as Word`}
+                      />
+                    ) : null}
                   </>
                 )}
               </View>
@@ -1338,7 +1374,7 @@ function PublishPanel({
                     accessibilityLabel={`Copy ${title} as Markdown`}
                   />
                 </View>
-                <Text style={styles.proText}>PDF & Word — Pro (coming soon)</Text>
+                <Text style={styles.proText}>PDF & Word available on book & guide assets</Text>
               </>
             )}
           </View>
@@ -1787,7 +1823,7 @@ function TrustProjectDetailInner() {
   // upgrade prompt, distinct from a generic download failure.
   const onDownloadError = (e: unknown) => {
     if (e instanceof ApiError && e.status === 402) {
-      Alert.alert("Upgrade to Pro", "Downloading EPUB/PDF is a Pro feature. Upgrade to Pro to download.");
+      Alert.alert("Upgrade to Pro", "Downloading EPUB/PDF/Word is a Pro feature. Upgrade to Pro to download.");
       return;
     }
     Alert.alert("Couldn't download", e instanceof ApiError ? e.userMessage() : "Please try again.");
@@ -1797,14 +1833,14 @@ function TrustProjectDetailInner() {
     router.push("/usage");
   };
 
-  const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf") => {
+  const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf" | "docx") => {
     setPubBusy(`${versionId}:${fmt}`);
     void (async () => {
       try {
         const v = await loadVersionContent(versionId);
         const book = artifactToBook(v.content?.sections ?? [], title, inputs);
         const res = await trackedExport(book, fmt, { diagrams: true });
-        await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, fmt === "epub" ? "application/epub+zip" : "application/pdf");
+        await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, EXPORT_MIME[fmt]);
       } catch (e) {
         onDownloadError(e);
       } finally {
@@ -1861,7 +1897,7 @@ function TrustProjectDetailInner() {
     })();
   };
 
-  const onPublishDownload = (fmt: "epub" | "pdf") => {
+  const onPublishDownload = (fmt: "epub" | "pdf" | "docx") => {
     setPubBusy(`book:${fmt}`);
     void (async () => {
       try {
@@ -1870,7 +1906,7 @@ function TrustProjectDetailInner() {
         await downloadArtifact(
           res.artifact,
           `${slug(project.project.title)}.${fmt}`,
-          fmt === "epub" ? "application/epub+zip" : "application/pdf",
+          EXPORT_MIME[fmt],
         );
       } catch (e) {
         onDownloadError(e);

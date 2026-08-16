@@ -155,14 +155,14 @@ export async function getStructureJob(
 }
 
 // ── Export: compile a book to a downloadable artifact ─────────────────────────
-// Returns the artifact bytes (EPUB or PDF) plus the book-level Content Trust
-// Manifest (ADR-015 / SBQ-TRUST-002) when the backend attaches one. Key-free.
-// EPUB/PDF run as an async job (submit → poll → download) so a minutes-long
+// Returns the artifact bytes (EPUB, PDF, or Word) plus the book-level Content
+// Trust Manifest (ADR-015 / SBQ-TRUST-002) when the backend attaches one. Key-free.
+// EPUB/PDF/Word run as an async job (submit → poll → download) so a minutes-long
 // diagram compile can't 524 behind Cloudflare's ~100s proxy timeout; `cover` is
 // a sub-second synchronous call. 422 → the book has no generated content (or is
 // malformed); surface via ApiError.body. diagrams=true renders Mermaid→SVG.
 export interface ExportOptions {
-  format?: "epub" | "pdf" | "cover"; // "cover" → a PNG thumbnail of the cover
+  format?: "epub" | "pdf" | "cover" | "docx"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
   // Called with the async job id right after submit (epub/pdf only), before the
   // compile finishes — lets a caller persist a "generating" status that a list
@@ -250,7 +250,7 @@ const EXPORT_POLL_TIMEOUT_MS = 1_200_000; // 20 min
 
 async function submitExportJob(
   book: Book,
-  format: "epub" | "pdf",
+  format: "epub" | "pdf" | "docx",
   diagrams: boolean,
 ): Promise<string> {
   const params = new URLSearchParams({ format, diagrams: String(diagrams) });

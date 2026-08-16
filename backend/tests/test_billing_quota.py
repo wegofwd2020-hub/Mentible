@@ -340,6 +340,7 @@ async def test_plan_status_endpoint_shape_free(client, as_user, monkeypatch):
             generations=5,
             at_project_cap=True,
             at_generation_cap=False,
+            features=(),
         ),
     )
     app.state.db = _FakePool()
@@ -352,6 +353,7 @@ async def test_plan_status_endpoint_shape_free(client, as_user, monkeypatch):
     assert body["usage"] == {"projects": 2, "generations": 5}
     assert body["at_project_cap"] is True
     assert body["at_generation_cap"] is False
+    assert body["features"] == []
 
 
 @pytest.mark.asyncio
@@ -370,6 +372,7 @@ async def test_plan_status_endpoint_shape_pro(client, as_user, monkeypatch):
             generations=500,
             at_project_cap=False,
             at_generation_cap=False,
+            features=("export_docx", "export_epub"),
         ),
     )
     app.state.db = _FakePool()
@@ -381,6 +384,7 @@ async def test_plan_status_endpoint_shape_pro(client, as_user, monkeypatch):
     assert body["usage"] == {"projects": 50, "generations": 500}
     assert body["at_project_cap"] is False
     assert body["at_generation_cap"] is False
+    assert body["features"] == ["export_docx", "export_epub"]
 
 
 @pytest.mark.asyncio

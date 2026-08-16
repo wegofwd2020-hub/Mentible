@@ -17,6 +17,7 @@ function makePlan(over: Partial<PlanStatus> = {}): PlanStatus {
     usage: { projects: 1, generations: 5 },
     at_project_cap: false,
     at_generation_cap: false,
+    features: [],
     ...over,
   };
 }

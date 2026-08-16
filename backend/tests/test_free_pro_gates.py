@@ -273,7 +273,7 @@ def test_export_authenticated_free_402():
         _as_export_principal(sub, f"{sub}@x.z")
         r = c.post("/api/v1/export/jobs?format=epub", content=_BOOK)
         assert r.status_code == 402, r.text
-        assert "upgrade to Pro" in r.json()["detail"]
+        assert "export_epub" in r.json()["detail"]
 
 
 def test_export_authenticated_pro_202(monkeypatch):
@@ -314,7 +314,7 @@ def test_sync_export_authenticated_free_402_epub():
         _as_export_principal(sub, f"{sub}@x.z")
         r = c.post("/api/v1/export?format=epub", content=_BOOK)
         assert r.status_code == 402, r.text
-        assert "upgrade to Pro" in r.json()["detail"]
+        assert "export_epub" in r.json()["detail"]
 
 
 def test_sync_export_authenticated_free_402_pdf():
@@ -323,7 +323,7 @@ def test_sync_export_authenticated_free_402_pdf():
         _as_export_principal(sub, f"{sub}@x.z")
         r = c.post("/api/v1/export?format=pdf", content=_BOOK)
         assert r.status_code == 402, r.text
-        assert "upgrade to Pro" in r.json()["detail"]
+        assert "export_pdf" in r.json()["detail"]
 
 
 def test_sync_export_authenticated_pro_200(monkeypatch):

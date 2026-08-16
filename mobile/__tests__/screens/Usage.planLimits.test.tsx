@@ -45,6 +45,7 @@ it("renders the Free plan's caps/usage and Upgrade CTA", async () => {
     usage: { projects: 2, generations: 10 },
     at_project_cap: false,
     at_generation_cap: false,
+    features: [],
   };
   render(<UsageScreen />);
   expect(await screen.findByText("Free")).toBeTruthy();
@@ -59,6 +60,7 @@ it("renders 'Pro' for a Pro plan with no Upgrade CTA", async () => {
     usage: { projects: 2, generations: 10 },
     at_project_cap: false,
     at_generation_cap: false,
+    features: ["export_epub", "export_pdf", "export_docx"],
   };
   render(<UsageScreen />);
   expect(await screen.findByText("Pro")).toBeTruthy();

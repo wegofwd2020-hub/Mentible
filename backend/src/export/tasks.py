@@ -59,6 +59,7 @@ def export_artifact_key(job_id: uuid.UUID) -> str:
 _MEDIA_TYPES = {
     "epub": "application/epub+zip",
     "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
 

@@ -29,9 +29,13 @@ const makeStateStyle = (c: Palette): Record<ExportUiState, { dot: string; label:
   failed: { dot: c.error, label: "failed" },
 });
 
+// Display label per format — mirrors the plain EPUB/PDF uppercasing but gives
+// Word its proper name rather than the raw "DOCX" extension.
+const FORMAT_LABEL: Record<ExportFormat, string> = { epub: "EPUB", pdf: "PDF", docx: "Word" };
+
 function Pill({ fmt, state, stateStyle, styles, theme }: { fmt: ExportFormat; state: ExportUiState; stateStyle: Record<ExportUiState, { dot: string; label: string }>; styles: ReturnType<typeof makeStyles>; theme: Palette }) {
   const s = stateStyle[state];
-  const name = fmt.toUpperCase();
+  const name = FORMAT_LABEL[fmt];
   return (
     <View
       style={styles.pill}
