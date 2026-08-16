@@ -9,7 +9,7 @@ import uuid
 
 import asyncpg
 
-PROJECT_ROLES = ("owner", "reviewer")
+PROJECT_ROLES = ("owner", "reviewer", "editor")
 
 
 class ProjectAccessError(Exception):

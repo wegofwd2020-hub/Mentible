@@ -19,7 +19,7 @@ export interface VersionSummaryView { id: string; version_no: number; created_at
 export interface DraftSection { heading: string; body: string; source_ids: string[] }
 export interface FeedbackView {
   id: string; version_id: string; author_kind: string; author_name: string | null;
-  body: string; created_at: string | null;
+  body: string; created_at: string | null; section_index: number | null;
 }
 export interface VersionDetailView {
   id: string; artifact_id: string; version_no: number;
@@ -123,7 +123,7 @@ export async function withdrawApproval(
 }
 
 export async function addFeedback(
-  versionId: string, body: { body: string }, token: string,
+  versionId: string, body: { body: string; section_index?: number | null }, token: string,
 ): Promise<FeedbackView> {
   return (await trustFetch<FeedbackView>(
     `/versions/${versionId}/feedback`, token, { method: "POST", body: JSON.stringify(body) },
@@ -170,8 +170,8 @@ export async function generateVersion(
   )) as VersionGenerateJobOut;
 }
 
-export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {
-  return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email }) })) as InvitationView;
+export async function invite(projectId: string, email: string, role: "reviewer" | "editor", token: string): Promise<InvitationView> {
+  return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email, role }) })) as InvitationView;
 }
 
 export async function addProjectInput(

@@ -126,9 +126,9 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, projectId, refresh]);
 
-  const invite = useCallback(async (email: string) => {
+  const invite = useCallback(async (email: string, role: "reviewer" | "editor") => {
     if (!accessToken) throw new Error("Not signed in");
-    const inv = await inviteApi(projectId, email, accessToken);
+    const inv = await inviteApi(projectId, email, role, accessToken);
     await refresh(); return inv;
   }, [accessToken, projectId, refresh]);
 

@@ -111,6 +111,7 @@ class VersionSummaryOut(BaseModel):
 
 class FeedbackIn(BaseModel):
     body: str
+    section_index: int | None = None
 
 
 class FeedbackOut(BaseModel):
@@ -119,6 +120,7 @@ class FeedbackOut(BaseModel):
     author_kind: str  # "expert" | "operator"
     author_name: str | None
     body: str
+    section_index: int | None
     created_at: datetime | None
 
 
@@ -185,6 +187,7 @@ class ProjectDetailOut(BaseModel):
 
 class InviteIn(BaseModel):
     email: str
+    role: str = "reviewer"
 
 
 class InvitationOut(BaseModel):

@@ -24,7 +24,7 @@ it("createArtifact / createVersion / invite hit the right URLs", async () => {
     .mockImplementation(() => okJson({ id: "x", artifact_id: "a", version_no: 1, created_at: null, project_id: "p1", role: "cornerstone", format: "book", title: null, invited_email: "e@x.z", revoked_at: null }));
   await createArtifact("p1", { role: "cornerstone", format: "book" }, "tok");
   await createVersion("a", { content: { text: "hi" } }, "tok");
-  await invite("p1", "E@X.Z", "tok");
+  await invite("p1", "E@X.Z", "reviewer", "tok");
   const urls = spy.mock.calls.map((c) => String(c[0]));
   expect(urls[0]).toContain("/api/v1/trust/projects/p1/artifacts");
   expect(urls[1]).toContain("/api/v1/trust/artifacts/a/versions");

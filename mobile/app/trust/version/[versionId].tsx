@@ -9,6 +9,7 @@ import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToPlainText } from "@/lib/draftExport";
 import { describeProvenance } from "@/lib/draftProvenance";
+import { diffVersions } from "@/lib/diffVersions";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -20,6 +21,10 @@ import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 type Styles = ReturnType<typeof makeStyles>;
 type GenProgress = { startedAt: number; phase: "queued" | "running" };
+
+const DIFF_GLYPH: Record<"added" | "removed" | "changed" | "unchanged", string> = {
+  added: "+", removed: "−", changed: "~", unchanged: "·",
+};
 
 function TrustVersionInner() {
   const { versionId, artifactId, projectId } = useLocalSearchParams<{
@@ -44,7 +49,20 @@ function TrustVersionInner() {
   const [expertName, setExpertName] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
-  const isOwner = project?.my_role === "owner";
+  const [openCommentIndex, setOpenCommentIndex] = useState<number | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [prevVersion, setPrevVersion] = useState<VersionDetailView | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  // Task 4 (backend, this branch) added the editor role: edit/create-version
+  // endpoints allow owner+editor, approve/withdraw allow owner+reviewer.
+  // canEdit/canApprove mirror that matrix here so the controls a role can't
+  // use never render (rather than rendering and failing the API call).
+  const role = project?.my_role;
+  const isOwner = role === "owner";
+  const canEdit = role === "owner" || role === "editor";
+  const canApprove = role === "owner" || role === "reviewer";
 
   // Re-fetch just this version (used after approve/unapprove so the header's
   // validated state reflects the append-only toggle without a full reload).
@@ -65,6 +83,11 @@ function TrustVersionInner() {
         if (live) setError(e instanceof ApiError ? e.userMessage() : "This draft version no longer exists.");
       }
     })();
+    // Navigating to a different version (e.g. via the Versions block below)
+    // invalidates any fetched "changes from" comparison — collapse it rather
+    // than showing a diff against the wrong pair.
+    setDiffOpen(false);
+    setPrevVersion(null);
     return () => { live = false; };
   }, [accessToken, versionId]);
 
@@ -81,6 +104,15 @@ function TrustVersionInner() {
   const versions = useMemo(
     () => (project?.artifacts ?? []).find((a) => a.artifact.id === artifactId)?.versions ?? [],
     [project, artifactId],
+  );
+
+  // The immediately-prior version of this same artifact, for "Changes from
+  // v(n-1)". Looked up by version_no (not array position) — `versions` isn't
+  // guaranteed sorted — and undefined for v1 or when the sibling list hasn't
+  // loaded yet, which hides the toggle below.
+  const prevVersionSummary = useMemo(
+    () => (version ? versions.find((v) => v.version_no === version.version_no - 1) : undefined),
+    [versions, version],
   );
 
   // The web view-mode render preview: built ONCE per version (not inline in
@@ -245,6 +277,64 @@ function TrustVersionInner() {
     })();
   };
 
+  // Single handler taking the index (rather than N per-index closures) — a
+  // fresh `() => toggle(i)` per Pressable is cheap and matches the pattern
+  // already used for `removeSection`/note actions elsewhere in this file;
+  // what must stay stable is `previewTopic`, which this doesn't touch.
+  const toggleComment = useCallback((i: number) => {
+    setOpenCommentIndex((prev) => (prev === i ? null : i));
+    setCommentDraft("");
+  }, []);
+
+  // Collapsed by default; fetches the previous version's content lazily on
+  // first open (not on every render) and memoizes it, since re-fetching each
+  // time the toggle is opened/closed would be wasteful and would flash the
+  // diff away and back.
+  const toggleDiff = useCallback(() => {
+    setDiffOpen((prev) => {
+      const next = !prev;
+      if (next && !prevVersion && prevVersionSummary && accessToken) {
+        setDiffLoading(true);
+        void (async () => {
+          try {
+            const v = await getVersion(prevVersionSummary.id, accessToken);
+            setPrevVersion(v);
+          } catch {
+            // Best-effort: leave prevVersion null; the diff section below
+            // just stays empty rather than surfacing a hard error for a
+            // secondary, opt-in affordance.
+          } finally {
+            setDiffLoading(false);
+          }
+        })();
+      }
+      return next;
+    });
+  }, [prevVersion, prevVersionSummary, accessToken]);
+
+  const sectionDiff = useMemo(
+    () => (prevVersion && version ? diffVersions(prevVersion.content?.sections ?? [], version.content?.sections ?? []) : []),
+    [prevVersion, version],
+  );
+
+  const submitSectionComment = useCallback((i: number) => {
+    const text = commentDraft.trim();
+    if (!text || !accessToken) return;
+    setCommentBusy(true);
+    void (async () => {
+      try {
+        await addFeedback(String(versionId), { body: text, section_index: i }, accessToken);
+        setCommentDraft("");
+        setOpenCommentIndex(null);
+        await reloadVersion().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't send", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setCommentBusy(false);
+      }
+    })();
+  }, [accessToken, versionId, commentDraft, reloadVersion]);
+
   const updateSection = (i: number, field: "heading" | "body", value: string) => {
     setDraft((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
   };
@@ -281,24 +371,30 @@ function TrustVersionInner() {
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
             {isOwner ? (
+              // Revise hits generate_version (billable LLM-regen), which
+              // Task 4 kept owner-only on the backend — unlike create_version
+              // (manual "Edit text" save below), it was NOT opened to editor.
+              // Gating this on canEdit would let an editor tap Revise and 403.
               <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.editBtn} onPress={openRegen}>
                 <Text style={styles.editBtnText}>Revise</Text>
               </Pressable>
             ) : null}
-            {isOwner ? (
+            {canEdit ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
                 <Text style={styles.editBtnText}>Edit text</Text>
               </Pressable>
             ) : null}
-            {version.is_validated ? (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Withdraw approval of version ${version.version_no}`} disabled={apBusy} style={styles.unapproveBtn} onPress={onUnapprove}>
-                <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
-              </Pressable>
-            ) : (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
-                <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
-              </Pressable>
-            )}
+            {canApprove ? (
+              version.is_validated ? (
+                <Pressable accessibilityRole="button" accessibilityLabel={`Withdraw approval of version ${version.version_no}`} disabled={apBusy} style={styles.unapproveBtn} onPress={onUnapprove}>
+                  <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
+                </Pressable>
+              ) : (
+                <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
+                  <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
+                </Pressable>
+              )
+            ) : null}
           </View>
         ) : null}
         {!editing && askName ? (
@@ -408,6 +504,93 @@ function TrustVersionInner() {
                 ))}
               </View>
             ) : null}
+            {/* Section-level diff against the immediately-prior version, on
+                request — hidden entirely for v1 / when no sibling artifact
+                version data has loaded yet (prevVersionSummary undefined). */}
+            {prevVersionSummary ? (
+              <View style={styles.notesBlock}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Changes from v${prevVersionSummary.version_no}`}
+                  onPress={toggleDiff}
+                >
+                  <Text style={styles.notesTitle}>
+                    {diffOpen ? "▾" : "▸"} Changes from v{prevVersionSummary.version_no}
+                  </Text>
+                </Pressable>
+                {diffOpen ? (
+                  diffLoading && !prevVersion ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    sectionDiff.map((d, i) => (
+                      <Text key={`${d.heading}-${i}`} style={styles.bodyText}>
+                        {DIFF_GLYPH[d.status]} {d.heading}
+                      </Text>
+                    ))
+                  )
+                ) : null}
+              </View>
+            ) : null}
+            {/* Per-section comment affordances. The reader above renders every
+                section as one merged doc, so there's no in-reader anchor to hang
+                a comment control on — this thin list, keyed to
+                `version.content.sections`, is the anchor instead. */}
+            {(version.content?.sections ?? []).length > 0 ? (
+              <View style={styles.notesBlock}>
+                <Text style={styles.notesTitle}>Section comments</Text>
+                {(version.content?.sections ?? []).map((s, i) => {
+                  const sectionFeedback = (version.feedback ?? []).filter((f) => f.section_index === i);
+                  return (
+                    <View key={i} style={styles.noteRow}>
+                      {/* "Section N: <heading>" (never bare `s.heading`) — the
+                          reader above already renders that exact heading text
+                          once; duplicating it verbatim here would make it
+                          ambiguous which node a `getByText(heading)` query hit. */}
+                      <Text style={styles.noteMeta}>{`Section ${i + 1}: ${s.heading}`}</Text>
+                      {sectionFeedback.map((f) => (
+                        <View key={f.id} style={styles.sectionCommentRow}>
+                          <Text style={styles.noteMeta}>
+                            {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
+                            {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
+                          </Text>
+                          <Text style={styles.noteBody}>{f.body}</Text>
+                        </View>
+                      ))}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Comment on section ${i + 1}`}
+                        style={styles.editBtn}
+                        onPress={() => toggleComment(i)}
+                      >
+                        <Text style={styles.editBtnText}>{openCommentIndex === i ? "Cancel" : "Comment"}</Text>
+                      </Pressable>
+                      {openCommentIndex === i ? (
+                        <>
+                          <TextInput
+                            style={[styles.input, styles.bodyInput]}
+                            value={commentDraft}
+                            onChangeText={setCommentDraft}
+                            accessibilityLabel={`Comment on section ${i + 1} body`}
+                            placeholder="Add a comment…"
+                            maxLength={1000}
+                            multiline
+                          />
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Submit comment on section ${i + 1}`}
+                            style={[styles.saveBtn, !commentDraft.trim() ? styles.disabledBtn : null]}
+                            disabled={commentBusy || !commentDraft.trim()}
+                            onPress={() => submitSectionComment(i)}
+                          >
+                            <Text style={styles.saveBtnText}>{commentBusy ? "Sending…" : "Submit comment"}</Text>
+                          </Pressable>
+                        </>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </>
         )}
         {!editing ? (
@@ -416,12 +599,12 @@ function TrustVersionInner() {
             {!isOwner ? (
               <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
             ) : null}
-            {(version.feedback ?? []).length === 0 ? (
+            {(version.feedback ?? []).filter((f) => f.section_index == null).length === 0 ? (
               <Text style={styles.notesEmpty}>
                 {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
               </Text>
             ) : (
-              (version.feedback ?? []).map((f) => (
+              (version.feedback ?? []).filter((f) => f.section_index == null).map((f) => (
                 <View key={f.id} style={styles.noteRow}>
                   <Text style={styles.noteMeta}>
                     {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
@@ -548,6 +731,7 @@ const makeStyles = (c: Palette) => ({
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  sectionCommentRow: { gap: 2, paddingBottom: spacing.xs },
   versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },

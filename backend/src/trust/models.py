@@ -19,7 +19,7 @@ ARTIFACT_FORMATS = (
 )
 FEEDBACK_AUTHOR_KINDS = ("expert", "operator")
 MEMBERSHIP_ROLES = ("owner", "reviewer")
-INVITE_ROLES = ("reviewer",)
+INVITE_ROLES = ("reviewer", "editor")
 APPROVAL_VIA = ("operator", "expert_self")
 # Append-only toggle: 'approve' records validation, 'withdraw' revokes it. A
 # version is validated IFF its latest approval row is an 'approve' (ADR-037 —
@@ -83,6 +83,7 @@ class Feedback:
     author_kind: str
     author_name: str | None
     body: str
+    section_index: int | None
     recorded_by_sub: str
     created_at: datetime | None
 

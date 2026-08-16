@@ -10,7 +10,7 @@ function Probe() {
   const { addArtifact, invite } = useTrustProject("p1");
   return (<>
     <Pressable accessibilityLabel="art" onPress={() => addArtifact("cornerstone", "book")}><Text>a</Text></Pressable>
-    <Pressable accessibilityLabel="inv" onPress={() => invite("e@x.z")}><Text>i</Text></Pressable>
+    <Pressable accessibilityLabel="inv" onPress={() => invite("e@x.z", "reviewer")}><Text>i</Text></Pressable>
   </>);
 }
 it("owner mutations call the client then refresh", async () => {
@@ -22,6 +22,6 @@ it("owner mutations call the client then refresh", async () => {
   fireEvent.press(screen.getByLabelText("art"));
   await waitFor(() => expect(tc.createArtifact).toHaveBeenCalledWith("p1", { role: "cornerstone", format: "book", title: undefined }, "tok"));
   fireEvent.press(screen.getByLabelText("inv"));
-  await waitFor(() => expect(tc.invite).toHaveBeenCalledWith("p1", "e@x.z", "tok"));
+  await waitFor(() => expect(tc.invite).toHaveBeenCalledWith("p1", "e@x.z", "reviewer", "tok"));
   await waitFor(() => expect((tc.getProject as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(3)); // refresh after each
 });
