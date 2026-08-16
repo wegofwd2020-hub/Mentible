@@ -27,6 +27,7 @@ jest.mock("@/hooks/useTrustProject", () => ({
 // default "ios" platform, where the view stays plain-text, but the module
 // still gets required at import time).
 jest.mock("react-native-webview", () => ({ default: () => null }));
+jest.mock("@/components/LessonRenderer", () => require("../helpers/mockTopicRenderer"));
 jest.mock("@/api/trustClient", () => ({
   getVersion: jest.fn(async () => ({
     id: "v1", artifact_id: "a1", version_no: 2,

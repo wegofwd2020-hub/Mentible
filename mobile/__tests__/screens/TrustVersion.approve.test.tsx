@@ -12,6 +12,7 @@ jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", 
 // default "ios" platform, where the view stays plain-text, but the module
 // still gets required at import time).
 jest.mock("react-native-webview", () => ({ default: () => null }));
+jest.mock("@/components/LessonRenderer", () => require("../helpers/mockTopicRenderer"));
 
 const mockApprove = jest.fn(async () => ({ recorded_via: "expert_self", expert_name: "Dr X" }));
 const mockUnapprove = jest.fn(async () => ({ recorded_via: "expert_self", action: "withdraw" }));
