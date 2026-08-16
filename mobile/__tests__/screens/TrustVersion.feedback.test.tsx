@@ -15,7 +15,7 @@ jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 // default "ios" platform, where the view stays plain-text, but the module
 // still gets required at import time).
 jest.mock("react-native-webview", () => ({ default: () => null }));
-jest.mock("@/components/LessonRenderer", () => require("../helpers/mockTopicRenderer"));
+jest.mock("@/components/LessonRenderer", () => require("../../test-utils/mockTopicRenderer"));
 
 const mockAddFeedback = jest.fn(async (_id: string, _body: { body: string }, _token: string) => ({ id: "f2", version_id: "v1", author_kind: "expert", author_name: "Dr X", body: "add a source", created_at: null }));
 jest.mock("@/api/trustClient", () => ({
