@@ -47,7 +47,10 @@ function TopicVersionViewerInner() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
   const [saving, setSaving] = useState(false);
-  const isOwner = project?.my_role === "owner";
+  const role = project?.my_role;
+  const isOwner = role === "owner";
+  const canEdit = role === "owner" || role === "editor";
+  const canApprove = role === "owner" || role === "reviewer";
 
   // Build the reader's topic ONCE per version. Building it inline in the JSX
   // handed TopicRenderer a fresh object on every re-render (approve/withdraw
@@ -310,7 +313,7 @@ function TopicVersionViewerInner() {
                 onPress={openRegen}
               />
             ) : null}
-            {isOwner ? (
+            {canEdit ? (
               <Button
                 variant="ghost"
                 label="Edit text"
@@ -318,23 +321,25 @@ function TopicVersionViewerInner() {
                 onPress={startEdit}
               />
             ) : null}
-            {topicVersion.is_validated ? (
-              <Button
-                variant="ghost"
-                label="Withdraw"
-                accessibilityLabel={`Withdraw approval of version ${topicVersion.version_no}`}
-                busy={apBusy}
-                onPress={onUnapprove}
-              />
-            ) : (
-              <Button
-                variant="primary"
-                label="Approve"
-                accessibilityLabel={`Approve version ${topicVersion.version_no}`}
-                busy={apBusy}
-                onPress={onApprove}
-              />
-            )}
+            {canApprove ? (
+              topicVersion.is_validated ? (
+                <Button
+                  variant="ghost"
+                  label="Withdraw"
+                  accessibilityLabel={`Withdraw approval of version ${topicVersion.version_no}`}
+                  busy={apBusy}
+                  onPress={onUnapprove}
+                />
+              ) : (
+                <Button
+                  variant="primary"
+                  label="Approve"
+                  accessibilityLabel={`Approve version ${topicVersion.version_no}`}
+                  busy={apBusy}
+                  onPress={onApprove}
+                />
+              )
+            ) : null}
           </View>
         ) : null}
         {!editing && regen ? (
