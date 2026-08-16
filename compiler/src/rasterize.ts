@@ -42,9 +42,11 @@ export async function rasterizeToPng(input: {
   html?: string;
   svg?: string;
   width?: number;
+  omitBackground?: boolean;
 }): Promise<Buffer> {
   const width = input.width ?? 420;
-  const inner = input.html ?? `<div id="target">${input.svg ?? ""}</div>`;
+  const omitBackground = input.omitBackground ?? false;
+  const inner = input.html ?? input.svg ?? "";
   const html =
     `<!DOCTYPE html><html><body style="margin:0">` +
     `<div id="target" style="display:inline-block;max-width:${width}px">` +
@@ -54,12 +56,12 @@ export async function rasterizeToPng(input: {
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width, height: 100, deviceScaleFactor: 2 });
+    await page.setViewport({ width, height: 2000, deviceScaleFactor: 2 });
     await page.setContent(html);
     const el = await page.$("#target");
     const buf = el
-      ? await el.screenshot({ type: "png", omitBackground: true })
-      : await page.screenshot({ type: "png", omitBackground: true });
+      ? await el.screenshot({ type: "png", omitBackground })
+      : await page.screenshot({ type: "png", omitBackground });
     return Buffer.from(buf);
   } finally {
     await browser.close();
