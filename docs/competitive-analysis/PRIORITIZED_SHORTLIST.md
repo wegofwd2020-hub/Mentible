@@ -49,12 +49,11 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
 
 ### B0. Near-built / quick wins — fold into the P0–P1 wave
 
-- **Whole-book draft render preview (defect in shipped flow)** — the whole-book draft viewer
-  (`mobile/app/trust/version/[versionId].tsx`) renders section bodies as raw `<Text>{s.body}</Text>`,
-  so authors see literal ` ```svg `/` ```mermaid ` fence *source* instead of rendered
-  diagrams/Markdown. Spec approved, **not implemented**.
-  `docs/superpowers/specs/2026-08-10-wholebook-draft-render-preview-design.md` · **Effort: S–M** ·
-  *This is a quality bug in a shipped surface — high value, low cost.*
+- **Whole-book draft render preview** — ✅ **web shipped** (renders diagrams/Markdown via
+  `TopicRenderer inline`; the earlier "not implemented" note was a misread of the native-fallback
+  branch). The **native (Android) WebView** preview was the spec's deferred follow-up and is now
+  **implemented** (auto-height WebView so the draft flows inside the page ScrollView).
+  `docs/superpowers/specs/2026-08-10-wholebook-draft-render-preview-design.md` · **Done.**
 - **Feature-scoped entitlements ("BYOK graduation" — feature axis)** — most machinery already
   built (`backend/src/billing/{plans,entitlement_repo,access,eligibility}.py`, admin
   `PUT /entitlement`, used for tester full-access #432/#433). Only the **capability axis** (gate

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { addFeedback, getVersion, type VersionDetailView } from "@/api/trustClient";
@@ -394,7 +394,11 @@ function TrustVersionInner() {
               <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save as new version"}</Text>
             </Pressable>
           </>
-        ) : Platform.OS === "web" ? (
+        ) : (
+          // View mode: render the draft through the ONE reader (web = real DOM,
+          // native = auto-height WebView) so diagrams/mermaid/Markdown draw in-app
+          // on BOTH surfaces. Per-section source chips collapse to one aggregate
+          // row (the reader renders the draft as a single doc).
           <>
             {previewTopic ? <TopicRenderer topic={previewTopic} inline /> : null}
             {previewSources.length > 0 ? (
@@ -405,20 +409,6 @@ function TrustVersionInner() {
               </View>
             ) : null}
           </>
-        ) : (
-          (version.content?.sections ?? []).map((s, i) => (
-            <View key={i} style={styles.section}>
-              <Text style={styles.heading}>{s.heading}</Text>
-              <Text style={styles.bodyText}>{s.body}</Text>
-              {(s.source_ids ?? []).length > 0 ? (
-                <View style={styles.citeRow}>
-                  {(s.source_ids ?? []).map((id) => (
-                    <Text key={id} style={styles.cite}>{labelFor.get(id) ?? "cited"}</Text>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          ))
         )}
         {!editing ? (
           <View style={styles.notesBlock}>
