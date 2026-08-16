@@ -1,7 +1,9 @@
 # ADR-039 — Monetization sequencing: services-led now vs. the self-serve billing rail (P0-1)
 
-**Status:** Proposed — **OPEN, decision needed** (2026-08-16). This note frames the decision and
-recommends; it is not yet chosen.
+**Status:** **Accepted (2026-08-16) — Option A: services-led; the self-serve billing rail (P0-1)
+is deferred.** Revenue comes from invoiced services through the built work-with-me funnel; managed
+access to paying clients is granted via the existing admin entitlement API. P0-1 engineering does
+NOT start until self-serve demand is proven and the model + platform (O1/O2) are chosen.
 **Decision-maker:** Sivakumar Mambakkam
 **Trigger:** The prioritized shortlist (`docs/competitive-analysis/PRIORITIZED_SHORTLIST.md`) and the
 YouBooks competitive docs flag **P0-1 "activate the managed billing / payment rail"** as the urgent

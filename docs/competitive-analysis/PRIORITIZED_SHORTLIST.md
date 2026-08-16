@@ -29,7 +29,7 @@ the ADR-037 trust workspace and everything shipped since. Two consequences:
 
 | # | Feature | Built state | Effort | Why now |
 |---|---|---|---|---|
-| **P0-1** | **Turn on managed billing / payment rail** (Managed Billing Activation; F4 paid tiers) | 🟡 entitlements/metering/plans built; paywall **merged but dormant** — gap = Stripe/RevenueCat rail + pricing UI | **S–M** | Infra's done; the *only* thing gating revenue. |
+| ~~P0-1~~ | **Managed billing / self-serve payment rail** — **DEFERRED** ([ADR-039](../adr/ADR-039-monetization-sequencing-services-vs-self-serve-billing.md), Accepted 2026-08-16) | 🟡 entitlements/metering/plans built; paywall dormant — rail not built (**intentionally deferred**) | — | **Services-led instead:** revenue via the built work-with-me funnel + manual invoicing; grant managed access via the admin entitlement API. Build the self-serve rail only once demand is proven + model/platform chosen. |
 | **P0-2** | **Finish the review loop** (F3 Tier-2): inline comments on a draft section · before/after **version diff** · reviewer-vs-editor roles | ✅ spine built (trust) · 🟡 these teeth missing | **M** | Completes the validation moat — the thing that *is* the product. |
 | **P0-3** | **Export the validated master → PDF / Word (Pro)** (F5 first slice) | 🟡 EPUB3/PDF compiler + KDP coverRaster exist; trust-draft not wired; publish = copy text/MD only; docx new | **M** | Completes "idea → shippable, traceable asset" + a clean Pro hook. |
 | **P1-4** | **Quality gates beyond format** (F4 automated): a **citations/grounding report** ("every claim traces to a source") + readability score (+ optional plagiarism) | 🟡 grounded gen ("use ONLY sources") + content-trust provenance built; no *report/score* surfaced | **M** | Makes "trust is the product" **visible** — a differentiator no ghostwriting tool has. |
@@ -115,8 +115,9 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
 
 ## Recommended sequence
 
-1. **P0-1 (billing rail) + P0-2 (review-loop teeth)** — in parallel; both are "finish the
-   80%-done," not net-new. Fold in **ADR-031 feature-axis entitlements** (B0) alongside billing.
+1. **P0-2 (review-loop teeth) + P0-3 (validated-master export)** — the top build moves now that
+   P0-1 (self-serve billing) is **deferred** (ADR-039: services-led). Both "finish the 80%-done".
+   Revenue runs in parallel via the **funnel + manual invoicing** — no billing-rail engineering.
 2. **P0-3 (validated-master PDF/Word export)** + fix the **whole-book draft render preview**
    defect (B0) — both make the authoring output trustworthy and shippable.
 3. **P1-4 (grounding/citations report + readability)** — leans into the "trust is the product"
