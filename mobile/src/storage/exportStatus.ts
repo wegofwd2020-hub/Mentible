@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Per-book EPUB/PDF export status, shown as coloured indicators on the Books and
+// Per-book EPUB/PDF/Word export status, shown as coloured indicators on the Books and
 // Library surfaces. This tracks STATUS only (not the artifact bytes — the EPUB
 // blob lives in epubLibrary). One small AsyncStorage blob, same local-first
 // pattern as settingsStore/bookStore.
@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const KEY = "sbq_export_status";
 
-export type ExportFormat = "epub" | "pdf";
+export type ExportFormat = "epub" | "pdf" | "docx";
 export type ExportUiState = "none" | "generating" | "done" | "stale" | "failed";
 
 // The persisted per-format record.

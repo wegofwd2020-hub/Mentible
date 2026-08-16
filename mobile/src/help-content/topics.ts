@@ -465,7 +465,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Publish is the last phase: it lists each asset that has an expert-validated version and lets you Copy it as plain text or as Markdown, ready to paste wherever you need it. Only validated versions appear — so what you publish is the version an expert stood behind. PDF and Word export are coming as a Pro option.",
+        text: "Publish is the last phase: it lists each asset that has an expert-validated version and lets you Copy it as plain text or as Markdown, ready to paste wherever you need it. Only validated versions appear — so what you publish is the version an expert stood behind. For book and guide assets, Pro plans can also download EPUB, PDF, and Word.",
       },
       {
         kind: "steps",
@@ -474,6 +474,30 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Give it a title and, optionally, a topic, audience, and goal.",
           "Add a version once the project exists — this is the content the expert reviews.",
           "Invite an expert to review it from the project screen.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "word-export",
+    title: "Download a validated master as Word",
+    featureKey: "word-export",
+    keywords: ["word", "docx", "export", "download", "pro", "publish", "editable", "office"],
+    blocks: [
+      {
+        kind: "text",
+        text: "On the Publish tab, a Pro plan can download a book or guide asset's expert-validated version as an editable Word (.docx) document — alongside the existing EPUB and PDF downloads — so you can drop it straight into your own editing, formatting, or submission workflow outside Mentible.",
+      },
+      {
+        kind: "text",
+        text: "Word export compiles from the same validated master as EPUB/PDF: headings, prose, tables, and math/diagrams (rendered as images) all carry over. It's only offered for long-form assets (book, essay, guide) — short social assets (LinkedIn post, thread, etc.) stay Copy/Copy-as-Markdown only, since they have no compiled file to export.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Where's the button?", def: "Publish tab → the long-form asset's card (or, once the project has a table of contents, the whole-book \"Per topic\" view) → \"Download Word\", beside \"Download EPUB\" and \"Download PDF\"." },
+          { term: "Not seeing it?", def: "Word export is a Pro plan feature. If it's missing, either you're on a Free plan (upgrade from the Usage screen) or your plan doesn't include it yet — the download still works if you try it and are actually entitled; the button is a convenience, not the real gate." },
+          { term: "Does it change what's published?", def: "No — it's a read-only export of the already-validated content, same as EPUB/PDF." },
         ],
       },
     ],
