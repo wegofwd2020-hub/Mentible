@@ -3,6 +3,8 @@
 **Status:** Proposed (2026-07-27). Strategic direction chosen; implementation
 specifics deferred to per-sub-project specs (see §Decomposition). This ADR lands the
 **decision and its reconciliations only — no code.**
+**Visual companion:** [`docs/funnel-splash-to-studio.md`](../funnel-splash-to-studio.md) —
+the splash → Studio funnel (flow + sequence) with each node marked built vs. proposed.
 **Decision-maker:** Sivakumar Mambakkam
 **Trigger:** a Lovable-authored product & UX direction (`mentible-direction.md`) that
 reframes Mentible as an **AI-accelerated studio for subject-matter experts (SMEs)**
