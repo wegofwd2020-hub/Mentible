@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 #: Capability flags naming the export formats a plan grants (T-P0-3). Both named plans
 #: below MUST carry every member — `test_billing_features.py` asserts this invariant, since
 #: switching an export gate from `is_pro` to `has_feature` must not strip EPUB/PDF from any
