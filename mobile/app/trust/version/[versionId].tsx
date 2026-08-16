@@ -370,7 +370,11 @@ function TrustVersionInner() {
             <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
-            {canEdit ? (
+            {isOwner ? (
+              // Revise hits generate_version (billable LLM-regen), which
+              // Task 4 kept owner-only on the backend — unlike create_version
+              // (manual "Edit text" save below), it was NOT opened to editor.
+              // Gating this on canEdit would let an editor tap Revise and 403.
               <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.editBtn} onPress={openRegen}>
                 <Text style={styles.editBtnText}>Revise</Text>
               </Pressable>

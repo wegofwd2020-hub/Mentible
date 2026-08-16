@@ -48,6 +48,18 @@ it("editor sees the Edit control and not Approve", async () => {
   expect(screen.queryByLabelText("Approve version 2")).toBeNull();
 });
 
+// Revise hits generate_version, which the backend (Task 4) kept owner-only
+// (create_version — "Edit text" — is the one opened to owner+editor). An
+// editor must not see Revise, or tapping it 403s.
+it("editor does not see Revise (generate_version stayed owner-only on the backend)", async () => {
+  mockRole = "editor";
+  render(<TrustVersion />);
+  await waitFor(() => expect(screen.getByText("H")).toBeTruthy());
+  expect(screen.getByLabelText("Edit draft")).toBeTruthy();
+  expect(screen.queryByLabelText("Revise draft")).toBeNull();
+  expect(screen.queryByLabelText("Approve version 2")).toBeNull();
+});
+
 it("reviewer sees Approve and not the Edit control", async () => {
   mockRole = "reviewer";
   render(<TrustVersion />);
