@@ -187,6 +187,7 @@ class ProjectDetailOut(BaseModel):
 
 class InviteIn(BaseModel):
     email: str
+    role: str = "reviewer"
 
 
 class InvitationOut(BaseModel):

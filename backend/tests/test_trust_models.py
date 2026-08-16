@@ -31,7 +31,7 @@ def test_dataclasses_frozen():
 
 def test_membership_invite_tuples():
     assert models.MEMBERSHIP_ROLES == ("owner", "reviewer")
-    assert models.INVITE_ROLES == ("reviewer",)
+    assert models.INVITE_ROLES == ("reviewer", "editor")
     assert models.APPROVAL_VIA == ("operator", "expert_self")
 
 

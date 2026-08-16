@@ -55,14 +55,20 @@ async def _account(conn: asyncpg.Connection, principal: Principal) -> Account:
 
 
 async def _require_role(
-    conn: asyncpg.Connection, account: Account, project_id: uuid.UUID, *, need_owner: bool
+    conn: asyncpg.Connection, account: Account, project_id: uuid.UUID, *, allow: tuple[str, ...]
 ) -> str:
+    """Resolve the caller's role on the project and enforce it's one of `allow`.
+
+    `allow` is the project-role permission matrix (P0-2 slice C): owner,
+    reviewer (approve/withdraw), editor (create/edit content) — see
+    `access.PROJECT_ROLES`. Raises 403 for no access at all, and a distinct
+    403 when the resolved role isn't permitted for this operation."""
     try:
         role = await require_project_access(conn, account_id=account.id, project_id=project_id)
     except ProjectAccessError as err:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this project") from err
-    if need_owner and role != "owner":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "owner only")
+    if role not in allow:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "insufficient role")
     return role
 
 
@@ -145,7 +151,7 @@ async def create_artifact(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.ArtifactOut:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     try:
         a = await artifact_repo.create_artifact(
             conn,
@@ -174,7 +180,7 @@ async def add_project_input(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.ProjectInputOut:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     try:
         i = await project_repo.add_input(
             conn,
@@ -207,7 +213,7 @@ async def edit_project_input(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     cur = await project_repo.get_input(conn, input_id=input_id)
     if cur is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
@@ -245,7 +251,7 @@ async def delete_project_input(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "source not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     if await project_repo.input_cited_by_validated(conn, project_id=project_id, input_id=input_id):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -265,7 +271,7 @@ async def create_version(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner", "editor"))
     v = await artifact_repo.create_version(
         conn,
         artifact_id=artifact_id,
@@ -291,7 +297,7 @@ async def get_version(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))  # read
     v = await artifact_repo.get_version(conn, version_id=version_id)
     if v is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
@@ -348,7 +354,7 @@ async def generate_version(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
@@ -424,13 +430,17 @@ async def invite_expert(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.InvitationOut:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
-    inv = await membership_repo.invite(
-        conn,
-        project_id=project_id,
-        email=body.email,
-        invited_by_sub=principal.sub,
-    )
+    await _require_role(conn, account, project_id, allow=("owner",))
+    try:
+        inv = await membership_repo.invite(
+            conn,
+            project_id=project_id,
+            email=body.email,
+            invited_by_sub=principal.sub,
+            role=body.role,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from e
     return schemas.InvitationOut(
         project_id=str(inv.project_id),
         invited_email=inv.invited_email,
@@ -467,7 +477,9 @@ async def get_project(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.ProjectDetailOut:
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(
+        conn, account, project_id, allow=("owner", "reviewer", "editor")
+    )  # read
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
@@ -539,7 +551,7 @@ async def save_project_toc(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.ProjectOut:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     if not isinstance(body.toc.get("subjects"), list):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "toc.subjects must be a list")
     await project_repo.update_project_toc(conn, project_id=project_id, toc=body.toc)
@@ -583,7 +595,7 @@ async def suggest_project_toc(
     in the result, just the `toc` dict itself.
     """
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
@@ -723,7 +735,7 @@ async def generate_topic_version(
     (encrypted BYOK envelope + status row) as whole-lesson `/generate`.
     """
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
@@ -813,10 +825,10 @@ async def get_generate_book_estimate(
 ) -> schemas.BookEstimateOut:
     """Pre-run token/cost estimate for the whole-book generate fan-out.
 
-    Read-only, but gated `need_owner=True` to match the generate-book action
-    it estimates (the same gate `generate_topic_version` uses)."""
+    Read-only, but gated owner-only to match the generate-book action it
+    estimates (the same gate `generate_topic_version` uses)."""
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -899,7 +911,7 @@ async def submit_generate_book(
     ephemeral Redis status blob the single-shot generations use.
     """
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
@@ -975,7 +987,7 @@ async def get_generation_job(
     if job is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "generation job not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, job.project_id, need_owner=True)
+    await _require_role(conn, account, job.project_id, allow=("owner",))
     return _generation_job_out(job)
 
 
@@ -989,7 +1001,7 @@ async def get_latest_generation_job(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.GenerationJobOut | None:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner",))
     job = await generation_job_repo.latest_for_project(conn, project_id=project_id)
     return _generation_job_out(job) if job is not None else None
 
@@ -1006,7 +1018,7 @@ async def get_topic_version(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))  # read
     tv = await topic_repo.get_topic_version(conn, topic_version_id=topic_version_id)
     if tv is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
@@ -1050,7 +1062,7 @@ async def list_topic_version_history(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> list[schemas.TopicVersionSummaryOut]:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))  # read
     vs = await topic_repo.list_topic_versions(conn, project_id=project_id)
     return [
         schemas.TopicVersionSummaryOut(
@@ -1077,7 +1089,7 @@ async def list_project_feedback(
     artifact version and topic version in the project, newest first.
     Read-only; owner OR reviewer."""
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=False)  # owner OR reviewer
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))  # read
     rows = await feedback_repo.list_project_feedback(conn, project_id=project_id)
     return [schemas.ProjectFeedbackItemOut(**r) for r in rows]
 
@@ -1094,7 +1106,7 @@ async def create_topic_version_manual(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.TopicVersionOut:
     account = await _account(conn, principal)
-    await _require_role(conn, account, project_id, need_owner=True)
+    await _require_role(conn, account, project_id, allow=("owner", "editor"))
     existing = [
         v
         for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
@@ -1144,7 +1156,7 @@ async def record_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
     if role == "reviewer":
         recorded_via = "expert_self"
         expert_name = account.email or principal.sub
@@ -1194,7 +1206,7 @@ async def withdraw_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
     recorded_via = "expert_self" if role == "reviewer" else "operator"
     ap = await approval_repo.withdraw_approval(
         conn,
@@ -1230,7 +1242,7 @@ async def record_topic_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
     if role == "reviewer":
         recorded_via = "expert_self"
         expert_name = account.email or principal.sub
@@ -1285,7 +1297,7 @@ async def withdraw_topic_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
     recorded_via = "expert_self" if role == "reviewer" else "operator"
     ap = await topic_approval_repo.withdraw_topic_approval(
         conn,
@@ -1322,7 +1334,7 @@ async def add_version_feedback(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))
     if body.section_index is not None:
         v = await artifact_repo.get_version(conn, version_id=version_id)
         if v is None:
@@ -1369,7 +1381,7 @@ async def add_topic_version_feedback(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, need_owner=False)
+    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer", "editor"))
     author_kind = "expert" if role == "reviewer" else "operator"
     f = await topic_feedback_repo.add_topic_feedback(
         conn,
