@@ -55,7 +55,14 @@ function TrustVersionInner() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [prevVersion, setPrevVersion] = useState<VersionDetailView | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
-  const isOwner = project?.my_role === "owner";
+  // Task 4 (backend, this branch) added the editor role: edit/create-version
+  // endpoints allow owner+editor, approve/withdraw allow owner+reviewer.
+  // canEdit/canApprove mirror that matrix here so the controls a role can't
+  // use never render (rather than rendering and failing the API call).
+  const role = project?.my_role;
+  const isOwner = role === "owner";
+  const canEdit = role === "owner" || role === "editor";
+  const canApprove = role === "owner" || role === "reviewer";
 
   // Re-fetch just this version (used after approve/unapprove so the header's
   // validated state reflects the append-only toggle without a full reload).
@@ -363,25 +370,27 @@ function TrustVersionInner() {
             <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>
               <Text style={styles.editBtnText}>Copy</Text>
             </Pressable>
-            {isOwner ? (
+            {canEdit ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Revise draft" style={styles.editBtn} onPress={openRegen}>
                 <Text style={styles.editBtnText}>Revise</Text>
               </Pressable>
             ) : null}
-            {isOwner ? (
+            {canEdit ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Edit draft" style={styles.editBtn} onPress={startEdit}>
                 <Text style={styles.editBtnText}>Edit text</Text>
               </Pressable>
             ) : null}
-            {version.is_validated ? (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Withdraw approval of version ${version.version_no}`} disabled={apBusy} style={styles.unapproveBtn} onPress={onUnapprove}>
-                <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
-              </Pressable>
-            ) : (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
-                <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
-              </Pressable>
-            )}
+            {canApprove ? (
+              version.is_validated ? (
+                <Pressable accessibilityRole="button" accessibilityLabel={`Withdraw approval of version ${version.version_no}`} disabled={apBusy} style={styles.unapproveBtn} onPress={onUnapprove}>
+                  <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
+                </Pressable>
+              ) : (
+                <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
+                  <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
+                </Pressable>
+              )
+            ) : null}
           </View>
         ) : null}
         {!editing && askName ? (

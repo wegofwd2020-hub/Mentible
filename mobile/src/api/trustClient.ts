@@ -170,8 +170,8 @@ export async function generateVersion(
   )) as VersionGenerateJobOut;
 }
 
-export async function invite(projectId: string, email: string, token: string): Promise<InvitationView> {
-  return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email }) })) as InvitationView;
+export async function invite(projectId: string, email: string, role: "reviewer" | "editor", token: string): Promise<InvitationView> {
+  return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email, role }) })) as InvitationView;
 }
 
 export async function addProjectInput(

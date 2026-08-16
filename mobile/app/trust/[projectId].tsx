@@ -854,6 +854,8 @@ function FeedbackPanel({
   anyVersion,
   inviteEmail,
   setInviteEmail,
+  inviteRole,
+  setInviteRole,
   inviteBusy,
   onInvite,
   onOpenVersion,
@@ -875,6 +877,8 @@ function FeedbackPanel({
   anyVersion: boolean;
   inviteEmail: string;
   setInviteEmail: (v: string) => void;
+  inviteRole: "reviewer" | "editor";
+  setInviteRole: (v: "reviewer" | "editor") => void;
   inviteBusy: boolean;
   onInvite: () => void;
   onOpenVersion: (artifactId: string, versionId: string) => void;
@@ -1054,6 +1058,28 @@ function FeedbackPanel({
       {isOwner ? (
         <View style={styles.ownerBlock}>
           <Text style={styles.artifactTitle}>Invite an expert</Text>
+          {/* Reviewer (default) can approve/withdraw; editor can edit/create
+              versions. Mirrors the backend InviteIn.role matrix (Task 4). */}
+          <View style={styles.kindRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite as reviewer"
+              accessibilityState={{ selected: inviteRole === "reviewer" }}
+              style={[styles.kindBtn, inviteRole === "reviewer" ? styles.kindBtnActive : null]}
+              onPress={() => setInviteRole("reviewer")}
+            >
+              <Text style={inviteRole === "reviewer" ? styles.kindTextActive : styles.kindText}>Reviewer</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite as editor"
+              accessibilityState={{ selected: inviteRole === "editor" }}
+              style={[styles.kindBtn, inviteRole === "editor" ? styles.kindBtnActive : null]}
+              onPress={() => setInviteRole("editor")}
+            >
+              <Text style={inviteRole === "editor" ? styles.kindTextActive : styles.kindText}>Editor</Text>
+            </Pressable>
+          </View>
           <View style={styles.inviteRow}>
             <TextInput
               style={styles.inviteInput}
@@ -1345,6 +1371,9 @@ function TrustProjectDetailInner() {
   // through useTrustProject) so Task 6's polling can own the job lifecycle.
   const knownNotPro = plan != null && plan.is_pro === false;
   const [inviteEmail, setInviteEmail] = useState("");
+  // Task 4 (backend) added the editor role alongside reviewer; reviewer stays
+  // the default since "invite an expert to review" is the common case.
+  const [inviteRole, setInviteRole] = useState<"reviewer" | "editor">("reviewer");
   const [pubBusy, setPubBusy] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
   // A MAP of in-flight formats to their progress, not a single busy format —
@@ -1554,7 +1583,7 @@ function TrustProjectDetailInner() {
     if (!email) return;
     setInviteBusy(true);
     try {
-      await invite(email);
+      await invite(email, inviteRole);
       setInviteEmail("");
       Alert.alert("Invited", `Invitation sent to ${email}.`);
     } catch (e) {
@@ -2069,6 +2098,8 @@ function TrustProjectDetailInner() {
             anyVersion={anyVersion}
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
+            inviteRole={inviteRole}
+            setInviteRole={setInviteRole}
             inviteBusy={inviteBusy}
             onInvite={onInvite}
             onOpenVersion={onOpenVersion}
