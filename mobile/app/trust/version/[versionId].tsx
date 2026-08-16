@@ -44,6 +44,9 @@ function TrustVersionInner() {
   const [expertName, setExpertName] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [openCommentIndex, setOpenCommentIndex] = useState<number | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Re-fetch just this version (used after approve/unapprove so the header's
@@ -245,6 +248,33 @@ function TrustVersionInner() {
     })();
   };
 
+  // Single handler taking the index (rather than N per-index closures) — a
+  // fresh `() => toggle(i)` per Pressable is cheap and matches the pattern
+  // already used for `removeSection`/note actions elsewhere in this file;
+  // what must stay stable is `previewTopic`, which this doesn't touch.
+  const toggleComment = useCallback((i: number) => {
+    setOpenCommentIndex((prev) => (prev === i ? null : i));
+    setCommentDraft("");
+  }, []);
+
+  const submitSectionComment = useCallback((i: number) => {
+    const text = commentDraft.trim();
+    if (!text || !accessToken) return;
+    setCommentBusy(true);
+    void (async () => {
+      try {
+        await addFeedback(String(versionId), { body: text, section_index: i }, accessToken);
+        setCommentDraft("");
+        setOpenCommentIndex(null);
+        await reloadVersion().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't send", e instanceof ApiError ? e.userMessage() : "Please try again.");
+      } finally {
+        setCommentBusy(false);
+      }
+    })();
+  }, [accessToken, versionId, commentDraft, reloadVersion]);
+
   const updateSection = (i: number, field: "heading" | "body", value: string) => {
     setDraft((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
   };
@@ -408,6 +438,66 @@ function TrustVersionInner() {
                 ))}
               </View>
             ) : null}
+            {/* Per-section comment affordances. The reader above renders every
+                section as one merged doc, so there's no in-reader anchor to hang
+                a comment control on — this thin list, keyed to
+                `version.content.sections`, is the anchor instead. */}
+            {(version.content?.sections ?? []).length > 0 ? (
+              <View style={styles.notesBlock}>
+                <Text style={styles.notesTitle}>Section comments</Text>
+                {(version.content?.sections ?? []).map((s, i) => {
+                  const sectionFeedback = (version.feedback ?? []).filter((f) => f.section_index === i);
+                  return (
+                    <View key={i} style={styles.noteRow}>
+                      {/* "Section N: <heading>" (never bare `s.heading`) — the
+                          reader above already renders that exact heading text
+                          once; duplicating it verbatim here would make it
+                          ambiguous which node a `getByText(heading)` query hit. */}
+                      <Text style={styles.noteMeta}>{`Section ${i + 1}: ${s.heading}`}</Text>
+                      {sectionFeedback.map((f) => (
+                        <View key={f.id} style={styles.sectionCommentRow}>
+                          <Text style={styles.noteMeta}>
+                            {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
+                            {f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : ""}
+                          </Text>
+                          <Text style={styles.noteBody}>{f.body}</Text>
+                        </View>
+                      ))}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Comment on section ${i + 1}`}
+                        style={styles.editBtn}
+                        onPress={() => toggleComment(i)}
+                      >
+                        <Text style={styles.editBtnText}>{openCommentIndex === i ? "Cancel" : "Comment"}</Text>
+                      </Pressable>
+                      {openCommentIndex === i ? (
+                        <>
+                          <TextInput
+                            style={[styles.input, styles.bodyInput]}
+                            value={commentDraft}
+                            onChangeText={setCommentDraft}
+                            accessibilityLabel={`Comment on section ${i + 1} body`}
+                            placeholder="Add a comment…"
+                            maxLength={1000}
+                            multiline
+                          />
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Submit comment on section ${i + 1}`}
+                            style={[styles.saveBtn, !commentDraft.trim() ? styles.disabledBtn : null]}
+                            disabled={commentBusy || !commentDraft.trim()}
+                            onPress={() => submitSectionComment(i)}
+                          >
+                            <Text style={styles.saveBtnText}>{commentBusy ? "Sending…" : "Submit comment"}</Text>
+                          </Pressable>
+                        </>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </>
         )}
         {!editing ? (
@@ -416,12 +506,12 @@ function TrustVersionInner() {
             {!isOwner ? (
               <Text style={styles.notesEmpty}>Leaves a note for the owner — they&apos;ll revise the draft.</Text>
             ) : null}
-            {(version.feedback ?? []).length === 0 ? (
+            {(version.feedback ?? []).filter((f) => f.section_index == null).length === 0 ? (
               <Text style={styles.notesEmpty}>
                 {isOwner ? "No revision notes yet." : "No revision notes yet. Ask for a change below."}
               </Text>
             ) : (
-              (version.feedback ?? []).map((f) => (
+              (version.feedback ?? []).filter((f) => f.section_index == null).map((f) => (
                 <View key={f.id} style={styles.noteRow}>
                   <Text style={styles.noteMeta}>
                     {f.author_name ?? (f.author_kind === "expert" ? "Expert" : "Owner")}
@@ -548,6 +638,7 @@ const makeStyles = (c: Palette) => ({
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },
   noteRow: { borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm, gap: 2 },
+  sectionCommentRow: { gap: 2, paddingBottom: spacing.xs },
   versionRowInner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   noteMeta: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const },
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
