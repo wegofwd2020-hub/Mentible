@@ -126,3 +126,26 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
 
 Backlog (§B1/B2) unblocks opportunistically — e.g. **ADR-033 hosted private library** and
 **reader engagement (ADR-021/023)** become viable once P0-1 billing is live.
+
+---
+
+## D. Competitive read — YouBooks + convergence (added 2026-08-16)
+
+Two more docs (`COMPETITIVE_PRODUCTS_ANALYSIS.md`, `FEATURE_ROADMAP.md`) name **YouBooks** — a
+**live** AI book generator (multi-model, web research, EPUB/PDF/DOCX, pay-per-book $7–9) — as the
+#1 threat, with a 6-month "beat YouBooks" sprint. Full analysis: [`YOUBOOKS_REFRAME.md`](YOUBOOKS_REFRAME.md).
+
+- **Reframe:** YouBooks competes on *book generation*; ADR-037 competes on **expert-validated,
+  traceable knowledge** for **SMEs**. Different product/buyer. YouBooks is a **market signal +
+  messaging foil** ("validated, not just generated"), **not** a feature checklist to chase.
+- **⚠ Don't reorder toward the rejected strategy** the docs drift to — generation-parity, a
+  services *marketplace*, a Reedsy partnership. ADR-037 declined those; the roadmap's 5
+  writer-network items are even marked N/A.
+- **Convergence = the real value:** independent docs agree the top moves are **the same as this
+  shortlist** — activate **managed billing** (P0-1), **publishing/export** (P0-3/P2, "KDP = the
+  moat"), **make trust visible** (P1-4), **finish collaboration** (P0-2). Heed the *urgency* on
+  those; ignore the pull elsewhere.
+- **Roadmap "26 built" is stale/mis-framed** — it buries the trust review loop (the spine) as
+  "Revision Request (Basic)", predates recent ships (themes / funnel / native whole-book render /
+  nav), and overstates "RevenueCat built" (payment rail is the P0-1 gap). Phase 4–5 ARR figures
+  are speculative scenarios, not commitments.
