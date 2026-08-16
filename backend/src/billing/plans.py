@@ -16,6 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+#: Capability flags naming the export formats a plan grants (T-P0-3). Both named plans
+#: below MUST carry every member — `test_billing_features.py` asserts this invariant, since
+#: switching an export gate from `is_pro` to `has_feature` must not strip EPUB/PDF from any
+#: currently-entitled user.
+EXPORT_FEATURES = frozenset({"export_epub", "export_pdf", "export_docx"})
+
+
 @dataclass(frozen=True)
 class Plan:
     id: str
@@ -23,6 +30,7 @@ class Plan:
     allowance_micros: int  # cost cap per period in micro-USD; 0 = unlimited
     managed_providers: frozenset[str]  # providers this plan may generate managed
     window_days: int  # entitlement period length when granted
+    features: frozenset[str]  # capability flags this plan grants (e.g. export_*)
 
 
 # Phase 3 starter set (Anthropic-only managed, per ADR-005 O4). Tune freely — these are
@@ -34,6 +42,7 @@ _PLANS: dict[str, Plan] = {
         allowance_micros=5_000_000,  # $5.00 of managed tokens per 30-day period
         managed_providers=frozenset({"anthropic"}),
         window_days=30,
+        features=EXPORT_FEATURES,
     ),
     "managed_unlimited": Plan(
         id="managed_unlimited",
@@ -43,6 +52,7 @@ _PLANS: dict[str, Plan] = {
         # PAID key (free tier trains on data, O4); add it to a plan deliberately.
         managed_providers=frozenset({"anthropic", "openai", "groq"}),
         window_days=30,
+        features=EXPORT_FEATURES,
     ),
 }
 

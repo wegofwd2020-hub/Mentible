@@ -17,7 +17,7 @@ import asyncpg
 from fastapi import HTTPException
 
 from backend.config import settings
-from backend.src.billing.access import is_pro
+from backend.src.billing.access import account_features, is_pro
 
 
 def pro_required(detail: str) -> HTTPException:
@@ -25,6 +25,15 @@ def pro_required(detail: str) -> HTTPException:
     server-side enforcement (T2). The client keys UI off this status + the
     `detail` string; keep the message actionable ("… upgrade to Pro.")."""
     return HTTPException(status_code=402, detail=detail)
+
+
+def feature_required(feature: str) -> HTTPException:
+    """A 402 for a capability the caller's plan does not grant (T-P0-3). Names the
+    missing feature so the client can show the right upsell."""
+    return HTTPException(
+        status_code=402,
+        detail=f"This export format needs Pro ({feature}). Upgrade to Pro to download.",
+    )
 
 
 @dataclass(frozen=True)
@@ -37,6 +46,7 @@ class PlanStatus:
     generations: int
     at_project_cap: bool
     at_generation_cap: bool
+    features: tuple[str, ...]
 
 
 async def count_projects(conn: asyncpg.Connection, account_id: UUID) -> int:
@@ -64,6 +74,7 @@ async def plan_status(conn: asyncpg.Connection, *, account_id: UUID, sub: str) -
     since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
     projects = await count_projects(conn, account_id)
     generations = await count_generations(conn, sub, since)
+    feats = await account_features(conn, account_id=account_id)
     return PlanStatus(
         is_pro=pro,
         max_projects=settings.free_max_projects,
@@ -73,4 +84,5 @@ async def plan_status(conn: asyncpg.Connection, *, account_id: UUID, sub: str) -
         generations=generations,
         at_project_cap=(not pro) and projects >= settings.free_max_projects,
         at_generation_cap=(not pro) and generations >= settings.free_max_generations,
+        features=tuple(sorted(feats)),
     )

@@ -117,6 +117,7 @@ async def get_plan_status(
         usage={"projects": ps.projects, "generations": ps.generations},
         at_project_cap=ps.at_project_cap,
         at_generation_cap=ps.at_generation_cap,
+        features=list(ps.features),
     )
 
 

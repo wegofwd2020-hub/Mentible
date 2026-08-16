@@ -195,6 +195,7 @@ class PlanStatusView(BaseModel):
     usage: PlanUsageView
     at_project_cap: bool
     at_generation_cap: bool
+    features: list[str] = []
 
 
 class CredentialUpsert(BaseModel):
