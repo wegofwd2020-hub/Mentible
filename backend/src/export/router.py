@@ -26,8 +26,8 @@ from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing.access import is_pro
-from backend.src.billing.quota import pro_required
+from backend.src.billing.access import has_feature
+from backend.src.billing.quota import feature_required
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
 from backend.src.core.redis_dep import get_redis
@@ -45,6 +45,10 @@ _MAX_BODY_BYTES = 25 * 1024 * 1024
 _FORMATS = {
     "epub": ("application/epub+zip", "epub"),
     "pdf": ("application/pdf", "pdf"),
+    "docx": (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "docx",
+    ),
     # A PNG thumbnail of the book's cover — lets the mobile Library show the real
     # cover (the EPUB carries only the vector cover.svg, which the app can't
     # render on-device).
@@ -64,36 +68,33 @@ async def export_book(
     diagrams: bool = False,
     principal: Principal | None = Depends(optional_user),
 ) -> Response:
-    """Compile a book to an artifact. `format`=epub|pdf; `diagrams`=true renders
+    """Compile a book to an artifact. `format`=epub|pdf|docx; `diagrams`=true renders
     Mermaid → SVG (Chromium; much slower)."""
     fmt = format.lower()
     if fmt not in _FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "format must be 'epub' or 'pdf'."},
+            content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
         )
     media_type, ext = _FORMATS[fmt]
 
-    # Free/Pro export Pro-wall (T2), mirrored from submit_export below. `cover`
-    # is a UI asset (the mobile Library thumbnail, see exportCoverSync in
-    # mobile/src/api/client.ts) — NEVER gated, for anyone. Gated only for an
-    # authenticated caller (principal is not None); the anonymous/public demo
-    # always passes through ungated, and so does any deployment with no DB
-    # configured (no account store, no gate — same inline
+    # Free/Pro export gate (T2, per-feature — T4), mirrored from submit_export
+    # below. `cover` is a UI asset (the mobile Library thumbnail, see
+    # exportCoverSync in mobile/src/api/client.ts) — NEVER gated, for anyone.
+    # Gated only for an authenticated caller (principal is not None); the
+    # anonymous/public demo always passes through ungated, and so does any
+    # deployment with no DB configured (no account store, no gate — same inline
     # `getattr(request.app.state, "db", None)` pattern as submit_export, not a
     # `Depends(get_conn)`, which would 503 the no-DB demo).
-    if fmt in ("epub", "pdf") and principal is not None:
+    if fmt != "cover" and principal is not None:
         pool = getattr(request.app.state, "db", None)
         if pool is not None:
             async with pool.acquire() as conn:
                 account = await accounts_repo.get_or_create_account(
                     conn, idp_sub=principal.sub, email=principal.email
                 )
-                if not await is_pro(conn, account_id=account.id):
-                    raise pro_required(
-                        "Exporting a book file is a Pro feature. Read it in-app or "
-                        "copy the text, or upgrade to Pro."
-                    )
+                if not await has_feature(conn, account_id=account.id, feature=f"export_{fmt}"):
+                    raise feature_required(f"export_{fmt}")
 
     raw = await request.body()
     if len(raw) > _MAX_BODY_BYTES:
@@ -129,7 +130,7 @@ async def export_book(
     # compiled artifact. Only for content artifacts (not the cover thumbnail). The
     # manifest is non-secret (to_public_dict), so a base64 header is safe. Best
     # effort — never block a successful export over trust assembly.
-    if fmt in ("epub", "pdf"):
+    if fmt != "cover":
         try:
             book = json.loads(raw)
             manifest = await asyncio.to_thread(export_trust.export_manifest, book, result.data)
@@ -150,7 +151,7 @@ async def export_book(
 # EPUB/PDF compile from the HTTP request so no single request outlives Cloudflare's
 # ~100s proxy timeout — submit → poll → download, each call fast. See tasks.py.
 
-_ASYNC_FORMATS = {"epub", "pdf"}
+_ASYNC_FORMATS = {"epub", "pdf", "docx"}
 
 
 @router.post(
@@ -177,7 +178,7 @@ async def submit_export(
     if fmt not in _ASYNC_FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "format must be 'epub' or 'pdf'."},
+            content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
         )
 
     raw = await request.body()
@@ -196,9 +197,10 @@ async def submit_export(
             content={"detail": str(exc)},
         )
 
-    # Free/Pro export Pro-wall (T2). Gated ONLY for an authenticated caller — the
-    # anonymous/public demo (no principal) always passes through ungated, and so
-    # does any deployment with no DB configured (no account store, no gate).
+    # Free/Pro export gate (T2, per-feature — T4). Gated ONLY for an authenticated
+    # caller — the anonymous/public demo (no principal) always passes through
+    # ungated, and so does any deployment with no DB configured (no account
+    # store, no gate).
     if principal is not None:
         pool = getattr(request.app.state, "db", None)
         if pool is not None:
@@ -206,11 +208,8 @@ async def submit_export(
                 account = await accounts_repo.get_or_create_account(
                     conn, idp_sub=principal.sub, email=principal.email
                 )
-                if not await is_pro(conn, account_id=account.id):
-                    raise pro_required(
-                        "Exporting a book file is a Pro feature. Read it in-app or "
-                        "copy the text, or upgrade to Pro."
-                    )
+                if not await has_feature(conn, account_id=account.id, feature=f"export_{fmt}"):
+                    raise feature_required(f"export_{fmt}")
 
     job_id = uuid.uuid4()
     await r.set(

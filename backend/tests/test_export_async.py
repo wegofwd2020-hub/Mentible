@@ -112,6 +112,27 @@ async def test_artifact_download_streams_bytes_with_headers(client, monkeypatch)
     assert art.headers["x-content-warnings"] == "0"
 
 
+async def test_docx_artifact_download_has_word_media_type(client, monkeypatch):
+    """docx (T4) must carry the exact Word MIME on the async download route, not
+    the `_MEDIA_TYPES.get(fmt, "application/octet-stream")` fallback."""
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile({}, data=b"PK-docx-bytes"))
+
+    submit = await client.post("/api/v1/export/jobs?format=docx", content=json.dumps(_BOOK))
+    assert submit.status_code == 202
+    job_id = submit.json()["job_id"]
+    body = await _wait_for_status(client, job_id)
+    assert body["status"] == "done"
+    assert body["format"] == "docx"
+
+    art = await client.get(f"/api/v1/export/jobs/{job_id}/artifact")
+    assert art.status_code == 200
+    assert art.content == b"PK-docx-bytes"
+    assert art.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert art.headers["content-disposition"] == 'attachment; filename="physics-friends.docx"'
+
+
 async def test_pdf_with_diagrams_passes_flags_through(client, monkeypatch):
     rec: dict = {}
     monkeypatch.setattr(compiler, "compile_book", _fake_compile(rec, data=b"%PDF"))

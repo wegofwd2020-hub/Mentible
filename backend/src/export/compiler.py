@@ -68,11 +68,11 @@ async def compile_book(
     fmt: str = "epub",
     diagrams: bool = False,
 ) -> ExportResult:
-    """Compile raw book.json bytes into an artifact (EPUB or PDF) via the Node
-    compiler.
+    """Compile raw book.json bytes into an artifact (EPUB, PDF, or DOCX) via the
+    Node compiler.
 
-    fmt:      "epub" | "pdf". diagrams: render Mermaid → SVG (needs Chromium;
-    much slower, so it gets the longer diagram timeout). Raises
+    fmt:      "epub" | "pdf" | "docx". diagrams: render Mermaid → SVG (needs
+    Chromium; much slower, so it gets the longer diagram timeout). Raises
     ExportValidationError for bad input, CompilerError otherwise.
     """
     book = validate_book(raw_book)
