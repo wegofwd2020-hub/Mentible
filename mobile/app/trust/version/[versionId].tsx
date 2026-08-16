@@ -9,6 +9,7 @@ import { ApiError } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToPlainText } from "@/lib/draftExport";
 import { describeProvenance } from "@/lib/draftProvenance";
+import { diffVersions } from "@/lib/diffVersions";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -20,6 +21,10 @@ import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 type Styles = ReturnType<typeof makeStyles>;
 type GenProgress = { startedAt: number; phase: "queued" | "running" };
+
+const DIFF_GLYPH: Record<"added" | "removed" | "changed" | "unchanged", string> = {
+  added: "+", removed: "−", changed: "~", unchanged: "·",
+};
 
 function TrustVersionInner() {
   const { versionId, artifactId, projectId } = useLocalSearchParams<{
@@ -47,6 +52,9 @@ function TrustVersionInner() {
   const [openCommentIndex, setOpenCommentIndex] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [prevVersion, setPrevVersion] = useState<VersionDetailView | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
   const isOwner = project?.my_role === "owner";
 
   // Re-fetch just this version (used after approve/unapprove so the header's
@@ -68,6 +76,11 @@ function TrustVersionInner() {
         if (live) setError(e instanceof ApiError ? e.userMessage() : "This draft version no longer exists.");
       }
     })();
+    // Navigating to a different version (e.g. via the Versions block below)
+    // invalidates any fetched "changes from" comparison — collapse it rather
+    // than showing a diff against the wrong pair.
+    setDiffOpen(false);
+    setPrevVersion(null);
     return () => { live = false; };
   }, [accessToken, versionId]);
 
@@ -84,6 +97,15 @@ function TrustVersionInner() {
   const versions = useMemo(
     () => (project?.artifacts ?? []).find((a) => a.artifact.id === artifactId)?.versions ?? [],
     [project, artifactId],
+  );
+
+  // The immediately-prior version of this same artifact, for "Changes from
+  // v(n-1)". Looked up by version_no (not array position) — `versions` isn't
+  // guaranteed sorted — and undefined for v1 or when the sibling list hasn't
+  // loaded yet, which hides the toggle below.
+  const prevVersionSummary = useMemo(
+    () => (version ? versions.find((v) => v.version_no === version.version_no - 1) : undefined),
+    [versions, version],
   );
 
   // The web view-mode render preview: built ONCE per version (not inline in
@@ -256,6 +278,37 @@ function TrustVersionInner() {
     setOpenCommentIndex((prev) => (prev === i ? null : i));
     setCommentDraft("");
   }, []);
+
+  // Collapsed by default; fetches the previous version's content lazily on
+  // first open (not on every render) and memoizes it, since re-fetching each
+  // time the toggle is opened/closed would be wasteful and would flash the
+  // diff away and back.
+  const toggleDiff = useCallback(() => {
+    setDiffOpen((prev) => {
+      const next = !prev;
+      if (next && !prevVersion && prevVersionSummary && accessToken) {
+        setDiffLoading(true);
+        void (async () => {
+          try {
+            const v = await getVersion(prevVersionSummary.id, accessToken);
+            setPrevVersion(v);
+          } catch {
+            // Best-effort: leave prevVersion null; the diff section below
+            // just stays empty rather than surfacing a hard error for a
+            // secondary, opt-in affordance.
+          } finally {
+            setDiffLoading(false);
+          }
+        })();
+      }
+      return next;
+    });
+  }, [prevVersion, prevVersionSummary, accessToken]);
+
+  const sectionDiff = useMemo(
+    () => (prevVersion && version ? diffVersions(prevVersion.content?.sections ?? [], version.content?.sections ?? []) : []),
+    [prevVersion, version],
+  );
 
   const submitSectionComment = useCallback((i: number) => {
     const text = commentDraft.trim();
@@ -436,6 +489,33 @@ function TrustVersionInner() {
                 {previewSources.map((id) => (
                   <Text key={id} style={styles.cite}>{labelFor.get(id) ?? "cited"}</Text>
                 ))}
+              </View>
+            ) : null}
+            {/* Section-level diff against the immediately-prior version, on
+                request — hidden entirely for v1 / when no sibling artifact
+                version data has loaded yet (prevVersionSummary undefined). */}
+            {prevVersionSummary ? (
+              <View style={styles.notesBlock}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Changes from v${prevVersionSummary.version_no}`}
+                  onPress={toggleDiff}
+                >
+                  <Text style={styles.notesTitle}>
+                    {diffOpen ? "▾" : "▸"} Changes from v{prevVersionSummary.version_no}
+                  </Text>
+                </Pressable>
+                {diffOpen ? (
+                  diffLoading && !prevVersion ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    sectionDiff.map((d, i) => (
+                      <Text key={`${d.heading}-${i}`} style={styles.bodyText}>
+                        {DIFF_GLYPH[d.status]} {d.heading}
+                      </Text>
+                    ))
+                  )
+                ) : null}
               </View>
             ) : null}
             {/* Per-section comment affordances. The reader above renders every
