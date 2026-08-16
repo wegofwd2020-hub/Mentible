@@ -141,6 +141,19 @@ async function blocksFromMarkdown(md: string): Promise<Paragraph[]> {
           }
         }
         break;
+      case "table": {
+        // Full docx Table support is out of scope here — render each row
+        // (header first, then body rows) as a tab-joined line so GFM table
+        // content survives instead of silently vanishing (the switch's
+        // `default` arm requires `.text`, which a table token doesn't have).
+        const table = t as Tokens.Table;
+        const rowText = (cells: Tokens.TableCell[]): string => cells.map((c) => c.text).join("\t");
+        paras.push(new Paragraph({ children: [new TextRun({ text: rowText(table.header), bold: true })] }));
+        for (const row of table.rows) {
+          paras.push(new Paragraph({ children: [new TextRun(rowText(row))] }));
+        }
+        break;
+      }
       default:
         // Plain/space/hr and anything else with a `.text` renders as a plain
         // run; tokens with no text (hr, space) are skipped.
