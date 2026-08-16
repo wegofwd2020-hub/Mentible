@@ -313,6 +313,7 @@ async def get_version(
                 author_kind=f.author_kind,
                 author_name=f.author_name,
                 body=f.body,
+                section_index=f.section_index,
                 created_at=f.created_at,
             )
             for f in fb
@@ -1322,6 +1323,13 @@ async def add_version_feedback(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
     role = await _require_role(conn, account, project_id, need_owner=False)
+    if body.section_index is not None:
+        v = await artifact_repo.get_version(conn, version_id=version_id)
+        if v is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+        sections = (v.content or {}).get("sections", [])
+        if not (0 <= body.section_index < len(sections)):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "section_index out of range")
     author_kind = "expert" if role == "reviewer" else "operator"
     f = await feedback_repo.add_feedback(
         conn,
@@ -1330,6 +1338,7 @@ async def add_version_feedback(
         author_name=account.email or principal.sub,
         body=text,
         recorded_by_sub=principal.sub,
+        section_index=body.section_index,
     )
     return schemas.FeedbackOut(
         id=str(f.id),
@@ -1337,6 +1346,7 @@ async def add_version_feedback(
         author_kind=f.author_kind,
         author_name=f.author_name,
         body=f.body,
+        section_index=f.section_index,
         created_at=f.created_at,
     )
 

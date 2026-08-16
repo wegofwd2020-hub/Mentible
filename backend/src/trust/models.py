@@ -83,6 +83,7 @@ class Feedback:
     author_kind: str
     author_name: str | None
     body: str
+    section_index: int | None
     recorded_by_sub: str
     created_at: datetime | None
 
