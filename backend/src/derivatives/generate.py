@@ -23,13 +23,15 @@ from wegofwd_llm.registry import build_provider
 
 from backend.src.generate.anthropic_caller import parse_json_response
 
-from .prompt import build_derivative_prompt
-from .schemas import DerivativeResponse, PostVariant, ReferenceImage, _DerivativeOutput
+from .prompt import build_card_prompt, build_derivative_prompt
+from .schemas import CardContent, DerivativeResponse, PostVariant, ReferenceImage, _DerivativeOutput
 
 # Repair budget mirrors generate.tasks._MAX_REPAIRS (1 initial call + 2 repairs).
 _MAX_REPAIRS = 2
 # A handful of short social posts needs far less headroom than a full lesson.
 _MAX_TOKENS = 2048
+# A headline + subtext pair needs far less headroom than a full post set.
+_CARD_MAX_TOKENS = 1024
 
 
 def generate_post(
@@ -122,3 +124,23 @@ def _generate_post_with_image(
         raise LLMSchemaError("generated content failed validation") from None
     variants: list[PostVariant] = out.variants
     return DerivativeResponse(platform=platform, variants=variants, provenance="ai-generated")
+
+
+def generate_card(
+    *, source_text: str, size: str, tone: str | None, provider_id: str, api_key: str, model: str
+) -> CardContent:
+    """Generate the card copy (headline/subtext/source_label) for `source_text`.
+
+    Mirrors `generate_post`'s text path: build a provider from the registry,
+    issue a JSON-mode request, and validate + repair via `generate_validated`.
+    Never logs `api_key`. Raises `LLMSchemaError` on repair-budget exhaustion
+    (the router maps it to a 502 — Task 3).
+    """
+    prompt = build_card_prompt(source_text, size, tone)
+    provider = build_provider(provider_id, api_key=api_key, model=model)
+    req = LLMRequest(prompt=prompt, max_tokens=_CARD_MAX_TOKENS, response_format="json")
+
+    def _validate(text: str) -> CardContent:
+        return CardContent.model_validate(parse_json_response(text))
+
+    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed

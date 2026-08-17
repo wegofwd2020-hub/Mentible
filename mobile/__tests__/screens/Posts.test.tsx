@@ -4,15 +4,31 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import PostsScreen, { assemblePost } from "@/../app/(tabs)/posts";
 
 jest.mock("@/hooks/useMakePost", () => ({ useMakePost: jest.fn() }));
+// Card mode (Task 4) added a direct useAuth() + trustClient read (the
+// validated-section picker) alongside useMakeCard — mocked here too so this
+// pre-existing text-post test keeps rendering PostsScreen standalone.
+jest.mock("@/hooks/useMakeCard", () => ({ useMakeCard: jest.fn() }));
 jest.mock("@/lib/clipboard", () => ({ copyText: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
 jest.mock("@/lib/pickReferenceImage", () => ({ pickReferenceImage: jest.fn() }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
+jest.mock("@/auth/AuthProvider", () => ({ useAuth: jest.fn(() => ({ accessToken: null, status: "signed_out" })) }));
+jest.mock("@/api/trustClient", () => ({
+  listOwnedProjects: jest.fn().mockResolvedValue([]),
+  getProject: jest.fn(),
+}));
 
 import { useMakePost } from "@/hooks/useMakePost";
+import { useMakeCard } from "@/hooks/useMakeCard";
 import { copyText } from "@/lib/clipboard";
 import { pickReferenceImage } from "@/lib/pickReferenceImage";
 import { Alert } from "@/lib/alert";
+
+beforeEach(() => {
+  (useMakeCard as jest.Mock).mockReturnValue({
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(),
+  });
+});
 
 const VARIANTS = [
   { hook: "Hook 0", body: "Body 0", hashtags: ["#one"], cta: "Read more" },

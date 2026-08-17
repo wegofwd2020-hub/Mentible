@@ -1,0 +1,57 @@
+"""Render a CardInput JSON to a PNG via the Node compiler (`--format card`).
+
+Mirrors export/compiler.py's subprocess discipline: nothing hits disk, and the
+card's headline/subtext/source_label content is never logged.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+
+from backend.config import settings
+from backend.src.core.log_redaction import get_logger
+
+log = get_logger("derivatives.render")
+
+
+class CardRenderError(RuntimeError):
+    """The compiler subprocess failed to render the card PNG."""
+
+
+async def compile_card_png(card_input: dict) -> bytes:
+    """Compile a CardInput dict (`{headline, subtext, source_label?, size}`)
+    into PNG bytes via the Node compiler's `--format card` mode.
+
+    Raises `CardRenderError` if the compiler runtime is unavailable, the
+    render times out, or the subprocess exits non-zero.
+    """
+    argv = [settings.node_bin, settings.compiler_cli, "-", "-o", "-", "--format", "card"]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        raise CardRenderError("compiler runtime unavailable") from exc
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=json.dumps(card_input).encode()),
+            timeout=settings.export_timeout_seconds,
+        )
+    except TimeoutError as exc:
+        proc.kill()
+        await proc.wait()
+        raise CardRenderError("card render timed out") from exc
+    if proc.returncode != 0:
+        # Log only length/shape, never the card's headline/subtext/source_label
+        # content — stderr is the compiler's own diagnostic text, not ours.
+        log.error(
+            "card_render_failed",
+            returncode=proc.returncode,
+            stderr_len=len(stderr),
+        )
+        raise CardRenderError("card render failed")
+    return stdout

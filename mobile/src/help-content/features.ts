@@ -17,6 +17,7 @@ export const FEATURES = [
   { key: "reviews", label: "Reviewing & approving projects" },
   { key: "projects", label: "Creating & managing projects" },
   { key: "make-a-post", label: "Make a post" },
+  { key: "publish-card", label: "Publish an image card" },
   { key: "appearance", label: "Appearance & themes" },
   { key: "sources", label: "Sources (Capture)" },
   { key: "draft-viewer", label: "Reading, editing & regenerating a draft" },
