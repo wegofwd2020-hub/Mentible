@@ -7,7 +7,7 @@ import {
 } from "./diagrams";
 import { prerenderDiagrams, type MermaidRenderer } from "./mermaid";
 import { xhtmlDocument } from "./xhtml";
-import { STYLESHEET } from "./css";
+import { STYLESHEET, KDP_STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
 import { buildCoverSvgFile, buildCoverXhtml, coverInputForBook } from "./cover";
 import { colophonSection } from "./colophon";
@@ -125,6 +125,7 @@ function modifiedTimestamp(iso?: string): string {
 }
 
 export async function compileEpub(book: Book, opts: CompileOptions = {}): Promise<Uint8Array> {
+  const profile = opts.profile ?? "default";
   // Diagram strategy: a Mermaid renderer (pre-render to SVG) wins, else an
   // explicit override, else the passthrough placeholder.
   let diagrams = opts.diagrams ?? new PassthroughDiagramRenderer();
@@ -212,7 +213,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
   // require it and render blank pages without it.
   zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
-  zip.file("OEBPS/css/style.css", STYLESHEET);
+  zip.file("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
   zip.file("OEBPS/cover.xhtml", coverXhtml);
   zip.file("OEBPS/cover.svg", coverSvg);
   zip.file("OEBPS/title.xhtml", titleXhtml);

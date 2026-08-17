@@ -68,6 +68,13 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     expect(Buffer.from(withDefault)).toEqual(Buffer.from(withoutOpt));
   });
 
+  it("profile 'kdp' writes KDP_STYLESHEET instead of STYLESHEET", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    const css = await zip.file("OEBPS/css/style.css")!.async("string");
+    expect(css).not.toContain("@font-face");
+    expect(css).toMatch(/table\s*\{/); // headings/tables kept
+  });
+
   it("produces a valid EPUB3 OCF structure", async () => {
     const zip = await unzip(await compileEpub(syntheticBook()));
 
