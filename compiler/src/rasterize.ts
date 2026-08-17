@@ -4,17 +4,19 @@
 
 const nativeImport = new Function("s", "return import(s)") as (s: string) => Promise<unknown>;
 
+type ScreenshotOpts = { type: "png"; omitBackground?: boolean } | { type: "jpeg"; quality?: number };
+
 interface PuppeteerPage {
   setViewport(v: { width: number; height: number; deviceScaleFactor?: number }): Promise<void>;
   setContent(html: string): Promise<void>;
   $(sel: string): Promise<PuppeteerEl | null>;
-  screenshot(opts: { type: "png"; omitBackground?: boolean }): Promise<Uint8Array>;
+  screenshot(opts: ScreenshotOpts): Promise<Uint8Array>;
   evaluate<T>(fn: string | ((...a: unknown[]) => T), ...args: unknown[]): Promise<T>;
   emulateMediaFeatures?(features: { name: string; value: string }[]): Promise<void>;
   close(): Promise<void>;
 }
 interface PuppeteerEl {
-  screenshot(opts: { type: "png"; omitBackground?: boolean }): Promise<Uint8Array>;
+  screenshot(opts: ScreenshotOpts): Promise<Uint8Array>;
 }
 interface PuppeteerBrowser {
   newPage(): Promise<PuppeteerPage>;
@@ -74,6 +76,39 @@ export async function rasterizeToPng(input: {
   try {
     const page = await browser.newPage();
     return await shotSvg(page, inner, width, omitBackground);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function shotJpeg(page: PuppeteerPage, svg: string, width: number, quality: number): Promise<Buffer> {
+  await page.setViewport({ width, height: 2000, deviceScaleFactor: 2 });
+  await page.setContent(shellHtml(svg, width));
+  const el = await page.$("#target");
+  const buf = el ? await el.screenshot({ type: "jpeg", quality }) : await page.screenshot({ type: "jpeg", quality });
+  return Buffer.from(buf);
+}
+
+// Render `input.html`/`input.svg` to a JPEG Buffer at `width` px. JPEG has no
+// alpha channel (unlike rasterizeToPng's omitBackground option), so callers
+// that need a transparent background must use rasterizeToPng instead. Used by
+// the kdp cover profile (D5, docs/specs/kdp-clean-export-profile.md) — KDP
+// wants a raster JPEG cover-image, not the app's vector SVG. Throws if
+// puppeteer is unavailable (same contract as rasterizeToPng).
+export async function rasterizeToJpeg(input: {
+  html?: string;
+  svg?: string;
+  width?: number;
+  quality?: number;
+}): Promise<Buffer> {
+  const width = input.width ?? 420;
+  const quality = input.quality ?? 90;
+  const inner = input.html ?? input.svg ?? "";
+
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    return await shotJpeg(page, inner, width, quality);
   } finally {
     await browser.close();
   }
