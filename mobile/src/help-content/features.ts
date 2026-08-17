@@ -26,6 +26,7 @@ export const FEATURES = [
   { key: "generate-full-book", label: "Generate full book" },
   { key: "project-fields", label: "New Project fields (Title, Topic, Audience, Goal)" },
   { key: "word-export", label: "Word (.docx) export" },
+  { key: "kdp-export", label: "Export for Kindle (KDP)" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },
 ] as const;
 

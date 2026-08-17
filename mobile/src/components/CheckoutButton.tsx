@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { ApiError } from "@/api/client";
+import { ApiError, exportBook } from "@/api/client";
+import { buildCompilePayload } from "@/lib/compilePayload";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { TrustBadge } from "@/components/TrustBadge";
@@ -49,6 +50,33 @@ export function CheckoutButton({ book }: { book: Book }) {
     }
   };
 
+  // KDP-clean export (docs/specs/kdp-clean-export-profile.md) — a distinct
+  // action, not a checkbox on the existing export, since it produces a
+  // DIFFERENT artifact (rasterized math/diagrams, JPEG cover, no embedded
+  // body font). Bypasses trackedExport's exportStatus tracking (which is
+  // keyed by format "epub"/"pdf"/"docx" — a concurrent plain-EPUB export
+  // would collide with this one under the same "epub" key), same as the
+  // cover thumbnail's raw exportBook call in SaveToLibraryButton.
+  const checkoutKdp = async () => {
+    setState({ kind: "working", fmt: "epub" });
+    try {
+      const payload = await buildCompilePayload(book);
+      const { artifact, trust } = await exportBook(payload, {
+        format: "epub",
+        diagrams: true,
+        profile: "kdp",
+      });
+      const res = await downloadArtifact(artifact, `${slug(book.title)}-kdp.epub`, "application/epub+zip");
+      setState({
+        kind: "done",
+        msg: res.savedPath ? `Saved: ${res.savedPath}` : "KDP-clean EPUB downloaded.",
+        trust,
+      });
+    } catch (err) {
+      setState({ kind: "error", msg: messageFor(err) });
+    }
+  };
+
   const working = state.kind === "working";
 
   return (
@@ -69,6 +97,14 @@ export function CheckoutButton({ book }: { book: Book }) {
           onPress={() => checkout("pdf")}
           disabled={working}
           accessibilityLabel="Check out as PDF"
+          style={styles.btn}
+        />
+        <Button
+          variant="ghost"
+          label="Kindle (KDP)"
+          onPress={checkoutKdp}
+          disabled={working}
+          accessibilityLabel="Export a KDP-clean EPUB for Kindle"
           style={styles.btn}
         />
       </View>

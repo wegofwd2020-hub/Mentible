@@ -58,7 +58,9 @@ _BOOK = {
 
 
 def _fake_compile(record: dict, *, data: bytes = b"%PDF-bytes", warnings=None):
-    async def fake(raw: bytes, *, fmt: str = "epub", diagrams: bool = False) -> ExportResult:
+    async def fake(
+        raw: bytes, *, fmt: str = "epub", diagrams: bool = False, profile: str = "default"
+    ) -> ExportResult:
         record["fmt"] = fmt
         record["diagrams"] = diagrams
         return ExportResult(data=data, title="Physics & Friends", warnings=warnings or [])
@@ -169,7 +171,7 @@ async def test_done_job_carries_trust_manifest(client, monkeypatch):
 
 
 async def test_compiler_error_marks_job_failed_without_internals(client, monkeypatch):
-    async def boom(raw, *, fmt="epub", diagrams=False):
+    async def boom(raw, *, fmt="epub", diagrams=False, profile="default"):
         raise CompilerError("node exploded: /secret/path/stacktrace")
 
     monkeypatch.setattr(compiler, "compile_book", boom)
@@ -188,7 +190,7 @@ async def test_compiler_error_marks_job_failed_without_internals(client, monkeyp
 
 
 async def test_validation_error_in_task_surfaces_safe_message(client, monkeypatch):
-    async def novel(raw, *, fmt="epub", diagrams=False):
+    async def novel(raw, *, fmt="epub", diagrams=False, profile="default"):
         raise ExportValidationError("Book has no generated content to compile.")
 
     monkeypatch.setattr(compiler, "compile_book", novel)
@@ -204,7 +206,7 @@ async def test_validation_error_in_task_surfaces_safe_message(client, monkeypatc
 async def test_submit_rejects_unknown_format_before_dispatch(client, monkeypatch):
     called = False
 
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         nonlocal called
         called = True
         return ExportResult(data=b"", title="x", warnings=[])

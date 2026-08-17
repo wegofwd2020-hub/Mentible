@@ -83,6 +83,7 @@ async def run_export(
     fmt: str,
     diagrams: bool,
     redis_client: redis.Redis,
+    profile: str = "default",
     publish_book_id: str | None = None,
     published_by_sub: str | None = None,
     db_pool: asyncpg.Pool | None = None,
@@ -107,7 +108,7 @@ async def run_export(
         log.warning("export_status_write_failed_at_start", job_id=str(job_id))
 
     try:
-        result = await compiler.compile_book(raw_book, fmt=fmt, diagrams=diagrams)
+        result = await compiler.compile_book(raw_book, fmt=fmt, diagrams=diagrams, profile=profile)
     except compiler.ExportValidationError as exc:
         # User-input problem (mirrors the sync path's 422): the message is safe.
         await _write_status(r, job_id, {"status": "failed", "error": str(exc)})

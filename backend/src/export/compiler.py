@@ -67,15 +67,20 @@ async def compile_book(
     *,
     fmt: str = "epub",
     diagrams: bool = False,
+    profile: str = "default",
 ) -> ExportResult:
     """Compile raw book.json bytes into an artifact (EPUB, PDF, or DOCX) via the
     Node compiler.
 
     fmt:      "epub" | "pdf" | "docx". diagrams: render Mermaid → SVG (needs
-    Chromium; much slower, so it gets the longer diagram timeout). Raises
-    ExportValidationError for bad input, CompilerError otherwise.
+    Chromium; much slower, so it gets the longer diagram timeout). profile:
+    "default" | "kdp" (KDP-clean export profile, epub-only — see
+    docs/specs/kdp-clean-export-profile.md). Raises ExportValidationError for
+    bad input, CompilerError otherwise.
     """
     book = validate_book(raw_book)
+    if profile not in ("default", "kdp"):
+        raise ExportValidationError("profile must be 'default' or 'kdp'.")
 
     # Gate 3 — format-drift scan over the whole book's generated content (lesson +
     # tutorial + experiment). Non-fatal: never blocks a compile. This is the only
@@ -94,6 +99,8 @@ async def compile_book(
     argv = [settings.node_bin, settings.compiler_cli, "-", "-o", "-", "--format", fmt]
     if diagrams:
         argv.append("--mermaid")
+    if profile == "kdp":
+        argv.extend(["--profile", "kdp"])
     # Diagram rendering (108 Chromium passes) is minutes-long; give it room.
     timeout = (
         settings.export_diagram_timeout_seconds if diagrams else settings.export_timeout_seconds
@@ -126,6 +133,13 @@ async def compile_book(
         # a user-input problem (422), not a server fault.
         if "no generated content" in detail.lower():
             raise ExportValidationError("Book has no generated content to compile.")
+        # The kdp profile refuses to compile a draft book (epub.ts's
+        # KdpDraftError) — also a user-input problem, not a server fault.
+        if "kdp export profile requires a released book" in detail.lower():
+            raise ExportValidationError(
+                "The KDP export profile requires a released book "
+                '(set metadata.status to something other than "draft").'
+            )
         log.error("compiler_failed", fmt=fmt, returncode=proc.returncode, detail=detail[:500])
         raise CompilerError("Compilation failed.")
 

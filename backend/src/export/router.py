@@ -66,15 +66,27 @@ async def export_book(
     request: Request,
     format: str = "epub",
     diagrams: bool = False,
+    profile: str = "default",
     principal: Principal | None = Depends(optional_user),
 ) -> Response:
     """Compile a book to an artifact. `format`=epub|pdf|docx; `diagrams`=true renders
-    Mermaid → SVG (Chromium; much slower)."""
+    Mermaid → SVG (Chromium; much slower); `profile`=default|kdp (kdp is epub-only —
+    docs/specs/kdp-clean-export-profile.md)."""
     fmt = format.lower()
     if fmt not in _FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
+        )
+    if profile not in ("default", "kdp"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "profile must be 'default' or 'kdp'."},
+        )
+    if profile == "kdp" and fmt != "epub":
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "the kdp profile is only supported for format=epub."},
         )
     media_type, ext = _FORMATS[fmt]
 
@@ -104,7 +116,7 @@ async def export_book(
         )
 
     try:
-        result = await compiler.compile_book(raw, fmt=fmt, diagrams=diagrams)
+        result = await compiler.compile_book(raw, fmt=fmt, diagrams=diagrams, profile=profile)
     except compiler.ExportValidationError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -165,6 +177,7 @@ async def submit_export(
     background: BackgroundTasks,
     format: str = "epub",
     diagrams: bool = False,
+    profile: str = "default",
     r: redis.Redis = Depends(get_redis),
     principal: Principal | None = Depends(optional_user),
 ) -> ExportSubmitResponse:
@@ -179,6 +192,16 @@ async def submit_export(
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
+        )
+    if profile not in ("default", "kdp"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "profile must be 'default' or 'kdp'."},
+        )
+    if profile == "kdp" and fmt != "epub":
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "the kdp profile is only supported for format=epub."},
         )
 
     raw = await request.body()
@@ -223,6 +246,7 @@ async def submit_export(
         raw_book=raw,
         fmt=fmt,
         diagrams=diagrams,
+        profile=profile,
         redis_client=r,
     )
     log.info("export_submitted", job_id=str(job_id), fmt=fmt, diagrams=diagrams, bytes=len(raw))

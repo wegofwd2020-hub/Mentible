@@ -77,9 +77,28 @@ it("renders the checkout actions via the Button primitive with no bold label wei
   // not bare Pressables — this is the P1 re-skin contract for this control.
   expect(screen.getByRole("button", { name: "Check out as EPUB3" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Check out as PDF" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Export a KDP-clean EPUB for Kindle" })).toBeTruthy();
 
   // The Button primitive is medium weight (500), never bold (700) — assert
   // the swept labels don't carry the old raw fontWeight.
   expect(screen.getByText("EPUB3").props.style.fontWeight).not.toBe("700");
   expect(screen.getByText("PDF").props.style.fontWeight).not.toBe("700");
+});
+
+it("Kindle (KDP) checks out a distinct, profile=kdp EPUB", async () => {
+  mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
+  render(<CheckoutButton book={book} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Export a KDP-clean EPUB for Kindle" }));
+
+  await waitFor(() => expect(screen.getByText(/KDP-clean EPUB downloaded|Saved:/)).toBeTruthy());
+  expect(mockExport).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ format: "epub", diagrams: true, profile: "kdp" }),
+  );
+  expect(mockDownload).toHaveBeenCalledWith(
+    expect.anything(),
+    "physics-kdp.epub",
+    "application/epub+zip",
+  );
 });

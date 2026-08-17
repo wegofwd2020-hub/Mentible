@@ -164,6 +164,10 @@ export async function getStructureJob(
 export interface ExportOptions {
   format?: "epub" | "pdf" | "cover" | "docx"; // "cover" → a PNG thumbnail of the cover
   diagrams?: boolean;
+  // KDP-clean export profile (docs/specs/kdp-clean-export-profile.md) — epub
+  // only. Rasters math/diagrams/cover and drops the embedded body font so the
+  // artifact ingests cleanly on Amazon KDP. Omitted/"default" is today's export.
+  profile?: "default" | "kdp";
   // Called with the async job id right after submit (epub/pdf only), before the
   // compile finishes — lets a caller persist a "generating" status that a list
   // can reconcile later. Not called for the synchronous `cover` path.
@@ -252,8 +256,10 @@ async function submitExportJob(
   book: Book,
   format: "epub" | "pdf" | "docx",
   diagrams: boolean,
+  profile?: "default" | "kdp",
 ): Promise<string> {
   const params = new URLSearchParams({ format, diagrams: String(diagrams) });
+  if (profile) params.set("profile", profile);
   const res = await fetch(`${BASE_URL}/api/v1/export/jobs?${params.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -333,7 +339,7 @@ export async function exportBook(book: Book, opts: ExportOptions = {}): Promise<
   const format = opts.format ?? "epub";
   if (format === "cover") return exportCoverSync(book);
 
-  const jobId = await submitExportJob(book, format, opts.diagrams ?? false);
+  const jobId = await submitExportJob(book, format, opts.diagrams ?? false, opts.profile);
   opts.onSubmitted?.(jobId);
   const job = await pollExportJob(jobId);
   if (job.status === "failed") {
