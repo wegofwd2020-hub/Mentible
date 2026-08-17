@@ -44,3 +44,23 @@ def build_derivative_prompt(
         f'{{"variants": [{{"hook": "string", "body": "string", "hashtags": ["#tag"], "cta": "string or null"}}]}}\n'
         f"Return exactly 3 variants."
     )
+
+
+def build_card_prompt(source_text: str, size: str, tone: str | None) -> str:
+    """Return the prompt for generating a single promotional image-card's copy.
+
+    Output is JSON conforming to `schemas.CardContent`. Unlike
+    `build_derivative_prompt` (3 platform posts), this produces one short
+    headline + subtext pair meant to sit on top of a rendered image card —
+    PROMOTE the source, invent nothing beyond it.
+    """
+    tone_line = f"Tone: {tone}.\n" if tone else ""
+    return (
+        "You write a short, punchy quote/summary CARD that PROMOTES the source below. "
+        "Invent nothing beyond the source.\n"
+        f"{tone_line}"
+        'Return ONLY JSON: {"headline": string, "subtext": string, "source_label": string|null}.\n'
+        "headline: <= 60 characters, a hook. subtext: <= 160 characters, one or two lines. "
+        "source_label: null (the caller may override it).\n\n"
+        f'SOURCE:\n"""\n{source_text}\n"""'
+    )
