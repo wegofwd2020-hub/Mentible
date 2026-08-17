@@ -33,7 +33,7 @@ the ADR-037 trust workspace and everything shipped since. Two consequences:
 | ~~P0-2~~ | **Finish the review loop** (F3 Tier-2): inline comments on a draft section · before/after **version diff** · reviewer-vs-editor roles — **✅ SHIPPED (2026-08-16)** | ✅ built — inline section comments (`feedback.section_index`, mig 0019) · `diffVersions` before/after · owner/reviewer/editor role matrix (`has`-style `_require_role`, migs 0019/0020) on whole-book + per-topic viewers (#470, #472) | **M** | Done — the validation moat's teeth. |
 | ~~P0-3~~ | **Export the validated master → PDF / Word (Pro)** (F5 first slice) — **✅ SHIPPED (2026-08-16)** | ✅ built — EPUB/PDF already shipped Pro-gated; added **DOCX** (`compiler compileDocx`, npm `docx`, math/diagrams→PNG) + the **feature-axis entitlement** (`Plan.features`/`has_feature`, `export_epub`/`pdf`/`docx`) gating export per-capability (#473). APK vc31 | **M** | Done — idea → shippable, traceable asset + Pro hook. |
 | ~~P1-4~~ | **Quality gates beyond format** (F4 automated): a **citations/grounding report** ("every claim traces to a source") + readability score (+ optional plagiarism) — **✅ SHIPPED (2026-08-17)** | ✅ built — per-version two-tier `quality`: deterministic **coverage** (sections citing a live input; uncited/dangling) + **readability** (Flesch/FK, on read) + on-demand owner-only billable **LLM claim-grounding** (per-sentence supported/partial/unsupported, stored, `stale` flag; mig 0021) · export manifest `SourcingBlock` · `QualityCard` on both viewers (#475). APK vc32. *Plagiarism (external) deferred; claim-level in the exported manifest deferred.* | **M** | Done — "trust is the product" made visible; no ghostwriting tool has it. |
-| **P1-5** | **Derivatives / the Share phase** (F6-adjacent, PR #338 proposal) | ⬜ proposal only | **L** (start image/text) | ADR-037 D8 ("Share = derivatives now"); reuses compiler + coverRaster. |
+| **P1-5** | **Derivatives / the Share phase** (F6-adjacent, PR #338 proposal) | 🟡 **slice 1 SHIPPED (2026-08-17):** text-post derivative (was already live, nav-hidden) + **image/quote card** (`/derivatives/card`: compiler `--format card`, 3 sizes, validated-section provenance) + unhidden **"Publish"** tab (#478, APK vc33). ⬜ later slices remain | **L** (image/text done; A/V heavy) | ADR-037 D8 ("Share = derivatives now"); reuses compiler + coverRaster. **Remaining phases:** P2 carousel · P3 animated (GIF/MP4 encode) · P4 audio/TTS + A-V · copy-edit-rerender loop · a "my validated versions" endpoint (picker N+1). |
 | **P2-6** | **Retailer distribution APIs** (F5 full): KDP/Apple/IngramSpark via Draft2Digital · ISBN · royalty dashboard | 🟡 compiler only (~20%); no retailer wiring | **L + external deps** | Real gap, but heavy + third-party. Sequence *after* P0-3 proves demand. |
 
 **Rejected / deferred (off the ADR-037 strategy):** Writer network / ghostwriter marketplace
@@ -117,7 +117,8 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
 
 > **Progress (2026-08-17):** P0-2, P0-3, and P1-4 are **all shipped** (steps 1–3 done, live web +
 > APK vc32, backend migrations through 0021). P0-1 stays **deferred** (ADR-039: services-led). The
-> live frontier is now **P1-5**, then **P2-6**.
+> live frontier is now **P1-5 slice 1 (image/quote card) SHIPPED** — next up its **later slices** (carousel →
+> animated → audio/A-V), then **P2-6**.
 
 1. ~~**P0-2 (review-loop teeth) + P0-3 (validated-master export)**~~ — ✅ **done.** Revenue runs in
    parallel via the **funnel + manual invoicing** — no billing-rail engineering.
@@ -125,8 +126,10 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
    draft render preview** defect (B0) is also resolved (web + native).
 3. ~~**P1-4 (grounding/citations report + readability)**~~ — ✅ **done.** ADR-029 library-grounded
    references (B1) remains the natural follow-on that deepens the grounding story.
-4. **← NEXT: P1-5 (derivatives / Share phase, #338)**.
-5. **P2-6 (retailer publishing APIs)** — heavy + third-party; sequence after P1-5 / proven demand.
+4. ~~**P1-5 slice 1 (image/quote card)**~~ — ✅ **done** (text posts were already live; added the image card + the
+   Publish tab). **← NEXT: P1-5 later slices** — P2 carousel (cheapest, reuses the card renderer) → P3 animated
+   (GIF/MP4 encode) → P4 audio/TTS + A-V; plus the copy-edit-rerender loop.
+5. **P2-6 (retailer publishing APIs)** — heavy + third-party; sequence after the P1-5 slices / proven demand.
 
 Backlog (§B1/B2) unblocks opportunistically — e.g. **ADR-033 hosted private library** and
 **reader engagement (ADR-021/023)** become viable once P0-1 billing is live.
