@@ -1,4 +1,5 @@
 import React from "react";
+import { StyleSheet } from "react-native";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import PostsScreen from "@/../app/(tabs)/posts";
 
@@ -108,6 +109,24 @@ it("renders the image, headline copy and Download button for a returned card", a
   expect(screen.getByText("The short version.")).toBeTruthy();
   expect(screen.getByText("Stormwater 101")).toBeTruthy();
   expect(screen.getByLabelText("Download card")).toBeTruthy();
+});
+
+it("the LinkedIn preview's aspect ratio matches 1200x627 (not forced square)", async () => {
+  mockCardHook({ status: "done", result: { ...CARD_RESULT, size: "linkedin" } });
+  render(<PostsScreen />);
+  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
+  const img = screen.getByLabelText("Card preview");
+  expect(StyleSheet.flatten(img.props.style).aspectRatio).toBeCloseTo(1200 / 627, 5);
+});
+
+it("the Story preview's aspect ratio matches 1080x1920 (not forced square)", async () => {
+  mockCardHook({ status: "done", result: { ...CARD_RESULT, size: "story" } });
+  render(<PostsScreen />);
+  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
+  const img = screen.getByLabelText("Card preview");
+  expect(StyleSheet.flatten(img.props.style).aspectRatio).toBeCloseTo(1080 / 1920, 5);
 });
 
 it("picking a validated section calls run with topic_version_id, not source_text", async () => {

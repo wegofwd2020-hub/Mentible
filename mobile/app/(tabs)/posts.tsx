@@ -40,6 +40,15 @@ const SIZES: { id: CardSize; label: string }[] = [
   { id: "story", label: "Story" },
 ];
 
+// The compiled PNG's real pixel dimensions per size (backend render.py) — the
+// in-app preview must match, or a landscape/portrait card renders stretched
+// into the square `cardImage` box even though the downloaded file is correct.
+const CARD_ASPECT: Record<CardSize, number> = {
+  square: 1,
+  linkedin: 1200 / 627,
+  story: 1080 / 1920,
+};
+
 interface ValidatedSection { id: string; label: string }
 
 // Flattens every owned project's validated top-level topics into one picker
@@ -305,7 +314,8 @@ export default function PostsScreen() {
                   <Image
                     accessibilityLabel="Card preview"
                     source={{ uri: `data:image/png;base64,${cardResult.image_png_base64}` }}
-                    style={styles.cardImage}
+                    resizeMode="contain"
+                    style={[styles.cardImage, { aspectRatio: CARD_ASPECT[cardResult.size] }]}
                   />
                   <Text style={styles.hook}>{cardResult.card.headline}</Text>
                   <Text style={styles.postBody}>{cardResult.card.subtext}</Text>
@@ -480,5 +490,7 @@ const makeStyles = (c: Palette) => ({
   sectionRowActive: { backgroundColor: c.primary, borderColor: c.primary },
   sectionText: { color: c.text },
   sectionTextActive: { color: c.tileOnGlyph },
-  cardImage: { width: "100%" as const, aspectRatio: 1, borderRadius: radius.md },
+  // aspectRatio is per-size (CARD_ASPECT) and applied inline at the call site —
+  // this base only carries the layout/decoration shared by every size.
+  cardImage: { width: "100%" as const, borderRadius: radius.md },
 });
