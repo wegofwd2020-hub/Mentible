@@ -8,9 +8,10 @@ import { buildCoverSvgFile, coverInputForBook } from "./cover";
 import { renderCoverPng } from "./coverRaster";
 import { compileCard, type CardInput } from "./card";
 import { compileCarousel, type CarouselInput } from "./carousel";
+import { compileAnimated, type AnimatedInput } from "./animated";
 import type { Book } from "./types";
 
-// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover|card|carousel] [--mermaid]
+// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover|card|carousel|animated] [--mermaid]
 //   input      a path, or "-" / omitted to read book JSON from stdin
 //   -o         a path, or "-" to write to stdout (default when reading stdin)
 //   --format   epub (default) | pdf (Vivliostyle textbook layout) |
@@ -18,11 +19,13 @@ import type { Book } from "./types";
 //              the Library) | card (a branded quote/summary PNG card, for
 //              Publish — reads a CardInput JSON on stdin, not a Book) |
 //              carousel (N branded PNG card frames, one Chromium pass — reads
-//              a CarouselInput JSON on stdin, emits {png_base64: string[]})
+//              a CarouselInput JSON on stdin, emits {png_base64: string[]}) |
+//              animated (a branded animated GIF card — reads an AnimatedInput
+//              JSON on stdin, not a Book)
 //   --mermaid  render diagrams to inline SVG (needs a headless browser); else
 //              diagrams fall back to a readable text placeholder.
 
-type Format = "epub" | "pdf" | "cover" | "docx" | "card" | "carousel";
+type Format = "epub" | "pdf" | "cover" | "docx" | "card" | "carousel" | "animated";
 
 function parseArgs(argv: string[]): {
   input?: string;
@@ -50,7 +53,9 @@ function parseArgs(argv: string[]): {
                 ? "card"
                 : f === "carousel"
                   ? "carousel"
-                  : "epub";
+                  : f === "animated"
+                    ? "animated"
+                    : "epub";
     } else if (a === "--pdf") format = "pdf";
     else if (a === "-o") output = argv[++i];
     else if (!input) input = a;
@@ -78,6 +83,12 @@ async function main(): Promise<void> {
 
   if (format === "carousel") {
     const out = await compileCarousel(JSON.parse(raw) as CarouselInput);
+    process.stdout.write(out);
+    return;
+  }
+
+  if (format === "animated") {
+    const out = await compileAnimated(JSON.parse(raw) as AnimatedInput);
     process.stdout.write(out);
     return;
   }
