@@ -19,7 +19,7 @@
 
 import { renderTopicBody } from "./renderCore";
 import { PassthroughDiagramRenderer } from "./diagrams";
-import { rasterizeManyToPng } from "./rasterize";
+import { rasterizeManyToPngResilient } from "./rasterize";
 import type { Book, GeneratedTopic } from "./types";
 
 const KATEX_SPAN = /<span class="katex">(<math[^]*?<\/math>)<\/span>/g;
@@ -55,15 +55,27 @@ export function collectMathHtml(book: Book): string[] {
 }
 
 // Rasterize every unique MathML fragment to a PNG data URI in one batch (one
-// headless-Chromium browser — rasterize.ts). Keyed by the exact MathML string
-// so replaceMathWithImages can look each one up per chapter. Returns an empty
-// map (no browser launch) when there is nothing to rasterize.
+// headless-Chromium browser — rasterize.ts's rasterizeManyToPngResilient).
+// Keyed by the exact MathML string so replaceMathWithImages can look each one
+// up per chapter. Returns an empty map (no browser launch) when there is
+// nothing to rasterize.
+//
+// Per-item isolated: rasterizeManyToPngResilient never rejects — a fragment
+// Chromium can't render (real risk: markdown.ts sets throwOnError:false for
+// KaTeX, so quirky LLM-produced LaTeX reaches here already-rendered-but-odd)
+// comes back `null` and is simply left OUT of the returned map, rather than
+// failing the whole batch. replaceMathWithImages' existing map-miss path is
+// what makes that fragment fall back to MathML — this is the real, reachable
+// trigger for that fallback, not just a defensive branch.
 export async function rasterizeMath(mathmlList: readonly string[]): Promise<Map<string, string>> {
   const unique = [...new Set(mathmlList)];
   const out = new Map<string, string>();
   if (unique.length === 0) return out;
-  const pngs = await rasterizeManyToPng(unique, 500, true);
-  unique.forEach((m, i) => out.set(m, `data:image/png;base64,${pngs[i].toString("base64")}`));
+  const pngs = await rasterizeManyToPngResilient(unique, 500, true);
+  unique.forEach((m, i) => {
+    const png = pngs[i];
+    if (png) out.set(m, `data:image/png;base64,${png.toString("base64")}`);
+  });
   return out;
 }
 

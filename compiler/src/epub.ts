@@ -317,36 +317,50 @@ function glossaryDoc(glossary: { term: string; definition: string }[], lang: str
 // WCAG conformance or a general `alternativeText`: a formal claim
 // (dcterms:conformsTo / a11y:certifiedBy) is only emitted when the author
 // asserts it after an audit. ONE exception (D3, kdp profile,
-// docs/specs/kdp-clean-export-profile.md): when mathRaster.ts has replaced
-// every equation with a rasterized <img class="math ..."> carrying the
-// original LaTeX as `alt`, the MathML feature no longer applies (there is no
-// more <math> in the doc) and flips to `alternativeText` instead — that claim
-// IS safe to auto-make here because we generate that alt text ourselves, for
-// every equation, not the author's general image alt text.
+// docs/specs/kdp-clean-export-profile.md): when mathRaster.ts has replaced an
+// equation with a rasterized <img class="math ..."> carrying the original
+// LaTeX as `alt`, that IS safe to auto-claim as `alternativeText` — we
+// generate that alt text ourselves, for every rasterized equation, not the
+// author's general image alt text.
+//
+// hasMath and hasRasterMath are checked INDEPENDENTLY (not else-if): with the
+// kdp profile's per-equation-isolated rasterization (rasterizeManyToPngResilient
+// in rasterize.ts), a single chapter can end up with BOTH kinds — most
+// equations rasterized fine (→ <img class="math ...">) but one Chromium
+// couldn't render (→ left as MathML, mathRaster.ts's fallback). Gating
+// `alternativeText` on "no MathML anywhere in the book" would silently
+// under-report that fallback-covered equations exist. Report both claims
+// whenever both are true.
 // See docs/PROFESSIONAL_PUBLISHING.md §7/§14.
 function accessibilityMeta(book: Book, chapters: Chapter[], images: ImageRes[]): string[] {
   const a = book.metadata?.accessibility ?? {};
   const hasVisual = images.length > 0 || chapters.some((c) => c.hasSvg);
   const hasMath = chapters.some((c) => c.hasMath);
-  const hasRasterMath = !hasMath && chapters.some((c) => c.xhtml.includes('class="math math-'));
+  const hasRasterMath = chapters.some((c) => c.xhtml.includes('class="math math-'));
 
   const accessModes = a.accessModes ?? ["textual", ...(hasVisual ? ["visual"] : [])];
   const accessModeSufficient = a.accessModeSufficient ?? [hasVisual ? "textual,visual" : "textual"];
 
   const autoFeatures = ["tableOfContents", "readingOrder", "structuralNavigation", "displayTransformability"];
   if (hasMath) autoFeatures.push("MathML");
-  else if (hasRasterMath) autoFeatures.push("alternativeText");
+  if (hasRasterMath) autoFeatures.push("alternativeText");
   const features = [...new Set([...autoFeatures, ...(a.features ?? [])])];
 
   const hazards = a.hazards ?? ["none"];
+  let mathSummary = "";
+  if (hasMath && hasRasterMath) {
+    mathSummary =
+      " Most mathematics is rendered as images with the original notation given as a text alternative; " +
+      "a small number of equations remain encoded as MathML.";
+  } else if (hasMath) {
+    mathSummary = " Mathematics is encoded as MathML.";
+  } else if (hasRasterMath) {
+    mathSummary = " Mathematics is rendered as images with the original notation given as a text alternative.";
+  }
   const summary =
     a.summary ??
     ("Reflowable EPUB with structural navigation, a table of contents, and resizable text." +
-      (hasMath
-        ? " Mathematics is encoded as MathML."
-        : hasRasterMath
-          ? " Mathematics is rendered as images with the original notation given as a text alternative."
-          : "") +
+      mathSummary +
       (hasVisual ? " The publication contains diagrams and images." : ""));
 
   const out: string[] = [];

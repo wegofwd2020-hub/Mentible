@@ -6,7 +6,7 @@ import {
 import type { Book, LessonOutput } from "../src/types";
 
 jest.mock("../src/rasterize", () => ({
-  rasterizeManyToPng: jest.fn(async (svgs: string[]) => svgs.map((_, i) => Buffer.from(`png-${i}`))),
+  rasterizeManyToPngResilient: jest.fn(async (svgs: string[]) => svgs.map((_, i) => Buffer.from(`png-${i}`))),
 }));
 
 const KATEX_INLINE =
@@ -58,11 +58,22 @@ describe("rasterizeMath", () => {
   });
 
   it("returns an empty map without rasterizing when there is no math", async () => {
-    const { rasterizeManyToPng } = require("../src/rasterize");
-    (rasterizeManyToPng as jest.Mock).mockClear();
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockClear();
     const map = await rasterizeMath([]);
     expect(map.size).toBe(0);
-    expect(rasterizeManyToPng).not.toHaveBeenCalled();
+    expect(rasterizeManyToPngResilient).not.toHaveBeenCalled();
+  });
+
+  it("omits a fragment from the map (never rejects) when the resilient rasterizer reports it null — the real trigger for replaceMathWithImages' MathML fallback", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((_, i) => (i === 1 ? null : Buffer.from(`png-${i}`))),
+    );
+    const map = await rasterizeMath([KATEX_INLINE, KATEX_BLOCK]);
+    expect(map.size).toBe(1);
+    expect(map.has(KATEX_INLINE)).toBe(true);
+    expect(map.has(KATEX_BLOCK)).toBe(false); // this one "failed to rasterize"
   });
 });
 
@@ -82,5 +93,16 @@ describe("replaceMathWithImages", () => {
     const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p>`, new Map());
     expect(out).toContain("<math");
     expect(out).not.toContain("<img");
+  });
+
+  it("end-to-end: one fragment failing to rasterize stays MathML while the rest become <img>", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((svg: string) => (svg === KATEX_BLOCK ? null : Buffer.from("ok"))),
+    );
+    const pngByMathml = await rasterizeMath([KATEX_INLINE, KATEX_BLOCK]);
+    const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p><p>${KATEX_BLOCK}</p>`, pngByMathml);
+    expect(out).toMatch(/<img class="math math-inline" alt="v=d\/t"/); // rasterized
+    expect(out).toContain(KATEX_BLOCK); // failed fragment — untouched MathML
   });
 });

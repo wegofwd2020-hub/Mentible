@@ -157,3 +157,63 @@ export async function rasterizeManyToPng(svgs: string[], width: number, omitBack
     await browser.close();
   }
 }
+
+// The per-item loop of rasterizeManyToPngResilient, factored out so a test can
+// drive it against a fake browser (a real Chromium can't reproduce "item 2 of
+// 3 throws" deterministically in CI). Not part of the public contract —
+// rasterizeManyToPngResilient below owns the launch/close lifecycle.
+export async function rasterizeEachIsolated(
+  browser: PuppeteerBrowser,
+  svgs: string[],
+  width: number,
+  omitBackground: boolean,
+): Promise<(Buffer | null)[]> {
+  const out: (Buffer | null)[] = [];
+  for (const svg of svgs) {
+    let page: PuppeteerPage | undefined;
+    try {
+      page = await browser.newPage();
+      out.push(await shotSvg(page, svg, width, omitBackground));
+    } catch {
+      out.push(null);
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch {
+          // best-effort close; a close failure shouldn't fail the batch either
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Like rasterizeManyToPng but per-item isolated: one browser, each SVG in its
+// own try/catch — a fragment that fails to render becomes null instead of
+// rejecting the whole batch (mirrors mermaid.ts renderAll's "omit on
+// failure"). Used by mathRaster.ts (D3, docs/specs/kdp-clean-export-profile.md)
+// so one bad equation (real risk: markdown.ts renders LaTeX with
+// throwOnError:false, so quirky LLM LaTeX reaches here) can't fail the whole
+// kdp compile. Also degrades gracefully if the browser itself never launches
+// (e.g. puppeteer not installed) — every slot comes back null instead of the
+// call rejecting, so a caller that treats null as "leave the fallback in
+// place" (mathRaster.ts) degrades the WHOLE batch to its fallback rather than
+// failing the compile outright.
+export async function rasterizeManyToPngResilient(
+  svgs: string[],
+  width: number,
+  omitBackground = false,
+): Promise<(Buffer | null)[]> {
+  let browser: PuppeteerBrowser;
+  try {
+    browser = await launchBrowser();
+  } catch {
+    return svgs.map(() => null);
+  }
+  try {
+    return await rasterizeEachIsolated(browser, svgs, width, omitBackground);
+  } finally {
+    await browser.close();
+  }
+}

@@ -11,6 +11,9 @@ jest.mock("../src/rasterize", () => ({
   rasterizeManyToPng: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
     svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
   ),
+  rasterizeManyToPngResilient: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
   rasterizeToPng: jest.fn(async () => Buffer.from("fake-png-cover")),
   rasterizeToJpeg: jest.fn(async () => Buffer.from([0xff, 0xd8, 0xff, 0x00])), // real JPEG magic number
 }));
@@ -92,6 +95,16 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
     expect(chapter).not.toContain("<math");
     expect(chapter).toMatch(/<img class="math math-(inline|block)" alt="[^"]*"/);
+  });
+
+  it("profile 'kdp' rasterizes BOTH an inline and a display-block equation through the real KaTeX render path", async () => {
+    const book: Book = JSON.parse(JSON.stringify(syntheticBook()));
+    book.content!.u1.lesson!.sections[0].body_markdown += "\n\n$$\nE=mc^2\n$$";
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-inline" alt="[^"]*"/);
+    expect(chapter).toMatch(/<img class="math math-block" alt="[^"]*"/);
   });
 
   it("produces a valid EPUB3 OCF structure", async () => {
@@ -247,6 +260,27 @@ describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () =
     expect(opf).not.toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
     expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
     expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*text alternative/);
+    assertWellFormed(opf, "content.opf");
+  });
+
+  it("profile 'kdp' reports BOTH MathML and alternativeText when only some equations in the book rasterize (partial-failure fallback)", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    const book: Book = JSON.parse(JSON.stringify(syntheticBook()));
+    book.content!.u1.lesson!.sections[0].body_markdown += "\n\n$$\nE=mc^2\n$$";
+    // Let the inline $v=...$ equation rasterize; fail the E=mc^2 block equation
+    // specifically — it should fall back to MathML while the other becomes <img>.
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((svg: string) => (svg.includes("E=mc^2") ? null : Buffer.from("ok"))),
+    );
+
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain("<math"); // the failed equation stayed MathML
+    expect(chapter).toMatch(/<img class="math math-inline"/); // the other rasterized fine
+
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
     assertWellFormed(opf, "content.opf");
   });
 
