@@ -1,4 +1,4 @@
-import { buildAnimatedCardSvg, encodeGif } from "../src/animated";
+import { buildAnimatedCardSvg, encodeGif, motionTimepoints } from "../src/animated";
 import { rasterizeSvgFrames } from "../src/rasterize";
 
 const base = { headline: "Trust is the product", subtext: "Every claim traces to a source.", size: "square" as const };
@@ -29,4 +29,25 @@ it("encodeGif turns RGBA frames into a GIF89a buffer", () => {
   const gif = encodeGif([{ data: red, width: w, height: h }, { data: blue, width: w, height: h }], 12);
   expect(gif.subarray(0, 6).toString("latin1")).toBe("GIF89a");
   expect(gif.length).toBeGreaterThan(20);
+});
+
+it("motionTimepoints captures only the motion window (regression guard against the frozen-tail bloat)", () => {
+  const tps = motionTimepoints();
+  // 3.3s@12fps would be ~40 frames — the bug this guards against.
+  expect(tps.length).toBeLessThanOrEqual(12);
+  expect(tps[0]).toBe(0);
+  expect(tps[tps.length - 1]).toBe(0.7);
+});
+
+it("encodeGif honors per-frame delayMs (settled-frame hold)", () => {
+  const w = 2, h = 2;
+  const red = new Uint8Array([255,0,0,255, 255,0,0,255, 255,0,0,255, 255,0,0,255]);
+  const blue = new Uint8Array([0,0,255,255, 0,0,255,255, 0,0,255,255, 0,0,255,255]);
+  const single = encodeGif([{ data: red, width: w, height: h }], 12);
+  const held = encodeGif(
+    [{ data: red, width: w, height: h }, { data: blue, width: w, height: h, delayMs: 1500 }],
+    12,
+  );
+  expect(held.subarray(0, 6).toString("latin1")).toBe("GIF89a");
+  expect(held.length).toBeGreaterThan(single.length);
 });
