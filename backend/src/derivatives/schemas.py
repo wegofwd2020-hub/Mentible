@@ -154,3 +154,51 @@ class CardResponse(BaseModel):
     size: CardSize
     image_png_base64: str
     provenance: str = "ai-generated"
+
+
+# --- Publish carousel (P1-5 slice 2) ----------------------------------------
+
+
+class CarouselRequest(BaseModel):
+    """Body of POST /derivatives/carousel — generate a promotional image carousel.
+
+    Same `api_key` custody discipline as `CardRequest` (ADR-001): never
+    logged, never persisted in plaintext. Exactly one of `source_text` /
+    `topic_version_id` must be supplied, mirroring `CardRequest`. No `size` —
+    the carousel frame count (4-8) is the caller-visible dimension, not an
+    aspect ratio.
+    """
+
+    source_text: str | None = Field(default=None, min_length=1, max_length=20000)
+    topic_version_id: uuid.UUID | None = None
+    tone: str | None = None
+    api_key: str | None = Field(default=None, min_length=20, max_length=512)
+    provider_id: str = "anthropic"
+    model: str | None = None
+
+    @field_validator("provider_id")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in PROVIDER_REGISTRY:
+            raise ValueError(f"unknown provider_id {v!r}")
+        return v
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> CarouselRequest:
+        if bool(self.source_text) == bool(self.topic_version_id):
+            raise ValueError("provide exactly one of source_text or topic_version_id")
+        return self
+
+
+class CarouselFrame(BaseModel):
+    """A single rendered carousel frame: its copy plus the rasterized image."""
+
+    card: CardContent
+    image_png_base64: str
+
+
+class CarouselResponse(BaseModel):
+    """Body of a completed publish-carousel generation."""
+
+    frames: list[CarouselFrame]
+    provenance: str = "ai-generated"

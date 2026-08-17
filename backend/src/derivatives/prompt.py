@@ -79,3 +79,24 @@ def build_card_prompt(source_text: str, size: str, tone: str | None) -> str:
         "source_label: null (the caller may override it).\n\n"
         f'SOURCE:\n"""\n{source_text}\n"""'
     )
+
+
+def build_carousel_prompt(source_text: str, tone: str | None) -> str:
+    """Return the prompt for generating a promotional image-carousel's copy.
+
+    Output is JSON conforming to `generate._CarouselOutput` (a `frames` list of
+    4-8 headline/subtext pairs) — PROMOTE the source, invent nothing beyond it.
+    Unlike `build_card_prompt` (one headline/subtext pair), this asks for an
+    ordered sequence: a hook/cover frame, one point per middle frame, and a
+    closing call-to-action frame.
+    """
+    tone_line = f"Tone: {tone}.\n" if tone else ""
+    return (
+        "You write a short-form social CAROUSEL that PROMOTES the source below. Invent nothing beyond it.\n"
+        f"{tone_line}"
+        "Split the source into 4 to 8 ordered frames: frame 1 is a hook/cover, the middle frames make one "
+        "point each, and the last frame is a call-to-action.\n"
+        "Each frame: headline <= 50 characters (a punch), subtext <= 140 characters.\n"
+        'Return ONLY JSON: {"frames":[{"headline": string, "subtext": string}]} with between 4 and 8 frames.\n\n'
+        f'SOURCE:\n"""\n{source_text}\n"""'
+    )
