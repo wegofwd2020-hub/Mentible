@@ -285,6 +285,46 @@ describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
     const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
     expect(col).toContain("All rights reserved.");
   });
+
+  it("profile 'kdp' registers a JPEG cover-image and drops the vector cover.svg", async () => {
+    const book = withMeta({ author: "A", status: "release" });
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    expect(zip.file("OEBPS/cover.svg")).toBeNull();
+    const coverJpg = await zip.file("OEBPS/cover.jpg")!.async("nodebuffer");
+    expect(coverJpg[0]).toBe(0xff); // JPEG magic number, from the mocked rasterizeToJpeg
+    expect(coverJpg[1]).toBe(0xd8);
+    expect(coverJpg[2]).toBe(0xff);
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>');
+    const coverXhtml = await zip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(coverXhtml).toContain('<img src="cover.jpg"');
+  });
+
+  it("profile 'kdp' normalizes dc:date to ISO-8601 and leaves the default profile's date untouched", async () => {
+    const book = withMeta({ author: "A", status: "release", date: "June 1, 2026" });
+    const kdpOpf = await (await unzip(await compileEpub(book, { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    expect(kdpOpf).toContain("<dc:date>2026-06-01</dc:date>");
+    const defaultOpf = await (await unzip(await compileEpub(book))).file("OEBPS/content.opf")!.async("string");
+    expect(defaultOpf).toContain("<dc:date>June 1, 2026</dc:date>");
+  });
+
+  it("profile 'kdp' emits a translator contributor and an ISBN identifier when present", async () => {
+    const book = withMeta({ author: "A", status: "release", translator: "T. Ranslator", isbn: "9780000000000" });
+    const opf = await (await unzip(await compileEpub(book, { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<dc:contributor id="translator">T. Ranslator</dc:contributor>');
+    expect(opf).toContain('scheme="marc:relators">trl</meta>');
+    expect(opf).toContain('<dc:identifier id="isbn">9780000000000</dc:identifier>');
+  });
+
+  it("profile 'kdp' refuses to compile a draft book with a clear error", async () => {
+    const book = withMeta({ author: "A", status: "draft" });
+    await expect(compileEpub(book, { profile: "kdp" })).rejects.toThrow(/kdp export profile requires a released book/i);
+  });
+
+  it("profile 'default' still compiles a draft book (no guard)", async () => {
+    const book = withMeta({ author: "A", status: "draft" });
+    await expect(compileEpub(book)).resolves.toBeInstanceOf(Uint8Array);
+  });
 });
 
 describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () => {

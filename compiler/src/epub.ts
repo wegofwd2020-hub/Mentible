@@ -11,9 +11,11 @@ import { collectMathHtml, rasterizeMath, replaceMathWithImages } from "./mathRas
 import { xhtmlDocument } from "./xhtml";
 import { STYLESHEET, KDP_STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
-import { buildCoverSvgFile, buildCoverXhtml, coverInputForBook } from "./cover";
+import { buildCoverSvgFile, buildCoverXhtml, buildCoverSvg, buildCoverXhtmlRaster, coverInputForBook } from "./cover";
+import { renderCoverJpeg } from "./coverRaster";
 import { colophonSection } from "./colophon";
 import { numberFloats, type FloatRef } from "./floats";
+import { isDraft } from "./release";
 import type { Book } from "./types";
 
 // A figure/table reference plus the chapter file it lives in (for cross-document
@@ -37,6 +39,15 @@ export class EmptyBookError extends Error {
   constructor() {
     super("Book has no generated content to compile.");
     this.name = "EmptyBookError";
+  }
+}
+
+export class KdpDraftError extends Error {
+  constructor() {
+    super(
+      'The KDP export profile requires a released book (metadata.status must not be "draft").',
+    );
+    this.name = "KdpDraftError";
   }
 }
 
@@ -126,8 +137,20 @@ function modifiedTimestamp(iso?: string): string {
   return safe.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+// Normalize dc:date to an ISO-8601 calendar date (YYYY-MM-DD) for the kdp
+// profile — epubcheck (V, docs/specs/kdp-clean-export-profile.md) warns on a
+// non-ISO dc:date. Falls back to the raw string on an unparseable date (never
+// throws over a metadata quirk); the default profile leaves dc:date untouched.
+function isoDate(raw: string): string {
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? raw : d.toISOString().slice(0, 10);
+}
+
 export async function compileEpub(book: Book, opts: CompileOptions = {}): Promise<Uint8Array> {
   const profile = opts.profile ?? "default";
+  if (profile === "kdp" && isDraft(book.metadata)) {
+    throw new KdpDraftError();
+  }
   // Diagram strategy: a Mermaid renderer (pre-render to SVG) wins, else an
   // explicit override, else the passthrough placeholder. kdp profile takes
   // the pre-rendered SVGs one step further and rasterizes them to PNG
@@ -195,8 +218,14 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   if (chapters.length === 0) throw new EmptyBookError();
 
   const coverInput = coverInputForBook(book);
-  const coverXhtml = buildCoverXhtml(coverInput);
-  const coverSvg = buildCoverSvgFile(coverInput);
+  let coverXhtml = buildCoverXhtml(coverInput);
+  let coverSvg: string | undefined = buildCoverSvgFile(coverInput);
+  let coverJpeg: Buffer | undefined;
+  if (profile === "kdp") {
+    coverJpeg = await renderCoverJpeg(buildCoverSvg(coverInput));
+    coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg");
+    coverSvg = undefined;
+  }
 
   const titleXhtml = xhtmlDocument(
     book.title,
@@ -223,14 +252,15 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", CONTAINER_XML);
-  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, auxFront, auxBack));
+  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, auxFront, auxBack, profile));
   zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
   // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
   // require it and render blank pages without it.
   zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
   zip.file("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
   zip.file("OEBPS/cover.xhtml", coverXhtml);
-  zip.file("OEBPS/cover.svg", coverSvg);
+  if (coverSvg !== undefined) zip.file("OEBPS/cover.svg", coverSvg);
+  if (coverJpeg !== undefined) zip.file("OEBPS/cover.jpg", coverJpeg);
   zip.file("OEBPS/title.xhtml", titleXhtml);
   zip.file("OEBPS/colophon.xhtml", colophonXhtml);
   for (const d of [...auxFront, ...auxBack]) zip.file(`OEBPS/${d.href}`, d.xhtml);
@@ -389,15 +419,25 @@ function buildOpf(
   images: ImageRes[] = [],
   auxFront: AuxDoc[] = [],
   auxBack: AuxDoc[] = [],
+  profile: "default" | "kdp" = "default",
 ): string {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
     '<item id="css" href="css/style.css" media-type="text/css"/>',
-    // Cover: the SVG is the EPUB3 cover-image; cover.xhtml is the rendered page
-    // (inline SVG → needs the svg property).
-    '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
-    '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
+    // Cover: default profile registers the vector SVG as the EPUB3 cover-image
+    // (cover.xhtml embeds it inline, hence properties="svg"); the kdp profile
+    // (D5) registers a raster JPEG instead, and cover.xhtml points at it via a
+    // plain <img> (no "svg" property).
+    ...(profile === "kdp"
+      ? [
+          '<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>',
+          '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>',
+        ]
+      : [
+          '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
+          '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
+        ]),
     '<item id="titlepage" href="title.xhtml" media-type="application/xhtml+xml"/>',
     '<item id="colophon" href="colophon.xhtml" media-type="application/xhtml+xml"/>',
     ...images.map(
@@ -435,7 +475,7 @@ function buildOpf(
     meta.push(`<meta refines="#creator" property="file-as">${escapeHtml(m.authorFileAs || m.author)}</meta>`);
   }
   if (m.publisher) meta.push(`<dc:publisher>${escapeHtml(m.publisher)}</dc:publisher>`);
-  if (m.date) meta.push(`<dc:date>${escapeHtml(m.date)}</dc:date>`);
+  if (m.date) meta.push(`<dc:date>${escapeHtml(profile === "kdp" ? isoDate(m.date) : m.date)}</dc:date>`);
   if (m.description) meta.push(`<dc:description>${escapeHtml(m.description)}</dc:description>`);
   for (const s of m.subjects ?? []) meta.push(`<dc:subject>${escapeHtml(s)}</dc:subject>`);
   if (m.rights) meta.push(`<dc:rights>${escapeHtml(m.rights)}</dc:rights>`);
@@ -444,6 +484,14 @@ function buildOpf(
     meta.push(`<meta refines="#series" property="collection-type">series</meta>`);
     if (m.seriesIndex != null)
       meta.push(`<meta refines="#series" property="group-position">${escapeHtml(String(m.seriesIndex))}</meta>`);
+  }
+  if (profile === "kdp" && m.translator) {
+    meta.push(`<dc:contributor id="translator">${escapeHtml(m.translator)}</dc:contributor>`);
+    meta.push(`<meta refines="#translator" property="role" scheme="marc:relators">trl</meta>`);
+  }
+  if (profile === "kdp" && m.isbn) {
+    meta.push(`<dc:identifier id="isbn">${escapeHtml(m.isbn)}</dc:identifier>`);
+    meta.push(`<meta refines="#isbn" property="identifier-type" scheme="onix:codelist5">15</meta>`);
   }
   meta.push(...accessibilityMeta(book, chapters, images));
   meta.push(`<meta name="cover" content="cover-image"/>`);
