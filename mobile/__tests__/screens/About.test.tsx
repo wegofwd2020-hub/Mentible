@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { BRAND_CONTACT, BRAND_NAME } from "@/constants/brand";
+import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
 
 import AboutScreen from "../../app/(tabs)/about";
 
@@ -47,5 +48,18 @@ describe("AboutScreen", () => {
     fireEvent.press(screen.getByLabelText(`Email ${BRAND_CONTACT}`));
     expect(spy).toHaveBeenCalledWith(`mailto:${BRAND_CONTACT}`);
     spy.mockRestore();
+  });
+
+  it("lists every quality-gate library with its name, version, and role", () => {
+    render(<AboutScreen />);
+    expect(screen.getByText("Quality-gate libraries")).toBeTruthy();
+    for (const lib of QUALITY_GATE_LIBS) {
+      // Each lib row exposes name + version + role via its accessibility label.
+      expect(screen.getByLabelText(`${lib.name} ${lib.version} — ${lib.role}`)).toBeTruthy();
+      expect(screen.getByText(lib.name)).toBeTruthy();
+    }
+    // The trust engine + the grounding LLM SDK are both credited.
+    expect(screen.getByText("wegofwd-llm")).toBeTruthy();
+    expect(screen.getByText("anthropic (SDK)")).toBeTruthy();
   });
 });

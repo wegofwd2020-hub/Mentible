@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 import { Card, Label } from "@/components/ui";
+import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
@@ -36,6 +37,22 @@ export default function AboutScreen() {
           <Row label="Tagline" value={BRAND_TAGLINE} styles={styles} />
           <Row label="Version" value="0.1.0 (MVP)" styles={styles} />
           <Row label="Default model" value="claude-sonnet-4-6" styles={styles} />
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <Label tone="secondary">Quality-gate libraries</Label>
+        <Card style={styles.cardInner}>
+          <Text style={styles.body}>
+            The libraries that validate, sanitize, render, and export your
+            content — the tools behind each project's quality gates.
+          </Text>
+          {QUALITY_GATE_LIBS.map((lib) => (
+            <LibRow key={lib.name} name={lib.name} version={lib.version} role={lib.role} styles={styles} />
+          ))}
+          <Text style={styles.footnote}>
+            Versions are curated; the gates run server-side.
+          </Text>
         </Card>
       </View>
 
@@ -74,6 +91,28 @@ export default function AboutScreen() {
   );
 }
 
+function LibRow({
+  name,
+  version,
+  role,
+  styles,
+}: {
+  name: string;
+  version: string;
+  role: string;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View style={styles.libRow} accessibilityLabel={`${name} ${version} — ${role}`}>
+      <View style={styles.libLeft}>
+        <Text style={styles.libName}>{name}</Text>
+        <Text style={styles.libRole}>{role}</Text>
+      </View>
+      <Text style={styles.libVersion}>{version}</Text>
+    </View>
+  );
+}
+
 function Row({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.row}>
@@ -109,6 +148,21 @@ const makeStyles = (c: Palette) => ({
   rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
   rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "500" as const },
   contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "500" as const },
+  libRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "flex-start" as const,
+    gap: spacing.sm,
+  },
+  libLeft: { flex: 1, gap: 2 },
+  libName: { fontSize: typography.sizeSm, color: c.text, fontWeight: "600" as const },
+  libRole: { fontSize: typography.sizeXs, color: c.textMuted, lineHeight: 16 },
+  libVersion: {
+    fontSize: typography.sizeSm,
+    color: c.textSecondary,
+    fontWeight: "500" as const,
+    fontVariant: ["tabular-nums" as const],
+  },
   footnote: {
     fontSize: typography.sizeXs,
     color: c.textMuted,
