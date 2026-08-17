@@ -647,6 +647,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "publish-animated",
+    title: "Publish an animated card",
+    featureKey: "publish-animated",
+    keywords: ["publish", "animated", "gif", "motion", "card", "share", "fade", "slide", "build"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Animated mode on the Publish tab turns your own writing into a short, looping animated GIF card — like the image card, but with motion. Choose a motion preset (Fade, Slide-up, or Build-in), built from either pasted text or a validated section from one of your projects. Like the other Publish modes, an animated card built from a validated section carries its cited-source label, and making one uses a billable LLM call (BYOK or your plan's managed allowance). The GIF is yours to download — Mentible does not publish it for you.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Publish and switch to Animated mode.",
+          "Choose a source: paste text, or pick a validated section from your projects.",
+          "Pick a motion preset (Fade, Slide-up, or Build-in) and, if you like, a tone.",
+          "Make the animated card, then download the GIF to share it yourself.",
+        ],
+      },
+    ],
+  },
+  {
     id: "sources",
     title: "Sources — capture the expert's knowledge",
     featureKey: "sources",
