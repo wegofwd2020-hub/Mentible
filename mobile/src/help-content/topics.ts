@@ -605,6 +605,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "publish-card",
+    title: "Publish an image card",
+    featureKey: "publish-card",
+    keywords: ["publish", "card", "image card", "share", "square", "linkedin", "story", "validated"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The Publish tab also makes a branded, shareable image card from your own writing — either pasted text or a validated section from one of your projects. Pick a size (Square, LinkedIn, or Story) and an optional tone; a card built from a validated section carries its cited-source label, so readers can see where it came from. The card is yours to download — Mentible does not publish it for you, and making one uses a billable LLM call (BYOK or your plan's managed allowance).",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Publish and switch to Image card mode.",
+          "Choose a source: paste text, or pick a validated section from your projects.",
+          "Pick a size (Square, LinkedIn, or Story) and, if you like, a tone.",
+          "Make the card, then download the image to share it yourself.",
+        ],
+      },
+    ],
+  },
+  {
     id: "sources",
     title: "Sources — capture the expert's knowledge",
     featureKey: "sources",

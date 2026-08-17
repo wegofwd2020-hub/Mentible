@@ -14,6 +14,10 @@ export const NAV = {
   projects: "Projects",
   reviews: "Reviews",
   posts: "Posts",
+  // The Publish tab (nav id "posts") relabel — Task 4/P1-5 unhides it as an
+  // authorship verb ("Publish") rather than the noun ("Posts"), matching
+  // FLOW.publish. NAV.posts stays for any other historical reference.
+  publish: "Publish",
   settings: "Settings",
   help: "Help",
   about: "About",
