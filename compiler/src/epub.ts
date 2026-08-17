@@ -6,6 +6,7 @@ import {
   type DiagramRenderer,
 } from "./diagrams";
 import { prerenderDiagrams, type MermaidRenderer } from "./mermaid";
+import { rasterizeDiagramPngs, PrerenderedRasterDiagramRenderer } from "./diagramRaster";
 import { collectMathHtml, rasterizeMath, replaceMathWithImages } from "./mathRaster";
 import { xhtmlDocument } from "./xhtml";
 import { STYLESHEET, KDP_STYLESHEET } from "./css";
@@ -128,10 +129,17 @@ function modifiedTimestamp(iso?: string): string {
 export async function compileEpub(book: Book, opts: CompileOptions = {}): Promise<Uint8Array> {
   const profile = opts.profile ?? "default";
   // Diagram strategy: a Mermaid renderer (pre-render to SVG) wins, else an
-  // explicit override, else the passthrough placeholder.
+  // explicit override, else the passthrough placeholder. kdp profile takes
+  // the pre-rendered SVGs one step further and rasterizes them to PNG
+  // (diagramRaster.ts, D4, docs/specs/kdp-clean-export-profile.md) — Kindle's
+  // SVG support is limited. default keeps emitting inline SVG.
   let diagrams = opts.diagrams ?? new PassthroughDiagramRenderer();
   if (opts.mermaid) {
-    diagrams = new PrerenderedDiagramRenderer(await prerenderDiagrams(book, opts.mermaid));
+    const svgBySource = await prerenderDiagrams(book, opts.mermaid);
+    diagrams =
+      profile === "kdp"
+        ? new PrerenderedRasterDiagramRenderer(await rasterizeDiagramPngs(svgBySource))
+        : new PrerenderedDiagramRenderer(svgBySource);
   }
   // Math-raster pass (D3, docs/specs/kdp-clean-export-profile.md): kdp only,
   // book-wide, before the per-topic loop — one Chromium browser for every

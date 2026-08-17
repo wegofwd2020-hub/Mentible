@@ -65,6 +65,15 @@ function syntheticBook(): Book {
   };
 }
 
+function bookWithMermaidDiagram(): Book {
+  const book = syntheticBook();
+  book.content!.u1.lesson!.sections.push({
+    heading: "Flow",
+    body_markdown: "```mermaid\ngraph TD; A-->B;\n```",
+  });
+  return book;
+}
+
 async function unzip(bytes: Uint8Array): Promise<JSZip> {
   return JSZip.loadAsync(bytes);
 }
@@ -105,6 +114,46 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     expect(chapter).not.toContain("<math");
     expect(chapter).toMatch(/<img class="math math-inline" alt="[^"]*"/);
     expect(chapter).toMatch(/<img class="math math-block" alt="[^"]*"/);
+  });
+
+  it("profile 'kdp' + mermaid rasterizes diagrams to <img>, not inline <svg>", async () => {
+    const book = bookWithMermaidDiagram();
+    const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    expect(chapter).not.toContain("<svg");
+  });
+
+  it("default profile + mermaid keeps diagrams as inline <svg> (no rasterization)", async () => {
+    const book = bookWithMermaidDiagram();
+    const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain("<svg");
+    expect(chapter).not.toContain('<img src="data:image/png;base64,');
+  });
+
+  it("profile 'kdp' + mermaid: a diagram that fails to rasterize falls back to the inline-SVG/placeholder figure while the rest become <img> (partial-failure fallback)", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    const book = bookWithMermaidDiagram();
+    book.content!.u1.lesson!.sections.push({
+      heading: "Flow 2",
+      body_markdown: "```mermaid\nsequenceDiagram; X->>Y: hi;\n```",
+    });
+    const svgFor = (s: string) => `<svg xmlns="http://www.w3.org/2000/svg" data-src="${s}"><rect width="1" height="1"/></svg>`;
+    const fakeMermaid = {
+      renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, svgFor(s)])),
+    };
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((svg: string) => (svg.includes("sequenceDiagram") ? null : Buffer.from("ok"))),
+    );
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/); // rasterized
+    expect(chapter).toContain("sequenceDiagram"); // failed diagram — falls back to placeholder text, not <img>
+    expect(chapter).toContain('class="diagram diagram--placeholder"'); // fallback is the text placeholder, not the raw inline SVG
+    expect(chapter).not.toContain("<svg"); // never leaks the raw pre-rasterized SVG either
   });
 
   it("produces a valid EPUB3 OCF structure", async () => {
