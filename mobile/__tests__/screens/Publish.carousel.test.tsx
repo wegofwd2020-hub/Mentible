@@ -90,7 +90,7 @@ beforeEach(() => {
 it("switching to Carousel mode shows the source field", async () => {
   render(<PostsScreen />);
   fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  expect(await screen.findByLabelText("Card source text")).toBeTruthy();
+  expect(await screen.findByLabelText("Carousel source text")).toBeTruthy();
 });
 
 it("Make carousel with source text calls makeCarousel with source_text", async () => {
@@ -99,7 +99,7 @@ it("Make carousel with source text calls makeCarousel with source_text", async (
   render(<PostsScreen />);
   fireEvent.press(screen.getByLabelText("Mode: Carousel"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.changeText(screen.getByLabelText("Card source text"), "Detention basins hold stormwater.");
+  fireEvent.changeText(screen.getByLabelText("Carousel source text"), "Detention basins hold stormwater.");
   fireEvent.press(screen.getByLabelText("Make carousel"));
   expect(runMock).toHaveBeenCalledWith(
     expect.objectContaining({ source_text: "Detention basins hold stormwater." }),
@@ -145,7 +145,7 @@ it("picking a validated section calls makeCarousel with topic_version_id, not so
   mockCarouselHook({ run: runMock });
   render(<PostsScreen />);
   fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  fireEvent.press(screen.getByLabelText("Card source: Pick a validated section"));
+  fireEvent.press(screen.getByLabelText("Carousel source: Pick a validated section"));
 
   const row = await screen.findByLabelText(/Validated section: Stormwater 101/);
   fireEvent.press(row);

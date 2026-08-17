@@ -1,4 +1,4 @@
-import { makeCard, makePost } from "@/api/derivativesClient";
+import { makeCard, makeCarousel, makePost } from "@/api/derivativesClient";
 import { ApiError } from "@/api/client";
 
 const RESPONSE = {
@@ -109,4 +109,62 @@ it("makeCard throws ApiError on a non-2xx response", async () => {
   await expect(
     makeCard({ source_text: "x", size: "square", api_key: "sk-ant-x" }),
   ).rejects.toBeInstanceOf(ApiError);
+});
+
+const CAROUSEL_RESPONSE = {
+  frames: [
+    { card: { headline: "Frame one", subtext: "First frame body.", source_label: "Stormwater 101" }, image_png_base64: "AAA" },
+    { card: { headline: "Frame two", subtext: "Second frame body.", source_label: "Stormwater 101" }, image_png_base64: "BBB" },
+  ],
+  provenance: "ai-generated",
+};
+
+it("POSTs to /derivatives/carousel with the exact body and returns the parsed response", async () => {
+  mockFetchOnce(200, CAROUSEL_RESPONSE);
+  const out = await makeCarousel({
+    source_text: "Stormwater basics.",
+    tone: "punchy",
+    api_key: "sk-ant-xxxxxxxxxxxxxxxxxxxx",
+    provider_id: "anthropic",
+  });
+  expect(out.frames).toHaveLength(2);
+  expect(out.provenance).toBe("ai-generated");
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toMatch(/\/api\/v1\/derivatives\/carousel$/);
+  expect(init.method).toBe("POST");
+  const sent = JSON.parse(init.body);
+  expect(sent.source_text).toBe("Stormwater basics.");
+  expect(sent.tone).toBe("punchy");
+  expect(sent.api_key).toBe("sk-ant-xxxxxxxxxxxxxxxxxxxx");
+  expect("size" in sent).toBe(false);
+});
+
+it("makeCarousel sends topic_version_id instead of source_text when given", async () => {
+  mockFetchOnce(200, CAROUSEL_RESPONSE);
+  await makeCarousel({ topic_version_id: "tv-1", api_key: "sk-ant-x" });
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [, init] = fetchMock.mock.calls[0];
+  const sent = JSON.parse(init.body);
+  expect(sent.topic_version_id).toBe("tv-1");
+  expect("source_text" in sent).toBe(false);
+});
+
+it("makeCarousel throws ApiError on a non-2xx response", async () => {
+  mockFetchOnce(502, { detail: "generated content failed validation" });
+  await expect(
+    makeCarousel({ source_text: "x", api_key: "sk-ant-x" }),
+  ).rejects.toBeInstanceOf(ApiError);
+});
+
+it("makeCarousel throws in a demo build without hitting the network", async () => {
+  jest.resetModules();
+  jest.doMock("@/constants/demo", () => ({ IS_DEMO: true }));
+  const fetchMock = jest.fn();
+  (global as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+  const { makeCarousel: makeCarouselInDemo } = require("@/api/derivativesClient") as typeof import("@/api/derivativesClient");
+  await expect(makeCarouselInDemo({ source_text: "x" })).rejects.toThrow(/demo/i);
+  expect(fetchMock).not.toHaveBeenCalled();
+  jest.dontMock("@/constants/demo");
+  jest.resetModules();
 });

@@ -229,8 +229,10 @@ export default function PostsScreen() {
   // Shared between card and carousel modes — both pick a source the same way
   // (paste text, or a validated section from an owned project); only what
   // happens after (size selector vs. none, single card vs. frame pager)
-  // differs.
-  const renderSourcePicker = () => (
+  // differs. `kind` only swaps the accessibilityLabel prefix ("Card"/
+  // "Carousel") so the a11y tree reads correctly per mode — the visible UI
+  // (copy, placeholder, layout) is identical either way.
+  const renderSourcePicker = (kind: "Card" | "Carousel") => (
     <>
       <Label tone="secondary">Source</Label>
       <View style={styles.segment}>
@@ -241,7 +243,7 @@ export default function PostsScreen() {
               key={s.id}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={`Card source: ${s.label}`}
+              accessibilityLabel={`${kind} source: ${s.label}`}
               onPress={() => setCardSource(s.id)}
               style={[styles.segmentBtn, active && styles.segmentBtnActive]}
             >
@@ -253,10 +255,10 @@ export default function PostsScreen() {
 
       {cardSource === "text" ? (
         <TextInput
-          accessibilityLabel="Card source text"
+          accessibilityLabel={`${kind} source text`}
           style={styles.source}
           multiline
-          placeholder="Paste the text you want to turn into a card…"
+          placeholder={`Paste the text you want to turn into a ${kind === "Card" ? "card" : "carousel"}…`}
           placeholderTextColor={theme.textMuted}
           value={cardText}
           onChangeText={setCardText}
@@ -311,7 +313,7 @@ export default function PostsScreen() {
 
         {mode === "card" ? (
           <>
-            {renderSourcePicker()}
+            {renderSourcePicker("Card")}
 
             <Label tone="secondary">Size</Label>
             <View style={styles.segment}>
@@ -380,11 +382,11 @@ export default function PostsScreen() {
           </>
         ) : mode === "carousel" ? (
           <>
-            {renderSourcePicker()}
+            {renderSourcePicker("Carousel")}
 
             <Label tone="secondary">Tone (optional)</Label>
             <TextInput
-              accessibilityLabel="Card tone"
+              accessibilityLabel="Carousel tone"
               style={styles.tone}
               placeholder="e.g. punchy, professional"
               placeholderTextColor={theme.textMuted}
