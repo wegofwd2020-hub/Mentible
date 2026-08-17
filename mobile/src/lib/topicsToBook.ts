@@ -4,7 +4,11 @@ import type { Book, SubjectNode, TopicNode, GeneratedTopic } from "@/types/book"
 import type { LessonOutput, LessonSection } from "@/types/lesson";
 
 function makeLesson(title: string, secs: DraftSection[]): LessonOutput {
-  const sections: LessonSection[] = secs.map((s) => ({ heading: s.heading, body_markdown: s.body }));
+  const sections: LessonSection[] = secs.map((s) => ({
+    heading: s.heading,
+    body_markdown: s.body,
+    source_ids: s.source_ids,
+  }));
   return {
     topic: title,
     level: "",

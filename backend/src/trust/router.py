@@ -27,6 +27,7 @@ from . import (
     book_gen,
     feedback_repo,
     generation_job_repo,
+    grounding_repo,
     membership_repo,
     project_repo,
     schemas,
@@ -41,7 +42,15 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
-from .tasks import generate_book_task, generate_topic_task, generate_version_task, suggest_toc_task
+from .quality import version_quality
+from .tasks import (
+    cited_content_hash,
+    generate_book_task,
+    generate_topic_task,
+    generate_version_task,
+    grounding_check_task,
+    suggest_toc_task,
+)
 from .toc_util import find_toc_topic
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
@@ -303,6 +312,16 @@ async def get_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     ap = await approval_repo.get_approval(conn, version_id=version_id)
     fb = await feedback_repo.list_feedback(conn, version_id=version_id)
+    live = await project_repo.list_inputs(conn, project_id=project_id)
+    live_ids = {str(i.id) for i in live}
+    sections = (v.content or {}).get("sections", [])
+    q = version_quality(sections, live_ids)
+    g = await grounding_repo.get(conn, version_id=version_id, version_kind="artifact")
+    if g is not None:
+        stored_hash = g.pop("cited_content_hash")
+        cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+        g["stale"] = stored_hash != cited_content_hash(live, cited)
+    q["grounding"] = g
     return schemas.VersionDetailOut(
         id=str(v.id),
         artifact_id=str(v.artifact_id),
@@ -312,6 +331,7 @@ async def get_version(
         is_validated=ap is not None and ap.action == "approve",
         recorded_via=ap.recorded_via if ap and ap.action == "approve" else None,
         created_at=v.created_at,
+        quality=q,
         feedback=[
             schemas.FeedbackOut(
                 id=str(f.id),
@@ -416,6 +436,154 @@ async def generate_version(
         "draft_generate_submitted",
         job_id=str(job_id),
         artifact_id=str(artifact_id),
+        managed=managed,
+    )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.post(
+    "/artifacts/versions/{version_id}/grounding-check",
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def grounding_check_version(
+    version_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """Submit a claim-grounding audit job for an existing artifact version
+    (P1-4 T4 — async). Billable, so owner-only (mirrors `generate_version`'s
+    eligibility/envelope/enqueue shape); the actual LLM call happens in
+    `grounding_check_task` (Celery). Poll `GET /api/v1/jobs/{job_id}` for the
+    eventual `done`/`failed` status; on success the stored report is picked
+    up by the next `GET /versions/{version_id}` read."""
+    project_id = await project_id_for_version(conn, version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))  # billable → owner only
+
+    # key handling mirrors generate_version — the actual key (managed vault
+    # lookup or BYOK decrypt) is resolved by the worker, not here.
+    managed = body.api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
+            )
+    model = body.model or settings.anthropic_default_model
+
+    job_id = uuid.uuid4()
+
+    # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
+    # key; the worker reads OUR vault key (ADR-005 D6).
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    grounding_check_task.delay(
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="artifact",
+        provider_id=body.provider_id,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    # Safe-surface logging only — never the api_key, never the request body.
+    log.info(
+        "grounding_check_submitted",
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="artifact",
+        managed=managed,
+    )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.post(
+    "/topic-versions/{version_id}/grounding-check",
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def grounding_check_topic_version(
+    version_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """The topic-version twin of `grounding_check_version` — same shape,
+    `version_kind="topic"`."""
+    project_id = await topic_repo.project_id_for_topic_version(conn, topic_version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))  # billable → owner only
+
+    # key handling mirrors generate_version — the actual key (managed vault
+    # lookup or BYOK decrypt) is resolved by the worker, not here.
+    managed = body.api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
+            )
+    model = body.model or settings.anthropic_default_model
+
+    job_id = uuid.uuid4()
+
+    # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
+    # key; the worker reads OUR vault key (ADR-005 D6).
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    grounding_check_task.delay(
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="topic",
+        provider_id=body.provider_id,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    # Safe-surface logging only — never the api_key, never the request body.
+    log.info(
+        "grounding_check_submitted",
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="topic",
         managed=managed,
     )
 
@@ -1025,6 +1193,16 @@ async def get_topic_version(
     latest = await topic_approval_repo.get_latest_topic_approval(
         conn, topic_version_id=topic_version_id
     )
+    live = await project_repo.list_inputs(conn, project_id=project_id)
+    live_ids = {str(i.id) for i in live}
+    sections = (tv.content or {}).get("sections", [])
+    q = version_quality(sections, live_ids)
+    g = await grounding_repo.get(conn, version_id=topic_version_id, version_kind="topic")
+    if g is not None:
+        stored_hash = g.pop("cited_content_hash")
+        cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+        g["stale"] = stored_hash != cited_content_hash(live, cited)
+    q["grounding"] = g
     return schemas.TopicVersionDetailOut(
         id=str(tv.id),
         topic_id=tv.topic_id,
@@ -1035,6 +1213,7 @@ async def get_topic_version(
         is_validated=latest is not None and latest.action == "approve",
         recorded_via=latest.recorded_via if latest and latest.action == "approve" else None,
         generation_meta=tv.generation_meta,
+        quality=q,
         feedback=[
             schemas.TopicFeedbackOut(
                 id=str(f.id),

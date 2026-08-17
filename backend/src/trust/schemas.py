@@ -134,6 +134,7 @@ class VersionDetailOut(BaseModel):
     recorded_via: str | None = None
     created_at: datetime | None
     feedback: list[FeedbackOut] = []
+    quality: dict | None = None
 
 
 class ArtifactDetailOut(BaseModel):
@@ -352,6 +353,7 @@ class TopicVersionDetailOut(BaseModel):
     recorded_via: str | None = None
     generation_meta: dict | None = None
     feedback: list[TopicFeedbackOut] = []
+    quality: dict | None = None
 
 
 class DraftGenerateIn(BaseModel):

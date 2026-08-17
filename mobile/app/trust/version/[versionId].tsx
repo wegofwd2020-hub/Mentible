@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { addFeedback, getVersion, type VersionDetailView } from "@/api/trustClient";
+import { addFeedback, getVersion, runGroundingCheck, type VersionDetailView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
+import { pollJob } from "@/api/pollJob";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToPlainText } from "@/lib/draftExport";
 import { describeProvenance } from "@/lib/draftProvenance";
@@ -18,6 +19,8 @@ import { TopicRenderer } from "@/components/LessonRenderer";
 import { versionToTopic } from "@/lib/topicVersionToTopic";
 import { GenerateProgressBar } from "@/components/GenerateProgressBar";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
+import { QualityCard } from "@/components/QualityCard";
+import { loadApiKey } from "@/secure/keyStore";
 
 type Styles = ReturnType<typeof makeStyles>;
 type GenProgress = { startedAt: number; phase: "queued" | "running" };
@@ -34,7 +37,11 @@ function TrustVersionInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, addVersion, generateVersion, approve, unapprove } = useTrustProject(String(projectId));
+  // knownNotPro: the same fail-open Pro-gate generateVersion/generateFormat
+  // use internally (null/loading plan never walls — the backend decides;
+  // only a KNOWN Free plan does) — exposed by the hook so onRunGrounding
+  // below can reuse it without a second, unmocked useBillingPlan() call.
+  const { project, addVersion, generateVersion, approve, unapprove, knownNotPro } = useTrustProject(String(projectId));
   const [version, setVersion] = useState<VersionDetailView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -55,6 +62,7 @@ function TrustVersionInner() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [prevVersion, setPrevVersion] = useState<VersionDetailView | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [grBusy, setGrBusy] = useState(false);
   // Task 4 (backend, this branch) added the editor role: edit/create-version
   // endpoints allow owner+editor, approve/withdraw allow owner+reviewer.
   // canEdit/canApprove mirror that matrix here so the controls a role can't
@@ -97,6 +105,54 @@ function TrustVersionInner() {
     (project?.inputs ?? []).forEach((inp, i) => m.set(inp.id, `S${i + 1}`));
     return m;
   }, [project]);
+
+  // Per-section index -> short quality notes ("uncited", "dangling source",
+  // "unsupported claims"), derived from `version.quality` (T2/T4). Feeds the
+  // small annotation next to each section in the "Section comments" list
+  // below — the only per-section anchor this screen has, since the reader
+  // above renders every section merged into one doc.
+  const sectionNotes = useMemo(() => {
+    const q = version?.quality;
+    const m = new Map<number, string[]>();
+    if (!q) return m;
+    const add = (i: number, note: string) => m.set(i, [...(m.get(i) ?? []), note]);
+    q.coverage.uncited_section_indexes.forEach((i) => add(i, "uncited"));
+    q.coverage.dangling.forEach((d) => add(d.section_index, "dangling source"));
+    q.grounding?.by_section.forEach((s) => {
+      if (s.claims.some((c) => c.status === "unsupported")) add(s.section_index, "unsupported claims");
+    });
+    return m;
+  }, [version]);
+
+  // Owner-only: submits the on-demand grounding check (billable LLM pass —
+  // ADR docs), polls the shared /jobs/{id} until done|failed, then refetches
+  // this version so `quality.grounding` reflects the fresh result. Mirrors
+  // doRegen's submit-then-poll-then-reload shape, using the same
+  // `loadApiKey("anthropic")` BYOK-or-managed key resolution generateVersion
+  // (useTrustProject) uses — including its `knownNotPro` pre-gate, so a KNOWN
+  // Free user with no saved key gets the same friendly message immediately
+  // instead of a 402 round-trip.
+  const onRunGrounding = () => {
+    if (!accessToken) return;
+    setGrBusy(true);
+    void (async () => {
+      try {
+        const key = await loadApiKey("anthropic");
+        if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to run a grounding check.");
+        const submitted = await runGroundingCheck(String(versionId), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
+        await pollJob(submitted.job_id, accessToken, {
+          intervalMs: 3_000,
+          timeoutMessage: "Timed out waiting for the grounding check",
+          failedMessage: "Grounding check failed",
+        });
+        await reloadVersion().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't run grounding check", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setGrBusy(false);
+      }
+    })();
+  };
 
   // Sibling versions of this same artifact, for the inline "Versions" history
   // block. Defensive: no matching artifact (still loading, or a bad id) just
@@ -365,6 +421,7 @@ function TrustVersionInner() {
             </View>
           ) : null}
         </View>
+        <QualityCard quality={version.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} />
         {!editing ? (
           <View style={styles.actionsRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>
@@ -547,6 +604,9 @@ function TrustVersionInner() {
                           once; duplicating it verbatim here would make it
                           ambiguous which node a `getByText(heading)` query hit. */}
                       <Text style={styles.noteMeta}>{`Section ${i + 1}: ${s.heading}`}</Text>
+                      {(sectionNotes.get(i) ?? []).length > 0 ? (
+                        <Text style={styles.sectionQualityNote}>{(sectionNotes.get(i) ?? []).join(" · ")}</Text>
+                      ) : null}
                       {sectionFeedback.map((f) => (
                         <View key={f.id} style={styles.sectionCommentRow}>
                           <Text style={styles.noteMeta}>
@@ -737,4 +797,5 @@ const makeStyles = (c: Palette) => ({
   noteBody: { color: c.text, fontSize: typography.sizeSm, lineHeight: 20 as const },
   reviseFromNoteBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
   reviseFromNoteText: { color: c.primary, fontSize: typography.sizeSm },
+  sectionQualityNote: { color: c.error, fontSize: typography.sizeXs },
 });

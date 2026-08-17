@@ -5,6 +5,7 @@ import type { TrustManifest } from "@/types/trust";
 export interface LessonSection {
   heading: string;
   body_markdown: string;
+  source_ids?: string[];
 }
 
 export interface LessonOutput {

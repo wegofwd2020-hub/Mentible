@@ -141,6 +141,72 @@ def test_b2_excluded_until_chapter_map_present(monkeypatch):
     assert with_map.checks_total == 6 and with_map.checks_passed == 6
 
 
+# ── compute_sourcing ────────────────────────────────────────────────────────
+
+
+def _book_with_sections(sections: list[dict]) -> dict:
+    """A minimal book whose single unit carries the given lesson sections
+    verbatim — enough to drive compute_sourcing's section-coverage reading."""
+    return {
+        "title": "T",
+        "content": {"u1": {"topicId": "u1", "lesson": {"sections": sections}}},
+    }
+
+
+def test_compute_sourcing_all_cited():
+    # Every section with a body carries >=1 source_id ⇒ every_claim_cited True,
+    # source_refs == count of DISTINCT ids across sections.
+    book = _book_with_sections(
+        [
+            {"heading": "H1", "body_markdown": "intro", "source_ids": ["s1", "s2"]},
+            {"heading": "H2", "body_markdown": "more", "source_ids": ["s2", "s3"]},
+        ]
+    )
+    block = export_trust.compute_sourcing(book)
+    assert block is not None
+    assert block.every_claim_cited is True
+    assert block.source_refs == 3  # {s1, s2, s3}
+
+
+def test_compute_sourcing_uncited_section_is_false():
+    book = _book_with_sections(
+        [
+            {"heading": "H1", "body_markdown": "intro", "source_ids": ["s1"]},
+            {"heading": "H2", "body_markdown": "uncited body", "source_ids": []},
+        ]
+    )
+    block = export_trust.compute_sourcing(book)
+    assert block is not None
+    assert block.every_claim_cited is False
+    assert block.source_refs == 1
+
+
+def test_compute_sourcing_empty_body_section_does_not_force_uncited():
+    # A section with no body (nothing to cite) shouldn't flip every_claim_cited
+    # to False just because it carries no source_ids.
+    book = _book_with_sections(
+        [
+            {"heading": "H1", "body_markdown": "intro", "source_ids": ["s1"]},
+            {"heading": "H2", "body_markdown": "   ", "source_ids": []},
+        ]
+    )
+    block = export_trust.compute_sourcing(book)
+    assert block is not None
+    assert block.every_claim_cited is True
+
+
+def test_compute_sourcing_none_when_no_section_carries_the_field():
+    # Older/ungrounded book: no section has a source_ids field at all ⇒ the
+    # block is omitted entirely (manifest stays "not assessed"), not a false
+    # every_claim_cited=False.
+    book = _book_with_sections([{"heading": "H1", "body_markdown": "intro"}])
+    assert export_trust.compute_sourcing(book) is None
+
+
+def test_compute_sourcing_none_for_book_with_no_sections_at_all():
+    assert export_trust.compute_sourcing(_book_with()) is None
+
+
 # ── base_manifest + attach ────────────────────────────────────────────────────
 
 
@@ -163,6 +229,27 @@ def test_attach_export_trust_adds_compliance_and_integrity(monkeypatch):
     assert {"provenance", "validation", "compliance", "integrity"} <= d.keys()
     assert d["integrity"]["content_hash"].startswith("sha256:")
     assert d["compliance"]["status"] == "pass"
+
+
+def test_attach_export_trust_includes_sourcing_when_present(monkeypatch):
+    monkeypatch.setattr(export_trust, "book_warnings", lambda book: [])
+    book = _book_with(visuals=25, glossary=True)
+    book["content"]["u1"]["lesson"]["sections"] = [
+        {"heading": "H", "body_markdown": "intro", "source_ids": ["s1"]}
+    ]
+    base = export_trust.base_manifest(book)
+    full = export_trust.attach_export_trust(base, book, _GOOD_PDF_META)
+    d = full.to_public_dict()
+    assert d["sourcing"] == {"every_claim_cited": True, "source_refs": 1}
+
+
+def test_attach_export_trust_omits_sourcing_when_no_source_ids_field(monkeypatch):
+    monkeypatch.setattr(export_trust, "book_warnings", lambda book: [])
+    book = _book_with(visuals=25, glossary=True)  # sections carry no source_ids
+    base = export_trust.base_manifest(book)
+    full = export_trust.attach_export_trust(base, book, _GOOD_PDF_META)
+    d = full.to_public_dict()
+    assert "sourcing" not in d
 
 
 def test_unknown_provider_raises_for_caller_to_handle():
