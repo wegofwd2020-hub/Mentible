@@ -141,9 +141,24 @@ function modifiedTimestamp(iso?: string): string {
 // profile — epubcheck (V, docs/specs/kdp-clean-export-profile.md) warns on a
 // non-ISO dc:date. Falls back to the raw string on an unparseable date (never
 // throws over a metadata quirk); the default profile leaves dc:date untouched.
-function isoDate(raw: string): string {
+// Timezone-immune by construction: never round-trips a civil date through
+// toISOString() (that converts to UTC, which shifts the date backward by up
+// to a day on any positive-UTC-offset machine — e.g. TZ=Asia/Singapore turned
+// "Jan 2026" into "2025-12-31"). Exported for direct unit testing.
+export function isoDate(raw: string): string {
+  // Already ISO-ish (YYYY-MM-DD, optionally with a time/zone suffix): take the
+  // date part verbatim — no Date round-trip, so no TZ shift.
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // Loose civil string ("Jan 2026", "June 1, 2026"): let Date parse it in local
+  // time, then read back the LOCAL components (the calendar day the parser
+  // actually understood) rather than the UTC-shifted instant.
   const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? raw : d.toISOString().slice(0, 10);
+  if (Number.isNaN(d.getTime())) return raw;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
 }
 
 export async function compileEpub(book: Book, opts: CompileOptions = {}): Promise<Uint8Array> {

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
-import { compileEpub, EmptyBookError } from "../src/epub";
+import { compileEpub, EmptyBookError, isoDate } from "../src/epub";
 import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
 // Stand in for Puppeteer/Chromium (D3/D4/D5 raster paths) so these tests never
@@ -324,6 +324,30 @@ describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
   it("profile 'default' still compiles a draft book (no guard)", async () => {
     const book = withMeta({ author: "A", status: "draft" });
     await expect(compileEpub(book)).resolves.toBeInstanceOf(Uint8Array);
+  });
+});
+
+// Timezone-immune by construction (never round-trips through toISOString()),
+// so these hold regardless of the test-runner's TZ.
+describe("isoDate", () => {
+  it("parses a loose month+year civil string", () => {
+    expect(isoDate("Jan 2026")).toBe("2026-01-01");
+  });
+
+  it("parses a loose day+month+year civil string", () => {
+    expect(isoDate("June 1, 2026")).toBe("2026-06-01");
+  });
+
+  it("takes an already-ISO date verbatim", () => {
+    expect(isoDate("2026-06-01")).toBe("2026-06-01");
+  });
+
+  it("takes the date part of an ISO datetime with a Z suffix verbatim", () => {
+    expect(isoDate("2026-06-01T23:00:00Z")).toBe("2026-06-01");
+  });
+
+  it("passes an unparseable string through unchanged", () => {
+    expect(isoDate("not a date")).toBe("not a date");
   });
 });
 
