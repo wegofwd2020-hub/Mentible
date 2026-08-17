@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Image, Pressable, ScrollView, Text, TextInput, View,
+  Image, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View,
 } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useMakePost } from "@/hooks/useMakePost";
 import { useMakeCard } from "@/hooks/useMakeCard";
+import { useMakeCarousel } from "@/hooks/useMakeCarousel";
 import { copyText } from "@/lib/clipboard";
 import { pickReferenceImage } from "@/lib/pickReferenceImage";
 import { Alert } from "@/lib/alert";
@@ -24,9 +25,10 @@ const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "x", label: "X" },
 ];
 
-const MODES: { id: "post" | "card"; label: string }[] = [
+const MODES: { id: "post" | "card" | "carousel"; label: string }[] = [
   { id: "post", label: "Text post" },
   { id: "card", label: "Image card" },
+  { id: "carousel", label: "Carousel" },
 ];
 
 const CARD_SOURCES: { id: "text" | "section"; label: string }[] = [
@@ -132,7 +134,7 @@ export default function PostsScreen() {
   }, []);
 
   // ── Image card mode ────────────────────────────────────────────────────
-  const [mode, setMode] = useState<"post" | "card">("post");
+  const [mode, setMode] = useState<"post" | "card" | "carousel">("post");
   const [cardSource, setCardSource] = useState<"text" | "section">("text");
   const [cardText, setCardText] = useState("");
   const [cardSize, setCardSize] = useState<CardSize>("square");
@@ -189,6 +191,102 @@ export default function PostsScreen() {
     }
   }, [cardResult]);
 
+  // ── Carousel mode ───────────────────────────────────────────────────────
+  // Reuses the SAME source switch as card mode (cardSource/cardText/
+  // selectedSectionId/cardTone) — see renderSourcePicker below — the two
+  // modes just differ in whether a size is sent and how the result renders.
+  const {
+    status: carouselStatus, error: carouselError, result: carouselResult, run: runCarousel,
+  } = useMakeCarousel({ getApiKey: () => loadApiKey("anthropic") });
+  const { width: screenWidth } = useWindowDimensions();
+
+  const carouselBusy = carouselStatus === "generating";
+  const canMakeCarousel =
+    !carouselBusy
+    && ((cardSource === "text" && cardText.trim().length > 0)
+      || (cardSource === "section" && selectedSectionId != null));
+
+  const onMakeCarousel = useCallback(() => {
+    void runCarousel({
+      ...(cardSource === "section"
+        ? { topic_version_id: selectedSectionId as string }
+        : { source_text: cardText.trim() }),
+      ...(cardTone.trim() ? { tone: cardTone.trim() } : {}),
+    });
+  }, [runCarousel, cardSource, cardText, cardTone, selectedSectionId]);
+
+  const onDownloadAll = useCallback(async () => {
+    if (!carouselResult) return;
+    try {
+      for (let i = 0; i < carouselResult.frames.length; i++) {
+        await downloadArtifact(fromBase64(carouselResult.frames[i].image_png_base64), `frame-${i + 1}.png`, "image/png");
+      }
+    } catch (e) {
+      Alert.alert("Could not download", e instanceof Error ? e.message : "Try again.");
+    }
+  }, [carouselResult]);
+
+  // Shared between card and carousel modes — both pick a source the same way
+  // (paste text, or a validated section from an owned project); only what
+  // happens after (size selector vs. none, single card vs. frame pager)
+  // differs.
+  const renderSourcePicker = () => (
+    <>
+      <Label tone="secondary">Source</Label>
+      <View style={styles.segment}>
+        {CARD_SOURCES.map((s) => {
+          const active = s.id === cardSource;
+          return (
+            <Pressable
+              key={s.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Card source: ${s.label}`}
+              onPress={() => setCardSource(s.id)}
+              style={[styles.segmentBtn, active && styles.segmentBtnActive]}
+            >
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{s.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {cardSource === "text" ? (
+        <TextInput
+          accessibilityLabel="Card source text"
+          style={styles.source}
+          multiline
+          placeholder="Paste the text you want to turn into a card…"
+          placeholderTextColor={theme.textMuted}
+          value={cardText}
+          onChangeText={setCardText}
+        />
+      ) : validatedSections.length === 0 ? (
+        <Text style={styles.helper}>
+          No validated sections yet — validate a topic in Projects to publish it as a card.
+        </Text>
+      ) : (
+        <View style={styles.sectionsList}>
+          {validatedSections.map((s) => {
+            const active = s.id === selectedSectionId;
+            return (
+              <Pressable
+                key={s.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Validated section: ${s.label}`}
+                onPress={() => setSelectedSectionId(s.id)}
+                style={[styles.sectionRow, active && styles.sectionRowActive]}
+              >
+                <Text style={[styles.sectionText, active && styles.sectionTextActive]}>{s.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </>
+  );
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       <PageContainer>
@@ -213,58 +311,7 @@ export default function PostsScreen() {
 
         {mode === "card" ? (
           <>
-            <Label tone="secondary">Source</Label>
-            <View style={styles.segment}>
-              {CARD_SOURCES.map((s) => {
-                const active = s.id === cardSource;
-                return (
-                  <Pressable
-                    key={s.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={`Card source: ${s.label}`}
-                    onPress={() => setCardSource(s.id)}
-                    style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-                  >
-                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{s.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {cardSource === "text" ? (
-              <TextInput
-                accessibilityLabel="Card source text"
-                style={styles.source}
-                multiline
-                placeholder="Paste the text you want to turn into a card…"
-                placeholderTextColor={theme.textMuted}
-                value={cardText}
-                onChangeText={setCardText}
-              />
-            ) : validatedSections.length === 0 ? (
-              <Text style={styles.helper}>
-                No validated sections yet — validate a topic in Projects to publish it as a card.
-              </Text>
-            ) : (
-              <View style={styles.sectionsList}>
-                {validatedSections.map((s) => {
-                  const active = s.id === selectedSectionId;
-                  return (
-                    <Pressable
-                      key={s.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={`Validated section: ${s.label}`}
-                      onPress={() => setSelectedSectionId(s.id)}
-                      style={[styles.sectionRow, active && styles.sectionRowActive]}
-                    >
-                      <Text style={[styles.sectionText, active && styles.sectionTextActive]}>{s.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+            {renderSourcePicker()}
 
             <Label tone="secondary">Size</Label>
             <View style={styles.segment}>
@@ -328,6 +375,67 @@ export default function PostsScreen() {
                     style={styles.copyBtn}
                   />
                 </Card>
+              </View>
+            ) : null}
+          </>
+        ) : mode === "carousel" ? (
+          <>
+            {renderSourcePicker()}
+
+            <Label tone="secondary">Tone (optional)</Label>
+            <TextInput
+              accessibilityLabel="Card tone"
+              style={styles.tone}
+              placeholder="e.g. punchy, professional"
+              placeholderTextColor={theme.textMuted}
+              value={cardTone}
+              onChangeText={setCardTone}
+            />
+
+            <Button
+              variant="primary"
+              label="Make carousel"
+              onPress={onMakeCarousel}
+              busy={carouselBusy}
+              disabled={!canMakeCarousel}
+              accessibilityLabel="Make carousel"
+              style={styles.generate}
+            />
+
+            {carouselStatus === "failed" && carouselError ? <Text style={styles.error}>{carouselError}</Text> : null}
+
+            {carouselStatus === "done" && carouselResult ? (
+              <View style={styles.results}>
+                <Label tone="muted">{humanizeProvenance(carouselResult.provenance)}</Label>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  accessibilityLabel="Carousel frames"
+                >
+                  {carouselResult.frames.map((f, i) => (
+                    <View key={i} style={[styles.carouselFrame, { width: screenWidth }]}>
+                      <Card style={styles.card}>
+                        <Image
+                          accessibilityLabel={`Carousel frame ${i + 1} preview`}
+                          source={{ uri: `data:image/png;base64,${f.image_png_base64}` }}
+                          resizeMode="contain"
+                          style={[styles.cardImage, { aspectRatio: 1 }]}
+                        />
+                        <Text style={styles.hook}>{f.card.headline}</Text>
+                        <Text style={styles.postBody}>{f.card.subtext}</Text>
+                        {f.card.source_label ? <Text style={styles.helper}>{f.card.source_label}</Text> : null}
+                      </Card>
+                    </View>
+                  ))}
+                </ScrollView>
+                <Button
+                  variant="ghost"
+                  label="Download all"
+                  onPress={() => void onDownloadAll()}
+                  accessibilityLabel="Download all"
+                  style={styles.copyBtn}
+                />
               </View>
             ) : null}
           </>
@@ -493,4 +601,8 @@ const makeStyles = (c: Palette) => ({
   // aspectRatio is per-size (CARD_ASPECT) and applied inline at the call site —
   // this base only carries the layout/decoration shared by every size.
   cardImage: { width: "100%" as const, borderRadius: radius.md },
+  // Carousel mode: one page per frame in the horizontal pager. Width is set
+  // inline (screen width) per page so pagingEnabled snaps correctly; this
+  // just supplies the inner gutter so a frame's Card doesn't touch the edge.
+  carouselFrame: { paddingHorizontal: spacing.xs },
 });

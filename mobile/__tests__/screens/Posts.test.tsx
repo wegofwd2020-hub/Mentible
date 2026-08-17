@@ -8,6 +8,9 @@ jest.mock("@/hooks/useMakePost", () => ({ useMakePost: jest.fn() }));
 // validated-section picker) alongside useMakeCard — mocked here too so this
 // pre-existing text-post test keeps rendering PostsScreen standalone.
 jest.mock("@/hooks/useMakeCard", () => ({ useMakeCard: jest.fn() }));
+// Carousel mode (P1-5 slice 2) added a third generation hook, also called
+// unconditionally by PostsScreen — mocked for the same reason as useMakeCard.
+jest.mock("@/hooks/useMakeCarousel", () => ({ useMakeCarousel: jest.fn() }));
 jest.mock("@/lib/clipboard", () => ({ copyText: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
 jest.mock("@/lib/pickReferenceImage", () => ({ pickReferenceImage: jest.fn() }));
@@ -20,12 +23,16 @@ jest.mock("@/api/trustClient", () => ({
 
 import { useMakePost } from "@/hooks/useMakePost";
 import { useMakeCard } from "@/hooks/useMakeCard";
+import { useMakeCarousel } from "@/hooks/useMakeCarousel";
 import { copyText } from "@/lib/clipboard";
 import { pickReferenceImage } from "@/lib/pickReferenceImage";
 import { Alert } from "@/lib/alert";
 
 beforeEach(() => {
   (useMakeCard as jest.Mock).mockReturnValue({
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(),
+  });
+  (useMakeCarousel as jest.Mock).mockReturnValue({
     status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(),
   });
 });

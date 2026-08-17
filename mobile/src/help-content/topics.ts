@@ -626,6 +626,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "publish-carousel",
+    title: "Publish a carousel",
+    featureKey: "publish-carousel",
+    keywords: ["publish", "carousel", "slides", "frames", "image card", "share", "instagram", "linkedin"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Carousel mode on the Publish tab turns your own writing into a multi-frame, swipeable image carousel — 4 to 8 branded square frames, built from either pasted text or a validated section from one of your projects. Swipe through the frames to preview them, then download all of them at once as numbered PNGs (frame-1.png, frame-2.png, …) ready to post as a carousel on LinkedIn, Instagram, or wherever you share. Like the image card, a carousel built from a validated section carries its cited-source label, and making one uses a billable LLM call (BYOK or your plan's managed allowance).",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Publish and switch to Carousel mode.",
+          "Choose a source: paste text, or pick a validated section from your projects.",
+          "Optionally set a tone, then make the carousel.",
+          "Swipe through the frame pager to preview, then Download all to save every frame.",
+        ],
+      },
+    ],
+  },
+  {
     id: "sources",
     title: "Sources — capture the expert's knowledge",
     featureKey: "sources",

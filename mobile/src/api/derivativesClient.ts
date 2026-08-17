@@ -92,3 +92,47 @@ export async function makeCard(req: MakeCardRequest): Promise<MakeCardResponse> 
   }
   return res.json() as Promise<MakeCardResponse>;
 }
+
+export interface CarouselFrame {
+  card: { headline: string; subtext: string; source_label: string | null };
+  image_png_base64: string;
+}
+
+export interface MakeCarouselResponse {
+  frames: CarouselFrame[];
+  provenance: string;
+}
+
+export interface MakeCarouselRequest {
+  // Exactly one of source_text / topic_version_id — the caller (the Publish
+  // screen's carousel mode) enforces that, this module just forwards it.
+  source_text?: string;
+  topic_version_id?: string;
+  tone?: string;
+  // Omit entirely (never send "") for a keyless managed-plan request — the
+  // backend resolves the vendor key from the caller's entitlement instead.
+  // Present = BYOK, passed through per-request (never logged/stored).
+  api_key?: string;
+  provider_id?: string; // default "anthropic"; omit → server default
+  model?: string;
+}
+
+// Turn source text (or a validated topic-version's content) into a branded,
+// multi-frame (4-8) image carousel. Synchronous endpoint, mirrors makeCard.
+// Key-free client shape (no JWT) — the caller populates api_key in the
+// request; this module never reads or stores it.
+export async function makeCarousel(req: MakeCarouselRequest): Promise<MakeCarouselResponse> {
+  // A demo build has no backend; the Publish tab is hidden there, but never
+  // let a request leave the device regardless (mirrors makeCard).
+  if (IS_DEMO) throw new Error("Making a carousel is disabled in this demo build.");
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/derivatives/carousel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider_id: "anthropic", ...req }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<MakeCarouselResponse>;
+}
