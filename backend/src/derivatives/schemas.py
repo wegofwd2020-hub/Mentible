@@ -5,6 +5,7 @@ Validation runs at the FastAPI boundary. Internal calls trust their callers.
 
 from __future__ import annotations
 
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -117,7 +118,7 @@ class CardRequest(BaseModel):
     """
 
     source_text: str | None = Field(default=None, min_length=1, max_length=20000)
-    topic_version_id: str | None = None
+    topic_version_id: uuid.UUID | None = None
     size: CardSize = "square"
     tone: str | None = None
     api_key: str | None = Field(default=None, min_length=20, max_length=512)

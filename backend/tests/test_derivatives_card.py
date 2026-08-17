@@ -12,6 +12,7 @@ rendering — that's Task 3.
 from __future__ import annotations
 
 import json
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -24,6 +25,7 @@ from backend.src.derivatives.schemas import CardRequest
 from backend.tests.helpers import fake_provider
 
 _API_KEY = "sk-ant-xxxxxxxxxxxxxxxxxxxx"
+_VERSION_ID = uuid.uuid4()
 
 _GOOD = json.dumps(
     {"headline": "Stormwater, decoded", "subtext": "A short field guide.", "source_label": None}
@@ -32,11 +34,11 @@ _GOOD = json.dumps(
 
 def test_card_request_requires_exactly_one_source():
     CardRequest(source_text="hello", size="square")  # ok
-    CardRequest(topic_version_id="v1", size="linkedin")  # ok
+    CardRequest(topic_version_id=_VERSION_ID, size="linkedin")  # ok
     with pytest.raises(ValidationError):
         CardRequest(size="square")  # neither
     with pytest.raises(ValidationError):
-        CardRequest(source_text="x", topic_version_id="v1", size="square")  # both
+        CardRequest(source_text="x", topic_version_id=_VERSION_ID, size="square")  # both
 
 
 def test_card_request_rejects_unknown_provider():

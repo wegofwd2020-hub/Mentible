@@ -65,11 +65,13 @@ async def test_source_text_ok_and_key_never_leaks(client, known_test_api_key, ca
 
 
 async def test_both_source_and_topic_version_422(client, known_test_api_key):
+    # A well-formed (but nonexistent) UUID, so this fails on the "exactly one
+    # source" model_validator specifically — not incidentally on UUID parsing.
     r = await client.post(
         "/api/v1/derivatives/card",
         json={
             "source_text": "s",
-            "topic_version_id": "not-even-checked",
+            "topic_version_id": str(uuid.uuid4()),
             "api_key": known_test_api_key,
         },
     )
@@ -80,6 +82,18 @@ async def test_neither_source_nor_topic_version_422(client, known_test_api_key):
     r = await client.post(
         "/api/v1/derivatives/card",
         json={"api_key": known_test_api_key},
+    )
+    assert r.status_code == 422
+
+
+async def test_malformed_topic_version_id_422(client, known_test_api_key):
+    # `topic_version_id` is typed `uuid.UUID | None` (Fix round 1) — a
+    # malformed value must be rejected by pydantic with a clean 422 before the
+    # handler ever runs a query against the uuid column, never an uncaught
+    # asyncpg DataError surfacing as a framework 500.
+    r = await client.post(
+        "/api/v1/derivatives/card",
+        json={"topic_version_id": "not-a-uuid", "api_key": known_test_api_key},
     )
     assert r.status_code == 422
 
