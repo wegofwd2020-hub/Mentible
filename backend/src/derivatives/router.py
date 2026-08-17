@@ -34,8 +34,15 @@ from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
 from backend.src.derivatives.generate import generate_card, generate_carousel, generate_post
-from backend.src.derivatives.render import CardRenderError, compile_card_png, compile_carousel_png
+from backend.src.derivatives.render import (
+    CardRenderError,
+    compile_animated_gif,
+    compile_card_png,
+    compile_carousel_png,
+)
 from backend.src.derivatives.schemas import (
+    AnimatedRequest,
+    AnimatedResponse,
     CardContent,
     CardRequest,
     CardResponse,
@@ -53,16 +60,18 @@ log = get_logger("derivatives")
 
 
 async def _resolve_key_and_source(
-    body: CardRequest | CarouselRequest,
+    body: CardRequest | CarouselRequest | AnimatedRequest,
     request: Request,
     principal: Principal | None,
 ) -> tuple[str, str, str, str | None]:
-    """Resolve the generation key + source text shared by `/card` and `/carousel`.
+    """Resolve the generation key + source text shared by `/card`, `/carousel`,
+    and `/animated`.
 
-    `CardRequest` and `CarouselRequest` carry the identical key/source shape
-    (`api_key`, `provider_id`, `model`, `source_text`, `topic_version_id`), so
-    both the managed/BYOK key-fork and the trust-section access seam live here
-    once rather than being copied per endpoint. Returns
+    `CardRequest`, `CarouselRequest`, and `AnimatedRequest` carry the identical
+    key/source shape (`api_key`, `provider_id`, `model`, `source_text`,
+    `topic_version_id`), so both the managed/BYOK key-fork and the
+    trust-section access seam live here once rather than being copied per
+    endpoint. Returns
     `(api_key, model, source_text, source_label)` — `source_label` is the
     version's provenance label (`"Based on N cited source(s)"`) when sourced
     from `topic_version_id`, else `None`. Raises `HTTPException` for every
@@ -468,3 +477,103 @@ async def make_carousel(
         for ci, png in zip(card_inputs, pngs, strict=True)
     ]
     return CarouselResponse(frames=out_frames, provenance="ai-generated")
+
+
+@router.post(
+    "/animated",
+    response_model=AnimatedResponse,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def make_animated(
+    body: AnimatedRequest,
+    request: Request,
+    principal: Principal | None = Depends(optional_user),
+) -> AnimatedResponse:
+    """Generate an animated promotional card (headline + subtext + GIF render).
+
+    Key path and source resolution are identical to `make_card`
+    (`_resolve_key_and_source`): a key in the body is BYOK; its absence
+    selects the managed path, and `topic_version_id` is access-gated the same
+    way (signed-out -> 401, missing -> 404, no project access -> 403).
+
+    The copy is generated via the same `generate_card` call as `/card` (fixed
+    "square" size) — no separate generator. `preset` only steers the
+    compiler's `--format animated` animation, not the copy.
+
+    Never logs `api_key` or the section/source content.
+    """
+    api_key, model, source_text, source_label = await _resolve_key_and_source(
+        body, request, principal
+    )
+
+    # --- generate + render ---
+    try:
+        card = await asyncio.to_thread(
+            generate_card,
+            source_text=source_text,
+            size="square",
+            tone=body.tone,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("animated_validation_failed", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not generate the card copy",
+        ) from None
+    except LLMAuthError:
+        log.warning("animated_auth_rejected", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Your API key was rejected by the provider. Check it in Settings — "
+                "it may be invalid, revoked, or out of credit."
+            ),
+        ) from None
+    except LLMRateLimitError:
+        log.warning("animated_rate_limited", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The provider is rate-limiting requests. Wait a moment and try again.",
+        ) from None
+    except LLMError:
+        log.warning("animated_llm_error", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="card generation failed",
+        ) from None
+    except Exception:
+        # Defense in depth: never let a raw exception escape with key material
+        # to the framework logger. Type-only log, generic 502.
+        log.warning("animated_unexpected_error", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="card generation failed",
+        ) from None
+
+    # A validated-section card uses the provenance label, overriding the model's.
+    label = source_label if body.topic_version_id is not None else card.source_label
+    card_input = {
+        "headline": card.headline,
+        "subtext": card.subtext,
+        "source_label": label,
+        "preset": body.preset,
+        "size": "square",
+    }
+    try:
+        gif = await compile_animated_gif(card_input)
+    except CardRenderError:
+        log.warning("animated_render_error", preset=body.preset)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not render the animated card",
+        ) from None
+
+    return AnimatedResponse(
+        card=CardContent(headline=card.headline, subtext=card.subtext, source_label=label),
+        preset=body.preset,
+        image_gif_base64=base64.b64encode(gif).decode(),
+        provenance="ai-generated",
+    )
