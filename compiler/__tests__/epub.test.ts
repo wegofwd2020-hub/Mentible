@@ -62,6 +62,12 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     await expect(compileEpub(empty)).rejects.toBeInstanceOf(EmptyBookError);
   });
 
+  it("profile 'default' (explicit) compiles to the exact same bytes as omitting profile", async () => {
+    const withoutOpt = await compileEpub(syntheticBook());
+    const withDefault = await compileEpub(syntheticBook(), { profile: "default" });
+    expect(Buffer.from(withDefault)).toEqual(Buffer.from(withoutOpt));
+  });
+
   it("produces a valid EPUB3 OCF structure", async () => {
     const zip = await unzip(await compileEpub(syntheticBook()));
 

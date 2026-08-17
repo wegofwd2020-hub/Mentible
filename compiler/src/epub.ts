@@ -44,6 +44,11 @@ export interface CompileOptions {
   // When set, diagrams are pre-rendered to inline SVG with this renderer before
   // compiling (async). Takes precedence over `diagrams`. See mermaid.ts.
   mermaid?: MermaidRenderer;
+  // Distribution-target profile (D1, docs/specs/kdp-clean-export-profile.md).
+  // "default" (or omitted) is today's output, byte-for-byte. "kdp" rasters
+  // math/diagrams/cover and drops the embedded body font so the artifact
+  // ingests cleanly on Amazon KDP — see epub.ts's per-profile branches.
+  profile?: "default" | "kdp";
 }
 
 interface Chapter {
