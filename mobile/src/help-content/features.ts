@@ -19,6 +19,7 @@ export const FEATURES = [
   { key: "make-a-post", label: "Make a post" },
   { key: "publish-card", label: "Publish an image card" },
   { key: "publish-carousel", label: "Publish a carousel" },
+  { key: "publish-animated", label: "Publish an animated card" },
   { key: "appearance", label: "Appearance & themes" },
   { key: "sources", label: "Sources (Capture)" },
   { key: "draft-viewer", label: "Reading, editing & regenerating a draft" },

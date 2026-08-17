@@ -9,6 +9,8 @@ interface PuppeteerPage {
   setContent(html: string): Promise<void>;
   $(sel: string): Promise<PuppeteerEl | null>;
   screenshot(opts: { type: "png"; omitBackground?: boolean }): Promise<Uint8Array>;
+  evaluate<T>(fn: string | ((...a: unknown[]) => T), ...args: unknown[]): Promise<T>;
+  emulateMediaFeatures?(features: { name: string; value: string }[]): Promise<void>;
   close(): Promise<void>;
 }
 interface PuppeteerEl {
@@ -72,6 +74,34 @@ export async function rasterizeToPng(input: {
   try {
     const page = await browser.newPage();
     return await shotSvg(page, inner, width, omitBackground);
+  } finally {
+    await browser.close();
+  }
+}
+
+// One animated SVG, N timepoints. setContent ONCE, then seek+screenshot per
+// frame via SVG SMIL's setCurrentTime (CSS @keyframes can't be seeked this
+// way — the caller is responsible for authoring SMIL, not CSS, animation).
+// deviceScaleFactor is pinned to 1 (unlike rasterizeToPng/rasterizeManyToPng's
+// 2x) so a 720px CSS width yields ~720px frames, not a 1440px multi-MB GIF.
+export async function rasterizeSvgFrames(svg: string, timepoints: number[], width: number): Promise<Buffer[]> {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.emulateMediaFeatures?.([{ name: "prefers-reduced-motion", value: "no-preference" }]);
+    await page.setViewport({ width, height: 2000, deviceScaleFactor: 1 });
+    await page.setContent(shellHtml(svg, width));
+    const out: Buffer[] = [];
+    for (const t of timepoints) {
+      await page.evaluate((tt: unknown) => {
+        const s = document.querySelector("svg") as (SVGSVGElement | null);
+        if (s && typeof s.setCurrentTime === "function") { s.pauseAnimations?.(); s.setCurrentTime(tt as number); }
+      }, t);
+      const el = await page.$("#target");
+      const buf = el ? await el.screenshot({ type: "png" }) : await page.screenshot({ type: "png" });
+      out.push(Buffer.from(buf));
+    }
+    return out;
   } finally {
     await browser.close();
   }

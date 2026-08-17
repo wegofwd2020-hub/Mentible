@@ -77,12 +77,10 @@ const VALIDATED_PROJECT_DETAIL = {
   topic_status: [{ topic_id: "topic-1", status: "validated", latest_version_id: "tv-1", version_no: 1 }],
 };
 
-const CAROUSEL_RESULT = {
-  frames: [
-    { card: { headline: "Frame one", subtext: "First frame body.", source_label: "Stormwater 101" }, image_png_base64: "AAA" },
-    { card: { headline: "Frame two", subtext: "Second frame body.", source_label: "Stormwater 101" }, image_png_base64: "BBB" },
-    { card: { headline: "Frame three", subtext: "Third frame body.", source_label: "Stormwater 101" }, image_png_base64: "CCC" },
-  ],
+const ANIMATED_RESULT = {
+  card: { headline: "Detention basins", subtext: "Hold stormwater.", source_label: "Stormwater 101" },
+  preset: "fade",
+  image_gif_base64: "R0lGODlhAQABAAAAACw=",
   provenance: "ai-generated",
 };
 
@@ -97,69 +95,73 @@ beforeEach(() => {
   (getProject as jest.Mock).mockResolvedValue(VALIDATED_PROJECT_DETAIL);
 });
 
-it("switching to Carousel mode shows the source field", async () => {
+it("switching to Animated mode shows the source field and preset selector", async () => {
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  expect(await screen.findByLabelText("Carousel source text")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
+  expect(await screen.findByLabelText("Animated source text")).toBeTruthy();
+  expect(screen.getByLabelText("Preset: Fade")).toBeTruthy();
+  expect(screen.getByLabelText("Preset: Slide-up")).toBeTruthy();
+  expect(screen.getByLabelText("Preset: Build-in")).toBeTruthy();
 });
 
-it("Make carousel with source text calls makeCarousel with source_text", async () => {
+it("Make animated card with source text calls makeAnimated with source_text and preset fade", async () => {
   const runMock = jest.fn();
-  mockCarouselHook({ run: runMock });
+  mockAnimatedHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.changeText(screen.getByLabelText("Carousel source text"), "Detention basins hold stormwater.");
-  fireEvent.press(screen.getByLabelText("Make carousel"));
+  fireEvent.changeText(screen.getByLabelText("Animated source text"), "Detention basins hold stormwater.");
+  fireEvent.press(screen.getByLabelText("Make animated card"));
   expect(runMock).toHaveBeenCalledWith(
-    expect.objectContaining({ source_text: "Detention basins hold stormwater." }),
+    expect.objectContaining({ source_text: "Detention basins hold stormwater.", preset: "fade" }),
   );
-  const sent = runMock.mock.calls[0][0];
-  expect("size" in sent).toBe(false);
 });
 
-it("renders 3 frame images and headlines plus a Download all button for a 3-frame result", async () => {
-  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
-  render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-
-  const img1 = screen.getByLabelText("Carousel frame 1 preview");
-  const img2 = screen.getByLabelText("Carousel frame 2 preview");
-  const img3 = screen.getByLabelText("Carousel frame 3 preview");
-  expect(img1.props.source.uri).toBe("data:image/png;base64,AAA");
-  expect(img2.props.source.uri).toBe("data:image/png;base64,BBB");
-  expect(img3.props.source.uri).toBe("data:image/png;base64,CCC");
-
-  expect(screen.getByText("Frame one")).toBeTruthy();
-  expect(screen.getByText("Frame two")).toBeTruthy();
-  expect(screen.getByText("Frame three")).toBeTruthy();
-
-  expect(screen.getByLabelText("Download all")).toBeTruthy();
-});
-
-it("pressing Download all downloads every frame as image/png", async () => {
-  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
-  render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.press(screen.getByLabelText("Download all"));
-  await waitFor(() => expect(downloadArtifact).toHaveBeenCalledTimes(3));
-  expect(downloadArtifact).toHaveBeenNthCalledWith(1, expect.anything(), "frame-1.png", "image/png");
-  expect(downloadArtifact).toHaveBeenNthCalledWith(2, expect.anything(), "frame-2.png", "image/png");
-  expect(downloadArtifact).toHaveBeenNthCalledWith(3, expect.anything(), "frame-3.png", "image/png");
-});
-
-it("picking a validated section calls makeCarousel with topic_version_id, not source_text", async () => {
+it("selecting Slide-up then Make sends preset slide", async () => {
   const runMock = jest.fn();
-  mockCarouselHook({ run: runMock });
+  mockAnimatedHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  fireEvent.press(screen.getByLabelText("Carousel source: Pick a validated section"));
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
+  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
+  fireEvent.changeText(screen.getByLabelText("Animated source text"), "Detention basins hold stormwater.");
+  fireEvent.press(screen.getByLabelText("Preset: Slide-up"));
+  fireEvent.press(screen.getByLabelText("Make animated card"));
+  expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ preset: "slide" }));
+});
+
+it("renders the GIF preview and headline/subtext for a returned result, with a Download button", async () => {
+  mockAnimatedHook({ status: "done", result: ANIMATED_RESULT });
+  render(<PostsScreen />);
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
+  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
+
+  const img = screen.getByLabelText("Animated card preview");
+  // expo-image normalizes `source` into an array of resolved sources.
+  expect(img.props.source[0].uri).toBe(`data:image/gif;base64,${ANIMATED_RESULT.image_gif_base64}`);
+  expect(screen.getByText("Detention basins")).toBeTruthy();
+  expect(screen.getByText("Hold stormwater.")).toBeTruthy();
+  expect(screen.getByLabelText("Download animated card")).toBeTruthy();
+});
+
+it("pressing Download calls downloadArtifact with image/gif", async () => {
+  mockAnimatedHook({ status: "done", result: ANIMATED_RESULT });
+  render(<PostsScreen />);
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
+  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
+  fireEvent.press(screen.getByLabelText("Download animated card"));
+  await waitFor(() => expect(downloadArtifact).toHaveBeenCalledWith(expect.anything(), "card.gif", "image/gif"));
+});
+
+it("picking a validated section calls makeAnimated with topic_version_id, not source_text", async () => {
+  const runMock = jest.fn();
+  mockAnimatedHook({ run: runMock });
+  render(<PostsScreen />);
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
+  fireEvent.press(screen.getByLabelText("Animated source: Pick a validated section"));
 
   const row = await screen.findByLabelText(/Validated section: Stormwater 101/);
   fireEvent.press(row);
-  fireEvent.press(screen.getByLabelText("Make carousel"));
+  fireEvent.press(screen.getByLabelText("Make animated card"));
 
   expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ topic_version_id: "tv-1" }));
   const sent = runMock.mock.calls[0][0];
@@ -167,9 +169,9 @@ it("picking a validated section calls makeCarousel with topic_version_id, not so
 });
 
 it("shows the add-key message when known-not-Pro and no key", async () => {
-  mockCarouselHook({ status: "failed", error: "No API key saved. Go to Settings and paste your Anthropic key." });
+  mockAnimatedHook({ status: "failed", error: "No API key saved. Go to Settings and paste your Anthropic key." });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Animated"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
   expect(screen.getByText(/no api key saved/i)).toBeTruthy();
 });

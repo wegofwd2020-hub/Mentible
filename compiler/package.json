@@ -16,17 +16,20 @@
   "dependencies": {
     "docx": "^9.7.1",
     "dompurify": "^3.4.13",
+    "gifenc": "^1.0.3",
     "jsdom": "^26.1.0",
     "jszip": "^3.10.1",
     "katex": "^0.17.0",
     "marked": "^18.0.5",
-    "marked-katex-extension": "^5.1.10"
+    "marked-katex-extension": "^5.1.10",
+    "pngjs": "^7.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^21.1.7",
     "@types/katex": "^0.16.8",
     "@types/node": "^20.19.43",
+    "@types/pngjs": "^6.0.5",
     "fast-xml-parser": "^5.9.3",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.11",
