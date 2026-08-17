@@ -41,6 +41,7 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
+from .quality import version_quality
 from .tasks import generate_book_task, generate_topic_task, generate_version_task, suggest_toc_task
 from .toc_util import find_toc_topic
 
@@ -303,6 +304,9 @@ async def get_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     ap = await approval_repo.get_approval(conn, version_id=version_id)
     fb = await feedback_repo.list_feedback(conn, version_id=version_id)
+    live_ids = {str(i.id) for i in await project_repo.list_inputs(conn, project_id=project_id)}
+    q = version_quality((v.content or {}).get("sections", []), live_ids)
+    q["grounding"] = None  # Task 4 replaces this with the stored report (+ stale)
     return schemas.VersionDetailOut(
         id=str(v.id),
         artifact_id=str(v.artifact_id),
@@ -312,6 +316,7 @@ async def get_version(
         is_validated=ap is not None and ap.action == "approve",
         recorded_via=ap.recorded_via if ap and ap.action == "approve" else None,
         created_at=v.created_at,
+        quality=q,
         feedback=[
             schemas.FeedbackOut(
                 id=str(f.id),
@@ -1025,6 +1030,9 @@ async def get_topic_version(
     latest = await topic_approval_repo.get_latest_topic_approval(
         conn, topic_version_id=topic_version_id
     )
+    live_ids = {str(i.id) for i in await project_repo.list_inputs(conn, project_id=project_id)}
+    q = version_quality((tv.content or {}).get("sections", []), live_ids)
+    q["grounding"] = None  # Task 4 replaces this with the stored report (+ stale)
     return schemas.TopicVersionDetailOut(
         id=str(tv.id),
         topic_id=tv.topic_id,
@@ -1035,6 +1043,7 @@ async def get_topic_version(
         is_validated=latest is not None and latest.action == "approve",
         recorded_via=latest.recorded_via if latest and latest.action == "approve" else None,
         generation_meta=tv.generation_meta,
+        quality=q,
         feedback=[
             schemas.TopicFeedbackOut(
                 id=str(f.id),

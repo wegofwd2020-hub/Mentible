@@ -17,6 +17,10 @@ export interface ArtifactView {
 }
 export interface VersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean; recorded_via: string | null }
 export interface DraftSection { heading: string; body: string; source_ids: string[] }
+export interface CoverageReport { sections_total: number; sections_cited: number; uncited_section_indexes: number[]; dangling: { section_index: number; source_id: string }[]; source_refs: number }
+export interface Readability { flesch_reading_ease: number; grade_level: number; words: number; sentences: number }
+export interface GroundingReport { claims_total: number; supported: number; partial: number; unsupported: number; by_section: { section_index: number; claims: { text: string; status: "supported" | "partial" | "unsupported"; source_ids: string[] }[] }[]; model: string; checked_at: string; stale: boolean }
+export interface QualityReport { coverage: CoverageReport; readability: Readability; grounding: GroundingReport | null }
 export interface FeedbackView {
   id: string; version_id: string; author_kind: string; author_name: string | null;
   body: string; created_at: string | null; section_index: number | null;
@@ -27,6 +31,7 @@ export interface VersionDetailView {
   generation_meta: Record<string, unknown> | null;
   is_validated: boolean; recorded_via: string | null; created_at: string | null;
   feedback: FeedbackView[];
+  quality?: QualityReport | null;
 }
 export interface ArtifactDetailView { artifact: ArtifactView; versions: VersionSummaryView[] }
 export interface ProjectInputView {
@@ -64,6 +69,7 @@ export interface TopicVersionDetailView {
   is_validated: boolean; recorded_via: string | null;
   generation_meta: Record<string, unknown> | null;
   feedback: TopicFeedbackView[];
+  quality?: QualityReport | null;
 }
 export interface TopicVersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean }
 
