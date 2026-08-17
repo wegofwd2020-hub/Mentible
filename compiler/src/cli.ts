@@ -6,18 +6,20 @@ import { compileDocx } from "./docx";
 import { PuppeteerMermaidRenderer } from "./mermaid";
 import { buildCoverSvgFile, coverInputForBook } from "./cover";
 import { renderCoverPng } from "./coverRaster";
+import { compileCard, type CardInput } from "./card";
 import type { Book } from "./types";
 
-// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover] [--mermaid]
+// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover|card] [--mermaid]
 //   input      a path, or "-" / omitted to read book JSON from stdin
 //   -o         a path, or "-" to write to stdout (default when reading stdin)
 //   --format   epub (default) | pdf (Vivliostyle textbook layout) |
 //              docx (Word) | cover (a PNG thumbnail of the book's cover, for
-//              the Library)
+//              the Library) | card (a branded quote/summary PNG card, for
+//              Publish — reads a CardInput JSON on stdin, not a Book)
 //   --mermaid  render diagrams to inline SVG (needs a headless browser); else
 //              diagrams fall back to a readable text placeholder.
 
-type Format = "epub" | "pdf" | "cover" | "docx";
+type Format = "epub" | "pdf" | "cover" | "docx" | "card";
 
 function parseArgs(argv: string[]): {
   input?: string;
@@ -34,7 +36,7 @@ function parseArgs(argv: string[]): {
     if (a === "--mermaid") mermaid = true;
     else if (a === "--format") {
       const f = argv[++i];
-      format = f === "pdf" ? "pdf" : f === "cover" ? "cover" : f === "docx" ? "docx" : "epub";
+      format = f === "pdf" ? "pdf" : f === "cover" ? "cover" : f === "docx" ? "docx" : f === "card" ? "card" : "epub";
     } else if (a === "--pdf") format = "pdf";
     else if (a === "-o") output = argv[++i];
     else if (!input) input = a;
@@ -53,6 +55,13 @@ async function main(): Promise<void> {
 
   const fromStdin = !input || input === "-";
   const raw = fromStdin ? (await readStdin()).toString("utf8") : readFileSync(input, "utf8");
+
+  if (format === "card") {
+    const out = await compileCard(JSON.parse(raw) as CardInput);
+    process.stdout.write(Buffer.from(out));
+    return;
+  }
+
   const book = JSON.parse(raw) as Book;
 
   const mermaidOpt = mermaid ? { mermaid: new PuppeteerMermaidRenderer() } : {};
