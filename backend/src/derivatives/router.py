@@ -112,7 +112,7 @@ async def _resolve_key_and_source(
         if db_pool is None or principal is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="sign in to card a project section",
+                detail="sign in to publish a project section",
             )
         async with db_pool.acquire() as conn:
             project_id = await topic_repo.project_id_for_topic_version(

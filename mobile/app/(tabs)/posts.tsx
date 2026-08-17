@@ -265,7 +265,7 @@ export default function PostsScreen() {
         />
       ) : validatedSections.length === 0 ? (
         <Text style={styles.helper}>
-          No validated sections yet — validate a topic in Projects to publish it as a card.
+          No validated sections yet — validate a topic in Projects to publish it as a {kind === "Card" ? "card" : "carousel"}.
         </Text>
       ) : (
         <View style={styles.sectionsList}>
