@@ -26,6 +26,7 @@ import pytest
 from wegofwd_llm.errors import LLMSchemaError
 
 from backend.config import settings
+from backend.src.billing import pricing
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.generate.tasks import _byok_redis_key, _job_status_redis_key
 from backend.src.trust import artifact_repo, grounding_repo, project_repo
@@ -145,6 +146,7 @@ async def test_task_upserts_report_and_writes_done(conn, fake_redis):
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     body = await _status(fake_redis, job_id)
@@ -169,6 +171,7 @@ async def test_task_uses_the_managed_vault_key_when_managed(conn, fake_redis, mo
             provider_id="anthropic",
             model="m",
             managed=True,
+            recorded_by_sub="owner-sub",
         )
 
     body = await _status(fake_redis, job_id)
@@ -189,6 +192,7 @@ async def test_unknown_version_writes_failed_status(conn, fake_redis):
         provider_id="anthropic",
         model="m",
         managed=False,
+        recorded_by_sub="owner-sub",
     )
 
     body = await _status(fake_redis, job_id)
@@ -209,6 +213,7 @@ async def test_provider_error_writes_failed_status(conn, fake_redis):
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     body = await _status(fake_redis, job_id)
@@ -233,6 +238,7 @@ async def test_status_payload_never_contains_the_key_on_success(conn, fake_redis
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     raw = await fake_redis.get(_job_status_redis_key(job_id))
@@ -255,6 +261,7 @@ async def test_envelope_deleted_after_success(conn, fake_redis):
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     assert await fake_redis.get(_byok_redis_key(job_id)) is None
@@ -273,6 +280,7 @@ async def test_envelope_deleted_after_failure(conn, fake_redis):
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     assert await fake_redis.get(_byok_redis_key(job_id)) is None
@@ -293,6 +301,7 @@ async def test_rerun_upserts_the_same_row(conn, fake_redis):
             provider_id="anthropic",
             model="m",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     job_id_2 = uuid.uuid4()
@@ -305,6 +314,7 @@ async def test_rerun_upserts_the_same_row(conn, fake_redis):
             provider_id="anthropic",
             model="m2",
             managed=False,
+            recorded_by_sub="owner-sub",
         )
 
     rows = await conn.fetch(
@@ -337,10 +347,95 @@ def test_grounding_check_task_wraps_run_grounding_check_via_asyncio_run():
                 "provider_id": "anthropic",
                 "model": "m",
                 "managed": False,
+                "recorded_by_sub": "sub-1",
             }
         ).get()
 
     assert str(calls["version_id"]) == "22222222-2222-2222-2222-222222222222"
     assert calls["version_kind"] == "artifact"
     assert calls["managed"] is False
+    assert calls["recorded_by_sub"] == "sub-1"
     assert str(calls["job_id"]) == "11111111-1111-1111-1111-111111111111"
+
+
+# ── Managed usage metering (P1-4 T4 fix round 1) ─────────────────────────────
+#
+# Mirrors `test_trust_usage_metering.py`'s pattern for `_run_version` /
+# `_run` / `_run_suggest`: a managed job must record exactly one `usage_event`
+# priced from the observed token counts (now surfaced by
+# `grounding.generate_grounding`'s `(report, input_tokens, output_tokens)`
+# return); a BYOK job must record none. `over_cap`'s allowance + the hard
+# spend ceiling read from this table, so an unmetered managed grounding-check
+# is a real billing gap — this is the regression test for that fix.
+
+
+async def _usage_events(conn, *, idp_sub: str) -> list[dict]:
+    rows = await conn.fetch(
+        """
+        SELECT ue.* FROM usage_event ue
+        JOIN account a ON a.id = ue.account_id
+        WHERE a.idp_sub = $1
+        """,
+        idp_sub,
+    )
+    return [dict(r) for r in rows]
+
+
+async def _all_usage_events(conn) -> list[dict]:
+    rows = await conn.fetch("SELECT * FROM usage_event")
+    return [dict(r) for r in rows]
+
+
+async def test_managed_grounding_check_records_one_usage_event_with_observed_tokens(
+    conn, fake_redis, monkeypatch
+):
+    version_id = await _project_with_version(conn)
+    job_id = uuid.uuid4()
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
+
+    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+        await trust_tasks._run_grounding_check(
+            job_id=job_id,
+            version_id=version_id,
+            version_kind="artifact",
+            provider_id="anthropic",
+            model="m",
+            managed=True,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+
+    events = await _usage_events(conn, idp_sub="owner-sub")
+    assert len(events) == 1
+    ev = events[0]
+    assert ev["provider"] == "anthropic"
+    assert ev["model"] == "m"
+    # fake_provider's default token counts (helpers.llm_response) — the one
+    # cited section makes exactly one LLM call.
+    assert ev["input_tokens"] == 100
+    assert ev["output_tokens"] == 500
+    assert ev["cost_micros"] == pricing.cost_micros("anthropic", "m", 100, 500)
+    assert ev["job_id"] == job_id
+
+
+async def test_byok_grounding_check_records_zero_usage_events(conn, fake_redis):
+    version_id = await _project_with_version(conn)
+    job_id = uuid.uuid4()
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+        await trust_tasks._run_grounding_check(
+            job_id=job_id,
+            version_id=version_id,
+            version_kind="artifact",
+            provider_id="anthropic",
+            model="m",
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    body = await _status(fake_redis, job_id)
+    assert body["status"] == "done"
+    assert await _all_usage_events(conn) == []

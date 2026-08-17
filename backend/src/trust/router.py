@@ -503,6 +503,7 @@ async def grounding_check_version(
         provider_id=body.provider_id,
         model=model,
         managed=managed,
+        recorded_by_sub=principal.sub,
     )
 
     # Safe-surface logging only — never the api_key, never the request body.
@@ -574,6 +575,7 @@ async def grounding_check_topic_version(
         provider_id=body.provider_id,
         model=model,
         managed=managed,
+        recorded_by_sub=principal.sub,
     )
 
     # Safe-surface logging only — never the api_key, never the request body.

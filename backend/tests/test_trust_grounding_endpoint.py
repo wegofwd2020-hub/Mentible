@@ -97,6 +97,7 @@ def test_owner_submits_grounding_check_returns_202_and_enqueues():
         assert kwargs["version_id"] == vid
         assert kwargs["version_kind"] == "artifact"
         assert kwargs["managed"] is False
+        assert kwargs["recorded_by_sub"] == owner
         assert "api_key" not in kwargs  # ADR-001: the key never rides along in task args
 
         job = c.get(f"/api/v1/jobs/{body['job_id']}").json()
@@ -143,6 +144,7 @@ def test_owner_submits_topic_grounding_check_returns_202_with_topic_kind():
         kwargs = mock_delay.call_args.kwargs
         assert kwargs["version_id"] == tvid
         assert kwargs["version_kind"] == "topic"
+        assert kwargs["recorded_by_sub"] == owner
 
 
 def test_grounding_check_unknown_version_404():

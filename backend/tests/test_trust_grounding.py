@@ -11,7 +11,7 @@ class _Src:  # minimal stand-in for a ProjectInput row
 def test_uncited_section_is_all_unsupported_without_an_llm_call():
     sections = [{"heading": "H", "body": "A claim.", "source_ids": []}]
     with patch("backend.src.trust.grounding.generate_validated") as gv:
-        rep = grounding.generate_grounding(
+        rep, in_tok, out_tok = grounding.generate_grounding(
             sections=sections,
             sources=[_Src("s1", "text")],
             provider_id="anthropic",
@@ -20,6 +20,8 @@ def test_uncited_section_is_all_unsupported_without_an_llm_call():
         )
         gv.assert_not_called()  # no cited source → no LLM call
     assert rep["claims_total"] == 1 and rep["unsupported"] == 1 and rep["supported"] == 0
+    # No LLM call → no tokens spent (P1-4 T4 fix round 1 metering).
+    assert in_tok == 0 and out_tok == 0
 
 
 def test_cited_section_maps_labels_and_aggregates():
@@ -36,10 +38,11 @@ def test_cited_section_maps_labels_and_aggregates():
                 ]
             },
         )()
-        total_input_tokens = total_output_tokens = 0
+        total_input_tokens = 120
+        total_output_tokens = 45
 
     with patch("backend.src.trust.grounding.generate_validated", return_value=_Res()):
-        rep = grounding.generate_grounding(
+        rep, in_tok, out_tok = grounding.generate_grounding(
             sections=sections,
             sources=[_Src("s1", "src text")],
             provider_id="anthropic",
@@ -50,12 +53,15 @@ def test_cited_section_maps_labels_and_aggregates():
     by = rep["by_section"][0]["claims"]
     assert by[0]["source_ids"] == ["s1"]  # S1 → real input id
     assert by[1]["source_ids"] == []
+    # The cited section made one LLM call → its observed tokens are summed
+    # into the totals (P1-4 T4 fix round 1 metering).
+    assert in_tok == 120 and out_tok == 45
 
 
 def test_empty_body_section_is_no_claims_no_llm_call():
     sections = [{"heading": "H", "body": "   ", "source_ids": ["s1"]}]
     with patch("backend.src.trust.grounding.generate_validated") as gv:
-        rep = grounding.generate_grounding(
+        rep, in_tok, out_tok = grounding.generate_grounding(
             sections=sections,
             sources=[_Src("s1", "text")],
             provider_id="anthropic",
@@ -65,11 +71,12 @@ def test_empty_body_section_is_no_claims_no_llm_call():
         gv.assert_not_called()
     assert rep["claims_total"] == 0
     assert rep["by_section"][0]["claims"] == []
+    assert in_tok == 0 and out_tok == 0
 
 
 def test_report_shape_keys_and_model():
     sections = [{"heading": "H", "body": "A claim.", "source_ids": []}]
-    rep = grounding.generate_grounding(
+    rep, _in_tok, _out_tok = grounding.generate_grounding(
         sections=sections,
         sources=[],
         provider_id="anthropic",
@@ -110,7 +117,7 @@ def test_unknown_source_label_from_model_is_dropped():
         total_input_tokens = total_output_tokens = 0
 
     with patch("backend.src.trust.grounding.generate_validated", return_value=_Res()):
-        rep = grounding.generate_grounding(
+        rep, _in_tok, _out_tok = grounding.generate_grounding(
             sections=sections,
             sources=[_Src("s1", "src text")],
             provider_id="anthropic",

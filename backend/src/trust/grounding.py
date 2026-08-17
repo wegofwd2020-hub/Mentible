@@ -53,23 +53,34 @@ def _source_content(sources, sid: str) -> str:
     return ""
 
 
-def generate_grounding(*, sections, sources, provider_id, api_key, model) -> dict:
+def generate_grounding(
+    *, sections, sources, provider_id, api_key, model
+) -> tuple[dict, int, int]:
     """Per section, split the body into sentence-level claims and label each
     supported/partial/unsupported against ONLY that section's cited sources.
     A section citing no live source (or with an empty body) is entirely
     `unsupported` with no LLM call. No I/O, no persistence — the caller
-    (tasks.py) resolves the key and stores the result."""
+    (tasks.py) resolves the key and stores the result.
+
+    Returns `(report, input_tokens, output_tokens)` — the token totals are
+    summed across every per-section `generate_validated` call (sections that
+    skip the LLM call contribute 0) so the caller can meter managed usage
+    (P1-4 T4 fix round 1). Not folded into `report` itself: T3's report-shape
+    test asserts the dict's key set with `==`, so widening it would be a
+    breaking change to an already-committed contract."""
     by_label = {f"S{i + 1}": str(s.id) for i, s in enumerate(sources)}
     id_to_label = {v: k for k, v in by_label.items()}
     by_section: list[dict] = []
     totals = {"supported": 0, "partial": 0, "unsupported": 0}
+    input_tokens = 0
+    output_tokens = 0
 
     for idx, sec in enumerate(sections):
         body = sec.get("body") or ""
         live_ids = [sid for sid in (sec.get("source_ids") or []) if sid in id_to_label]
         if not live_ids or not body.strip():
             # No cited source (or empty body) → every sentence is unsupported,
-            # no LLM call.
+            # no LLM call, no tokens spent.
             claims = (
                 [{"text": body.strip(), "status": "unsupported", "source_ids": []}]
                 if body.strip()
@@ -88,6 +99,8 @@ def generate_grounding(*, sections, sources, provider_id, api_key, model) -> dic
                 return _coerce(parse_json_response(text))
 
             res = generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
+            input_tokens += res.total_input_tokens
+            output_tokens += res.total_output_tokens
             claims = [
                 {
                     "text": c.text,
@@ -100,7 +113,7 @@ def generate_grounding(*, sections, sources, provider_id, api_key, model) -> dic
             totals[c["status"]] = totals.get(c["status"], 0) + 1
         by_section.append({"section_index": idx, "claims": claims})
 
-    return {
+    report = {
         "claims_total": sum(totals.values()),
         "supported": totals["supported"],
         "partial": totals["partial"],
@@ -108,3 +121,4 @@ def generate_grounding(*, sections, sources, provider_id, api_key, model) -> dic
         "by_section": by_section,
         "model": model,
     }
+    return report, input_tokens, output_tokens

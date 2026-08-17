@@ -1035,6 +1035,7 @@ async def _run_grounding_check(
     provider_id: str,
     model: str | None,
     managed: bool,
+    recorded_by_sub: str,
 ) -> None:
     """Do the actual work for one grounding-check job (P1-4 T4).
 
@@ -1047,12 +1048,12 @@ async def _run_grounding_check(
     (success, a known LLM failure, or an unexpected error) writes a status
     row and shreds the BYOK envelope.
 
-    Managed usage metering is intentionally NOT recorded here:
-    `grounding.generate_grounding` does its own internal `generate_validated`
-    call per section and doesn't surface aggregate token counts back to the
-    caller (see its report shape, asserted in `test_trust_grounding.py`), so
-    there are no "observed tokens" to meter — a known gap flagged in the P1-4
-    T4 report rather than recording a misleading zero-cost usage row.
+    Managed usage IS metered (P1-4 T4 fix round 1): `grounding.generate_grounding`
+    now returns `(report, input_tokens, output_tokens)` — the per-section
+    `generate_validated` token counts summed across the audit — and this
+    mirrors `_run_version`'s `_record_trust_usage` call exactly, best-effort,
+    after the report is persisted. BYOK jobs record nothing, same as every
+    other trust generation path.
     """
     r = _redis_client()
     api_key: str | None = None
@@ -1122,7 +1123,7 @@ async def _run_grounding_check(
                 r, job_id, "running"
             )  # phase: queued -> running (foreground progress)
             try:
-                report = await asyncio.to_thread(
+                report, in_tok, out_tok = await asyncio.to_thread(
                     generate_grounding,
                     sections=sections,
                     sources=sources,
@@ -1173,6 +1174,27 @@ async def _run_grounding_check(
                 model=resolved_model,
                 cited_content_hash=cited_content_hash(sources, cited),
             )
+
+            # Meter managed spend server-side (ADR-005 D6) — best-effort, after a
+            # successful audit + persist. BYOK jobs record nothing. The outer
+            # try/except is belt-and-suspenders so even `get_or_create_account`
+            # can't fail the job.
+            if managed:
+                try:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=recorded_by_sub, email=None
+                    )
+                    await _record_trust_usage(
+                        conn,
+                        account_id=acct.id,
+                        provider=provider_id,
+                        model=resolved_model,
+                        input_tokens=in_tok,
+                        output_tokens=out_tok,
+                        job_id=job_id,
+                    )
+                except Exception:
+                    log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
         finally:
             await conn.close()
 
@@ -1213,6 +1235,7 @@ def grounding_check_task(
     provider_id: str,
     model: str | None,
     managed: bool,
+    recorded_by_sub: str,
 ) -> None:
     asyncio.run(
         _run_grounding_check(
@@ -1222,5 +1245,6 @@ def grounding_check_task(
             provider_id=provider_id,
             model=model,
             managed=managed,
+            recorded_by_sub=recorded_by_sub,
         )
     )
