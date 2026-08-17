@@ -15,7 +15,7 @@ it("maps sections to lesson body_markdown and appends a Sources section for cite
   expect(book.title).toBe("Medicare guide");
   const topicId = Object.keys(book.content!)[0];
   const secs = book.content![topicId].lesson.sections;
-  expect(secs[0]).toEqual({ heading: "Windows", body_markdown: "Sign up during IEP." });
+  expect(secs[0]).toEqual({ heading: "Windows", body_markdown: "Sign up during IEP.", source_ids: ["i1"] });
   const sources = secs[secs.length - 1];
   expect(sources.heading).toBe("Sources");
   expect(sources.body_markdown).toContain("[S1] Interview 07-20");

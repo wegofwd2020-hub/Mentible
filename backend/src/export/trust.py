@@ -30,6 +30,7 @@ from wegofwd_llm.trust import (
     ComplianceBlock,
     ContentTrustManifest,
     IntegrityBlock,
+    SourcingBlock,
     engine_trust,
 )
 
@@ -159,6 +160,35 @@ def compute_compliance(book: dict, pdf_meta: dict) -> ComplianceBlock:
     )
 
 
+def compute_sourcing(book: dict) -> SourcingBlock | None:
+    """Deterministic section-coverage reading of `book["content"][*]["lesson"]["sections"]`:
+    every non-empty section must carry >=1 `source_ids` entry to be
+    `every_claim_cited`. `source_refs` is the count of DISTINCT source ids cited
+    across the book. If no section carries a `source_ids` field at all (an
+    older/ungrounded book), the block is omitted entirely — the manifest stays
+    "not assessed" rather than reporting a false `every_claim_cited=False`.
+
+    Scope note: this is the deterministic coverage reading only — the LLM claim
+    verdict (grounding check) is workspace-only and out of scope for the export
+    manifest this cut.
+    """
+    seen_any = False
+    all_cited = True
+    refs: set[str] = set()
+    for unit in _units(book):
+        for sec in ((unit.get("lesson") or {}).get("sections") or []):
+            if "source_ids" not in sec:
+                continue
+            seen_any = True
+            ids = sec.get("source_ids") or []
+            refs.update(ids)
+            if (sec.get("body_markdown") or "").strip() and not ids:
+                all_cited = False
+    if not seen_any:
+        return None
+    return SourcingBlock(every_claim_cited=all_cited, source_refs=len(refs))
+
+
 def base_manifest(book: dict) -> ContentTrustManifest:
     """The provenance/validation the book carries from generation. Re-stamped
     from the book's pinned provider/model (generationParams) so model-verification
@@ -174,12 +204,19 @@ def base_manifest(book: dict) -> ContentTrustManifest:
 def attach_export_trust(
     base: ContentTrustManifest, book: dict, pdf_meta: dict, *, signed: bool = False
 ) -> ContentTrustManifest:
-    """Attach compliance + integrity to a base (generation-time) manifest."""
-    return dataclasses.replace(
-        base,
-        compliance=compute_compliance(book, pdf_meta),
-        integrity=IntegrityBlock(content_hash=content_hash(book), signed=signed),
-    )
+    """Attach compliance + integrity to a base (generation-time) manifest.
+    Sourcing is attached only when the book's sections carry a `source_ids`
+    field at all (compute_sourcing returns None otherwise) — a book with no
+    section coverage stays "not assessed" instead of getting a fabricated block.
+    """
+    updates: dict[str, Any] = {
+        "compliance": compute_compliance(book, pdf_meta),
+        "integrity": IntegrityBlock(content_hash=content_hash(book), signed=signed),
+    }
+    sourcing = compute_sourcing(book)
+    if sourcing is not None:
+        updates["sourcing"] = sourcing
+    return dataclasses.replace(base, **updates)
 
 
 def export_manifest(book: dict, artifact: bytes) -> ContentTrustManifest:

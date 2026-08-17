@@ -15,6 +15,7 @@ export function artifactToBook(
   const lessonSections: LessonSection[] = sections.map((s) => ({
     heading: s.heading,
     body_markdown: s.body,
+    source_ids: s.source_ids,
   }));
 
   const labelFor = new Map(inputs.map((inp, i) => [inp.id, `S${i + 1}`] as const));

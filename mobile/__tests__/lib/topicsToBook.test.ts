@@ -28,8 +28,12 @@ it("assembles per-topic drafts into a multi-topic Book with an aggregated Source
   expect(book.toc.subjects[1].subject_label).toBe("Rhythm Basics");
   expect(book.toc.subjects[1].units[0].id).toBe("u2");
 
-  expect(book.content!["u1"].lesson.sections).toEqual([{ heading: "Staff", body_markdown: "5 lines" }]);
-  expect(book.content!["u2"].lesson.sections).toEqual([{ heading: "Rhythm", body_markdown: "beats" }]);
+  expect(book.content!["u1"].lesson.sections).toEqual([
+    { heading: "Staff", body_markdown: "5 lines", source_ids: ["i1"] },
+  ]);
+  expect(book.content!["u2"].lesson.sections).toEqual([
+    { heading: "Rhythm", body_markdown: "beats", source_ids: [] },
+  ]);
 
   const sourcesSubject = book.toc.subjects[book.toc.subjects.length - 1];
   expect(sourcesSubject.subject_label).toBe("Sources");
