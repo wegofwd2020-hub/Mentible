@@ -176,6 +176,27 @@ export async function generateVersion(
   )) as VersionGenerateJobOut;
 }
 
+// On-demand quality/grounding check (T4/T6): POST .../grounding-check
+// returns 202 + this job handle immediately (same shape as generateVersion);
+// the actual LLM grounding pass runs in a Celery worker. Poll via the shared
+// GET /api/v1/jobs/{id} endpoint (@/api/pollJob), then refetch the version so
+// `quality.grounding` reflects the fresh result.
+export async function runGroundingCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/artifacts/versions/${versionId}/grounding-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
+export async function runTopicGroundingCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/topic-versions/${versionId}/grounding-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
 export async function invite(projectId: string, email: string, role: "reviewer" | "editor", token: string): Promise<InvitationView> {
   return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email, role }) })) as InvitationView;
 }

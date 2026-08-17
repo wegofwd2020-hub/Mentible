@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { getTopicVersion, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
+import { getTopicVersion, runTopicGroundingCheck, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
+import { pollJob } from "@/api/pollJob";
 import { Alert } from "@/lib/alert";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -16,6 +17,8 @@ import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
 import { describeProvenance } from "@/lib/draftProvenance";
 import { GenerateProgressBar } from "@/components/GenerateProgressBar";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
+import { QualityCard } from "@/components/QualityCard";
+import { loadApiKey } from "@/secure/keyStore";
 
 type Styles = ReturnType<typeof makeStyles>;
 type GenProgress = { startedAt: number; phase: "queued" | "running" };
@@ -47,6 +50,7 @@ function TopicVersionViewerInner() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [grBusy, setGrBusy] = useState(false);
   const role = project?.my_role;
   const isOwner = role === "owner";
   const canEdit = role === "owner" || role === "editor";
@@ -62,6 +66,22 @@ function TopicVersionViewerInner() {
     () => (topicVersion ? topicVersionToTopic(topicVersion) : null),
     [topicVersion],
   );
+
+  // Per-section index -> short quality notes ("uncited", "dangling source",
+  // "unsupported claims"), derived from `topicVersion.quality` (T2/T4).
+  // Mirrors trust/version/[versionId].tsx's sectionNotes memo.
+  const sectionNotes = useMemo(() => {
+    const q = topicVersion?.quality;
+    const m = new Map<number, string[]>();
+    if (!q) return m;
+    const add = (i: number, note: string) => m.set(i, [...(m.get(i) ?? []), note]);
+    q.coverage.uncited_section_indexes.forEach((i) => add(i, "uncited"));
+    q.coverage.dangling.forEach((d) => add(d.section_index, "dangling source"));
+    q.grounding?.by_section.forEach((s) => {
+      if (s.claims.some((c) => c.status === "unsupported")) add(s.section_index, "unsupported claims");
+    });
+    return m;
+  }, [topicVersion]);
 
   // Re-fetch just this version (used after approve/withdraw so the header's
   // validated state reflects the append-only toggle).
@@ -271,6 +291,31 @@ function TopicVersionViewerInner() {
     })();
   };
 
+  // Owner-only: submits the on-demand grounding check (billable LLM pass),
+  // polls the shared /jobs/{id} until done|failed, then refetches this
+  // version so `quality.grounding` reflects the fresh result. Mirrors
+  // trust/version/[versionId].tsx's onRunGrounding.
+  const onRunGrounding = () => {
+    if (!accessToken) return;
+    setGrBusy(true);
+    void (async () => {
+      try {
+        const key = await loadApiKey("anthropic");
+        const submitted = await runTopicGroundingCheck(String(id), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
+        await pollJob(submitted.job_id, accessToken, {
+          intervalMs: 3_000,
+          timeoutMessage: "Timed out waiting for the grounding check",
+          failedMessage: "Grounding check failed",
+        });
+        await reload().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't run grounding check", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setGrBusy(false);
+      }
+    })();
+  };
+
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!topicVersion) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
 
@@ -297,6 +342,9 @@ function TopicVersionViewerInner() {
               ) : null}
             </View>
           ) : null}
+        </View>
+        <View style={styles.qualityRow}>
+          <QualityCard quality={topicVersion.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} />
         </View>
         {!editing ? (
           <View style={styles.readerBody}>
@@ -390,6 +438,9 @@ function TopicVersionViewerInner() {
           <>
             {draft.map((s, i) => (
               <Card key={i} style={styles.editRow}>
+                {(sectionNotes.get(i) ?? []).length > 0 ? (
+                  <Text style={styles.sectionQualityNote}>{(sectionNotes.get(i) ?? []).join(" · ")}</Text>
+                ) : null}
                 <TextInput
                   style={styles.input}
                   value={s.heading}
@@ -540,6 +591,8 @@ const makeStyles = (c: Palette) => ({
   badgeRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
   chip: { color: c.primaryText, backgroundColor: c.primary, fontSize: typography.sizeSm, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
+  qualityRow: { marginHorizontal: spacing.md, marginTop: spacing.sm },
+  sectionQualityNote: { color: c.error, fontSize: typography.sizeXs },
   // Bounded (flex:1) so TopicRenderer's reader can size against it and scroll
   // its own content — see the render-body comment above.
   readerBody: { flex: 1 as const, marginTop: spacing.sm },

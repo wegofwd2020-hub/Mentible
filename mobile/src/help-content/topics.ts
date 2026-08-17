@@ -658,6 +658,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "grounding-report",
+    title: "Quality report: coverage, readability & grounding",
+    featureKey: "grounding-report",
+    keywords: ["quality", "coverage", "readability", "grounding", "grade level", "flesch", "claims", "supported", "unsupported", "cited", "uncited", "dangling", "stale", "re-run"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Open a draft version to see its Quality card. Coverage shows how many sections cite a source (for example \"8/10 sections cite a source\"), and flags any uncited sections or dangling citations — a citation pointing at a source that no longer exists.",
+      },
+      {
+        kind: "text",
+        text: "Readability shows a grade level and Flesch reading-ease score for the drafted text. Both are directional estimates from a standard formula, not a strict guarantee of how the content reads.",
+      },
+      {
+        kind: "text",
+        text: "Grounding is different: it's an on-demand check, not automatic. An owner taps \"Run grounding check\" to have the AI model re-read the draft against its cited sources and score each claim as supported, partial, or unsupported (for example \"41/47 claims supported\"). Because it's a separate, billable pass over the same model you're generating with, it only runs when you ask for it.",
+      },
+      {
+        kind: "text",
+        text: "If the draft changes after a grounding check — a new version, an edited section, or an updated source — the existing result is marked stale, with a note to re-run it. Sections with uncited content, a dangling citation, or unsupported claims are annotated inline so you know exactly where to look.",
+      },
+    ],
+  },
+  {
     id: "generate-full-book",
     title: "Generate the whole book at once",
     featureKey: "generate-full-book",
