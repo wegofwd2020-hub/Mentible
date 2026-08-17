@@ -100,6 +100,27 @@ Deduped against Section A. Grouped by source; **near-built quick wins** called o
   shelf. `docs/EXPORT_STATUS_AND_OPEN_LIBRARY_PLAN.md` §B5 · explicitly deferred (rest of Phase B
   is built).
 
+### B3. Originality & rights — confirmed UNBUILT gaps (2026-08-17)
+
+Neither is built anywhere in `backend/` `mobile/` `compiler/` (verified by grep 2026-08-17); both need an
+**external service** and would share the provider-integration + quality-report-surface plumbing, so scope
+them together as one "originality & rights" slice.
+
+- **Plagiarism / originality detection** — ⬜ **NOT built.** Explicitly deferred (P1-4 spec + the P1-4 row:
+  "external-originality checks — needs a third-party service; out"). What ships is **grounding** (does each
+  claim trace to *your cited sources* — fidelity, not against-the-world originality). Real detection =
+  compare text vs the public web / a corpus → a Copyscape/Turnitin-class API or an embeddings-over-corpus
+  job, surfaced as a score next to grounding in the `quality` report. Billable/third-party-gated.
+- **Copyright-violation detection** — ⬜ **NOT built.** Only rights *display/passthrough* exists: Open
+  Shelves `rightsText` (feed metadata, verbatim), the compiler colophon `dc:rights` line (author-supplied),
+  and Content-Trust provenance (generation lineage, not ownership). The only *governance* mechanism is
+  **ADR-021** (Everyone Library) — a super-admin **manual** archive/flag/complaint queue (reactive,
+  DMCA-style), and it is **Proposed, not built**. No automated infringement scanning (content-ID / rights
+  clearance / image-audio fingerprinting).
+
+The `docs/PROFESSIONAL_PUBLISHING.md` KDP checklist lists a plagiarism/originality screen as an **author
+responsibility**, not a product feature — consistent with the above.
+
 ### C. Doc-vs-code discrepancies to fix (housekeeping, not features)
 
 - **ADR-027 status is stale** — its line says D5–D8 (Open-Library publish, registration-gated
