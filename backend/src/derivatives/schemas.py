@@ -124,6 +124,13 @@ class CardRequest(BaseModel):
     provider_id: str = "anthropic"
     model: str | None = None
 
+    @field_validator("provider_id")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in PROVIDER_REGISTRY:
+            raise ValueError(f"unknown provider_id {v!r}")
+        return v
+
     @model_validator(mode="after")
     def _exactly_one_source(self) -> CardRequest:
         if bool(self.source_text) == bool(self.topic_version_id):

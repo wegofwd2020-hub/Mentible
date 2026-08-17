@@ -46,18 +46,33 @@ def build_derivative_prompt(
     )
 
 
+_CARD_SIZE_RULES = {
+    # Portrait — the tallest canvas of the three, so subtext can run a touch
+    # longer without crowding the card.
+    "story": "This is a tall PORTRAIT card (story format). Subtext may use the fuller end of the range, up to 2 short lines.",
+    # Short, wide landscape — least vertical room, so keep subtext tight.
+    "linkedin": "This is a short, wide LANDSCAPE card (LinkedIn format). Keep subtext tight and to one line where possible.",
+    # Balanced default.
+    "square": "This is a balanced SQUARE card. Keep subtext to one or two short lines.",
+}
+
+
 def build_card_prompt(source_text: str, size: str, tone: str | None) -> str:
     """Return the prompt for generating a single promotional image-card's copy.
 
     Output is JSON conforming to `schemas.CardContent`. Unlike
     `build_derivative_prompt` (3 platform posts), this produces one short
     headline + subtext pair meant to sit on top of a rendered image card —
-    PROMOTE the source, invent nothing beyond it.
+    PROMOTE the source, invent nothing beyond it. `size` nudges subtext length
+    to fit the card's aspect ratio (see `_CARD_SIZE_RULES`); the headline <= 60
+    character rule is unchanged across sizes.
     """
     tone_line = f"Tone: {tone}.\n" if tone else ""
+    size_line = _CARD_SIZE_RULES.get(size, _CARD_SIZE_RULES["square"])
     return (
         "You write a short, punchy quote/summary CARD that PROMOTES the source below. "
         "Invent nothing beyond the source.\n"
+        f"{size_line}\n"
         f"{tone_line}"
         'Return ONLY JSON: {"headline": string, "subtext": string, "source_label": string|null}.\n'
         "headline: <= 60 characters, a hook. subtext: <= 160 characters, one or two lines. "
