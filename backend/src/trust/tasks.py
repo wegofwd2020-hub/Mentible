@@ -21,6 +21,7 @@ to the job status row, a log line, or a DB row.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 
@@ -44,14 +45,29 @@ from backend.src.generate.tasks import (
     _write_status,
 )
 
-from . import artifact_repo, book_gen, generation_job_repo, project_repo, topic_repo
-from .access import project_id_for_artifact
+from . import artifact_repo, book_gen, generation_job_repo, grounding_repo, project_repo, topic_repo
+from .access import project_id_for_artifact, project_id_for_version
 from .generate import draft_output_to_sections, generate_draft
 from .generate_topic import generate_topic_draft
+from .grounding import generate_grounding
 from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
 
 log = get_logger("trust.tasks")
+
+
+def cited_content_hash(sources, cited_ids: set[str]) -> str:
+    """Hash the content of every source id in `cited_ids` (order-independent —
+    walks `sources` in its given order, so a stable ordering upstream keeps
+    this stable). Used to detect a stale stored grounding report: if any
+    cited source's `content_hash` changes (or a citation is added/removed),
+    this hash changes too. P1-4 T4."""
+    h = hashlib.sha256()
+    for s in sources:
+        if str(s.id) in cited_ids:
+            h.update((s.content_hash or "").encode())
+            h.update(b"|")
+    return h.hexdigest()
 
 
 def _redis_client() -> redis.Redis:
@@ -1007,5 +1023,204 @@ def generate_book_task(
             model=model,
             managed=managed,
             recorded_by_sub=recorded_by_sub,
+        )
+    )
+
+
+async def _run_grounding_check(
+    *,
+    job_id: uuid.UUID,
+    version_id: uuid.UUID,
+    version_kind: str,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+) -> None:
+    """Do the actual work for one grounding-check job (P1-4 T4).
+
+    Mirrors `_run_version`'s exact shape (key resolution, the `running`
+    write, shred-on-every-exit-path) — deltas are: nothing is created, an
+    existing artifact/topic version's sections are re-audited against the
+    project's sources and the resulting report is UPSERTED into
+    `version_grounding` (keyed by `(version_id, version_kind)`, so a re-run
+    simply replaces the prior report). Never raises — every exit path
+    (success, a known LLM failure, or an unexpected error) writes a status
+    row and shreds the BYOK envelope.
+
+    Managed usage metering is intentionally NOT recorded here:
+    `grounding.generate_grounding` does its own internal `generate_validated`
+    call per section and doesn't surface aggregate token counts back to the
+    caller (see its report shape, asserted in `test_trust_grounding.py`), so
+    there are no "observed tokens" to meter — a known gap flagged in the P1-4
+    T4 report rather than recording a misleading zero-cost usage row.
+    """
+    r = _redis_client()
+    api_key: str | None = None
+    try:
+        # (a) Idempotency — a redelivered/retried task (task_acks_late) must
+        # not repeat an already-completed grounding check for this job.
+        raw = await r.get(_job_status_redis_key(job_id))
+        if raw is not None:
+            try:
+                already = json.loads(raw).get("status")
+            except (json.JSONDecodeError, AttributeError):
+                already = None
+            if already == "done":
+                return
+
+        # (b) Resolve the provider key: managed = OUR vault key (ADR-005 D6),
+        # BYOK = decrypt the per-job envelope.
+        if managed:
+            api_key = get_managed_key(provider_id)
+            if not api_key:
+                log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
+                await _write_status(r, job_id, "failed", error="managed generation unavailable")
+                return
+        else:
+            envelope_blob = await r.get(_byok_redis_key(job_id))
+            if envelope_blob is None:
+                # TTL expired before the worker picked up the job.
+                log.warning("envelope_missing", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="job timed out")
+                return
+            try:
+                master_key = parse_master_key(settings.byok_master_key)
+                api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
+            except Exception:
+                log.warning("envelope_decrypt_failed", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="internal error")
+                return
+
+        # (c) Load the version's sections + the project's sources, audit, and
+        # upsert the report. A fresh asyncpg connection — the Celery worker
+        # has no FastAPI pool.
+        conn = await _db_connect()
+        try:
+            if version_kind == "artifact":
+                v = await artifact_repo.get_version(conn, version_id=version_id)
+                if v is None:
+                    await _write_status(r, job_id, "failed", error="version not found")
+                    return
+                project_id = await project_id_for_version(conn, version_id=version_id)
+            else:
+                v = await topic_repo.get_topic_version(conn, topic_version_id=version_id)
+                if v is None:
+                    await _write_status(r, job_id, "failed", error="version not found")
+                    return
+                project_id = await topic_repo.project_id_for_topic_version(
+                    conn, topic_version_id=version_id
+                )
+            if project_id is None:
+                await _write_status(r, job_id, "failed", error="version not found")
+                return
+
+            sections = (v.content or {}).get("sections", [])
+            sources = await project_repo.list_inputs(conn, project_id=project_id)
+
+            resolved_model = model or settings.anthropic_default_model
+            await _write_status(
+                r, job_id, "running"
+            )  # phase: queued -> running (foreground progress)
+            try:
+                report = await asyncio.to_thread(
+                    generate_grounding,
+                    sections=sections,
+                    sources=sources,
+                    provider_id=provider_id,
+                    api_key=api_key,
+                    model=resolved_model,
+                )
+            except LLMSchemaError:
+                log.warning("grounding_check_failed", job_id=str(job_id), reason="schema")
+                await _write_status(
+                    r, job_id, "failed", error="generated grounding report failed validation"
+                )
+                return
+            except LLMAuthError:
+                log.warning("grounding_check_failed", job_id=str(job_id), reason="auth")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The API key was rejected by the provider. Check it in Settings.",
+                )
+                return
+            except LLMRateLimitError:
+                log.warning("grounding_check_failed", job_id=str(job_id), reason="rate_limit")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The provider is rate-limiting requests. Try again shortly.",
+                )
+                return
+            except LLMError:
+                log.warning("grounding_check_failed", job_id=str(job_id), reason="llm_error")
+                await _write_status(r, job_id, "failed", error="grounding check failed")
+                return
+            except Exception:
+                # Defense in depth: never let a raw error escape with key material.
+                log.warning("grounding_check_failed", job_id=str(job_id), reason="unexpected")
+                await _write_status(r, job_id, "failed", error="grounding check failed")
+                return
+
+            cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+            await grounding_repo.upsert(
+                conn,
+                version_id=version_id,
+                version_kind=version_kind,
+                report=report,
+                model=resolved_model,
+                cited_content_hash=cited_content_hash(sources, cited),
+            )
+        finally:
+            await conn.close()
+
+        # (d) Success.
+        await _write_status(
+            r,
+            job_id,
+            "done",
+            result={"version_id": str(version_id), "version_kind": version_kind},
+        )
+    except Exception:
+        # Defense in depth: an unhandled error anywhere above (DB, Redis,
+        # decrypt) must still land as a SAFE failed status — never the raw
+        # exception, which could carry key material in its message.
+        log.warning("trust_grounding_check_task_failed", job_id=str(job_id), reason="unexpected")
+        try:
+            await _write_status(r, job_id, "failed", error="grounding check failed")
+        except Exception:
+            log.warning("status_write_failed", job_id=str(job_id))
+    finally:
+        # (e) SHRED — drop our reference to the key and delete the envelope on
+        # every exit path, managed or BYOK (DEL on a missing key is a
+        # harmless no-op, so this is safe even when there was never an
+        # envelope to begin with).
+        if api_key is not None:
+            del api_key
+        await _shred_envelope(r, job_id)
+        await r.aclose()
+
+
+@celery_app.task(bind=True, name="trust.grounding_check")
+def grounding_check_task(
+    self,
+    *,
+    job_id: str,
+    version_id: str,
+    version_kind: str,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+) -> None:
+    asyncio.run(
+        _run_grounding_check(
+            job_id=uuid.UUID(job_id),
+            version_id=uuid.UUID(version_id),
+            version_kind=version_kind,
+            provider_id=provider_id,
+            model=model,
+            managed=managed,
         )
     )
