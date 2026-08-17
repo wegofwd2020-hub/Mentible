@@ -98,7 +98,13 @@ async def compile_carousel_png(frames: list[dict]) -> list[bytes]:
         raise CardRenderError("carousel render failed")
     try:
         payload = json.loads(stdout)
-        return [base64.b64decode(s) for s in payload["png_base64"]]
+        pngs = [base64.b64decode(s) for s in payload["png_base64"]]
     except (ValueError, KeyError, TypeError) as exc:
         log.error("carousel_render_bad_output")
         raise CardRenderError("carousel render produced bad output") from exc
+    if len(pngs) != len(frames):
+        # Never let a frame-count mismatch reach the router's zip(strict=True)
+        # as an uncaught ValueError — fold it into the CardRenderError->502 path.
+        log.error("carousel_render_count_mismatch", sent=len(frames), got=len(pngs))
+        raise CardRenderError("carousel render returned the wrong number of frames")
+    return pngs

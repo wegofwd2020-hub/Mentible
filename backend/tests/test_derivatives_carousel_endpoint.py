@@ -16,7 +16,7 @@ import json
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncpg
 import pytest
@@ -135,6 +135,32 @@ async def test_render_failure_502(client, known_test_api_key):
         )
     assert r.status_code == 502
     assert known_test_api_key not in json.dumps(r.json())
+
+
+async def test_compile_carousel_png_frame_count_mismatch_raises_card_render_error():
+    """Fix round 1: a compiler that returns fewer/more PNGs than frames sent
+    must surface as `CardRenderError` (-> 502 at the router), never an
+    uncaught `ValueError` from the router's `zip(..., strict=True)` (-> 500).
+    """
+    from backend.src.derivatives.render import CardRenderError, compile_carousel_png
+
+    # 2 frames sent, but the (mocked) compiler only returns 1 PNG.
+    frames = [
+        {"headline": "a", "subtext": "b", "source_label": None, "size": "square"},
+        {"headline": "c", "subtext": "d", "source_label": None, "size": "square"},
+    ]
+    bad_stdout = json.dumps({"png_base64": [base64.b64encode(b"PNG1").decode()]}).encode()
+
+    mock_proc = MagicMock()
+    mock_proc.communicate = AsyncMock(return_value=(bad_stdout, b""))
+    mock_proc.returncode = 0
+
+    with patch(
+        "backend.src.derivatives.render.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=mock_proc),
+    ):
+        with pytest.raises(CardRenderError):
+            await compile_carousel_png(frames)
 
 
 # ── HTTP: the trust-section seam + managed-entitlement fork (real Postgres) ──
