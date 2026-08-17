@@ -4,6 +4,17 @@ import { XMLValidator } from "fast-xml-parser";
 import { compileEpub, EmptyBookError } from "../src/epub";
 import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
+// Stand in for Puppeteer/Chromium (D3/D4/D5 raster paths) so these tests never
+// need real Chromium. Also stands in for Task 6's cover-JPEG call, exercised
+// unconditionally once that lands.
+jest.mock("../src/rasterize", () => ({
+  rasterizeManyToPng: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
+  rasterizeToPng: jest.fn(async () => Buffer.from("fake-png-cover")),
+  rasterizeToJpeg: jest.fn(async () => Buffer.from([0xff, 0xd8, 0xff, 0x00])), // real JPEG magic number
+}));
+
 // XML well-formedness check (dependency-free stand-in for full epubcheck, which
 // needs Java — see scripts/epubcheck.sh). Strips the html5 DOCTYPE, which the
 // validator doesn't model, and asserts the element tree is well-formed.
@@ -73,6 +84,14 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     const css = await zip.file("OEBPS/css/style.css")!.async("string");
     expect(css).not.toContain("@font-face");
     expect(css).toMatch(/table\s*\{/); // headings/tables kept
+  });
+
+  it("profile 'kdp' rasterizes math to <img>, dropping <math> from the chapter", async () => {
+    const book = syntheticBook(); // LESSON's Velocity section has $v=\frac{\Delta x}{\Delta t}$
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-(inline|block)" alt="[^"]*"/);
   });
 
   it("produces a valid EPUB3 OCF structure", async () => {
@@ -219,6 +238,15 @@ describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () =
     expect(opf).toContain('<meta property="schema:accessibilityFeature">tableOfContents</meta>');
     expect(opf).toContain('<meta property="schema:accessibilityHazard">none</meta>');
     expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*MathML/);
+    assertWellFormed(opf, "content.opf");
+  });
+
+  it("profile 'kdp' flips the MathML feature to alternativeText (math is rasterized, not MathML anymore)", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).not.toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
+    expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*text alternative/);
     assertWellFormed(opf, "content.opf");
   });
 

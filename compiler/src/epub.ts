@@ -6,6 +6,7 @@ import {
   type DiagramRenderer,
 } from "./diagrams";
 import { prerenderDiagrams, type MermaidRenderer } from "./mermaid";
+import { collectMathHtml, rasterizeMath, replaceMathWithImages } from "./mathRaster";
 import { xhtmlDocument } from "./xhtml";
 import { STYLESHEET, KDP_STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
@@ -132,6 +133,11 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   if (opts.mermaid) {
     diagrams = new PrerenderedDiagramRenderer(await prerenderDiagrams(book, opts.mermaid));
   }
+  // Math-raster pass (D3, docs/specs/kdp-clean-export-profile.md): kdp only,
+  // book-wide, before the per-topic loop — one Chromium browser for every
+  // equation in the book (mathRaster.ts mirrors mermaid.ts's collect→batch→
+  // embed pattern). No-op for the default profile, which keeps emitting MathML.
+  const mathPngs = profile === "kdp" ? await rasterizeMath(collectMathHtml(book)) : new Map<string, string>();
   const content = book.content ?? {};
   const lang = book.metadata?.language || "en";
 
@@ -156,7 +162,8 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const cf: FloatRef[] = [];
       const ct: FloatRef[] = [];
       const tableCaps = (topic.lesson as { table_captions?: string[] }).table_captions ?? [];
-      const body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
+      let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
+      if (profile === "kdp") body = replaceMathWithImages(body, mathPngs);
       const xhtml = packImages(
         xhtmlDocument(title, body, "../css/style.css", lang),
         images,
@@ -307,26 +314,39 @@ function glossaryDoc(glossary: { term: string; definition: string }[], lang: str
 // are auto-derived from the actual content (math → MathML feature + textual
 // access; diagrams/images → a visual access mode) and can be overridden or
 // extended via book.metadata.accessibility. We deliberately do NOT auto-claim
-// WCAG conformance or `alternativeText`: a formal claim (dcterms:conformsTo /
-// a11y:certifiedBy) is only emitted when the author asserts it after an audit.
+// WCAG conformance or a general `alternativeText`: a formal claim
+// (dcterms:conformsTo / a11y:certifiedBy) is only emitted when the author
+// asserts it after an audit. ONE exception (D3, kdp profile,
+// docs/specs/kdp-clean-export-profile.md): when mathRaster.ts has replaced
+// every equation with a rasterized <img class="math ..."> carrying the
+// original LaTeX as `alt`, the MathML feature no longer applies (there is no
+// more <math> in the doc) and flips to `alternativeText` instead — that claim
+// IS safe to auto-make here because we generate that alt text ourselves, for
+// every equation, not the author's general image alt text.
 // See docs/PROFESSIONAL_PUBLISHING.md §7/§14.
 function accessibilityMeta(book: Book, chapters: Chapter[], images: ImageRes[]): string[] {
   const a = book.metadata?.accessibility ?? {};
   const hasVisual = images.length > 0 || chapters.some((c) => c.hasSvg);
   const hasMath = chapters.some((c) => c.hasMath);
+  const hasRasterMath = !hasMath && chapters.some((c) => c.xhtml.includes('class="math math-'));
 
   const accessModes = a.accessModes ?? ["textual", ...(hasVisual ? ["visual"] : [])];
   const accessModeSufficient = a.accessModeSufficient ?? [hasVisual ? "textual,visual" : "textual"];
 
   const autoFeatures = ["tableOfContents", "readingOrder", "structuralNavigation", "displayTransformability"];
   if (hasMath) autoFeatures.push("MathML");
+  else if (hasRasterMath) autoFeatures.push("alternativeText");
   const features = [...new Set([...autoFeatures, ...(a.features ?? [])])];
 
   const hazards = a.hazards ?? ["none"];
   const summary =
     a.summary ??
     ("Reflowable EPUB with structural navigation, a table of contents, and resizable text." +
-      (hasMath ? " Mathematics is encoded as MathML." : "") +
+      (hasMath
+        ? " Mathematics is encoded as MathML."
+        : hasRasterMath
+          ? " Mathematics is rendered as images with the original notation given as a text alternative."
+          : "") +
       (hasVisual ? " The publication contains diagrams and images." : ""));
 
   const out: string[] = [];
