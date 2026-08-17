@@ -40,7 +40,15 @@ _MASTER_KEY = parse_master_key(settings.byok_master_key)
 _API_KEY = "sk-ant-" + "k" * 20
 
 _GOOD = json.dumps(
-    {"claims": [{"text": "Pipes are sized for the 10-year storm.", "status": "supported", "sources": ["S1"]}]}
+    {
+        "claims": [
+            {
+                "text": "Pipes are sized for the 10-year storm.",
+                "status": "supported",
+                "sources": ["S1"],
+            }
+        ]
+    }
 )
 
 
@@ -96,12 +104,23 @@ async def _project_with_version(conn):
         "INSERT INTO account (idp_sub) VALUES ($1) RETURNING id", f"s-{uuid.uuid4()}"
     )
     p = await project_repo.create_project(
-        conn, owner_account_id=a, title="Guide", topic="stormwater", audience="engineers", goal="size pipes"
+        conn,
+        owner_account_id=a,
+        title="Guide",
+        topic="stormwater",
+        audience="engineers",
+        goal="size pipes",
     )
     inp = await project_repo.add_input(
-        conn, project_id=p.id, kind="note", title="N", content="Pipes are sized for the 10-year storm."
+        conn,
+        project_id=p.id,
+        kind="note",
+        title="N",
+        content="Pipes are sized for the 10-year storm.",
     )
-    art = await artifact_repo.create_artifact(conn, project_id=p.id, role="cornerstone", format="guide")
+    art = await artifact_repo.create_artifact(
+        conn, project_id=p.id, role="cornerstone", format="guide"
+    )
     v = await artifact_repo.create_version(
         conn,
         artifact_id=art.id,
@@ -138,7 +157,9 @@ async def test_task_upserts_report_and_writes_done(conn, fake_redis):
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -163,7 +184,9 @@ async def test_task_uses_the_managed_vault_key_when_managed(conn, fake_redis, mo
     job_id = uuid.uuid4()
     monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -205,7 +228,9 @@ async def test_provider_error_writes_failed_status(conn, fake_redis):
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", side_effect=LLMSchemaError("bad json")):
+    with patch(
+        "backend.src.trust.grounding.build_provider", side_effect=LLMSchemaError("bad json")
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -230,7 +255,9 @@ async def test_status_payload_never_contains_the_key_on_success(conn, fake_redis
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -253,7 +280,9 @@ async def test_envelope_deleted_after_success(conn, fake_redis):
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -272,7 +301,9 @@ async def test_envelope_deleted_after_failure(conn, fake_redis):
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", side_effect=LLMSchemaError("bad json")):
+    with patch(
+        "backend.src.trust.grounding.build_provider", side_effect=LLMSchemaError("bad json")
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -293,7 +324,9 @@ async def test_rerun_upserts_the_same_row(conn, fake_redis):
     version_id = await _project_with_version(conn)
     job_id_1 = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id_1)
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id_1,
             version_id=version_id,
@@ -306,7 +339,9 @@ async def test_rerun_upserts_the_same_row(conn, fake_redis):
 
     job_id_2 = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id_2)
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id_2,
             version_id=version_id,
@@ -393,7 +428,9 @@ async def test_managed_grounding_check_records_one_usage_event_with_observed_tok
     job_id = uuid.uuid4()
     monkeypatch.setattr(settings, "managed_anthropic_api_key", _API_KEY)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,
@@ -425,7 +462,9 @@ async def test_byok_grounding_check_records_zero_usage_events(conn, fake_redis):
     job_id = uuid.uuid4()
     await _seed_byok_envelope(fake_redis, job_id)
 
-    with patch("backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)):
+    with patch(
+        "backend.src.trust.grounding.build_provider", return_value=fake_provider(text=_GOOD)
+    ):
         await trust_tasks._run_grounding_check(
             job_id=job_id,
             version_id=version_id,

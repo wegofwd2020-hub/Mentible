@@ -1,4 +1,5 @@
 """version_grounding — stored LLM claim-grounding report per trust version (P1-4)."""
+
 from alembic import op
 
 revision = "0021"

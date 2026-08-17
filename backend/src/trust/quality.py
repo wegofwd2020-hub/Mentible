@@ -49,9 +49,9 @@ def coverage_report(sections: list[dict], live_input_ids: set[str]) -> dict:
     }
 
 
-_FENCE = re.compile(r"```.*?```", re.DOTALL)          # code / mermaid fences
-_MATH = re.compile(r"\${1,2}[^$]*\${1,2}")            # $…$ / $$…$$
-_MD = re.compile(r"[#*_>`\[\]()!~|-]")                 # markdown punctuation
+_FENCE = re.compile(r"```.*?```", re.DOTALL)  # code / mermaid fences
+_MATH = re.compile(r"\${1,2}[^$]*\${1,2}")  # $…$ / $$…$$
+_MD = re.compile(r"[#*_>`\[\]()!~|-]")  # markdown punctuation
 _WORD = re.compile(r"[A-Za-z][A-Za-z'-]*")
 _SENT = re.compile(r"[.!?]+")
 
@@ -61,7 +61,7 @@ def _syllables(word: str) -> int:
     w = word.lower()
     groups = re.findall(r"[aeiouy]+", w)
     n = len(groups)
-    if w.endswith("e") and n > 1:        # silent trailing 'e'
+    if w.endswith("e") and n > 1:  # silent trailing 'e'
         n -= 1
     return max(1, n)
 
@@ -87,7 +87,12 @@ def readability(text: str) -> dict:
     sentences = max(0, len([s for s in _SENT.split(clean) if s.strip()]))
     n_words, n_sent = len(words), sentences
     if n_words == 0 or n_sent == 0:
-        return {"flesch_reading_ease": 0.0, "grade_level": 0.0, "words": n_words, "sentences": n_sent}
+        return {
+            "flesch_reading_ease": 0.0,
+            "grade_level": 0.0,
+            "words": n_words,
+            "sentences": n_sent,
+        }
     syl = sum(_syllables(w) for w in words)
     wps, spw = n_words / n_sent, syl / n_words
     ease = 206.835 - 1.015 * wps - 84.6 * spw

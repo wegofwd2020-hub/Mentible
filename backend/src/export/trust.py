@@ -176,7 +176,7 @@ def compute_sourcing(book: dict) -> SourcingBlock | None:
     all_cited = True
     refs: set[str] = set()
     for unit in _units(book):
-        for sec in ((unit.get("lesson") or {}).get("sections") or []):
+        for sec in (unit.get("lesson") or {}).get("sections") or []:
             if "source_ids" not in sec:
                 continue
             seen_any = True

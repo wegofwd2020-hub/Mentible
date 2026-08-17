@@ -63,9 +63,7 @@ def _artifact_version_with_source(c):
         json={"role": "cornerstone", "format": "guide"},
     ).json()
     content = {
-        "sections": [
-            {"heading": "A", "body": "The cat sat on the mat.", "source_ids": [inp["id"]]}
-        ]
+        "sections": [{"heading": "A", "body": "The cat sat on the mat.", "source_ids": [inp["id"]]}]
     }
     ver = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": content}).json()
     return pid, ver["id"], inp["id"]

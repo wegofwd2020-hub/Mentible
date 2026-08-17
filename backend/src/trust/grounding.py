@@ -53,9 +53,7 @@ def _source_content(sources, sid: str) -> str:
     return ""
 
 
-def generate_grounding(
-    *, sections, sources, provider_id, api_key, model
-) -> tuple[dict, int, int]:
+def generate_grounding(*, sections, sources, provider_id, api_key, model) -> tuple[dict, int, int]:
     """Per section, split the body into sentence-level claims and label each
     supported/partial/unsupported against ONLY that section's cited sources.
     A section citing no live source (or with an empty body) is entirely
