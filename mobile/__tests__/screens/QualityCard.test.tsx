@@ -57,7 +57,7 @@ describe("QualityCard", () => {
     expect(btn.props.accessibilityState?.busy).toBe(true);
   });
 
-  it("renders the claims-supported summary and hides the run button once grounding exists", () => {
+  it("renders the claims-supported summary and hides the run button once grounding exists and is fresh", () => {
     const withGrounding: QualityReport = {
       ...baseQuality,
       grounding: {
@@ -81,5 +81,29 @@ describe("QualityCard", () => {
     };
     render(<QualityCard quality={stale} isOwner busy={false} onRunGrounding={jest.fn()} />);
     expect(screen.getByText(/inputs changed/i)).toBeTruthy();
+  });
+
+  it("owner sees the Run grounding check button again when an existing grounding result is stale (not a dead end)", () => {
+    const stale: QualityReport = {
+      ...baseQuality,
+      grounding: {
+        claims_total: 47, supported: 41, partial: 4, unsupported: 2,
+        by_section: [], model: "claude-sonnet-4-6", checked_at: "2026-08-16T12:00:00Z", stale: true,
+      },
+    };
+    render(<QualityCard quality={stale} isOwner busy={false} onRunGrounding={jest.fn()} />);
+    expect(screen.getByLabelText("Run grounding check")).toBeTruthy();
+  });
+
+  it("non-owner does not see the Run grounding check button even when stale", () => {
+    const stale: QualityReport = {
+      ...baseQuality,
+      grounding: {
+        claims_total: 47, supported: 41, partial: 4, unsupported: 2,
+        by_section: [], model: "claude-sonnet-4-6", checked_at: "2026-08-16T12:00:00Z", stale: true,
+      },
+    };
+    render(<QualityCard quality={stale} isOwner={false} busy={false} onRunGrounding={jest.fn()} />);
+    expect(screen.queryByLabelText("Run grounding check")).toBeNull();
   });
 });

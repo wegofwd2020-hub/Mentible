@@ -17,8 +17,9 @@ interface Props {
 // task-6-brief.md (P1-4 T6). Fail-open: renders nothing when `quality` is
 // null/undefined, so an older backend that doesn't return `quality` yet
 // changes nothing on screen. The "Run grounding check" button is owner-only
-// (billable LLM pass) and only shown before a grounding result exists —
-// once one exists, a stale result offers a re-run note instead of the button.
+// (billable LLM pass) — shown when there's no result yet, AND when a result
+// exists but is stale (a stale result on its own is a dead end without a way
+// to re-run it; pressing the button re-runs and overwrites the stale report).
 export function QualityCard({ quality, isOwner, busy, onRunGrounding }: Props): React.JSX.Element | null {
   const styles = useThemedStyles(makeStyles);
   if (!quality) return null;
@@ -58,7 +59,18 @@ export function QualityCard({ quality, isOwner, busy, onRunGrounding }: Props): 
             ) : null}
             <Text style={styles.subNote}>{`checked ${new Date(grounding.checked_at).toLocaleString()}`}</Text>
             {grounding.stale ? (
-              <Text style={styles.staleNote}>inputs changed — re-run</Text>
+              <>
+                <Text style={styles.staleNote}>inputs changed — re-run</Text>
+                {isOwner ? (
+                  <Button
+                    variant="ghost"
+                    label="Run grounding check"
+                    accessibilityLabel="Run grounding check"
+                    busy={busy}
+                    onPress={onRunGrounding}
+                  />
+                ) : null}
+              </>
             ) : null}
           </>
         ) : isOwner ? (
