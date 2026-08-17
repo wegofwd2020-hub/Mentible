@@ -37,7 +37,11 @@ function TrustVersionInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, addVersion, generateVersion, approve, unapprove } = useTrustProject(String(projectId));
+  // knownNotPro: the same fail-open Pro-gate generateVersion/generateFormat
+  // use internally (null/loading plan never walls — the backend decides;
+  // only a KNOWN Free plan does) — exposed by the hook so onRunGrounding
+  // below can reuse it without a second, unmocked useBillingPlan() call.
+  const { project, addVersion, generateVersion, approve, unapprove, knownNotPro } = useTrustProject(String(projectId));
   const [version, setVersion] = useState<VersionDetailView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -125,13 +129,16 @@ function TrustVersionInner() {
   // this version so `quality.grounding` reflects the fresh result. Mirrors
   // doRegen's submit-then-poll-then-reload shape, using the same
   // `loadApiKey("anthropic")` BYOK-or-managed key resolution generateVersion
-  // (useTrustProject) uses.
+  // (useTrustProject) uses — including its `knownNotPro` pre-gate, so a KNOWN
+  // Free user with no saved key gets the same friendly message immediately
+  // instead of a 402 round-trip.
   const onRunGrounding = () => {
     if (!accessToken) return;
     setGrBusy(true);
     void (async () => {
       try {
         const key = await loadApiKey("anthropic");
+        if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to run a grounding check.");
         const submitted = await runGroundingCheck(String(versionId), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
         await pollJob(submitted.job_id, accessToken, {
           intervalMs: 3_000,

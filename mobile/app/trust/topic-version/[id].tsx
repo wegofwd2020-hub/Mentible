@@ -34,7 +34,10 @@ function TopicVersionViewerInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
-  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions, addTopicFeedback, editTopic } = useTrustProject(String(projectId));
+  // knownNotPro: the same fail-open Pro-gate generateTopic uses internally —
+  // exposed by the hook so onRunGrounding below can reuse it without a
+  // second, unmocked useBillingPlan() call (see version/[versionId].tsx).
+  const { project, approveTopic, withdrawTopic, generateTopic, listTopicVersions, addTopicFeedback, editTopic, knownNotPro } = useTrustProject(String(projectId));
   const [topicVersion, setTopicVersion] = useState<TopicVersionDetailView | null>(null);
   const [versions, setVersions] = useState<TopicVersionSummaryView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -294,13 +297,15 @@ function TopicVersionViewerInner() {
   // Owner-only: submits the on-demand grounding check (billable LLM pass),
   // polls the shared /jobs/{id} until done|failed, then refetches this
   // version so `quality.grounding` reflects the fresh result. Mirrors
-  // trust/version/[versionId].tsx's onRunGrounding.
+  // trust/version/[versionId].tsx's onRunGrounding, including its
+  // `knownNotPro` pre-gate (the same one generateTopic uses).
   const onRunGrounding = () => {
     if (!accessToken) return;
     setGrBusy(true);
     void (async () => {
       try {
         const key = await loadApiKey("anthropic");
+        if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to run a grounding check.");
         const submitted = await runTopicGroundingCheck(String(id), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
         await pollJob(submitted.job_id, accessToken, {
           intervalMs: 3_000,
@@ -483,6 +488,29 @@ function TopicVersionViewerInner() {
               />
             </View>
           </>
+        ) : null}
+        {/* Read-only, every-role per-section quality notes (uncited / dangling
+            source / unsupported claims — from `sectionNotes`, derived off
+            `quality.coverage`/`quality.grounding`). View mode only, NOT
+            gated on isOwner/canEdit — a reviewer needs to see exactly which
+            section has an unsupported claim before approving (ADR-037), and
+            edit mode already surfaces the same notes inline on each section's
+            Card. Mirrors trust/version/[versionId].tsx's "Section comments"
+            list, minus the comment affordance this screen doesn't have. */}
+        {!editing && sectionNotes.size > 0 ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesTitle}>Section quality</Text>
+            {(topicVersion.content?.sections ?? []).map((s, i) => {
+              const notes = sectionNotes.get(i) ?? [];
+              if (notes.length === 0) return null;
+              return (
+                <View key={i} style={styles.noteRow}>
+                  <Text style={styles.noteMeta}>{`Section ${i + 1}: ${s.heading}`}</Text>
+                  <Text style={styles.sectionQualityNote}>{notes.join(" · ")}</Text>
+                </View>
+              );
+            })}
+          </View>
         ) : null}
         {!editing ? (
           <View style={styles.notesBlock}>
