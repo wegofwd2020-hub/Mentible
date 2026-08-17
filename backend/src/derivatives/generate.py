@@ -16,6 +16,8 @@ the same `DerivativeResponse` contract.
 from __future__ import annotations
 
 import anthropic
+from pydantic import BaseModel as _BM
+from pydantic import Field as _F
 from wegofwd_llm.conformance import generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSchemaError
@@ -23,7 +25,7 @@ from wegofwd_llm.registry import build_provider
 
 from backend.src.generate.anthropic_caller import parse_json_response
 
-from .prompt import build_card_prompt, build_derivative_prompt
+from .prompt import build_card_prompt, build_carousel_prompt, build_derivative_prompt
 from .schemas import CardContent, DerivativeResponse, PostVariant, ReferenceImage, _DerivativeOutput
 
 # Repair budget mirrors generate.tasks._MAX_REPAIRS (1 initial call + 2 repairs).
@@ -32,6 +34,27 @@ _MAX_REPAIRS = 2
 _MAX_TOKENS = 2048
 # A headline + subtext pair needs far less headroom than a full post set.
 _CARD_MAX_TOKENS = 1024
+# 4-8 headline/subtext pairs needs more headroom than a single card, but far
+# less than a full lesson.
+_CAROUSEL_MAX_TOKENS = 2048
+
+
+class _CarouselFrame(_BM):
+    """Shape of one frame in the model's JSON response, pre-CardContent."""
+
+    headline: str
+    subtext: str
+
+
+class _CarouselOutput(_BM):
+    """Shape the model's JSON response is validated against.
+
+    The frame count is bounded to 4-8 (spec) — a model that returns fewer or
+    more fails validation and re-enters the repair loop, rather than silently
+    shipping a carousel outside the contract.
+    """
+
+    frames: list[_CarouselFrame] = _F(min_length=4, max_length=8)
 
 
 def generate_post(
@@ -144,3 +167,28 @@ def generate_card(
         return CardContent.model_validate(parse_json_response(text))
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+
+
+def generate_carousel(
+    *, source_text: str, tone: str | None, provider_id: str, api_key: str, model: str
+) -> list[CardContent]:
+    """Generate 4-8 carousel frame copies (headline/subtext) for `source_text`.
+
+    Mirrors `generate_card`'s text path: build a provider from the registry,
+    issue a JSON-mode request, and validate + repair via `generate_validated`
+    against `_CarouselOutput`, which enforces the 4-8 frame bound. Never logs
+    `api_key`. Raises `LLMSchemaError` on repair-budget exhaustion (the router
+    maps it to a 502 — Task 3). Returns each frame as a `CardContent` with
+    `source_label=None` — the caller renders the image per frame (Task 3).
+    """
+    prompt = build_carousel_prompt(source_text, tone)
+    provider = build_provider(provider_id, api_key=api_key, model=model)
+    req = LLMRequest(prompt=prompt, max_tokens=_CAROUSEL_MAX_TOKENS, response_format="json")
+
+    def _validate(text: str) -> _CarouselOutput:
+        return _CarouselOutput.model_validate(parse_json_response(text))
+
+    out = generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
+    return [
+        CardContent(headline=f.headline, subtext=f.subtext, source_label=None) for f in out.frames
+    ]

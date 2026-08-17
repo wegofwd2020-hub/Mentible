@@ -33,12 +33,15 @@ from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
-from backend.src.derivatives.generate import generate_card, generate_post
-from backend.src.derivatives.render import CardRenderError, compile_card_png
+from backend.src.derivatives.generate import generate_card, generate_carousel, generate_post
+from backend.src.derivatives.render import CardRenderError, compile_card_png, compile_carousel_png
 from backend.src.derivatives.schemas import (
     CardContent,
     CardRequest,
     CardResponse,
+    CarouselFrame,
+    CarouselRequest,
+    CarouselResponse,
     DerivativeRequest,
     DerivativeResponse,
 )
@@ -47,6 +50,98 @@ from backend.src.trust.access import ProjectAccessError, require_project_access
 
 router = APIRouter(prefix="/api/v1/derivatives", tags=["derivatives"])
 log = get_logger("derivatives")
+
+
+async def _resolve_key_and_source(
+    body: CardRequest | CarouselRequest,
+    request: Request,
+    principal: Principal | None,
+) -> tuple[str, str, str, str | None]:
+    """Resolve the generation key + source text shared by `/card` and `/carousel`.
+
+    `CardRequest` and `CarouselRequest` carry the identical key/source shape
+    (`api_key`, `provider_id`, `model`, `source_text`, `topic_version_id`), so
+    both the managed/BYOK key-fork and the trust-section access seam live here
+    once rather than being copied per endpoint. Returns
+    `(api_key, model, source_text, source_label)` — `source_label` is the
+    version's provenance label (`"Based on N cited source(s)"`) when sourced
+    from `topic_version_id`, else `None`. Raises `HTTPException` for every
+    key/access failure (400/429 managed; 401/404/403 topic-version), exactly
+    as the inline block this replaces did.
+    """
+    managed = body.api_key is None
+    if managed:
+        db_pool = getattr(request.app.state, "db", None)
+        if db_pool is not None and principal is not None:
+            async with db_pool.acquire() as conn:
+                account = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=principal.sub, email=principal.email
+                )
+                grant = await access.resolve_managed_access(
+                    conn,
+                    account_id=account.id,
+                    provider_id=body.provider_id,
+                    principal=principal,
+                )
+                if grant is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="an api_key is required for this request",
+                    )
+                if await access.over_cap(conn, account_id=account.id, access=grant):
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="managed allowance exhausted; try again later or add your own key",
+                    )
+        elif not is_managed_eligible(principal, body.provider_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="an api_key is required for this request",
+            )
+        api_key = get_managed_key(body.provider_id)
+    else:
+        api_key = body.api_key
+
+    model = body.model or settings.anthropic_default_model
+
+    # --- source: flat text, or a validated topic-version section (access-gated) ---
+    source_text = body.source_text or ""
+    source_label: str | None = None
+    if body.topic_version_id is not None:
+        db_pool = getattr(request.app.state, "db", None)
+        if db_pool is None or principal is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="sign in to publish a project section",
+            )
+        async with db_pool.acquire() as conn:
+            project_id = await topic_repo.project_id_for_topic_version(
+                conn, topic_version_id=body.topic_version_id
+            )
+            if project_id is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+            account = await accounts_repo.get_or_create_account(
+                conn, idp_sub=principal.sub, email=principal.email
+            )
+            try:
+                await require_project_access(
+                    conn, account_id=account.id, project_id=uuid.UUID(str(project_id))
+                )
+            except ProjectAccessError:
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN, "no access to this project"
+                ) from None
+            tv = await topic_repo.get_topic_version(conn, topic_version_id=body.topic_version_id)
+            if tv is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+            sections = (tv.content or {}).get("sections", [])
+            source_text = "\n\n".join(
+                f"{s.get('heading', '')}\n{s.get('body', '')}" for s in sections
+            ).strip()
+            cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+            source_label = f"Based on {len(cited)} cited source(s)" if cited else None
+
+    return api_key, model, source_text, source_label
 
 
 @router.post(
@@ -189,78 +284,9 @@ async def make_card(
 
     Never logs `api_key` or the section/source content.
     """
-    # --- key fork: copied verbatim from make_post (managed vs BYOK) ---
-    managed = body.api_key is None
-    if managed:
-        db_pool = getattr(request.app.state, "db", None)
-        if db_pool is not None and principal is not None:
-            async with db_pool.acquire() as conn:
-                account = await accounts_repo.get_or_create_account(
-                    conn, idp_sub=principal.sub, email=principal.email
-                )
-                grant = await access.resolve_managed_access(
-                    conn,
-                    account_id=account.id,
-                    provider_id=body.provider_id,
-                    principal=principal,
-                )
-                if grant is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="an api_key is required for this request",
-                    )
-                if await access.over_cap(conn, account_id=account.id, access=grant):
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="managed allowance exhausted; try again later or add your own key",
-                    )
-        elif not is_managed_eligible(principal, body.provider_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="an api_key is required for this request",
-            )
-        api_key = get_managed_key(body.provider_id)
-    else:
-        api_key = body.api_key
-
-    model = body.model or settings.anthropic_default_model
-
-    # --- source: flat text, or a validated topic-version section (access-gated) ---
-    source_text = body.source_text or ""
-    source_label: str | None = None
-    if body.topic_version_id is not None:
-        db_pool = getattr(request.app.state, "db", None)
-        if db_pool is None or principal is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="sign in to card a project section",
-            )
-        async with db_pool.acquire() as conn:
-            project_id = await topic_repo.project_id_for_topic_version(
-                conn, topic_version_id=body.topic_version_id
-            )
-            if project_id is None:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
-            account = await accounts_repo.get_or_create_account(
-                conn, idp_sub=principal.sub, email=principal.email
-            )
-            try:
-                await require_project_access(
-                    conn, account_id=account.id, project_id=uuid.UUID(str(project_id))
-                )
-            except ProjectAccessError:
-                raise HTTPException(
-                    status.HTTP_403_FORBIDDEN, "no access to this project"
-                ) from None
-            tv = await topic_repo.get_topic_version(conn, topic_version_id=body.topic_version_id)
-            if tv is None:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
-            sections = (tv.content or {}).get("sections", [])
-            source_text = "\n\n".join(
-                f"{s.get('heading', '')}\n{s.get('body', '')}" for s in sections
-            ).strip()
-            cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
-            source_label = f"Based on {len(cited)} cited source(s)" if cited else None
+    api_key, model, source_text, source_label = await _resolve_key_and_source(
+        body, request, principal
+    )
 
     # --- generate + render ---
     try:
@@ -332,3 +358,113 @@ async def make_card(
         image_png_base64=base64.b64encode(png).decode(),
         provenance="ai-generated",
     )
+
+
+@router.post(
+    "/carousel",
+    response_model=CarouselResponse,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def make_carousel(
+    body: CarouselRequest,
+    request: Request,
+    principal: Principal | None = Depends(optional_user),
+) -> CarouselResponse:
+    """Generate a promotional image carousel (4-8 frames, each rendered as a PNG).
+
+    Key path and source resolution are identical to `make_card`
+    (`_resolve_key_and_source`): a key in the body is BYOK; its absence
+    selects the managed path, and `topic_version_id` is access-gated the same
+    way (signed-out -> 401, missing -> 404, no project access -> 403).
+
+    Unlike a card, provenance is a carousel-level claim, not a per-frame one:
+    when sourced from a topic version, the `"Based on N cited source(s)"`
+    label is attached to the LAST frame only — every other frame's
+    `source_label` is `None`. The model's own per-frame `source_label` is
+    never produced (the carousel contract has no such field) and is ignored
+    either way.
+
+    Never logs `api_key` or the frames' headline/subtext content.
+    """
+    api_key, model, source_text, source_label = await _resolve_key_and_source(
+        body, request, principal
+    )
+
+    try:
+        frames = await asyncio.to_thread(
+            generate_carousel,
+            source_text=source_text,
+            tone=body.tone,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("carousel_validation_failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not generate the carousel",
+        ) from None
+    except LLMAuthError:
+        log.warning("carousel_auth_rejected")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Your API key was rejected by the provider. Check it in Settings — "
+                "it may be invalid, revoked, or out of credit."
+            ),
+        ) from None
+    except LLMRateLimitError:
+        log.warning("carousel_rate_limited")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The provider is rate-limiting requests. Wait a moment and try again.",
+        ) from None
+    except LLMError:
+        log.warning("carousel_llm_error")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="carousel generation failed",
+        ) from None
+    except Exception:
+        # Defense in depth: never let a raw exception escape with key material
+        # to the framework logger. Type-only log, generic 502.
+        log.warning("carousel_unexpected_error")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="carousel generation failed",
+        ) from None
+
+    # A validated-section carousel puts the provenance label on the LAST frame
+    # only — the model never produces a per-frame source_label to override.
+    n = len(frames)
+    card_inputs = [
+        {
+            "headline": f.headline,
+            "subtext": f.subtext,
+            "source_label": (
+                source_label if (body.topic_version_id is not None and i == n - 1) else None
+            ),
+            "size": "square",
+        }
+        for i, f in enumerate(frames)
+    ]
+    try:
+        pngs = await compile_carousel_png(card_inputs)
+    except CardRenderError:
+        log.warning("carousel_render_error")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not render the carousel",
+        ) from None
+
+    out_frames = [
+        CarouselFrame(
+            card=CardContent(
+                headline=ci["headline"], subtext=ci["subtext"], source_label=ci["source_label"]
+            ),
+            image_png_base64=base64.b64encode(png).decode(),
+        )
+        for ci, png in zip(card_inputs, pngs, strict=True)
+    ]
+    return CarouselResponse(frames=out_frames, provenance="ai-generated")

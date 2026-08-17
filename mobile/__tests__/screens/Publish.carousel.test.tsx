@@ -1,5 +1,4 @@
 import React from "react";
-import { StyleSheet } from "react-native";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import PostsScreen from "@/../app/(tabs)/posts";
 
@@ -69,10 +68,12 @@ const VALIDATED_PROJECT_DETAIL = {
   topic_status: [{ topic_id: "topic-1", status: "validated", latest_version_id: "tv-1", version_no: 1 }],
 };
 
-const CARD_RESULT = {
-  card: { headline: "Detention basins", subtext: "The short version.", source_label: "Stormwater 101" },
-  size: "square",
-  image_png_base64: "AAA",
+const CAROUSEL_RESULT = {
+  frames: [
+    { card: { headline: "Frame one", subtext: "First frame body.", source_label: "Stormwater 101" }, image_png_base64: "AAA" },
+    { card: { headline: "Frame two", subtext: "Second frame body.", source_label: "Stormwater 101" }, image_png_base64: "BBB" },
+    { card: { headline: "Frame three", subtext: "Third frame body.", source_label: "Stormwater 101" }, image_png_base64: "CCC" },
+  ],
   provenance: "ai-generated",
 };
 
@@ -86,98 +87,81 @@ beforeEach(() => {
   (getProject as jest.Mock).mockResolvedValue(VALIDATED_PROJECT_DETAIL);
 });
 
-it("switching to Image card mode shows the size selector and source field", async () => {
+it("switching to Carousel mode shows the source field", async () => {
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
-  expect(await screen.findByLabelText("Card source text")).toBeTruthy();
-  expect(screen.getByLabelText("Size: Square")).toBeTruthy();
-  expect(screen.getByLabelText("Size: LinkedIn")).toBeTruthy();
-  expect(screen.getByLabelText("Size: Story")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  expect(await screen.findByLabelText("Carousel source text")).toBeTruthy();
 });
 
-it("Make card with source text calls run with source_text and size", async () => {
+it("Make carousel with source text calls makeCarousel with source_text", async () => {
   const runMock = jest.fn();
-  mockCardHook({ run: runMock });
+  mockCarouselHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.changeText(screen.getByLabelText("Card source text"), "Detention basins hold stormwater.");
-  fireEvent.press(screen.getByLabelText("Make card"));
+  fireEvent.changeText(screen.getByLabelText("Carousel source text"), "Detention basins hold stormwater.");
+  fireEvent.press(screen.getByLabelText("Make carousel"));
   expect(runMock).toHaveBeenCalledWith(
-    expect.objectContaining({ source_text: "Detention basins hold stormwater.", size: "square" }),
+    expect.objectContaining({ source_text: "Detention basins hold stormwater." }),
   );
+  const sent = runMock.mock.calls[0][0];
+  expect("size" in sent).toBe(false);
 });
 
-it("renders the image, headline copy and Download button for a returned card", async () => {
-  mockCardHook({ status: "done", result: CARD_RESULT });
+it("renders 3 frame images and headlines plus a Download all button for a 3-frame result", async () => {
+  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  const img = screen.getByLabelText("Card preview");
-  expect(img.props.source.uri).toBe(`data:image/png;base64,${CARD_RESULT.image_png_base64}`);
-  expect(screen.getByText("Detention basins")).toBeTruthy();
-  expect(screen.getByText("The short version.")).toBeTruthy();
-  expect(screen.getByText("Stormwater 101")).toBeTruthy();
-  expect(screen.getByLabelText("Download card")).toBeTruthy();
+
+  const img1 = screen.getByLabelText("Carousel frame 1 preview");
+  const img2 = screen.getByLabelText("Carousel frame 2 preview");
+  const img3 = screen.getByLabelText("Carousel frame 3 preview");
+  expect(img1.props.source.uri).toBe("data:image/png;base64,AAA");
+  expect(img2.props.source.uri).toBe("data:image/png;base64,BBB");
+  expect(img3.props.source.uri).toBe("data:image/png;base64,CCC");
+
+  expect(screen.getByText("Frame one")).toBeTruthy();
+  expect(screen.getByText("Frame two")).toBeTruthy();
+  expect(screen.getByText("Frame three")).toBeTruthy();
+
+  expect(screen.getByLabelText("Download all")).toBeTruthy();
 });
 
-it("the LinkedIn preview's aspect ratio matches 1200x627 (not forced square)", async () => {
-  mockCardHook({ status: "done", result: { ...CARD_RESULT, size: "linkedin" } });
+it("pressing Download all downloads every frame as image/png", async () => {
+  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  const img = screen.getByLabelText("Card preview");
-  expect(StyleSheet.flatten(img.props.style).aspectRatio).toBeCloseTo(1200 / 627, 5);
+  fireEvent.press(screen.getByLabelText("Download all"));
+  await waitFor(() => expect(downloadArtifact).toHaveBeenCalledTimes(3));
+  expect(downloadArtifact).toHaveBeenNthCalledWith(1, expect.anything(), "frame-1.png", "image/png");
+  expect(downloadArtifact).toHaveBeenNthCalledWith(2, expect.anything(), "frame-2.png", "image/png");
+  expect(downloadArtifact).toHaveBeenNthCalledWith(3, expect.anything(), "frame-3.png", "image/png");
 });
 
-it("the Story preview's aspect ratio matches 1080x1920 (not forced square)", async () => {
-  mockCardHook({ status: "done", result: { ...CARD_RESULT, size: "story" } });
-  render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
-  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  const img = screen.getByLabelText("Card preview");
-  expect(StyleSheet.flatten(img.props.style).aspectRatio).toBeCloseTo(1080 / 1920, 5);
-});
-
-it("picking a validated section calls run with topic_version_id, not source_text", async () => {
+it("picking a validated section calls makeCarousel with topic_version_id, not source_text", async () => {
   const runMock = jest.fn();
-  mockCardHook({ run: runMock });
+  mockCarouselHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
-  fireEvent.press(screen.getByLabelText("Card source: Pick a validated section"));
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Carousel source: Pick a validated section"));
 
   const row = await screen.findByLabelText(/Validated section: Stormwater 101/);
   fireEvent.press(row);
-  fireEvent.press(screen.getByLabelText("Make card"));
+  fireEvent.press(screen.getByLabelText("Make carousel"));
 
-  expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ topic_version_id: "tv-1", size: "square" }));
+  expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ topic_version_id: "tv-1" }));
   const sent = runMock.mock.calls[0][0];
   expect("source_text" in sent).toBe(false);
 });
 
-it("shows a hint instead of a picker when there are no validated sections", async () => {
-  (listOwnedProjects as jest.Mock).mockResolvedValue([]);
-  render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
-  fireEvent.press(screen.getByLabelText("Card source: Pick a validated section"));
-  expect(await screen.findByText(/no validated sections/i)).toBeTruthy();
-});
-
 it("shows the add-key message when known-not-Pro and no key", async () => {
-  mockCardHook({ status: "failed", error: "No API key saved. Go to Settings and paste your Anthropic key." });
+  mockCarouselHook({ status: "failed", error: "No API key saved. Go to Settings and paste your Anthropic key." });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
+  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
   expect(screen.getByText(/no api key saved/i)).toBeTruthy();
-});
-
-it("pressing Download saves the card image", async () => {
-  mockCardHook({ status: "done", result: CARD_RESULT });
-  render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Image card"));
-  await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.press(screen.getByLabelText("Download card"));
-  await waitFor(() => expect(downloadArtifact).toHaveBeenCalled());
 });
 
 it("does not regress the existing text-post mode", async () => {
