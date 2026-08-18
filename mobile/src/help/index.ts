@@ -2,9 +2,10 @@
 // the render components (Task 2) import `@/constants/theme` (tokens) and
 // `expo-router` (HelpButton nav) — parameterize those on extraction. See
 // docs/superpowers/specs/2026-07-06-help-engine-seam-design.md.
-export type { HelpBlock, HelpTopic } from "./schema";
+export type { HelpBlock, HelpTopic, HelpTreeNode } from "./schema";
 export { blockText, searchHelpTopics } from "./search";
 export { uncoveredFeatures } from "./coverage";
+export { ancestorIdsForTopic, flattenNodes, nodeIdForTopic } from "./tree";
 export { HelpButton } from "./components/HelpButton";
 export { HelpHint } from "./components/HelpHint";
 export { HelpTopicView } from "./components/HelpTopicView";

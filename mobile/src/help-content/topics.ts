@@ -111,7 +111,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible has five places along the top of the app: Library (your finished books), Studio (create and edit books), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+        text: "Mentible's nav bar has: Library (your finished books), Projects (the expert-validation studio), Reviews (projects you've been invited to review), Publish (turn your writing into posts and shareable cards), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
       },
       {
         kind: "steps",
@@ -225,7 +225,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Open a book you authored, then tap “Share draft”.",
           "Under Reviewers, enter a person's email and tap Invite (add as many as you like).",
           "Tell your reviewers a draft is waiting — the app doesn't email them.",
-          "When they comment, a 💬 badge appears on the book in Studio — tap it to read their comments and reply.",
+          "When they comment, a 💬 badge appears on the book's card in your Library — tap it to read their comments and reply.",
         ],
       },
       { kind: "text", text: "For reviewers — read and comment:" },
@@ -341,139 +341,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
-    id: "open-shelves",
-    title: "Add & manage free book repos (Open Shelves)",
-    featureKey: "open-shelves",
-    keywords: [
-      "open shelves", "shelves", "opds", "catalog", "repo", "repository",
-      "source", "free books", "add source", "refresh", "remove",
-      "download", "downloads", "offline", "storage", "delete download",
-    ],
-    blocks: [
-      {
-        kind: "text",
-        text: "Open Shelves lets you add free book catalogs (OPDS feeds), then browse and manage them from the Shelves tab. A few starter libraries — Project Gutenberg shelves, curated by us — come included, so you always have somewhere to start. You can also add your own: paste an OPDS catalog URL.",
-      },
-      {
-        kind: "steps",
-        steps: [
-          "Open the Shelves tab and enter an OPDS catalog URL, then tap Add.",
-          "Confirm the warning — user-added sources are outside Mentible's curation, and you're responsible for what you add and read.",
-          "Tap a source to refresh it and pick up new entries, or use Refresh all to refresh every source at once.",
-          "Remove a source you no longer want; its catalog entries are removed from this device.",
-        ],
-      },
-      {
-        kind: "defs",
-        defs: [
-          {
-            term: "Is a source curated?",
-            def: "The starter shelves (Project Gutenberg) are curated by us. Any source you add yourself is outside Mentible's curation and is your responsibility — we don't vet or moderate third-party feeds.",
-          },
-          {
-            term: "Authenticated repos",
-            def: "Catalogs that require sign-in aren't supported yet — add public, no-auth OPDS catalogs.",
-          },
-          {
-            term: "Downloading for offline reading",
-            def: "Open an entry and tap Download. The file is fetched straight from the source library to your device — it never passes through Mentible. Books and audio can be downloaded; video is streaming-only. See everything you've saved, its size, and delete individual items (or all of them) under Downloads on the Shelves tab.",
-          },
-          {
-            term: "Where downloads live",
-            def: "Downloads are stored on this device only — they're never uploaded, synced, or tied to your account, so a download exists only where you made it. On the web app, Download hands the file to your browser instead, and it is not stored in the app for offline reading.",
-          },
-          {
-            term: "Catalogs on the web app",
-            def: "In a browser, Mentible asks its own server to fetch the catalog listing, because browsers block sites from reading most catalogs directly. Only the listing goes through us — the book itself always downloads straight from the library to you.",
-          },
-        ],
-      },
-      { kind: "link", label: "Open Shelves →", href: "/shelves" },
-    ],
-  },
-  {
-    id: "imported-books",
-    title: "Reading a book you imported",
-    featureKey: "imported-books",
-    keywords: ["epub", "import", "open", "downloaded", "shelves", "read"],
-    blocks: [
-      {
-        kind: "text",
-        text: "A book you download from Open Shelves can be opened and read inside Mentible. Tap Open on the Downloads screen and it joins your Library. On the web app, use \"Import an EPUB\" and pick the file you downloaded — browsers don't let us read it for you.",
-      },
-      {
-        kind: "steps",
-        steps: [
-          "Download a book from a catalog on the Shelves tab.",
-          "Open Downloads and tap Open next to the book.",
-          "The book appears in your Library and opens in the reader.",
-        ],
-      },
-      {
-        kind: "defs",
-        defs: [
-          { term: "Does the book leave my device?", def: "No. It's unzipped and stored on this device. Opening a book makes no network request — pictures inside the book are read from the book itself, and anything it tries to load from the internet is dropped." },
-          { term: "Why doesn't it look like the original?", def: "We render the book's text in Mentible's own typography and drop the book's styling. Its pictures are kept." },
-          { term: "Copy-protected books", def: "Books with DRM can't be opened here, and Mentible will say so rather than showing you a broken book." },
-        ],
-      },
-    ],
-  },
-  {
-    id: "chapter-quiz",
-    title: "Make a quiz from an imported chapter",
-    featureKey: "chapter-quiz",
-    keywords: ["quiz", "chapter quiz", "imported", "open shelves", "test", "questions"],
-    blocks: [
-      {
-        kind: "text",
-        text: "While reading a chapter of an imported book, tap \"Make a quiz from this chapter\" to generate an interactive multiple-choice quiz grounded in that chapter's own text — questions are answerable only from what the chapter says, not from outside knowledge. It's the reason to import a book into Mentible instead of just reading it in any EPUB app.",
-      },
-      {
-        kind: "steps",
-        steps: [
-          "Open a chapter of an imported book.",
-          "Tap \"Make a quiz from this chapter\" below the text.",
-          "Wait for generation to finish (it uses your LLM key, like any other generation).",
-          "Read the questions right in the reader. Tap an option to answer, and the correct answer is highlighted with an explanation.",
-        ],
-      },
-      {
-        kind: "defs",
-        defs: [
-          { term: "Does this cost tokens?", def: "Yes — it's a real generation against your configured provider, same as generating a topic." },
-          { term: "Long chapters", def: "Very long chapters are capped before being sent to the model; when that happens the screen shows a hint that the quiz only covers the first part." },
-          { term: "Does it change the chapter?", def: "No. The chapter's text is never edited — the quiz is stored separately and only ever added to." },
-          { term: "Where is it available?", def: "On both the web app and the Android app (not in the demo build, which has no backend). Tapping an option to reveal the answer works in both readers." },
-        ],
-      },
-    ],
-  },
-  {
     id: "projects",
-    title: "Create & set up a project",
+    title: "What a project is — and how to start one",
     featureKey: "projects",
-    keywords: ["project", "expert", "knowledge", "version", "invite", "capture", "create", "validate", "share", "journey", "publish", "export", "markdown"],
+    keywords: ["project", "expert", "knowledge", "capture", "create", "validate", "share", "trust", "phase", "tab", "role", "owner", "reviewer", "editor", "banner"],
     blocks: [
       {
         kind: "text",
-        text: "A project captures a piece of expert knowledge you want to write down, refine, and have validated by someone qualified. Create one from the Projects tab, add versions as your understanding improves, and invite an expert to review it once it's ready.",
+        text: "A project is Mentible's expert-validation studio: you capture an expert's raw knowledge, turn it into a draft, have an expert validate it, then share the validated result. \"Trust is the product\" — every project moves through the same four-phase loop: Capture → Create → Validate → Share.",
       },
       {
         kind: "text",
-        text: "Every project moves through four phases: capture your input, create a draft from it, have an expert validate it, then share it once it's ready. The project screen has a tab for each phase — Input, Drafts, Feedback, Publish — and opens on whichever one you're currently in, so you always know where a project stands. Tap any tab to jump to a different phase.",
+        text: "The project screen has five tabs, one per stage of that loop: Input (capture sources), Structure (build the outline), Drafts (generate content), Feedback (review & approve), and Publish (export the validated result). An adaptive banner at the top of the screen always tells you the single next thing to do, and the screen opens on whichever tab you're currently in — so you never have to guess where a project stands. Tap any tab to jump to a different phase; Back/Next at the bottom move you through them in order.",
       },
       {
         kind: "text",
-        text: "Publish is the last phase: it lists each asset that has an expert-validated version and lets you Copy it as plain text or as Markdown, ready to paste wherever you need it. Only validated versions appear — so what you publish is the version an expert stood behind. For book and guide assets, Pro plans can also download EPUB, PDF, and Word.",
+        text: "Three roles work a project: the Owner (who created it) can edit sources, structure and drafts, and invite people; an invited Reviewer can approve, withdraw an approval, and comment, but can't edit; an invited Editor edits the draft text and creates new versions instead of approving — the two invited roles are separate, an Editor can't approve and a Reviewer can't edit. Everyone with access sees the same project — the tabs just show or hide actions based on your role.",
       },
       {
         kind: "steps",
         steps: [
           "On the Projects tab, tap \"+ New project\".",
-          "Give it a title and, optionally, a topic, audience, and goal.",
-          "Add a version once the project exists — this is the content the expert reviews.",
-          "Invite an expert to review it from the project screen.",
+          "Fill in Title (required), and optionally Topic, Audience and Goal — these steer tone, not content.",
+          "Add your source material on the Input tab.",
+          "Follow the banner's next step through Structure, Drafts, Feedback and Publish.",
         ],
       },
     ],
@@ -573,20 +464,24 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "reviews",
-    title: "Review & approve a project",
+    title: "The Reviews tab — your invited-project inbox",
     featureKey: "reviews",
-    keywords: ["review", "approve", "expert", "validate"],
+    keywords: ["review", "reviews tab", "approve", "expert", "validate", "inbox", "invited"],
     blocks: [
       {
         kind: "text",
-        text: "If an author invites you as a reviewer, their project appears on the Reviews tab. Open it to see its versions and mark the ones you've checked as validated, so the author knows an expert stands behind them.",
+        text: "The Reviews tab is your inbox of projects other people have invited you into — it's separate from a project's own Feedback tab, which is where the actual approving happens once you're inside a project. Reviews just lists what's waiting for you.",
+      },
+      {
+        kind: "text",
+        text: "Open a project from here to land on its Feedback tab, where you read a draft, approve or request a revision. Approving there marks the version \"expert-validated\" under your name.",
       },
       {
         kind: "steps",
         steps: [
-          "Open the Reviews tab.",
-          "Tap the project you were invited to.",
-          "Approve a version once you've checked it.",
+          "Open the Reviews tab to see every project you've been invited to.",
+          "Tap a project to open it on its Feedback tab.",
+          "Read the draft, then Approve it or Request a revision.",
         ],
       },
     ],
@@ -689,7 +584,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "sources",
-    title: "Sources — capture the expert's knowledge",
+    title: "Input — capture the expert's sources",
     featureKey: "sources",
     keywords: [
       "source",
@@ -701,42 +596,73 @@ export const HELP_TOPICS: HelpTopic[] = [
       "input",
       "material",
       "intake",
-      "draft",
-      "generate",
-      "create",
+      "add source",
+      "edit",
+      "delete",
+      "cited",
+      "guard",
     ],
     blocks: [
       {
         kind: "text",
-        text: "Sources are the raw material a project is built from — an interview transcript, a note, or a link to something the expert wrote. Open a project and, as its owner, paste a source under the Input tab. Everyone invited to the project can see the sources behind the work. Adding sources is the first step; a later step turns them into a drafted, expert-reviewed asset.",
+        text: "Sources are the raw material a project is built from. On the Input tab, pick a kind — Transcript, Note, or Link — give it an optional Title (or Label, for a Link), then paste its Content (or, for a Link, the URL). The \"Add source\" button enables as soon as the Content — or the URL for a Link — has something in it; the title/label is optional and doesn't gate the button. Add as many as you like; everyone invited to the project can see the full source list, though only the owner can add, edit or delete them.",
       },
       {
         kind: "text",
-        text: "Once at least one source is captured, the project owner can Generate a draft. This turns the captured sources into a first version for the expert to review — grounded in, and attributed to, those sources.",
+        text: "Tap a source row to expand it, where Edit and Delete sit. Once a source has been cited by a draft, editing its CONTENT is blocked — the draft's citation would otherwise point at text that no longer says what it said when it was cited. You can still edit its title or reference at any time; only the content is protected, and only once something cites it.",
+      },
+      {
+        kind: "text",
+        text: "A Reviewer's Input tab is read-only: they can read every source but can't add, edit or delete one.",
+      },
+      {
+        kind: "text",
+        text: "Once at least one source is captured, the owner can move on to Structure to build an outline, or straight to Drafts to generate a first version — either way, everything the model writes is grounded in, and attributed to, these sources.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Choose a source kind: Transcript, Note, or Link.",
+          "Paste its Content (or the URL, for a Link) — Title/Label is optional.",
+          "Tap \"Add source\" — it enables once Content (or the URL) is filled in.",
+          "Tap a source row to Edit or Delete it later.",
+        ],
       },
     ],
   },
   {
     id: "draft-viewer",
-    title: "Read, copy, approve, request revisions, edit & regenerate a draft",
+    title: "Feedback — read, approve, comment & revise a draft",
     featureKey: "draft-viewer",
-    keywords: ["draft", "content", "read", "view", "copy", "clipboard", "approve", "unapprove", "withdraw", "feedback", "revision", "request", "note", "edit", "revise", "regenerate", "version", "guidance"],
+    keywords: ["draft", "content", "read", "view", "copy", "clipboard", "approve", "unapprove", "withdraw", "feedback", "revision", "request", "note", "edit", "revise", "regenerate", "version", "guidance", "invite", "expert", "editor", "reviewer", "expert-validated", "operator-recorded", "comment"],
     blocks: [
       {
         kind: "text",
-        text: "Open a project, go to Drafts (or Feedback), and tap a version to read the full drafted content. From here you can Copy the whole draft to your clipboard, and Approve it (or Unapprove it) — the actions sit right on the draft you're reading.",
+        text: "The Feedback tab (like Drafts) has a Whole book / Per topic toggle at the top — pick whichever matches how you're generating this project. Under it, a version list opens the draft viewer, where every action below lives.",
       },
       {
         kind: "text",
-        text: "Approving records that the version is validated; Unapprove withdraws that approval and returns the version to \"awaiting review\". Both are kept as a record — unapproving doesn't erase the earlier approval, it appends a withdrawal — so a version's trust history stays intact.",
+        text: "Open a version to read the full drafted content. From here you can Copy the whole draft to your clipboard, leave a Comment on a specific section, and Approve it (or Unapprove it) — the actions sit right on the draft you're reading.",
       },
       {
         kind: "text",
-        text: "Under the draft, Revision notes is a running log for that version: a reviewer (or the owner) can Request a revision — a short note asking for a change — and every note stays attached to the version it was about. The owner then edits or regenerates to produce the next version in response.",
+        text: "Approving records the version as validated. There are two ways it happens: a reviewer taps Approve themselves — that's recorded as \"expert-validated\" (self-approved by the invited expert). Or the owner taps Approve, names the expert who signed off outside the app, and taps \"Record approval\" — that's recorded as \"operator-recorded\" (the owner vouching for someone else's sign-off). Both show a provenance chip so anyone reading the project can see which happened. Unapprove withdraws an approval and returns the version to \"awaiting review\" — it appends a withdrawal rather than erasing the earlier approval, so the trust history stays intact.",
       },
       {
         kind: "text",
-        text: "Owners can also edit or regenerate. Editing adjusts each section's heading and body; saving creates a new version. Regenerate re-drafts from the sources — you can add optional guidance (for example, \"focus on 2026 costs\"). Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval.",
+        text: "\"Invite an expert\" (owner-only) sends someone access to this one project by email: choose whether they join as a Reviewer (can approve, withdraw, and comment — but not edit) or an Editor (edits the draft text and creates new versions instead of approving), enter their email, and send. They gain access the next time they sign in with that email.",
+      },
+      {
+        kind: "text",
+        text: "Under the draft, Revision notes is a running, project-wide feedback log, newest first: a reviewer, editor, or the owner can \"Request a revision\" — a short note asking for a change — and every note stays attached to the version it was about.",
+      },
+      {
+        kind: "text",
+        text: "The three roles have different edit/generate rights on a draft. The Owner gets everything: Copy, Revise (regenerate a new version from the sources, with optional guidance like \"focus on 2026 costs\" — a billable action against your LLM allowance), Edit text (hand-edit a section's heading and body, then save as a new version), Approve or record an approval, and run the grounding check. An invited Editor can Copy, Edit text (save as a new version), Comment, and Request a revision — but can't tap Revise/Regenerate; that's owner-only. A Reviewer can Copy, Approve (one-tap \"expert-validated\"), Comment, and Request a revision, but can't edit text or regenerate at all.",
+      },
+      {
+        kind: "text",
+        text: "Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval. A \"Changes from v{n}\" diff and the full Versions history are available from the draft viewer too.",
       },
     ],
   },
@@ -785,6 +711,100 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "text",
         text: "It only fills gaps: topics that already have a draft are skipped, so running it again after adding new topics — or after a run that left some topics failed — generates just what's missing rather than redoing everything.",
+      },
+    ],
+  },
+  {
+    id: "project-structure",
+    title: "Structure — build the outline",
+    featureKey: "project-structure",
+    keywords: ["structure", "outline", "toc", "table of contents", "topic tree", "suggest from sources", "subject", "subtopic", "citation"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The Structure tab is where a project's outline lives — subjects, broken into topics, broken into subtopics, each one optionally citing the source it comes from. It's the table of contents Drafts and Publish both work from.",
+      },
+      {
+        kind: "text",
+        text: "\"Suggest from sources\" asks the AI to draft an outline from your captured sources — it needs at least one source to work from, and is gated by the Free plan's usage cap. If the outline already has content, it asks you to confirm \"Replace outline?\" before overwriting it.",
+      },
+      {
+        kind: "text",
+        text: "You can also hand-edit the outline directly in the topic tree editor — add, rename, reorder or remove subjects, topics and subtopics. Every change auto-saves; there's no separate Save button.",
+      },
+      {
+        kind: "text",
+        text: "A Reviewer's Structure tab is read-only: they can see the outline but can't run \"Suggest from sources\" or edit the tree.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Add at least one source on the Input tab first.",
+          "Open Structure and tap \"Suggest from sources\" for an AI-drafted outline, or build the tree by hand.",
+          "Edit subjects, topics and subtopics directly in the tree — changes auto-save.",
+          "Move to Drafts once the outline has the shape you want.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "project-drafts",
+    title: "Drafts — generate whole-book or per-topic content",
+    featureKey: "project-drafts",
+    keywords: ["drafts", "whole book", "per topic", "format", "linkedin", "x thread", "reel", "podcast", "essay", "chapter outline", "version", "compare", "diff", "status", "generate", "regenerate"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Once an outline exists (built on Structure), the Drafts tab shows a Whole book / Per topic toggle.",
+      },
+      {
+        kind: "text",
+        text: "Whole book mode offers six format cards — LinkedIn post, X thread, Reel script, Podcast cold-open, Long-form essay, and Chapter outline. Picking one creates a fresh draft (version 1) in that format. \"Generate full book\" fans a full-length draft out over every topic in the outline that doesn't have one yet, as a background job with a token/cost estimate and a progress indicator — see \"Generate the whole book at once\" for the details.",
+      },
+      {
+        kind: "text",
+        text: "\"Your drafts\" lists every draft you've made, and opening one shows its version history (v1, v2, …) — tap View to read a version, or pick two to Compare and see a diff between them.",
+      },
+      {
+        kind: "text",
+        text: "Per topic mode lists every row of the outline with a status chip — Not generated, Drafted, or Validated — and, for the owner, Generate / Regenerate / Open buttons on each row. A Reviewer only sees View / Open; they can't generate.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Build an outline on Structure first.",
+          "Choose Whole book or Per topic on the Drafts tab.",
+          "Whole book: pick a format card to draft it, or Generate full book to draft every outline topic at once.",
+          "Per topic: Generate (or Regenerate) each topic row, then Open to read it.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "project-publish",
+    title: "Publish — export and share validated work",
+    featureKey: "project-publish",
+    keywords: ["publish", "export", "download", "epub", "pdf", "word", "docx", "add to library", "copy", "markdown", "validated", "free", "pro", "upgrade", "provenance"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The Publish tab is where a validated version leaves the project. It has the same Whole book / Per topic toggle as Drafts, and only shows validated content — what you publish is the version an expert stood behind. This is the project's own Publish tab, not the app's separate Publish (Posts) nav tab, which turns any of your writing into social posts, image cards, carousels and animated cards — see \"Share & short-form\" for that.",
+      },
+      {
+        kind: "text",
+        text: "For long-form assets (book, essay, guide), you get Add to Library (compiles it into an EPUB in your reader), Download EPUB, Download PDF, and — on a Pro plan — Download Word (.docx).",
+      },
+      {
+        kind: "text",
+        text: "For social assets (LinkedIn post, X thread, Reel script, Podcast cold-open), there's no compiled file — you get Copy and Copy as Markdown instead.",
+      },
+      {
+        kind: "text",
+        text: "In Per topic mode, \"Publish book\" assembles every validated topic draft into one book export (Add to Library / EPUB / PDF / Word) — it's gated until ALL topics in the outline are validated.",
+      },
+      {
+        kind: "text",
+        text: "Free plans can read everything here but see \"Upgrade to Pro to download\" instead of the download buttons. Validated content also carries a provenance chip — \"expert-validated\" or \"operator-recorded\" — so anyone reading the exported work can see how it was validated.",
       },
     ],
   },
