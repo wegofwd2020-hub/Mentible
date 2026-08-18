@@ -25,3 +25,12 @@ describe("help content — stale 'Studio' nav copy is fixed", () => {
     expect(steps.join(" ")).not.toMatch(/badge appears on the book in Studio/);
   });
 });
+
+describe("help content — Projects subtree has the three new tab topics", () => {
+  it("includes project-structure, project-drafts and project-publish", () => {
+    const ids = HELP_TOPICS.map((t) => t.id);
+    expect(ids).toEqual(
+      expect.arrayContaining(["project-structure", "project-drafts", "project-publish"]),
+    );
+  });
+});

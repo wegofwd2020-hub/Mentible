@@ -25,6 +25,9 @@ export const FEATURES = [
   { key: "word-export", label: "Word (.docx) export" },
   { key: "kdp-export", label: "Export for Kindle (KDP)" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },
+  { key: "project-structure", label: "Building a project's outline (Structure)" },
+  { key: "project-drafts", label: "Generating project drafts (Drafts)" },
+  { key: "project-publish", label: "Publishing a project's validated work" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
