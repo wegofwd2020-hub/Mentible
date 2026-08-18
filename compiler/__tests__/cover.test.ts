@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
-import { buildCoverSvg, buildCoverXhtml, coverInputForBook } from "../src/cover";
+import { buildCoverSvg, buildCoverSvgRaster, buildCoverXhtml, coverInputForBook } from "../src/cover";
 import { compileEpub } from "../src/epub";
 import { STUDIO } from "../src/tokens";
 import type { Book } from "../src/types";
@@ -65,6 +65,20 @@ describe("buildCoverSvg", () => {
     const svg = buildCoverSvg({ title: "Tom & Jerry <Physics>" });
     expect(svg).toContain("Tom &amp; Jerry &lt;Physics&gt;".split(" ")[0]); // "Tom" line carries the &amp;
     expect(svg).not.toMatch(/<Physics>/);
+  });
+
+  // Regression guard for the kdp JPEG-cover crash: buildCoverSvg is viewBox-only
+  // ("host sizes it"), which measures 0×0 in rasterize.ts's inline-block host →
+  // headless Chromium throws "Node has 0 width" and the whole kdp compile fails.
+  // The raster variant MUST carry an explicit width/height so the cover can be
+  // screenshotted. (The plain builder stays viewBox-only for the inline uses.)
+  it("buildCoverSvgRaster carries explicit width/height for rasterisation", () => {
+    const raster = buildCoverSvgRaster({ title: "Algebra" });
+    expect(raster).toMatch(/<svg[^>]*\bwidth="1600"/);
+    expect(raster).toMatch(/<svg[^>]*\bheight="2560"/);
+    expect(raster).toContain('viewBox="0 0 1600 2560"');
+    // the plain inline builder must remain viewBox-only (no forced size)
+    expect(buildCoverSvg({ title: "Algebra" })).not.toMatch(/<svg[^>]*\bwidth=/);
   });
 
   it("the cover XHTML is well-formed XML with no external links or scripts", () => {

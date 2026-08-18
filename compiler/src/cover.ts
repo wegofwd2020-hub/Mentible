@@ -229,6 +229,17 @@ export function buildCoverSvgFile(input: CoverInput): string {
   return `<?xml version="1.0" encoding="utf-8"?>\n${svg}`;
 }
 
+// Cover SVG with explicit width/height for RASTERISATION (kdp JPEG cover).
+// buildCoverSvg emits a viewBox-only <svg> ("host sizes it"), which measures
+// 0×0 inside rasterize.ts's inline-block #target host — headless Chromium then
+// throws "Node has 0 width" and the whole kdp compile fails on the cover. Inject
+// a definite size so the raster host can measure it. The tolerant `"<svg "`
+// match (vs buildCoverSvgFile's brittle full-attr string, which no longer
+// matches the tag's `xmlns:xlink`) guarantees the attrs actually land.
+export function buildCoverSvgRaster(input: CoverInput): string {
+  return buildCoverSvg(input).replace("<svg ", `<svg width="${VW}" height="${VH}" `);
+}
+
 // Full-bleed EPUB cover page (page 1 of the spine), inlining the SVG. The dark
 // page background hides any letterbox bars from preserveAspectRatio="meet".
 //

@@ -11,7 +11,13 @@ import { collectMathHtml, rasterizeMath, replaceMathWithImages } from "./mathRas
 import { xhtmlDocument } from "./xhtml";
 import { STYLESHEET, KDP_STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
-import { buildCoverSvgFile, buildCoverXhtml, buildCoverSvg, buildCoverXhtmlRaster, coverInputForBook } from "./cover";
+import {
+  buildCoverSvgFile,
+  buildCoverXhtml,
+  buildCoverSvgRaster,
+  buildCoverXhtmlRaster,
+  coverInputForBook,
+} from "./cover";
 import { renderCoverJpeg } from "./coverRaster";
 import { colophonSection } from "./colophon";
 import { numberFloats, type FloatRef } from "./floats";
@@ -239,7 +245,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   let coverSvg: string | undefined = buildCoverSvgFile(coverInput);
   let coverJpeg: Buffer | undefined;
   if (profile === "kdp") {
-    coverJpeg = await renderCoverJpeg(buildCoverSvg(coverInput));
+    coverJpeg = await renderCoverJpeg(buildCoverSvgRaster(coverInput));
     coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg");
     coverSvg = undefined;
   }
