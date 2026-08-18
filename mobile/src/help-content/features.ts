@@ -26,6 +26,8 @@ export const FEATURES = [
   { key: "kdp-export", label: "Export for Kindle (KDP)" },
   { key: "publish-pack", label: "Download a publish pack for retailers" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },
+  { key: "originality-report", label: "Originality check (source overlap)" },
+  { key: "project-rights", label: "Rights & attribution (copyright)" },
   { key: "project-structure", label: "Building a project's outline (Structure)" },
   { key: "project-drafts", label: "Generating project drafts (Drafts)" },
   { key: "project-publish", label: "Publishing a project's validated work" },

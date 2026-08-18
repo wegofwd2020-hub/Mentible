@@ -33,6 +33,7 @@ jest.mock("react-native-webview", () => ({ default: () => null }));
 jest.mock("@/components/LessonRenderer", () => require("../../test-utils/mockTopicRenderer"));
 
 const mockRunTopicGroundingCheck = jest.fn();
+const mockRunTopicOriginalityCheck = jest.fn();
 jest.mock("@/api/trustClient", () => ({
   getTopicVersion: jest.fn(async () => ({
     id: "tv1", topic_id: "t1", title: "Reading music",
@@ -43,9 +44,11 @@ jest.mock("@/api/trustClient", () => ({
       coverage: { sections_total: 5, sections_cited: 4, uncited_section_indexes: [0], dangling: [], source_refs: 4 },
       readability: { flesch_reading_ease: 52.1, grade_level: 9.4, words: 300, sentences: 20 },
       grounding: null,
+      originality: null,
     },
   })),
   runTopicGroundingCheck: (...args: unknown[]) => mockRunTopicGroundingCheck(...args),
+  runTopicOriginalityCheck: (...args: unknown[]) => mockRunTopicOriginalityCheck(...args),
 }));
 jest.mock("@/api/pollJob", () => ({ pollJob: jest.fn(async () => ({})) }));
 
@@ -56,6 +59,7 @@ beforeEach(() => {
   mockRole = "owner";
   jest.clearAllMocks();
   mockRunTopicGroundingCheck.mockResolvedValue({ job_id: "job-2", status: "queued" });
+  mockRunTopicOriginalityCheck.mockResolvedValue({ job_id: "job-4", status: "queued" });
 });
 
 it("renders the QualityCard's coverage/readability summary from the live version's quality payload", async () => {
@@ -86,4 +90,26 @@ it("reviewer does not see Run grounding check, but does see the per-section qual
   expect(screen.queryByLabelText("Run grounding check")).toBeNull();
   expect(screen.getByText("Section quality")).toBeTruthy();
   expect(screen.getByText("uncited")).toBeTruthy();
+});
+
+it("owner sees Run originality check, and pressing it calls runTopicOriginalityCheck with THIS version's id", async () => {
+  mockRole = "owner";
+  render(<TopicVersionViewer />);
+  await waitFor(() => expect(screen.getByLabelText("Run originality check")).toBeTruthy());
+
+  fireEvent.press(screen.getByLabelText("Run originality check"));
+
+  await waitFor(() => expect(mockRunTopicOriginalityCheck).toHaveBeenCalledWith(
+    "tv1", { api_key: "sk-ant-x", provider_id: "anthropic" }, "tok",
+  ));
+  await waitFor(() => expect(pollJob).toHaveBeenCalledWith(
+    "job-4", "tok", expect.objectContaining({ intervalMs: expect.any(Number) }),
+  ));
+});
+
+it("reviewer does not see Run originality check", async () => {
+  mockRole = "reviewer";
+  render(<TopicVersionViewer />);
+  await waitFor(() => expect(screen.getByText("4/5 sections cite a source")).toBeTruthy());
+  expect(screen.queryByLabelText("Run originality check")).toBeNull();
 });

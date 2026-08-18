@@ -10,6 +10,8 @@ interface Props {
   isOwner: boolean;
   busy: boolean;
   onRunGrounding: () => void;
+  origBusy?: boolean;
+  onRunOriginality?: () => void;
 }
 
 // Surfaces the quality report (coverage + readability + an on-demand
@@ -20,11 +22,11 @@ interface Props {
 // (billable LLM pass) — shown when there's no result yet, AND when a result
 // exists but is stale (a stale result on its own is a dead end without a way
 // to re-run it; pressing the button re-runs and overwrites the stale report).
-export function QualityCard({ quality, isOwner, busy, onRunGrounding }: Props): React.JSX.Element | null {
+export function QualityCard({ quality, isOwner, busy, onRunGrounding, origBusy = false, onRunOriginality = () => {} }: Props): React.JSX.Element | null {
   const styles = useThemedStyles(makeStyles);
   if (!quality) return null;
 
-  const { coverage, readability, grounding } = quality;
+  const { coverage, readability, grounding, originality } = quality;
   const hasGaps = coverage.uncited_section_indexes.length > 0 || coverage.dangling.length > 0;
 
   return (
@@ -81,6 +83,49 @@ export function QualityCard({ quality, isOwner, busy, onRunGrounding }: Props): 
             busy={busy}
             onPress={onRunGrounding}
           />
+        ) : (
+          <Text style={styles.subNote}>Not yet checked.</Text>
+        )}
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.label}>Originality</Text>
+        {originality ? (
+          <>
+            <Text style={styles.value}>{`${originality.summary.clean}/${originality.summary.total} sections original`}</Text>
+            {originality.summary.verbatim || originality.summary.paraphrase ? (
+              <Text style={styles.subNote}>
+                {`${originality.summary.verbatim} verbatim, ${originality.summary.paraphrase} close paraphrase`}
+              </Text>
+            ) : null}
+            <Text style={styles.subNote}>{`checked ${new Date(originality.checked_at).toLocaleString()}`}</Text>
+            <Text style={styles.subNote}>Checks your draft against your cited sources only — not the web.</Text>
+            {originality.stale ? (
+              <>
+                <Text style={styles.staleNote}>inputs changed — re-run</Text>
+                {isOwner ? (
+                  <Button
+                    variant="ghost"
+                    label="Run originality check"
+                    accessibilityLabel="Run originality check"
+                    busy={origBusy}
+                    onPress={onRunOriginality}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : isOwner ? (
+          <>
+            <Text style={styles.subNote}>Checks your draft against your cited sources only — not the web.</Text>
+            <Button
+              variant="ghost"
+              label="Run originality check"
+              accessibilityLabel="Run originality check"
+              busy={origBusy}
+              onPress={onRunOriginality}
+            />
+          </>
         ) : (
           <Text style={styles.subNote}>Not yet checked.</Text>
         )}

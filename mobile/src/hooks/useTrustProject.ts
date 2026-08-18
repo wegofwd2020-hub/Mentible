@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { useBillingPlan } from "@/hooks/useBillingPlan";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveRights as saveRightsApi, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
 import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
@@ -126,6 +126,12 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, projectId, refresh]);
 
+  const saveRights = useCallback(async (attested: boolean, rightsHolder?: string) => {
+    if (!accessToken) throw new Error("Not signed in");
+    await saveRightsApi(projectId, { attested, rights_holder: rightsHolder }, accessToken);
+    await refresh();
+  }, [accessToken, projectId, refresh]);
+
   const invite = useCallback(async (email: string, role: "reviewer" | "editor") => {
     if (!accessToken) throw new Error("Not signed in");
     const inv = await inviteApi(projectId, email, role, accessToken);
@@ -201,5 +207,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, saveRights, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
 }

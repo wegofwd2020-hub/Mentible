@@ -34,6 +34,13 @@ class ProjectOut(BaseModel):
     status: str
     created_at: datetime | None
     toc: dict | None = None
+    rights_attested_at: datetime | None = None
+    rights_holder: str | None = None
+
+
+class RightsIn(BaseModel):
+    attested: bool
+    rights_holder: str | None = Field(default=None, max_length=200)
 
 
 class TocSaveIn(BaseModel):

@@ -1,12 +1,13 @@
 import { randomUUID } from "@/lib/uuid";
 import type { DraftSection, ProjectInputView } from "@/api/trustClient";
-import type { Book } from "@/types/book";
+import type { Book, BookMetadata } from "@/types/book";
 import type { LessonSection } from "@/types/lesson";
 
 export function artifactToBook(
   sections: DraftSection[],
   title: string,
   inputs: ProjectInputView[],
+  metadata?: BookMetadata,
 ): Book {
   const now = new Date().toISOString();
   const topicId = randomUUID();
@@ -52,5 +53,6 @@ export function artifactToBook(
     content: { [topicId]: { topicId, title: safeTitle, lesson, generatedAt: now } },
     createdAt: now,
     updatedAt: now,
+    metadata,
   };
 }

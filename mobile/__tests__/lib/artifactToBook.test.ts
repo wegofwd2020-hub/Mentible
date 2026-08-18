@@ -32,3 +32,16 @@ it("omits the Sources section when nothing is cited, and defaults an empty title
   expect(secs).toHaveLength(1);
   expect(secs.some((s) => s.heading === "Sources")).toBe(false);
 });
+
+it("threads an optional metadata param onto the returned Book unchanged", () => {
+  const book = artifactToBook(
+    [{ heading: "H", body: "B", source_ids: [] }], "Title", [],
+    { rights: "© 2026 Jane Doe. All rights reserved." },
+  );
+  expect(book.metadata).toEqual({ rights: "© 2026 Jane Doe. All rights reserved." });
+});
+
+it("leaves metadata undefined when none is passed (default export behavior unchanged)", () => {
+  const book = artifactToBook([{ heading: "H", body: "B", source_ids: [] }], "Title", []);
+  expect(book.metadata).toBeUndefined();
+});

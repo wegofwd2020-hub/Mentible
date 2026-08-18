@@ -11,6 +11,8 @@ export interface ProjectView {
   id: string; title: string; topic: string | null; audience: string | null;
   goal: string | null; status: string; created_at: string | null;
   toc?: StructuredTocView;
+  rights_attested_at: string | null;
+  rights_holder: string | null;
 }
 export interface ArtifactView {
   id: string; project_id: string; role: string; format: string; title: string | null; created_at: string | null;
@@ -20,7 +22,8 @@ export interface DraftSection { heading: string; body: string; source_ids: strin
 export interface CoverageReport { sections_total: number; sections_cited: number; uncited_section_indexes: number[]; dangling: { section_index: number; source_id: string }[]; source_refs: number }
 export interface Readability { flesch_reading_ease: number; grade_level: number; words: number; sentences: number }
 export interface GroundingReport { claims_total: number; supported: number; partial: number; unsupported: number; by_section: { section_index: number; claims: { text: string; status: "supported" | "partial" | "unsupported"; source_ids: string[] }[] }[]; model: string; checked_at: string; stale: boolean }
-export interface QualityReport { coverage: CoverageReport; readability: Readability; grounding: GroundingReport | null }
+export interface OriginalityReport { sections: { index: number; heading: string; overlap: "none" | "paraphrase" | "verbatim"; note: string | null; source_ref: string | null }[]; summary: { verbatim: number; paraphrase: number; clean: number; total: number }; model: string; checked_at: string; stale: boolean }
+export interface QualityReport { coverage: CoverageReport; readability: Readability; grounding: GroundingReport | null; originality: OriginalityReport | null }
 export interface FeedbackView {
   id: string; version_id: string; author_kind: string; author_name: string | null;
   body: string; created_at: string | null; section_index: number | null;
@@ -197,6 +200,28 @@ export async function runTopicGroundingCheck(
   )) as VersionGenerateJobOut;
 }
 
+// On-demand originality/source-overlap check (B3 T4): POST
+// .../originality-check returns 202 + this job handle immediately (same
+// shape as runGroundingCheck); the actual LLM pass runs in a Celery worker.
+// Poll via the shared GET /api/v1/jobs/{id} endpoint (@/api/pollJob), then
+// refetch the version so `quality.originality` reflects the fresh result.
+// Checks the draft against ITS OWN cited sources only — never the web.
+export async function runOriginalityCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/artifacts/versions/${versionId}/originality-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
+export async function runTopicOriginalityCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/topic-versions/${versionId}/originality-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
 export async function invite(projectId: string, email: string, role: "reviewer" | "editor", token: string): Promise<InvitationView> {
   return (await trustFetch<InvitationView>(`/projects/${projectId}/invitations`, token, { method: "POST", body: JSON.stringify({ email, role }) })) as InvitationView;
 }
@@ -239,6 +264,16 @@ export async function suggestToc(
 
 export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
   await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
+}
+
+// Owner-only rights attestation (B3 Part B, display-only — never gates
+// export). attested=false withdraws a prior attestation.
+export async function saveRights(
+  projectId: string, body: { attested: boolean; rights_holder?: string }, token: string,
+): Promise<ProjectView> {
+  return (await trustFetch<ProjectView>(
+    `/projects/${projectId}/rights`, token, { method: "PUT", body: JSON.stringify(body) },
+  )) as ProjectView;
 }
 
 // Submits a per-topic generate as an async job (Phase A / T2) — the backend

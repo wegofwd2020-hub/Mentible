@@ -12,6 +12,7 @@ const baseQuality: QualityReport = {
   coverage: { sections_total: 10, sections_cited: 8, uncited_section_indexes: [2, 5], dangling: [], source_refs: 9 },
   readability: { flesch_reading_ease: 45.3, grade_level: 11.2, words: 500, sentences: 30 },
   grounding: null,
+  originality: null,
 };
 
 describe("QualityCard", () => {
@@ -105,5 +106,48 @@ describe("QualityCard", () => {
     };
     render(<QualityCard quality={stale} isOwner={false} busy={false} onRunGrounding={jest.fn()} />);
     expect(screen.queryByLabelText("Run grounding check")).toBeNull();
+  });
+
+  it("owner sees the Run originality check button when originality is null", () => {
+    render(<QualityCard quality={baseQuality} isOwner busy={false} onRunGrounding={jest.fn()} onRunOriginality={jest.fn()} />);
+    expect(screen.getByLabelText("Run originality check")).toBeTruthy();
+  });
+
+  it("non-owner does not see the Run originality check button", () => {
+    render(<QualityCard quality={baseQuality} isOwner={false} busy={false} onRunGrounding={jest.fn()} />);
+    expect(screen.queryByLabelText("Run originality check")).toBeNull();
+  });
+
+  it("renders the originality summary and hides the run button once fresh", () => {
+    const withOriginality: QualityReport = {
+      ...baseQuality,
+      originality: {
+        sections: [{ index: 0, heading: "H", overlap: "none", note: null, source_ref: null }],
+        summary: { verbatim: 1, paraphrase: 2, clean: 7, total: 10 },
+        model: "claude-sonnet-4-6", checked_at: "2026-08-16T12:00:00Z", stale: false,
+      },
+    };
+    render(<QualityCard quality={withOriginality} isOwner busy={false} onRunGrounding={jest.fn()} onRunOriginality={jest.fn()} />);
+    expect(screen.getByText("7/10 sections original")).toBeTruthy();
+    expect(screen.getByText("1 verbatim, 2 close paraphrase")).toBeTruthy();
+    expect(screen.queryByLabelText("Run originality check")).toBeNull();
+  });
+
+  it("shows a stale re-run note and the run button again when originality is stale", () => {
+    const stale: QualityReport = {
+      ...baseQuality,
+      originality: {
+        sections: [], summary: { verbatim: 0, paraphrase: 0, clean: 0, total: 0 },
+        model: "m", checked_at: "2026-08-16T12:00:00Z", stale: true,
+      },
+    };
+    render(<QualityCard quality={stale} isOwner busy={false} onRunGrounding={jest.fn()} onRunOriginality={jest.fn()} />);
+    expect(screen.getByText(/inputs changed — re-run/i)).toBeTruthy();
+    expect(screen.getByLabelText("Run originality check")).toBeTruthy();
+  });
+
+  it("labels the originality section as checking cited sources, not the web", () => {
+    render(<QualityCard quality={baseQuality} isOwner busy={false} onRunGrounding={jest.fn()} />);
+    expect(screen.getByText(/not the web/i)).toBeTruthy();
   });
 });

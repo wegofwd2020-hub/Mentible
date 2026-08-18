@@ -17,10 +17,10 @@ import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact, saveEpub } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
 import { estimateBook, generateBook, getGenerationJob, getTopicVersion, latestGenerationJob, listProjectFeedback } from "@/api/trustClient";
-import type { ArtifactDetailView, DraftSection, GenerationJob, ProjectFeedbackItem, ProjectInputView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
+import type { ArtifactDetailView, DraftSection, GenerationJob, ProjectFeedbackItem, ProjectInputView, ProjectView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { PlanStatus } from "@/api/billingClient";
-import type { Book, StructuredTOC, Subtopic } from "@/types/book";
+import type { Book, BookMetadata, StructuredTOC, Subtopic } from "@/types/book";
 import { deriveProjectPhase, type PhaseKey } from "@/lib/projectPhase";
 import { nextStep } from "@/lib/nextStep";
 import { DRAFT_FORMATS, type DraftFormat } from "@/constants/draftFormats";
@@ -57,6 +57,18 @@ const BOOK_GEN_POLL_MS = 3_000;
 // job mid-progress doesn't just vanish with no explanation. Fetch errors are
 // handled separately (fail-open, unchanged) — this is only about a
 // successfully-fetched job whose status is `failed`.
+// Threads the project's rights attestation (B3 Part B) into the exported
+// book's dc:rights colophon line. compiler/src/colophon.ts already falls
+// back to "© <year> <author>. All rights reserved." when metadata.rights is
+// absent, so this only needs to supply a line when the OWNER has actually
+// attested AND named a rights holder — an unattested project exports with
+// the compiler's default colophon behavior, unchanged.
+function rightsMetadata(project: ProjectView): BookMetadata | undefined {
+  if (!project.rights_attested_at || !project.rights_holder) return undefined;
+  const year = new Date(project.rights_attested_at).getUTCFullYear();
+  return { rights: `© ${year} ${project.rights_holder}. All rights reserved.` };
+}
+
 function BookGenSurface({ job, styles }: { job: GenerationJob; styles: Styles }) {
   if (job.status === "queued") {
     return <Text style={styles.genHint}>Starting…</Text>;
@@ -1151,6 +1163,7 @@ function FeedbackPanel({
 // `bookValidated` and owner-only (the assembly itself is an owner action).
 function PublishPanel({
   styles,
+  theme,
   isOwner,
   artifacts,
   inputs,
@@ -1165,8 +1178,15 @@ function PublishPanel({
   onPublishDownload,
   onUpgrade,
   plan,
+  rightsAttestedAt,
+  rightsHolderDraft,
+  setRightsHolderDraft,
+  rightsBusy,
+  onToggleRights,
+  onSaveRightsHolder,
 }: {
   styles: Styles;
+  theme: Palette;
   isOwner: boolean;
   artifacts: ArtifactDetailView[];
   inputs: ProjectInputView[];
@@ -1186,6 +1206,12 @@ function PublishPanel({
   // submission. plan:null means "unknown" (signed out, still loading, or the
   // billing fetch failed) and must fail OPEN — never wall on a billing hiccup.
   plan: PlanStatus | null;
+  rightsAttestedAt: string | null;
+  rightsHolderDraft: string;
+  setRightsHolderDraft: (v: string) => void;
+  rightsBusy: boolean;
+  onToggleRights: () => void;
+  onSaveRightsHolder: () => void;
 }) {
   const [mode, setMode] = useState<"whole" | "topic">("whole");
   const hasToc = (toc?.subjects?.length ?? 0) > 0;
@@ -1203,6 +1229,37 @@ function PublishPanel({
 
   return (
     <View style={styles.artifactsWrap}>
+      {isOwner ? (
+        <View style={styles.artifact}>
+          <Text style={styles.artifactTitle}>Rights</Text>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel="I attest I hold the rights to my sources"
+            accessibilityState={{ checked: !!rightsAttestedAt }}
+            onPress={onToggleRights}
+            style={styles.inviteRow}
+          >
+            <Chip label={rightsAttestedAt ? "Attested ✓" : "Not attested"} active={!!rightsAttestedAt} />
+            <Text style={styles.sourcesHelper}>I attest I hold the rights to the sources I've used and that this is my original work.</Text>
+          </Pressable>
+          <TextInput
+            style={styles.inviteInput}
+            accessibilityLabel="Rights holder"
+            placeholder="Rights holder (optional)"
+            placeholderTextColor={theme.textMuted}
+            value={rightsHolderDraft}
+            onChangeText={setRightsHolderDraft}
+          />
+          <Button
+            variant="ghost"
+            label="Save rights holder"
+            accessibilityLabel="Save rights holder"
+            busy={rightsBusy}
+            onPress={onSaveRightsHolder}
+          />
+        </View>
+      ) : null}
+      <Text style={styles.sourcesHelper}>Originality & rights are the author's responsibility — Mentible does not verify copyright or run a plagiarism scan against the web.</Text>
       {hasToc ? (
         <View style={styles.kindRow}>
           <Pressable
@@ -1391,8 +1448,39 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
+  const [rightsHolderDraft, setRightsHolderDraft] = useState(project?.project.rights_holder ?? "");
+  const [rightsBusy, setRightsBusy] = useState(false);
+  useEffect(() => {
+    setRightsHolderDraft(project?.project.rights_holder ?? "");
+  }, [project?.project.rights_holder]);
+
+  const onToggleRights = () => {
+    setRightsBusy(true);
+    void (async () => {
+      try {
+        await saveRights(!project?.project.rights_attested_at, rightsHolderDraft.trim() || undefined);
+      } catch (e) {
+        Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setRightsBusy(false);
+      }
+    })();
+  };
+
+  const onSaveRightsHolder = () => {
+    setRightsBusy(true);
+    void (async () => {
+      try {
+        await saveRights(!!project?.project.rights_attested_at, rightsHolderDraft.trim() || undefined);
+      } catch (e) {
+        Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setRightsBusy(false);
+      }
+    })();
+  };
   // Free/Pro plan status (T1/T4) — fetched once here (single source of truth)
   // and threaded down to Structure/Drafts (generation cap) and Publish
   // (export wall, T3). Client-side UX only — the server (T2) is the real
@@ -1794,7 +1882,7 @@ function TrustProjectDetailInner() {
     void (async () => {
       try {
         const v = await loadVersionContent(versionId);
-        const book = artifactToBook(v.content?.sections ?? [], title, inputs);
+        const book = artifactToBook(v.content?.sections ?? [], title, inputs, rightsMetadata(project.project));
         await saveBook(book); // Studio copy (kept)
         const { artifact: bytes } = await trackedExport(book, "epub", { diagrams: true });
         let coverBytes: ArrayBuffer | undefined;
@@ -1838,7 +1926,7 @@ function TrustProjectDetailInner() {
     void (async () => {
       try {
         const v = await loadVersionContent(versionId);
-        const book = artifactToBook(v.content?.sections ?? [], title, inputs);
+        const book = artifactToBook(v.content?.sections ?? [], title, inputs, rightsMetadata(project.project));
         const res = await trackedExport(book, fmt, { diagrams: true });
         await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, EXPORT_MIME[fmt]);
       } catch (e) {
@@ -1867,7 +1955,7 @@ function TrustProjectDetailInner() {
         }
       }
     }
-    return topicsToBook(project.project.title, toc, sectionsByTopic, inputs);
+    return topicsToBook(project.project.title, toc, sectionsByTopic, inputs, rightsMetadata(project.project));
   };
 
   const onPublishToLibrary = () => {
@@ -2154,6 +2242,7 @@ function TrustProjectDetailInner() {
         {active === "share" ? (
           <PublishPanel
             styles={styles}
+            theme={theme}
             isOwner={isOwner}
             artifacts={project.artifacts}
             inputs={inputs}
@@ -2168,6 +2257,12 @@ function TrustProjectDetailInner() {
             onPublishDownload={onPublishDownload}
             onUpgrade={onUpgrade}
             plan={plan}
+            rightsAttestedAt={project.project.rights_attested_at}
+            rightsHolderDraft={rightsHolderDraft}
+            setRightsHolderDraft={setRightsHolderDraft}
+            rightsBusy={rightsBusy}
+            onToggleRights={onToggleRights}
+            onSaveRightsHolder={onSaveRightsHolder}
           />
         ) : null}
         <PhaseNav phaseKey={active} onSelect={setSelected} />

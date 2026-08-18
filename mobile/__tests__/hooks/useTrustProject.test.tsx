@@ -3,7 +3,7 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import { Text, Pressable } from "react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
 
-jest.mock("@/api/trustClient", () => ({ getProject: jest.fn(), approveVersion: jest.fn(), createArtifact: jest.fn() }));
+jest.mock("@/api/trustClient", () => ({ getProject: jest.fn(), approveVersion: jest.fn(), createArtifact: jest.fn(), saveRights: jest.fn() }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn() }));
 jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: jest.fn() }));
@@ -218,4 +218,19 @@ describe("keyless-when-Pro wiring", () => {
     expect(runVersion).not.toHaveBeenCalled();
     expect(tc.createArtifact).not.toHaveBeenCalled();
   });
+});
+
+it("saveRights calls the trustClient PUT and refreshes the project", async () => {
+  (tc.getProject as jest.Mock).mockResolvedValue({ project: { id: "p1", title: "P" }, my_role: "owner", artifacts: [] });
+  (tc.saveRights as jest.Mock).mockResolvedValue({ id: "p1", title: "P", rights_attested_at: "2026-08-18T00:00:00Z", rights_holder: "Jane Doe" });
+
+  const { result } = renderHook(() => useTrustProject("p1"));
+  await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+  await act(async () => {
+    await result.current.saveRights(true, "Jane Doe");
+  });
+
+  expect(tc.saveRights).toHaveBeenCalledWith("p1", { attested: true, rights_holder: "Jane Doe" }, "tok");
+  expect((tc.getProject as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2); // refresh() re-fetches
 });

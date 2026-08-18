@@ -4,7 +4,10 @@ import json
 
 from .models import INPUT_KINDS, PROJECT_STATUSES, Project, ProjectInput
 
-_P = "id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc"
+_P = (
+    "id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc, "
+    "rights_attested_at, rights_holder"
+)
 _I = "id, project_id, kind, title, content, source_ref, storage_path, content_hash, created_at"
 
 
@@ -22,6 +25,8 @@ def _project(r) -> Project:
                 "status",
                 "created_at",
                 "updated_at",
+                "rights_attested_at",
+                "rights_holder",
             )
         },
         toc=json.loads(r["toc"]) if r["toc"] is not None else None,
@@ -88,6 +93,21 @@ async def set_status(conn, *, project_id, status) -> None:
 async def update_project_toc(conn, *, project_id, toc) -> None:
     await conn.execute(
         "UPDATE project SET toc = $2::jsonb WHERE id = $1", project_id, json.dumps(toc)
+    )
+
+
+async def set_rights(conn, *, project_id, attested: bool, rights_holder: str | None) -> None:
+    """Owner-only rights attestation (B3 Part B) — DISPLAY-ONLY, never
+    referenced by any export gate. `attested=True` stamps `now()`;
+    `attested=False` sets the timestamp back to null. `rights_holder` is
+    ALWAYS overwritten with the caller-supplied value (null if omitted) — the
+    caller must resend the current holder on every call or it is wiped."""
+    await conn.execute(
+        "UPDATE project SET rights_attested_at = CASE WHEN $2 THEN now() ELSE NULL END, "
+        "rights_holder = $3 WHERE id = $1",
+        project_id,
+        attested,
+        rights_holder,
     )
 
 
