@@ -1,6 +1,7 @@
 import { blockText } from "@/help";
 import { FEATURES, HELP_TOPICS } from "@/help-content";
 import { STARTER_SOURCES } from "@/openshelves/starterSources";
+import { NAV_ORDER } from "@/components/navItems";
 import type { HelpTopic } from "@/help";
 
 // Help once told users "a few starter libraries are included, so you always have
@@ -38,14 +39,17 @@ function promisesCuration(topic: HelpTopic): boolean {
 }
 
 describe("help's curation claim tracks the starter-source capability", () => {
-  it("promises curated/starter sources only when starter sources actually exist", () => {
+  it("promises curated/starter sources only when the feature is both nav-reachable and populated", () => {
     const promisers = HELP_TOPICS.filter(promisesCuration).map((t) => t.id);
-    if (STARTER_SOURCES.length === 0) {
-      // No capability → the copy must not promise one. This is the direction
-      // that protects users, and the one that was violated.
+    const shelvesIsNavVisible = NAV_ORDER.includes("shelves");
+    if (STARTER_SOURCES.length === 0 || !shelvesIsNavVisible) {
+      // No capability, or the capability exists but is intentionally
+      // undocumented while Shelves is hidden from the nav (Help Tree
+      // Restructure, D2) → the copy must not promise one.
       expect(promisers).toEqual([]);
     } else {
-      // Capability shipped → the copy must say so, or nobody will find it.
+      // Capability shipped AND reachable → the copy must say so, or nobody
+      // will find it.
       expect(promisers.length).toBeGreaterThan(0);
     }
   });
