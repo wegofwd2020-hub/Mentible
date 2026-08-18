@@ -64,6 +64,7 @@ export const HELP_TREE: HelpTreeNode[] = [
           { id: "leaf-word-export", title: "Word (.docx) export", topicId: "word-export" },
           { id: "leaf-kdp-export", title: "Kindle (KDP) export", topicId: "kdp-export" },
           { id: "leaf-publish-pack", title: "Publish pack (for retailers)", topicId: "publish-pack" },
+          { id: "leaf-project-rights", title: "Rights & attribution", topicId: "project-rights" },
         ],
       },
     ],

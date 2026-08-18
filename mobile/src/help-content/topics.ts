@@ -735,6 +735,26 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "project-rights",
+    title: "Rights & attribution",
+    featureKey: "project-rights",
+    keywords: ["rights", "copyright", "attribution", "colophon", "dc:rights", "holder", "attest"],
+    blocks: [
+      {
+        kind: "text",
+        text: "On the Publish tab, the project owner can attest \"I hold the rights to the sources I've used and that this is my original work\" and optionally name a rights holder. This is a statement you make, not something Mentible verifies — see the originality check for the closest thing to an automated signal, and note that it only compares against your OWN cited sources, never the web.",
+      },
+      {
+        kind: "text",
+        text: "When attested with a rights holder set, the exported EPUB/PDF's copyright page carries a \"© <year> <rights holder>. All rights reserved.\" line. Leaving it unattested doesn't block anything — export always works; the colophon just falls back to a generic line.",
+      },
+      {
+        kind: "text",
+        text: "Originality and rights are entirely the author's responsibility. Mentible does not run a plagiarism scan against the internet and does not verify copyright ownership.",
+      },
+    ],
+  },
+  {
     id: "generate-full-book",
     title: "Generate the whole book at once",
     featureKey: "generate-full-book",

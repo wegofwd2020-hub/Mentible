@@ -11,6 +11,8 @@ export interface ProjectView {
   id: string; title: string; topic: string | null; audience: string | null;
   goal: string | null; status: string; created_at: string | null;
   toc?: StructuredTocView;
+  rights_attested_at: string | null;
+  rights_holder: string | null;
 }
 export interface ArtifactView {
   id: string; project_id: string; role: string; format: string; title: string | null; created_at: string | null;
@@ -262,6 +264,16 @@ export async function suggestToc(
 
 export async function saveToc(projectId: string, toc: StructuredTocView, token: string): Promise<void> {
   await trustFetch(`/projects/${projectId}/toc`, token, { method: "PUT", body: JSON.stringify({ toc }) });
+}
+
+// Owner-only rights attestation (B3 Part B, display-only — never gates
+// export). attested=false withdraws a prior attestation.
+export async function saveRights(
+  projectId: string, body: { attested: boolean; rights_holder?: string }, token: string,
+): Promise<ProjectView> {
+  return (await trustFetch<ProjectView>(
+    `/projects/${projectId}/rights`, token, { method: "PUT", body: JSON.stringify(body) },
+  )) as ProjectView;
 }
 
 // Submits a per-topic generate as an async job (Phase A / T2) — the backend

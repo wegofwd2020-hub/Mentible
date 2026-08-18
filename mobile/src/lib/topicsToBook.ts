@@ -1,6 +1,6 @@
 import { randomUUID } from "@/lib/uuid";
 import type { DraftSection, ProjectInputView, StructuredTocView } from "@/api/trustClient";
-import type { Book, SubjectNode, TopicNode, GeneratedTopic } from "@/types/book";
+import type { Book, BookMetadata, SubjectNode, TopicNode, GeneratedTopic } from "@/types/book";
 import type { LessonOutput, LessonSection } from "@/types/lesson";
 
 function makeLesson(title: string, secs: DraftSection[]): LessonOutput {
@@ -30,6 +30,7 @@ export function topicsToBook(
   toc: StructuredTocView,
   topicSections: Map<string, DraftSection[]>,
   inputs: ProjectInputView[],
+  metadata?: BookMetadata,
 ): Book {
   const now = new Date().toISOString();
   const safeTitle = projectTitle.trim() || "Untitled";
@@ -83,5 +84,6 @@ export function topicsToBook(
     content,
     createdAt: now,
     updatedAt: now,
+    metadata,
   };
 }

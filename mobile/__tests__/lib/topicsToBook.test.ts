@@ -84,3 +84,13 @@ it("omits the Sources unit entirely when nothing is cited", () => {
   expect(book.toc.subjects).toHaveLength(2);
   expect(book.toc.subjects.some((s) => s.subject_label === "Sources")).toBe(false);
 });
+
+it("threads an optional metadata param onto the returned Book unchanged", () => {
+  const book = topicsToBook("My Project", toc, sections(), inputs, { rights: "© 2026 Jane Doe. All rights reserved." });
+  expect(book.metadata).toEqual({ rights: "© 2026 Jane Doe. All rights reserved." });
+});
+
+it("leaves metadata undefined when none is passed (default export behavior unchanged)", () => {
+  const book = topicsToBook("My Project", toc, sections(), inputs);
+  expect(book.metadata).toBeUndefined();
+});
