@@ -151,6 +151,26 @@ async def test_compile_book_threads_format_pack_into_argv():
     assert "--profile" not in argv
 
 
+async def test_compile_book_forces_mermaid_for_pack_even_when_diagrams_false():
+    # The pack's README unconditionally claims "rasterized math/diagrams" — the
+    # format must force rendering itself rather than relying on the caller to
+    # pass diagrams=true (a direct API/script caller could otherwise omit it).
+    mock_proc = MagicMock()
+    mock_proc.communicate = AsyncMock(return_value=(b"ZIPBYTES", b""))
+    mock_proc.returncode = 0
+    with patch(
+        "backend.src.export.compiler.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=mock_proc),
+    ) as create_exec:
+        await compiler.compile_book(
+            b'{"title":"t","toc":{"subjects":[{"subject_label":"s","units":[]}]}}',
+            fmt="pack",
+            diagrams=False,
+        )
+    argv = create_exec.call_args.args
+    assert "--mermaid" in argv
+
+
 async def test_compile_book_maps_kdp_draft_error_for_pack_format():
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(

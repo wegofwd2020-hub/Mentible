@@ -91,7 +91,7 @@ async def export_book(
     if fmt not in _FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
+            content={"detail": "format must be 'epub', 'pdf', 'docx' or 'pack'."},
         )
     if profile not in ("default", "kdp"):
         return JSONResponse(

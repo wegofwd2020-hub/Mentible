@@ -100,6 +100,9 @@ async def compile_book(
             topics=len({w.get("topic_id") for w in warnings}),
         )
 
+    if fmt == "pack":
+        diagrams = True  # pack's README promises rasterized diagrams — enforce at the format, not the caller
+
     argv = [settings.node_bin, settings.compiler_cli, "-", "-o", "-", "--format", fmt]
     if diagrams:
         argv.append("--mermaid")
