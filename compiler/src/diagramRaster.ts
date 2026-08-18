@@ -28,6 +28,18 @@ export async function rasterizeDiagramPngs(svgBySource: Map<string, string>): Pr
     const png = pngs[i];
     if (png) out.set(s, `data:image/png;base64,${png.toString("base64")}`);
   });
+  // A partial raster failure is otherwise silent: the failed diagram quietly
+  // reverts to the text placeholder (PrerenderedRasterDiagramRenderer's
+  // map-miss fallback), which is exactly what the kdp profile exists to
+  // eliminate, and epubcheck can't catch it. Surface it on stderr — the
+  // compiler writes the EPUB bytes to stdout (-o -), so this must never be
+  // console.log — so a silently-degraded Kindle book doesn't ship unnoticed.
+  const missing = sources.length - out.size;
+  if (missing > 0) {
+    console.error(
+      `[kdp] warning: ${missing} of ${sources.length} diagrams could not be rasterized and remain as placeholders (may render poorly on Kindle)`,
+    );
+  }
   return out;
 }
 

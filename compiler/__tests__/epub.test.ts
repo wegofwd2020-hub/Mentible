@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
-import { compileEpub, EmptyBookError, isoDate } from "../src/epub";
+import { compileEpub, EmptyBookError, KdpDraftError, isoDate } from "../src/epub";
 import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
 // Stand in for Puppeteer/Chromium (D3/D4/D5 raster paths) so these tests never
@@ -324,6 +324,20 @@ describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
   it("profile 'default' still compiles a draft book (no guard)", async () => {
     const book = withMeta({ author: "A", status: "draft" });
     await expect(compileEpub(book)).resolves.toBeInstanceOf(Uint8Array);
+  });
+
+  // Pin: backend/src/export/compiler.py greps this exact substring (case-
+  // insensitively) against the compiler subprocess's stderr to map a kdp
+  // draft-refusal to a friendly 422 instead of a generic 500. There is no
+  // shared constant across the TS/Python boundary, so a reword here that
+  // drops this substring would keep every other test green while silently
+  // breaking that mapping in production — this test is the only thing
+  // pinning it. Keep in sync with the "kdp export profile requires a
+  // released book" check in compiler.py.
+  it("KdpDraftError's message contains the substring the backend greps for", () => {
+    expect(new KdpDraftError().message.toLowerCase()).toContain(
+      "kdp export profile requires a released book",
+    );
   });
 });
 

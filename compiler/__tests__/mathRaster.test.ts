@@ -75,6 +75,25 @@ describe("rasterizeMath", () => {
     expect(map.has(KATEX_INLINE)).toBe(true);
     expect(map.has(KATEX_BLOCK)).toBe(false); // this one "failed to rasterize"
   });
+
+  it("warns on stderr with the dropped count when fewer fragments rasterize than requested", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((_, i) => (i === 1 ? null : Buffer.from(`png-${i}`))),
+    );
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await rasterizeMath([KATEX_INLINE, KATEX_BLOCK]);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("1 of 2 equations could not be rasterized"));
+    errorSpy.mockRestore();
+  });
+
+  it("does not warn when every fragment rasterizes successfully", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await rasterizeMath([KATEX_INLINE, KATEX_BLOCK]);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });
 
 describe("replaceMathWithImages", () => {

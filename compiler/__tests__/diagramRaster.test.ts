@@ -37,6 +37,33 @@ describe("rasterizeDiagramPngs", () => {
     expect(map.has("graph TD; A-->B;")).toBe(true);
     expect(map.has("sequenceDiagram; X->>Y: hi;")).toBe(false); // this one "failed to rasterize"
   });
+
+  it("warns on stderr with the dropped count when fewer diagrams rasterize than requested", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((_, i) => (i === 1 ? null : Buffer.from(`png-${i}`))),
+    );
+    const svgBySource = new Map([
+      ["graph TD; A-->B;", "<svg>A</svg>"],
+      ["sequenceDiagram; X->>Y: hi;", "<svg>B</svg>"],
+    ]);
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await rasterizeDiagramPngs(svgBySource);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("1 of 2 diagrams could not be rasterized"));
+    errorSpy.mockRestore();
+  });
+
+  it("does not warn when every diagram rasterizes successfully", async () => {
+    const svgBySource = new Map([
+      ["graph TD; A-->B;", "<svg>A</svg>"],
+      ["sequenceDiagram; X->>Y: hi;", "<svg>B</svg>"],
+    ]);
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await rasterizeDiagramPngs(svgBySource);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });
 
 describe("PrerenderedRasterDiagramRenderer", () => {

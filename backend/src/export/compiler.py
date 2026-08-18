@@ -135,6 +135,7 @@ async def compile_book(
             raise ExportValidationError("Book has no generated content to compile.")
         # The kdp profile refuses to compile a draft book (epub.ts's
         # KdpDraftError) — also a user-input problem, not a server fault.
+        # substring must match KdpDraftError.message in compiler/src/epub.ts
         if "kdp export profile requires a released book" in detail.lower():
             raise ExportValidationError(
                 "The KDP export profile requires a released book "

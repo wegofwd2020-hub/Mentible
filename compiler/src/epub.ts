@@ -44,6 +44,8 @@ export class EmptyBookError extends Error {
 
 export class KdpDraftError extends Error {
   constructor() {
+    // NOTE: backend/src/export/compiler.py greps this substring to map to a
+    // 422 — keep in sync.
     super(
       'The KDP export profile requires a released book (metadata.status must not be "draft").',
     );

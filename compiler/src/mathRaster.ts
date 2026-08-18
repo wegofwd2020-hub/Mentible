@@ -76,6 +76,18 @@ export async function rasterizeMath(mathmlList: readonly string[]): Promise<Map<
     const png = pngs[i];
     if (png) out.set(m, `data:image/png;base64,${png.toString("base64")}`);
   });
+  // A partial raster failure is otherwise silent: the failed fragment quietly
+  // reverts to MathML (replaceMathWithImages' map-miss fallback), which is
+  // exactly what the kdp profile exists to eliminate, and epubcheck can't
+  // catch it (MathML is valid EPUB3). Surface it on stderr — the compiler
+  // writes the EPUB bytes to stdout (-o -), so this must never be
+  // console.log — so a silently-degraded Kindle book doesn't ship unnoticed.
+  const missing = unique.length - out.size;
+  if (missing > 0) {
+    console.error(
+      `[kdp] warning: ${missing} of ${unique.length} equations could not be rasterized and remain as MathML (may render poorly on Kindle)`,
+    );
+  }
   return out;
 }
 
