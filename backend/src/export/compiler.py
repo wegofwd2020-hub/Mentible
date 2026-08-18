@@ -69,12 +69,16 @@ async def compile_book(
     diagrams: bool = False,
     profile: str = "default",
 ) -> ExportResult:
-    """Compile raw book.json bytes into an artifact (EPUB, PDF, or DOCX) via the
-    Node compiler.
+    """Compile raw book.json bytes into an artifact (EPUB, PDF, DOCX, or a zip
+    Publish Pack) via the Node compiler.
 
-    fmt:      "epub" | "pdf" | "docx". diagrams: render Mermaid → SVG (needs
-    Chromium; much slower, so it gets the longer diagram timeout). profile:
-    "default" | "kdp" (KDP-clean export profile, epub-only — see
+    fmt:      "epub" | "pdf" | "docx" | "pack" ("pack" bundles a KDP-clean
+    EPUB + cover + metadata sheet + retailer README — see
+    docs/superpowers/specs/2026-08-18-publish-pack-scope-b-design.md; it
+    always emits a kdp-profile EPUB internally, so it needs no `profile=kdp`
+    from the caller). diagrams: render Mermaid → SVG (needs Chromium; much
+    slower, so it gets the longer diagram timeout). profile: "default" |
+    "kdp" (KDP-clean export profile, epub-only — see
     docs/specs/kdp-clean-export-profile.md). Raises ExportValidationError for
     bad input, CompilerError otherwise.
     """
@@ -95,6 +99,9 @@ async def compile_book(
             rules=sorted({w.get("rule", "") for w in warnings}),
             topics=len({w.get("topic_id") for w in warnings}),
         )
+
+    if fmt == "pack":
+        diagrams = True  # pack's README promises rasterized diagrams — enforce at the format, not the caller
 
     argv = [settings.node_bin, settings.compiler_cli, "-", "-o", "-", "--format", fmt]
     if diagrams:

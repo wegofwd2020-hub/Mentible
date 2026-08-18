@@ -162,7 +162,7 @@ export async function getStructureJob(
 // a sub-second synchronous call. 422 → the book has no generated content (or is
 // malformed); surface via ApiError.body. diagrams=true renders Mermaid→SVG.
 export interface ExportOptions {
-  format?: "epub" | "pdf" | "cover" | "docx"; // "cover" → a PNG thumbnail of the cover
+  format?: "epub" | "pdf" | "cover" | "docx" | "pack"; // "cover" → a PNG thumbnail of the cover; "pack" → a zip Publish Pack (P2-6 Scope B)
   diagrams?: boolean;
   // KDP-clean export profile (docs/specs/kdp-clean-export-profile.md) — epub
   // only. Rasters math/diagrams/cover and drops the embedded body font so the
@@ -254,7 +254,7 @@ const EXPORT_POLL_TIMEOUT_MS = 1_200_000; // 20 min
 
 async function submitExportJob(
   book: Book,
-  format: "epub" | "pdf" | "docx",
+  format: "epub" | "pdf" | "docx" | "pack",
   diagrams: boolean,
   profile?: "default" | "kdp",
 ): Promise<string> {

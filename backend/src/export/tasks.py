@@ -60,11 +60,14 @@ _MEDIA_TYPES = {
     "epub": "application/epub+zip",
     "pdf": "application/pdf",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pack": "application/zip",
 }
 
 
 def artifact_filename(title: str, fmt: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower() or "book"
+    if fmt == "pack":
+        return f"{slug[:60]}-publish-pack.zip"
     return f"{slug[:60]}.{fmt}"
 
 

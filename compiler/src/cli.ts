@@ -9,9 +9,10 @@ import { renderCoverPng } from "./coverRaster";
 import { compileCard, type CardInput } from "./card";
 import { compileCarousel, type CarouselInput } from "./carousel";
 import { compileAnimated, type AnimatedInput } from "./animated";
+import { compilePack } from "./pack";
 import type { Book } from "./types";
 
-// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover|card|carousel|animated] [--mermaid]
+// compile <book.json|-> [-o out|-] [--format epub|pdf|docx|cover|card|carousel|animated|pack] [--mermaid]
 //   input      a path, or "-" / omitted to read book JSON from stdin
 //   -o         a path, or "-" to write to stdout (default when reading stdin)
 //   --format   epub (default) | pdf (Vivliostyle textbook layout) |
@@ -21,11 +22,14 @@ import type { Book } from "./types";
 //              carousel (N branded PNG card frames, one Chromium pass — reads
 //              a CarouselInput JSON on stdin, emits {png_base64: string[]}) |
 //              animated (a branded animated GIF card — reads an AnimatedInput
-//              JSON on stdin, not a Book)
+//              JSON on stdin, not a Book) | pack (a zip Publish Pack —
+//              KDP-clean EPUB + cover.jpg + metadata.txt + README.html, D1
+//              docs/superpowers/specs/2026-08-18-publish-pack-scope-b-design.md;
+//              always emits a kdp-profile EPUB internally, ignoring --profile)
 //   --mermaid  render diagrams to inline SVG (needs a headless browser); else
 //              diagrams fall back to a readable text placeholder.
 
-type Format = "epub" | "pdf" | "cover" | "docx" | "card" | "carousel" | "animated";
+type Format = "epub" | "pdf" | "cover" | "docx" | "card" | "carousel" | "animated" | "pack";
 
 export function parseArgs(argv: string[]): {
   input?: string;
@@ -58,7 +62,9 @@ export function parseArgs(argv: string[]): {
                   ? "carousel"
                   : f === "animated"
                     ? "animated"
-                    : "epub";
+                    : f === "pack"
+                      ? "pack"
+                      : "epub";
     } else if (a === "--pdf") format = "pdf";
     else if (a === "-o") output = argv[++i];
     else if (!input) input = a;
@@ -106,7 +112,9 @@ async function main(): Promise<void> {
         ? await renderCoverPng(buildCoverSvgFile(coverInputForBook(book)))
         : format === "docx"
           ? await compileDocx(book)
-          : await compileEpub(book, { ...mermaidOpt, profile });
+          : format === "pack"
+            ? await compilePack(book, mermaidOpt)
+            : await compileEpub(book, { ...mermaidOpt, profile });
 
   // Write to stdout when asked, or by default when input came from stdin.
   const toStdout = output === "-" || (fromStdin && !output);

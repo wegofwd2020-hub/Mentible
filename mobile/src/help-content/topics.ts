@@ -414,6 +414,26 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "publish-pack",
+    title: "Download a publish pack for retailers",
+    featureKey: "publish-pack",
+    keywords: ["publish", "pack", "kdp", "draft2digital", "publishdrive", "retailer", "export", "metadata"],
+    blocks: [
+      {
+        kind: "text",
+        text: "\"Publish pack\" downloads one zip with everything you need to hand this book to a retailer: the KDP-clean EPUB, its cover as a plain JPEG, a metadata sheet listing the fields Mentible stores (plus labeled blanks for the ones it doesn't — subtitle, keywords, categories), and a README with step-by-step upload links for Amazon KDP, Draft2Digital, and PublishDrive. There's still no automatic submission — you upload it yourself, but it's one download and a copy-paste instead of hunting down each file.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Where's the button?", def: "On a Library book's Check out panel, next to EPUB3, PDF, and Kindle (KDP): \"Publish pack\"." },
+          { term: "Why does it need a released book?", def: "The pack's EPUB is the same KDP-clean export, which refuses a draft book — release it first (clears the \"DRAFT\" watermark)." },
+          { term: "What about Apple Books?", def: "Apple's direct upload needs a Mac and their Transporter app, so the README doesn't link it — it points you to Draft2Digital instead, which reaches Apple Books without a Mac." },
+        ],
+      },
+    ],
+  },
+  {
     id: "project-fields",
     title: "New Project fields: Title, Topic, Audience, Goal",
     featureKey: "project-fields",

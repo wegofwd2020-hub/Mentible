@@ -13,7 +13,7 @@ import type { TrustManifest } from "@/types/trust";
 
 type State =
   | { kind: "idle" }
-  | { kind: "working"; fmt: "epub" | "pdf" }
+  | { kind: "working"; fmt: "epub" | "pdf" | "pack" }
   | { kind: "done"; msg: string; trust?: TrustManifest }
   | { kind: "error"; msg: string };
 
@@ -77,6 +77,32 @@ export function CheckoutButton({ book }: { book: Book }) {
     }
   };
 
+  // Publish pack (P2-6 Scope B, docs/superpowers/specs/2026-08-18-publish-pack-scope-b-design.md)
+  // — a single zip bundling the KDP-clean EPUB, a raster cover, a metadata
+  // sheet, and a retailer upload checklist. Same distinct-artifact pattern as
+  // checkoutKdp: bypasses trackedExport's exportStatus tracking (keyed by
+  // format "epub"/"pdf"/"docx" — a concurrent plain-EPUB export would collide
+  // with this one under the same "epub" key).
+  const checkoutPack = async () => {
+    setState({ kind: "working", fmt: "pack" });
+    try {
+      const payload = await buildCompilePayload(book);
+      const { artifact, trust } = await exportBook(payload, { format: "pack", diagrams: true });
+      const res = await downloadArtifact(
+        artifact,
+        `${slug(book.title)}-publish-pack.zip`,
+        "application/zip",
+      );
+      setState({
+        kind: "done",
+        msg: res.savedPath ? `Saved: ${res.savedPath}` : "Publish pack downloaded.",
+        trust,
+      });
+    } catch (err) {
+      setState({ kind: "error", msg: messageFor(err) });
+    }
+  };
+
   const working = state.kind === "working";
 
   return (
@@ -105,6 +131,14 @@ export function CheckoutButton({ book }: { book: Book }) {
           onPress={checkoutKdp}
           disabled={working}
           accessibilityLabel="Export a KDP-clean EPUB for Kindle"
+          style={styles.btn}
+        />
+        <Button
+          variant="ghost"
+          label="Publish pack"
+          onPress={checkoutPack}
+          disabled={working}
+          accessibilityLabel="Download a publish pack for retailers"
           style={styles.btn}
         />
       </View>

@@ -102,3 +102,39 @@ it("Kindle (KDP) checks out a distinct, profile=kdp EPUB", async () => {
     "application/epub+zip",
   );
 });
+
+it("renders the Publish pack button", () => {
+  render(<CheckoutButton book={book} />);
+  expect(
+    screen.getByRole("button", { name: "Download a publish pack for retailers" }),
+  ).toBeTruthy();
+});
+
+it("Publish pack requests format=pack with diagrams:true (so book.epub rasterizes Mermaid, not placeholders) and downloads a .zip", async () => {
+  mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
+  render(<CheckoutButton book={book} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Download a publish pack for retailers" }));
+
+  await waitFor(() => expect(screen.getByText(/Publish pack downloaded|Saved:/)).toBeTruthy());
+  expect(mockExport).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ format: "pack", diagrams: true }),
+  );
+  expect(mockDownload).toHaveBeenCalledWith(
+    expect.anything(),
+    "physics-publish-pack.zip",
+    "application/zip",
+  );
+});
+
+it("Publish pack button re-enables after a failed export", async () => {
+  mockExport.mockRejectedValue(new Error("network fetch failed"));
+  render(<CheckoutButton book={book} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Download a publish pack for retailers" }));
+
+  await waitFor(() => expect(screen.getByText(/Couldn’t reach the server/)).toBeTruthy());
+  const button = screen.getByRole("button", { name: "Download a publish pack for retailers" });
+  expect(button.props.accessibilityState?.disabled).toBe(false);
+});
