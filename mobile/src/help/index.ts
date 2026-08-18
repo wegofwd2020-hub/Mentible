@@ -5,7 +5,7 @@
 export type { HelpBlock, HelpTopic, HelpTreeNode } from "./schema";
 export { blockText, searchHelpTopics } from "./search";
 export { uncoveredFeatures } from "./coverage";
-export { ancestorIdsForTopic, flattenNodes } from "./tree";
+export { ancestorIdsForTopic, flattenNodes, nodeIdForTopic } from "./tree";
 export { HelpButton } from "./components/HelpButton";
 export { HelpHint } from "./components/HelpHint";
 export { HelpTopicView } from "./components/HelpTopicView";

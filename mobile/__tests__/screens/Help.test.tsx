@@ -68,6 +68,19 @@ describe("HelpScreen", () => {
     expect(screen.getByText(/Bring Your Own Key/)).toBeTruthy();
   });
 
+  it("clearing the search query returns the tree to its collapsed default", () => {
+    render(<HelpScreen />);
+    const input = screen.getByLabelText("Search help");
+    fireEvent.changeText(input, "byok");
+    expect(screen.getByText(/Bring Your Own Key/)).toBeTruthy();
+
+    fireEvent.changeText(input, "");
+    // Back to the collapsed tree: a top-level branch row is visible again...
+    expect(screen.getByText("Getting started")).toBeTruthy();
+    // ...and the search-only result (never expanded in the tree) is gone.
+    expect(screen.queryByText(/Bring Your Own Key/)).toBeNull();
+  });
+
   it("a ?topic=<id> deep link expands every ancestor branch and surfaces the leaf", async () => {
     mockUseLocalSearchParams.mockReturnValue({ topic: "plans" });
     render(<HelpScreen />);

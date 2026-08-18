@@ -1,5 +1,5 @@
 import { HELP_TOPICS, HELP_TREE } from "@/help-content";
-import { ancestorIdsForTopic, flattenNodes, type HelpTreeNode } from "@/help";
+import { ancestorIdsForTopic, flattenNodes, nodeIdForTopic, type HelpTreeNode } from "@/help";
 
 // Topics that intentionally have no tree leaf (search-only). Empty today —
 // every real topic must be reachable by navigating the tree.
@@ -83,6 +83,25 @@ describe("ancestorIdsForTopic", () => {
       "projects",
       "projects-feedback",
     ]);
+  });
+});
+
+describe("nodeIdForTopic", () => {
+  // help.tsx's ?topic=<id> deep link must scroll by the tree-node id, not
+  // the raw topicId (offsets.current is keyed by node.id, and every real
+  // leaf's node id differs from its topicId — e.g. "leaf-plans" vs "plans").
+  // These pin the exact ids so a future tree.ts edit can't silently break
+  // that keying without a test noticing.
+  it("resolves a top-level leaf's topicId to its tree-node id", () => {
+    expect(nodeIdForTopic(HELP_TREE, "plans")).toBe("leaf-plans");
+  });
+
+  it("resolves a 3-level nested leaf's topicId to its tree-node id", () => {
+    expect(nodeIdForTopic(HELP_TREE, "draft-viewer")).toBe("leaf-draft-viewer");
+  });
+
+  it("returns undefined when the topicId isn't in the tree", () => {
+    expect(nodeIdForTopic(HELP_TREE, "not-a-real-topic")).toBeUndefined();
   });
 });
 

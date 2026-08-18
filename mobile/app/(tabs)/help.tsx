@@ -13,7 +13,7 @@ import {
   searchHelpTopics,
   HelpTopicView,
   ancestorIdsForTopic,
-  flattenNodes,
+  nodeIdForTopic,
   type HelpTreeNode,
 } from "@/help";
 import { HELP_TOPICS, HELP_TREE } from "@/help-content";
@@ -70,14 +70,19 @@ export default function HelpScreen() {
   // matches `?topic=<id>` PLUS the leaf itself (ancestorIdsForTopic only
   // returns the branch chain, excluding the matching leaf's own id — without
   // also expanding the leaf, its HelpTopicView card would never render), then
-  // scroll to + highlight it once layout settles.
+  // scroll to + highlight it once layout settles. `offsets.current` (and
+  // `scrollToNode`) are keyed by tree-node id, NOT topicId — every real leaf's
+  // node id differs from its topicId (e.g. "leaf-plans" vs "plans") — so the
+  // scroll target must be resolved via `nodeIdForTopic`, never `String(topic)`
+  // directly, or the lookup is silently always-undefined.
   useEffect(() => {
     if (!topic) return;
     const ancestors = ancestorIdsForTopic(HELP_TREE, String(topic));
     if (ancestors.length === 0) return;
-    const leaf = flattenNodes(HELP_TREE).find((n) => n.topicId === String(topic));
-    setExpanded((prev) => new Set([...prev, ...ancestors, ...(leaf ? [leaf.id] : [])]));
-    const h = setTimeout(() => scrollToNode(String(topic)), 250);
+    const targetNodeId = nodeIdForTopic(HELP_TREE, String(topic));
+    setExpanded((prev) => new Set([...prev, ...ancestors, ...(targetNodeId ? [targetNodeId] : [])]));
+    if (!targetNodeId) return;
+    const h = setTimeout(() => scrollToNode(targetNodeId), 250);
     return () => clearTimeout(h);
   }, [topic, scrollToNode]);
 
@@ -95,6 +100,14 @@ export default function HelpScreen() {
         style={[styles.node, { paddingLeft: depth * spacing.md }]}
         onLayout={(e: LayoutChangeEvent) => {
           offsets.current[node.id] = e.nativeEvent.layout.y;
+          // Intended fallback (not dead code): the deep-link effect above may
+          // fire its 250ms scroll before this leaf has laid out (its
+          // ancestors just expanded this same render), leaving
+          // offsets.current[node.id] unset at scroll time. This re-attempts
+          // the scroll the instant THIS node's own layout lands. Keyed by
+          // node.id — the same key offsets/scrollToNode use everywhere — via
+          // a direct topicId match rather than nodeIdForTopic, since we
+          // already have this exact node in hand.
           if (topic && node.topicId === String(topic)) scrollToNode(node.id);
         }}
       >

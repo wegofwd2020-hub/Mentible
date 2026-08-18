@@ -31,3 +31,14 @@ export function ancestorIdsForTopic(tree: HelpTreeNode[], topicId: string): stri
   };
   return search(tree) ? path : [];
 }
+
+// The tree-node `id` (NOT the topicId) of the leaf whose `topicId` matches
+// `topicId` — this is the key `help.tsx` records its scroll offsets under
+// (`offsets.current[node.id]`), which differs from `topicId` for every real
+// leaf (e.g. node id "leaf-plans" vs topicId "plans"). Callers that need to
+// scroll to a topic from a `?topic=<topicId>` deep link must resolve through
+// this helper rather than indexing offsets by the raw topicId directly.
+// Returns undefined if no node in the tree carries that topicId.
+export function nodeIdForTopic(tree: HelpTreeNode[], topicId: string): string | undefined {
+  return flattenNodes(tree).find((n) => n.topicId === topicId)?.id;
+}
