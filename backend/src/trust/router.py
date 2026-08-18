@@ -151,6 +151,8 @@ async def create_project(
         goal=p.goal,
         status=p.status,
         created_at=p.created_at,
+        rights_attested_at=p.rights_attested_at,
+        rights_holder=p.rights_holder,
     )
 
 
@@ -850,6 +852,8 @@ async def get_project(
             status=p.status,
             created_at=p.created_at,
             toc=p.toc,
+            rights_attested_at=p.rights_attested_at,
+            rights_holder=p.rights_holder,
         ),
         artifacts=artifacts,
         my_role=role,
@@ -883,6 +887,43 @@ async def save_project_toc(
         status=p.status,
         created_at=p.created_at,
         toc=p.toc,
+        rights_attested_at=p.rights_attested_at,
+        rights_holder=p.rights_holder,
+    )
+
+
+@router.put("/projects/{project_id}/rights", response_model=schemas.ProjectOut)
+async def save_project_rights(
+    project_id: uuid.UUID,
+    body: schemas.RightsIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectOut:
+    """Owner-only rights attestation (B3 Part B) — DISPLAY-ONLY, never gates
+    or blocks export. `attested=True` stamps `rights_attested_at=now()`;
+    `attested=False` withdraws it (sets it back to null). `rights_holder` is
+    stored as given — the mobile client threads it into the exported book's
+    `dc:rights` colophon line when set (see artifactToBook.ts/topicsToBook.ts,
+    B3 Part B T5); nothing on the backend reads it for any gate."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))
+    await project_repo.set_rights(
+        conn, project_id=project_id, attested=body.attested, rights_holder=body.rights_holder
+    )
+    p = await project_repo.get_project(conn, project_id=project_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    return schemas.ProjectOut(
+        id=str(p.id),
+        title=p.title,
+        topic=p.topic,
+        audience=p.audience,
+        goal=p.goal,
+        status=p.status,
+        created_at=p.created_at,
+        toc=p.toc,
+        rights_attested_at=p.rights_attested_at,
+        rights_holder=p.rights_holder,
     )
 
 

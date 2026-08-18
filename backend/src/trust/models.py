@@ -39,6 +39,8 @@ class Project:
     created_at: datetime | None
     updated_at: datetime | None
     toc: dict | None = None
+    rights_attested_at: datetime | None = None
+    rights_holder: str | None = None
 
 
 @dataclass(frozen=True)
