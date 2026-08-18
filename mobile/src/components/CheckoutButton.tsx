@@ -87,7 +87,7 @@ export function CheckoutButton({ book }: { book: Book }) {
     setState({ kind: "working", fmt: "pack" });
     try {
       const payload = await buildCompilePayload(book);
-      const { artifact, trust } = await exportBook(payload, { format: "pack" });
+      const { artifact, trust } = await exportBook(payload, { format: "pack", diagrams: true });
       const res = await downloadArtifact(
         artifact,
         `${slug(book.title)}-publish-pack.zip`,

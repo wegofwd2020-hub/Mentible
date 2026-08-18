@@ -11,6 +11,7 @@ import { buildCoverSvgRaster, coverInputForBook } from "./cover";
 import { renderCoverJpeg } from "./coverRaster";
 import { escapeHtml } from "./html";
 import type { Book } from "./types";
+import type { MermaidRenderer } from "./mermaid";
 
 // D2: a human-readable sheet only — no ONIX, no CSV. Lists the fields we
 // store, plus labeled blanks for the KDP fields we don't (subtitle, up to 7
@@ -97,8 +98,13 @@ code{background:#f0f0f0;padding:0 .25rem;border-radius:3px}
 // input so the pack carries its cover as a plain file a retailer form can
 // upload directly (no unzip-the-EPUB step). Calling compileEpub FIRST means
 // a draft book's KdpDraftError surfaces before any further Chromium work.
-export async function compilePack(book: Book): Promise<Buffer> {
-  const epubBytes = await compileEpub(book, { profile: "kdp" });
+//
+// `opts.mermaid` threads through to compileEpub so the pack's book.epub
+// rasterizes Mermaid diagrams (kdp profile => <img>) instead of dropping them
+// as placeholders — the pack's own README.html claims "rasterized
+// math/diagrams", so this option must actually reach the diagram renderer.
+export async function compilePack(book: Book, opts: { mermaid?: MermaidRenderer } = {}): Promise<Buffer> {
+  const epubBytes = await compileEpub(book, { ...opts, profile: "kdp" });
   const coverJpeg = await renderCoverJpeg(buildCoverSvgRaster(coverInputForBook(book)));
 
   const zip = new JSZip();

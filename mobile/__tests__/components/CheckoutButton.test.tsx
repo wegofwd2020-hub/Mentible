@@ -110,7 +110,7 @@ it("renders the Publish pack button", () => {
   ).toBeTruthy();
 });
 
-it("Publish pack requests format=pack and downloads a .zip", async () => {
+it("Publish pack requests format=pack with diagrams:true (so book.epub rasterizes Mermaid, not placeholders) and downloads a .zip", async () => {
   mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
   render(<CheckoutButton book={book} />);
 
@@ -119,7 +119,7 @@ it("Publish pack requests format=pack and downloads a .zip", async () => {
   await waitFor(() => expect(screen.getByText(/Publish pack downloaded|Saved:/)).toBeTruthy());
   expect(mockExport).toHaveBeenCalledWith(
     expect.anything(),
-    expect.objectContaining({ format: "pack" }),
+    expect.objectContaining({ format: "pack", diagrams: true }),
   );
   expect(mockDownload).toHaveBeenCalledWith(
     expect.anything(),

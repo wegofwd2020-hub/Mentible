@@ -113,7 +113,7 @@ async function main(): Promise<void> {
         : format === "docx"
           ? await compileDocx(book)
           : format === "pack"
-            ? await compilePack(book)
+            ? await compilePack(book, mermaidOpt)
             : await compileEpub(book, { ...mermaidOpt, profile });
 
   // Write to stdout when asked, or by default when input came from stdin.

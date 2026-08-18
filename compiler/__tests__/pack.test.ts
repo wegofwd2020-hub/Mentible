@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { parseArgs } from "../src/cli";
 import { compilePack, buildMetadataSheet, buildPublishReadme } from "../src/pack";
 import { KdpDraftError } from "../src/epub";
+import type { MermaidRenderer } from "../src/mermaid";
 import type { Book, BookMetadata, LessonOutput } from "../src/types";
 
 // Stand in for Puppeteer/Chromium (kdpEpubcheck.test.ts's pattern). Both
@@ -42,6 +43,19 @@ function fixtureBook(metadata: BookMetadata = { author: "Ada Lovelace", status: 
     metadata,
     content: { u1: { topicId: "u1", title: "T1", lesson: LESSON, generatedAt: "2026-08-18T00:00:00.000Z" } },
   };
+}
+
+function fixtureBookWithMermaidDiagram(): Book {
+  const book = fixtureBook();
+  book.content!.u1.lesson!.sections.push({
+    heading: "Flow",
+    body_markdown: "```mermaid\ngraph TD; A-->B;\n```",
+  });
+  return book;
+}
+
+async function unzip(buf: Buffer): Promise<JSZip> {
+  return JSZip.loadAsync(buf);
 }
 
 describe("parseArgs — --format pack", () => {
@@ -120,5 +134,33 @@ describe("compilePack", () => {
     await expect(
       compilePack(fixtureBook({ author: "Ada Lovelace", status: "draft" })),
     ).rejects.toBeInstanceOf(KdpDraftError);
+  });
+
+  // Gap 1 regression: cli.ts must thread --mermaid into compilePack, and
+  // compilePack must thread it into compileEpub, or the pack's book.epub
+  // silently drops Mermaid diagrams as placeholders while README.html
+  // still claims "rasterized math/diagrams".
+  it("with no mermaid renderer supplied, a diagram falls back to the placeholder (unchanged default behavior)", async () => {
+    const buf = await compilePack(fixtureBookWithMermaidDiagram());
+    const zip = await unzip(buf);
+    const epubZip = await unzip(await zip.file("book.epub")!.async("nodebuffer"));
+    const chapter = await epubZip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain('class="diagram diagram--placeholder"');
+    expect(chapter).not.toContain("<svg");
+  });
+
+  it("threads a supplied mermaid renderer into compileEpub so book.epub rasterizes the diagram, not a placeholder", async () => {
+    const fakeMermaid: MermaidRenderer = {
+      renderAll: async (sources) =>
+        new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])),
+    };
+    const buf = await compilePack(fixtureBookWithMermaidDiagram(), { mermaid: fakeMermaid });
+    const zip = await unzip(buf);
+    const epubZip = await unzip(await zip.file("book.epub")!.async("nodebuffer"));
+    const chapter = await epubZip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    // pack always compiles at kdp profile, so a rendered diagram is rasterized to <img>.
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    expect(chapter).not.toContain("diagram--placeholder");
+    expect(chapter).not.toContain("<svg");
   });
 });
