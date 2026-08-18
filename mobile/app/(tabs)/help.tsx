@@ -77,11 +77,14 @@ export default function HelpScreen() {
   // directly, or the lookup is silently always-undefined.
   useEffect(() => {
     if (!topic) return;
-    const ancestors = ancestorIdsForTopic(HELP_TREE, String(topic));
-    if (ancestors.length === 0) return;
+    // Resolve the leaf's node id first — this is the single "is it in the tree?"
+    // gate. A leaf with no ancestor branches (a top-level leaf) still scrolls;
+    // only an unknown topic bails. (Don't gate on ancestors.length — that would
+    // wrongly drop a top-level leaf.)
     const targetNodeId = nodeIdForTopic(HELP_TREE, String(topic));
-    setExpanded((prev) => new Set([...prev, ...ancestors, ...(targetNodeId ? [targetNodeId] : [])]));
     if (!targetNodeId) return;
+    const ancestors = ancestorIdsForTopic(HELP_TREE, String(topic));
+    setExpanded((prev) => new Set([...prev, ...ancestors, targetNodeId]));
     const h = setTimeout(() => scrollToNode(targetNodeId), 250);
     return () => clearTimeout(h);
   }, [topic, scrollToNode]);

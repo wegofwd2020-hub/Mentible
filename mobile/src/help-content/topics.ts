@@ -356,7 +356,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Three roles work a project: the Owner (who created it) can edit sources, structure and drafts, and invite people; an invited Reviewer can approve, withdraw an approval, and comment, but can't edit; an invited Editor can also edit the draft and create new versions. Everyone with access sees the same project — the tabs just show or hide actions based on your role.",
+        text: "Three roles work a project: the Owner (who created it) can edit sources, structure and drafts, and invite people; an invited Reviewer can approve, withdraw an approval, and comment, but can't edit; an invited Editor edits the draft text and creates new versions instead of approving — the two invited roles are separate, an Editor can't approve and a Reviewer can't edit. Everyone with access sees the same project — the tabs just show or hide actions based on your role.",
       },
       {
         kind: "steps",
@@ -650,7 +650,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "\"Invite an expert\" (owner-only) sends someone access to this one project by email: choose whether they join as a Reviewer (can approve, withdraw, and comment) or an Editor (can also edit the draft text and create new versions), enter their email, and send. They gain access the next time they sign in with that email.",
+        text: "\"Invite an expert\" (owner-only) sends someone access to this one project by email: choose whether they join as a Reviewer (can approve, withdraw, and comment — but not edit) or an Editor (edits the draft text and creates new versions instead of approving), enter their email, and send. They gain access the next time they sign in with that email.",
       },
       {
         kind: "text",
