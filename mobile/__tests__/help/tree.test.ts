@@ -74,6 +74,16 @@ describe("ancestorIdsForTopic", () => {
     const tree: HelpTreeNode[] = [{ id: "a", title: "A", topicId: "x" }];
     expect(ancestorIdsForTopic(tree, "missing")).toEqual([]);
   });
+
+  it("resolves a real 3-level Projects leaf (Projects > Feedback > Read, approve & revise a draft)", () => {
+    // The help.tsx ?topic=<id> deep link relies on this exact chain to expand
+    // both the top-level "projects" branch and its "projects-feedback"
+    // sub-branch before the leaf itself is reachable.
+    expect(ancestorIdsForTopic(HELP_TREE, "draft-viewer")).toEqual([
+      "projects",
+      "projects-feedback",
+    ]);
+  });
 });
 
 describe("flattenNodes", () => {

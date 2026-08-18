@@ -1,10 +1,11 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { FRAUNCES } from "@/constants/fonts";
 
+const mockUseLocalSearchParams = jest.fn(() => ({} as { topic?: string }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
 import HelpScreen from "../../app/(tabs)/help";
@@ -18,6 +19,10 @@ function flattenStyle(style: unknown): Record<string, unknown> {
 }
 
 describe("HelpScreen", () => {
+  beforeEach(() => {
+    mockUseLocalSearchParams.mockReturnValue({});
+  });
+
   it("renders the Help title in Fraunces with no bold (700/600) weight — Studio re-skin", () => {
     render(<HelpScreen />);
     const style = flattenStyle(screen.getByText("Help").props.style);
@@ -26,20 +31,55 @@ describe("HelpScreen", () => {
     expect(style["fontWeight"]).not.toBe("600");
   });
 
-  it("renders topic titles via the Label primitive (uppercase, never bold)", () => {
+  it("renders search-result topic titles via the Label primitive (uppercase, never bold)", () => {
     render(<HelpScreen />);
-    // "Getting started" is the first real Help topic (src/help-content/topics.ts).
-    const style = flattenStyle(screen.getByText("Getting started").props.style);
+    fireEvent.changeText(screen.getByLabelText("Search help"), "billing");
+    const style = flattenStyle(screen.getByText("Plans & billing").props.style);
     expect(style["textTransform"]).toBe("uppercase");
     expect(style["fontWeight"]).not.toBe("700");
     expect(style["fontWeight"]).not.toBe("600");
   });
 
-  it("still renders the search box and lets topics be filtered (behavior unchanged)", () => {
+  it("renders the tree collapsed by default — no topic body visible until expanded", () => {
     render(<HelpScreen />);
-    const input = screen.getByLabelText("Search help");
-    expect(input).toBeTruthy();
-    // A real topic body renders through the untouched HelpTopicView engine.
+    expect(screen.getByText("Getting started")).toBeTruthy(); // top-level branch row
+    expect(screen.queryByText(/Mentible turns what you want to learn/)).toBeNull();
+  });
+
+  it("expands a branch on tap to reveal its leaves, and collapses again on a second tap", () => {
+    render(<HelpScreen />);
+    const branch = screen.getByTestId("help-branch-getting-started");
+    fireEvent.press(branch);
+    expect(screen.getByText("Welcome & setup steps")).toBeTruthy();
+    fireEvent.press(branch);
+    expect(screen.queryByText("Welcome & setup steps")).toBeNull();
+  });
+
+  it("expands a leaf on tap to reveal its topic content", () => {
+    render(<HelpScreen />);
+    fireEvent.press(screen.getByTestId("help-branch-getting-started"));
+    fireEvent.press(screen.getByTestId("help-leaf-leaf-welcome"));
     expect(screen.getByText(/Mentible turns what you want to learn/)).toBeTruthy();
+  });
+
+  it("search filters to matching topics without needing the tree expanded", () => {
+    render(<HelpScreen />);
+    fireEvent.changeText(screen.getByLabelText("Search help"), "byok");
+    expect(screen.getByText(/Bring Your Own Key/)).toBeTruthy();
+  });
+
+  it("a ?topic=<id> deep link expands every ancestor branch and surfaces the leaf", async () => {
+    mockUseLocalSearchParams.mockReturnValue({ topic: "plans" });
+    render(<HelpScreen />);
+    await waitFor(() =>
+      expect(screen.getByText(/Paid plans aren't available yet/)).toBeTruthy(),
+    );
+  });
+
+  it("a ?topic=<id> deep link for a 3-level nested leaf expands all ancestors and surfaces it", async () => {
+    mockUseLocalSearchParams.mockReturnValue({ topic: "draft-viewer" });
+    render(<HelpScreen />);
+    await waitFor(() => expect(screen.getByTestId("help-leaf-leaf-draft-viewer")).toBeTruthy());
+    expect(screen.getByText("Read, approve & revise a draft")).toBeTruthy();
   });
 });
