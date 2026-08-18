@@ -53,6 +53,7 @@ export const HELP_TREE: HelpTreeNode[] = [
           { id: "leaf-reviews-tab", title: "The Reviews tab", topicId: "reviews" },
           { id: "leaf-draft-viewer", title: "Read, approve & revise a draft", topicId: "draft-viewer" },
           { id: "leaf-grounding-report", title: "Quality report", topicId: "grounding-report" },
+          { id: "leaf-originality-report", title: "Originality check", topicId: "originality-report" },
         ],
       },
       {

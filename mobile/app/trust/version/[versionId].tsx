@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { addFeedback, getVersion, runGroundingCheck, type VersionDetailView } from "@/api/trustClient";
+import { addFeedback, getVersion, runGroundingCheck, runOriginalityCheck, type VersionDetailView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { pollJob } from "@/api/pollJob";
@@ -63,6 +63,7 @@ function TrustVersionInner() {
   const [prevVersion, setPrevVersion] = useState<VersionDetailView | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [grBusy, setGrBusy] = useState(false);
+  const [orBusy, setOrBusy] = useState(false);
   // Task 4 (backend, this branch) added the editor role: edit/create-version
   // endpoints allow owner+editor, approve/withdraw allow owner+reviewer.
   // canEdit/canApprove mirror that matrix here so the controls a role can't
@@ -150,6 +151,31 @@ function TrustVersionInner() {
         Alert.alert("Couldn't run grounding check", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
       } finally {
         setGrBusy(false);
+      }
+    })();
+  };
+
+  // Owner-only: submits the on-demand originality/source-overlap check
+  // (billable LLM pass) — checks the draft against ITS OWN cited sources
+  // only, never the web. Byte-for-byte mirror of onRunGrounding above.
+  const onRunOriginality = () => {
+    if (!accessToken) return;
+    setOrBusy(true);
+    void (async () => {
+      try {
+        const key = await loadApiKey("anthropic");
+        if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to run an originality check.");
+        const submitted = await runOriginalityCheck(String(versionId), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
+        await pollJob(submitted.job_id, accessToken, {
+          intervalMs: 3_000,
+          timeoutMessage: "Timed out waiting for the originality check",
+          failedMessage: "Originality check failed",
+        });
+        await reloadVersion().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't run originality check", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setOrBusy(false);
       }
     })();
   };
@@ -421,7 +447,7 @@ function TrustVersionInner() {
             </View>
           ) : null}
         </View>
-        <QualityCard quality={version.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} />
+        <QualityCard quality={version.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} origBusy={orBusy} onRunOriginality={onRunOriginality} />
         {!editing ? (
           <View style={styles.actionsRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>

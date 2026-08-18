@@ -20,7 +20,8 @@ export interface DraftSection { heading: string; body: string; source_ids: strin
 export interface CoverageReport { sections_total: number; sections_cited: number; uncited_section_indexes: number[]; dangling: { section_index: number; source_id: string }[]; source_refs: number }
 export interface Readability { flesch_reading_ease: number; grade_level: number; words: number; sentences: number }
 export interface GroundingReport { claims_total: number; supported: number; partial: number; unsupported: number; by_section: { section_index: number; claims: { text: string; status: "supported" | "partial" | "unsupported"; source_ids: string[] }[] }[]; model: string; checked_at: string; stale: boolean }
-export interface QualityReport { coverage: CoverageReport; readability: Readability; grounding: GroundingReport | null }
+export interface OriginalityReport { sections: { index: number; heading: string; overlap: "none" | "paraphrase" | "verbatim"; note: string | null; source_ref: string | null }[]; summary: { verbatim: number; paraphrase: number; clean: number; total: number }; model: string; checked_at: string; stale: boolean }
+export interface QualityReport { coverage: CoverageReport; readability: Readability; grounding: GroundingReport | null; originality: OriginalityReport | null }
 export interface FeedbackView {
   id: string; version_id: string; author_kind: string; author_name: string | null;
   body: string; created_at: string | null; section_index: number | null;
@@ -194,6 +195,28 @@ export async function runTopicGroundingCheck(
 ): Promise<VersionGenerateJobOut> {
   return (await trustFetch<VersionGenerateJobOut>(
     `/topic-versions/${versionId}/grounding-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
+// On-demand originality/source-overlap check (B3 T4): POST
+// .../originality-check returns 202 + this job handle immediately (same
+// shape as runGroundingCheck); the actual LLM pass runs in a Celery worker.
+// Poll via the shared GET /api/v1/jobs/{id} endpoint (@/api/pollJob), then
+// refetch the version so `quality.originality` reflects the fresh result.
+// Checks the draft against ITS OWN cited sources only — never the web.
+export async function runOriginalityCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/artifacts/versions/${versionId}/originality-check`, token, { method: "POST", body: JSON.stringify(body) },
+  )) as VersionGenerateJobOut;
+}
+
+export async function runTopicOriginalityCheck(
+  versionId: string, body: { api_key?: string; provider_id?: string; model?: string }, token: string,
+): Promise<VersionGenerateJobOut> {
+  return (await trustFetch<VersionGenerateJobOut>(
+    `/topic-versions/${versionId}/originality-check`, token, { method: "POST", body: JSON.stringify(body) },
   )) as VersionGenerateJobOut;
 }
 

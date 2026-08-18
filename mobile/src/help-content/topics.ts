@@ -711,6 +711,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "originality-report",
+    title: "Originality check: source overlap",
+    featureKey: "originality-report",
+    keywords: ["originality", "plagiarism", "copyright", "verbatim", "paraphrase", "source overlap", "rights"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The originality check audits a draft against ONLY the sources you cited in it — it does not search the web. An owner taps \"Run originality check\" to have the AI model re-read each cited section and flag whether it reproduces the source verbatim, stays close as a paraphrase, or is written in the author's own words (synthesized).",
+      },
+      {
+        kind: "text",
+        text: "A section with no cited source has nothing to compare against, so it's automatically counted as original with no LLM call. Like the grounding check, this is a separate, billable pass over your model — it only runs when you ask for it, and a re-run replaces the previous result.",
+      },
+      {
+        kind: "text",
+        text: "If the draft or its sources change after a check, the stored result is marked stale, with a note to re-run it.",
+      },
+      {
+        kind: "text",
+        text: "This is NOT a plagiarism scan against the internet, and it is not a copyright check — see \"Rights & attribution\" for that. It only tells you how closely your own writing tracks the sources you chose to cite.",
+      },
+    ],
+  },
+  {
     id: "generate-full-book",
     title: "Generate the whole book at once",
     featureKey: "generate-full-book",

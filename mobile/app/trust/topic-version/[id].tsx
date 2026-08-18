@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
-import { getTopicVersion, runTopicGroundingCheck, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
+import { getTopicVersion, runTopicGroundingCheck, runTopicOriginalityCheck, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError } from "@/api/client";
 import { pollJob } from "@/api/pollJob";
@@ -54,6 +54,7 @@ function TopicVersionViewerInner() {
   const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
   const [saving, setSaving] = useState(false);
   const [grBusy, setGrBusy] = useState(false);
+  const [orBusy, setOrBusy] = useState(false);
   const role = project?.my_role;
   const isOwner = role === "owner";
   const canEdit = role === "owner" || role === "editor";
@@ -321,6 +322,31 @@ function TopicVersionViewerInner() {
     })();
   };
 
+  // Owner-only: submits the on-demand originality/source-overlap check.
+  // Mirrors trust/version/[versionId].tsx's onRunOriginality (the topic twin
+  // of onRunGrounding just above).
+  const onRunOriginality = () => {
+    if (!accessToken) return;
+    setOrBusy(true);
+    void (async () => {
+      try {
+        const key = await loadApiKey("anthropic");
+        if (!key && knownNotPro) throw new Error("No API key saved. Add an Anthropic key in Settings to run an originality check.");
+        const submitted = await runTopicOriginalityCheck(String(id), { api_key: key ?? undefined, provider_id: "anthropic" }, accessToken);
+        await pollJob(submitted.job_id, accessToken, {
+          intervalMs: 3_000,
+          timeoutMessage: "Timed out waiting for the originality check",
+          failedMessage: "Originality check failed",
+        });
+        await reload().catch(() => {});
+      } catch (e) {
+        Alert.alert("Couldn't run originality check", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setOrBusy(false);
+      }
+    })();
+  };
+
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!topicVersion) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
 
@@ -349,7 +375,7 @@ function TopicVersionViewerInner() {
           ) : null}
         </View>
         <View style={styles.qualityRow}>
-          <QualityCard quality={topicVersion.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} />
+          <QualityCard quality={topicVersion.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} origBusy={orBusy} onRunOriginality={onRunOriginality} />
         </View>
         {!editing ? (
           <View style={styles.readerBody}>
