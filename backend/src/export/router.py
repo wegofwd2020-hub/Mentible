@@ -53,12 +53,27 @@ _FORMATS = {
     # cover (the EPUB carries only the vector cover.svg, which the app can't
     # render on-device).
     "cover": ("image/png", "png"),
+    # Publish Pack (P2-6 Scope B, docs/superpowers/specs/2026-08-18-publish-pack-scope-b-design.md):
+    # a zip bundling the KDP-clean EPUB + raster cover + a metadata sheet + a
+    # retailer upload checklist. Always emits a kdp-profile EPUB internally
+    # (compiler/src/pack.ts), so it needs no `profile=kdp` from the caller.
+    "pack": ("application/zip", "zip"),
 }
 
 
-def _filename(title: str, ext: str) -> str:
+def _export_gate_feature(fmt: str) -> str:
+    """The billing feature key that gates a given export format (T2). `pack`
+    reuses the `epub` gate rather than requiring a new, unentitled feature
+    grant — it bundles the same KDP-clean EPUB the `epub`/kdp-profile export
+    already produces, and no plan defines an `export_pack` feature (see
+    docs/superpowers/specs/2026-08-18-publish-pack-scope-b-design.md D5)."""
+    return f"export_{'epub' if fmt == 'pack' else fmt}"
+
+
+def _filename(title: str, ext: str, *, suffix: str | None = None) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower() or "book"
-    return f"{slug[:60]}.{ext}"
+    base = f"{slug[:60]}-{suffix}" if suffix else slug[:60]
+    return f"{base}.{ext}"
 
 
 @router.post("/export", dependencies=[Depends(enforce_rate_limit)])
@@ -83,10 +98,10 @@ async def export_book(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "profile must be 'default' or 'kdp'."},
         )
-    if profile == "kdp" and fmt != "epub":
+    if profile == "kdp" and fmt not in ("epub", "pack"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "the kdp profile is only supported for format=epub."},
+            content={"detail": "the kdp profile is only supported for format=epub or format=pack."},
         )
     media_type, ext = _FORMATS[fmt]
 
@@ -105,8 +120,9 @@ async def export_book(
                 account = await accounts_repo.get_or_create_account(
                     conn, idp_sub=principal.sub, email=principal.email
                 )
-                if not await has_feature(conn, account_id=account.id, feature=f"export_{fmt}"):
-                    raise feature_required(f"export_{fmt}")
+                gate_feature = _export_gate_feature(fmt)
+                if not await has_feature(conn, account_id=account.id, feature=gate_feature):
+                    raise feature_required(gate_feature)
 
     raw = await request.body()
     if len(raw) > _MAX_BODY_BYTES:
@@ -130,7 +146,10 @@ async def export_book(
         )
 
     headers = {
-        "Content-Disposition": f'attachment; filename="{_filename(result.title, ext)}"',
+        "Content-Disposition": (
+            f'attachment; filename="'
+            f'{_filename(result.title, ext, suffix="publish-pack" if fmt == "pack" else None)}"'
+        ),
         # Gate 3: count of non-fatal format-drift warnings over the book's
         # content (0 when clean). A review / prompt-drift signal the client
         # can surface without parsing the artifact. Details are logged.
@@ -163,7 +182,7 @@ async def export_book(
 # EPUB/PDF compile from the HTTP request so no single request outlives Cloudflare's
 # ~100s proxy timeout — submit → poll → download, each call fast. See tasks.py.
 
-_ASYNC_FORMATS = {"epub", "pdf", "docx"}
+_ASYNC_FORMATS = {"epub", "pdf", "docx", "pack"}
 
 
 @router.post(
@@ -191,17 +210,17 @@ async def submit_export(
     if fmt not in _ASYNC_FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "format must be 'epub', 'pdf' or 'docx'."},
+            content={"detail": "format must be 'epub', 'pdf', 'docx' or 'pack'."},
         )
     if profile not in ("default", "kdp"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "profile must be 'default' or 'kdp'."},
         )
-    if profile == "kdp" and fmt != "epub":
+    if profile == "kdp" and fmt not in ("epub", "pack"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "the kdp profile is only supported for format=epub."},
+            content={"detail": "the kdp profile is only supported for format=epub or format=pack."},
         )
 
     raw = await request.body()
@@ -231,8 +250,9 @@ async def submit_export(
                 account = await accounts_repo.get_or_create_account(
                     conn, idp_sub=principal.sub, email=principal.email
                 )
-                if not await has_feature(conn, account_id=account.id, feature=f"export_{fmt}"):
-                    raise feature_required(f"export_{fmt}")
+                gate_feature = _export_gate_feature(fmt)
+                if not await has_feature(conn, account_id=account.id, feature=gate_feature):
+                    raise feature_required(gate_feature)
 
     job_id = uuid.uuid4()
     await r.set(
