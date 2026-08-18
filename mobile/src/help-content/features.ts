@@ -24,6 +24,7 @@ export const FEATURES = [
   { key: "project-fields", label: "New Project fields (Title, Topic, Audience, Goal)" },
   { key: "word-export", label: "Word (.docx) export" },
   { key: "kdp-export", label: "Export for Kindle (KDP)" },
+  { key: "publish-pack", label: "Download a publish pack for retailers" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },
   { key: "project-structure", label: "Building a project's outline (Structure)" },
   { key: "project-drafts", label: "Generating project drafts (Drafts)" },
