@@ -34,3 +34,23 @@ describe("help content — Projects subtree has the three new tab topics", () =>
     );
   });
 });
+
+describe("help content — Projects subtree accuracy fixes", () => {
+  it("sources does not claim Title/Label is required to enable Add source", () => {
+    const topic = HELP_TOPICS.find((t) => t.id === "sources")!;
+    const text = topic.blocks
+      .map((b) => ("text" in b ? b.text : "steps" in b ? b.steps.join(" ") : ""))
+      .join(" ");
+    expect(text).not.toMatch(/both fields/);
+    expect(text).toMatch(/optional/);
+  });
+
+  it("draft-viewer does not claim invited Editors can Revise\\/regenerate", () => {
+    const topic = HELP_TOPICS.find((t) => t.id === "draft-viewer")!;
+    const text = topic.blocks
+      .map((b) => ("text" in b ? b.text : ""))
+      .join(" ");
+    expect(text).not.toMatch(/Owners \(and invited Editors\) can also edit or regenerate/);
+    expect(text).toMatch(/that's owner-only/);
+  });
+});

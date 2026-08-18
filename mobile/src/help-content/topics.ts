@@ -605,7 +605,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Sources are the raw material a project is built from. On the Input tab, pick a kind — Transcript, Note, or Link — give it a short title, paste its content (or the URL for a Link), then tap \"Add source\" (it stays disabled until both fields have something in them). Add as many as you like; everyone invited to the project can see the full source list, though only the owner can add, edit or delete them.",
+        text: "Sources are the raw material a project is built from. On the Input tab, pick a kind — Transcript, Note, or Link — give it an optional Title (or Label, for a Link), then paste its Content (or, for a Link, the URL). The \"Add source\" button enables as soon as the Content — or the URL for a Link — has something in it; the title/label is optional and doesn't gate the button. Add as many as you like; everyone invited to the project can see the full source list, though only the owner can add, edit or delete them.",
       },
       {
         kind: "text",
@@ -623,8 +623,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "steps",
         steps: [
           "Choose a source kind: Transcript, Note, or Link.",
-          "Give it a Title (or Label) and paste its Content (or the URL).",
-          "Tap \"Add source\" — it's disabled until both fields are filled in.",
+          "Paste its Content (or the URL, for a Link) — Title/Label is optional.",
+          "Tap \"Add source\" — it enables once Content (or the URL) is filled in.",
           "Tap a source row to Edit or Delete it later.",
         ],
       },
@@ -650,7 +650,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "\"Invite an expert\" (owner-only) sends someone access to this one project by email: choose whether they join as a Reviewer (can approve, withdraw, and comment) or an Editor (can also edit the draft and create new versions), enter their email, and send. They gain access the next time they sign in with that email.",
+        text: "\"Invite an expert\" (owner-only) sends someone access to this one project by email: choose whether they join as a Reviewer (can approve, withdraw, and comment) or an Editor (can also edit the draft text and create new versions), enter their email, and send. They gain access the next time they sign in with that email.",
       },
       {
         kind: "text",
@@ -658,7 +658,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Owners (and invited Editors) can also edit or regenerate. Editing adjusts each section's heading and body; saving creates a new version. Regenerate re-drafts from the sources — you can add optional guidance (for example, \"focus on 2026 costs\"). Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval. A \"Changes from v{n}\" diff and the full Versions history are available from the draft viewer too.",
+        text: "The three roles have different edit/generate rights on a draft. The Owner gets everything: Copy, Revise (regenerate a new version from the sources, with optional guidance like \"focus on 2026 costs\" — a billable action against your LLM allowance), Edit text (hand-edit a section's heading and body, then save as a new version), Approve or record an approval, and run the grounding check. An invited Editor can Copy, Edit text (save as a new version), Comment, and Request a revision — but can't tap Revise/Regenerate; that's owner-only. A Reviewer can Copy, Approve (one-tap \"expert-validated\"), Comment, and Request a revision, but can't edit text or regenerate at all.",
+      },
+      {
+        kind: "text",
+        text: "Every edit or regeneration is a new version, so an earlier approved version is never changed; the new version needs its own approval. A \"Changes from v{n}\" diff and the full Versions history are available from the draft viewer too.",
       },
     ],
   },
