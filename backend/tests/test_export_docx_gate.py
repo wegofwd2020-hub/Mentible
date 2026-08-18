@@ -67,7 +67,9 @@ def _grant_pro(monkeypatch, *, sub):
     monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset({sub}))
 
 
-async def _fake_compile(raw: bytes, *, fmt: str = "docx", diagrams: bool = False) -> ExportResult:
+async def _fake_compile(
+    raw: bytes, *, fmt: str = "docx", diagrams: bool = False, profile: str = "default"
+) -> ExportResult:
     return ExportResult(data=b"fake-bytes", title="T", warnings=[])
 
 

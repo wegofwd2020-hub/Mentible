@@ -124,6 +124,8 @@ export interface BookMetadata {
   rights?: string; // dc:rights (verbatim copyright/licence line)
   date?: string; // dc:date (publication; ISO date or year)
   identifier?: string; // dc:identifier override (ISBN/UUID); defaults to book.id
+  translator?: string; // dc:contributor (marc:relators "trl"), kdp profile only — for translated books
+  isbn?: string; // dc:identifier (secondary, ISBN-13), kdp profile only — KDP assigns its own ASIN; ISBN is optional
   series?: string; // belongs-to-collection
   seriesIndex?: number; // group-position within the series
   accessibility?: BookAccessibility; // EPUB Accessibility 1.1 (schema.org a11y) metadata

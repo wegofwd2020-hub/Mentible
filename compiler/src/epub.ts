@@ -6,12 +6,16 @@ import {
   type DiagramRenderer,
 } from "./diagrams";
 import { prerenderDiagrams, type MermaidRenderer } from "./mermaid";
+import { rasterizeDiagramPngs, PrerenderedRasterDiagramRenderer } from "./diagramRaster";
+import { collectMathHtml, rasterizeMath, replaceMathWithImages } from "./mathRaster";
 import { xhtmlDocument } from "./xhtml";
-import { STYLESHEET } from "./css";
+import { STYLESHEET, KDP_STYLESHEET } from "./css";
 import { escapeHtml } from "./html";
-import { buildCoverSvgFile, buildCoverXhtml, coverInputForBook } from "./cover";
+import { buildCoverSvgFile, buildCoverXhtml, buildCoverSvg, buildCoverXhtmlRaster, coverInputForBook } from "./cover";
+import { renderCoverJpeg } from "./coverRaster";
 import { colophonSection } from "./colophon";
 import { numberFloats, type FloatRef } from "./floats";
+import { isDraft } from "./release";
 import type { Book } from "./types";
 
 // A figure/table reference plus the chapter file it lives in (for cross-document
@@ -38,12 +42,28 @@ export class EmptyBookError extends Error {
   }
 }
 
+export class KdpDraftError extends Error {
+  constructor() {
+    // NOTE: backend/src/export/compiler.py greps this substring to map to a
+    // 422 — keep in sync.
+    super(
+      'The KDP export profile requires a released book (metadata.status must not be "draft").',
+    );
+    this.name = "KdpDraftError";
+  }
+}
+
 export interface CompileOptions {
   // Override the diagram renderer directly (defaults to the passthrough stub).
   diagrams?: DiagramRenderer;
   // When set, diagrams are pre-rendered to inline SVG with this renderer before
   // compiling (async). Takes precedence over `diagrams`. See mermaid.ts.
   mermaid?: MermaidRenderer;
+  // Distribution-target profile (D1, docs/specs/kdp-clean-export-profile.md).
+  // "default" (or omitted) is today's output, byte-for-byte. "kdp" rasters
+  // math/diagrams/cover and drops the embedded body font so the artifact
+  // ingests cleanly on Amazon KDP — see epub.ts's per-profile branches.
+  profile?: "default" | "kdp";
 }
 
 interface Chapter {
@@ -119,13 +139,53 @@ function modifiedTimestamp(iso?: string): string {
   return safe.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+// Normalize dc:date to an ISO-8601 calendar date (YYYY-MM-DD) for the kdp
+// profile — epubcheck (V, docs/specs/kdp-clean-export-profile.md) warns on a
+// non-ISO dc:date. Falls back to the raw string on an unparseable date (never
+// throws over a metadata quirk); the default profile leaves dc:date untouched.
+// Timezone-immune by construction: never round-trips a civil date through
+// toISOString() (that converts to UTC, which shifts the date backward by up
+// to a day on any positive-UTC-offset machine — e.g. TZ=Asia/Singapore turned
+// "Jan 2026" into "2025-12-31"). Exported for direct unit testing.
+export function isoDate(raw: string): string {
+  // Already ISO-ish (YYYY-MM-DD, optionally with a time/zone suffix): take the
+  // date part verbatim — no Date round-trip, so no TZ shift.
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // Loose civil string ("Jan 2026", "June 1, 2026"): let Date parse it in local
+  // time, then read back the LOCAL components (the calendar day the parser
+  // actually understood) rather than the UTC-shifted instant.
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
 export async function compileEpub(book: Book, opts: CompileOptions = {}): Promise<Uint8Array> {
+  const profile = opts.profile ?? "default";
+  if (profile === "kdp" && isDraft(book.metadata)) {
+    throw new KdpDraftError();
+  }
   // Diagram strategy: a Mermaid renderer (pre-render to SVG) wins, else an
-  // explicit override, else the passthrough placeholder.
+  // explicit override, else the passthrough placeholder. kdp profile takes
+  // the pre-rendered SVGs one step further and rasterizes them to PNG
+  // (diagramRaster.ts, D4, docs/specs/kdp-clean-export-profile.md) — Kindle's
+  // SVG support is limited. default keeps emitting inline SVG.
   let diagrams = opts.diagrams ?? new PassthroughDiagramRenderer();
   if (opts.mermaid) {
-    diagrams = new PrerenderedDiagramRenderer(await prerenderDiagrams(book, opts.mermaid));
+    const svgBySource = await prerenderDiagrams(book, opts.mermaid);
+    diagrams =
+      profile === "kdp"
+        ? new PrerenderedRasterDiagramRenderer(await rasterizeDiagramPngs(svgBySource))
+        : new PrerenderedDiagramRenderer(svgBySource);
   }
+  // Math-raster pass (D3, docs/specs/kdp-clean-export-profile.md): kdp only,
+  // book-wide, before the per-topic loop — one Chromium browser for every
+  // equation in the book (mathRaster.ts mirrors mermaid.ts's collect→batch→
+  // embed pattern). No-op for the default profile, which keeps emitting MathML.
+  const mathPngs = profile === "kdp" ? await rasterizeMath(collectMathHtml(book)) : new Map<string, string>();
   const content = book.content ?? {};
   const lang = book.metadata?.language || "en";
 
@@ -150,7 +210,8 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const cf: FloatRef[] = [];
       const ct: FloatRef[] = [];
       const tableCaps = (topic.lesson as { table_captions?: string[] }).table_captions ?? [];
-      const body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
+      let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
+      if (profile === "kdp") body = replaceMathWithImages(body, mathPngs);
       const xhtml = packImages(
         xhtmlDocument(title, body, "../css/style.css", lang),
         images,
@@ -174,8 +235,14 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   if (chapters.length === 0) throw new EmptyBookError();
 
   const coverInput = coverInputForBook(book);
-  const coverXhtml = buildCoverXhtml(coverInput);
-  const coverSvg = buildCoverSvgFile(coverInput);
+  let coverXhtml = buildCoverXhtml(coverInput);
+  let coverSvg: string | undefined = buildCoverSvgFile(coverInput);
+  let coverJpeg: Buffer | undefined;
+  if (profile === "kdp") {
+    coverJpeg = await renderCoverJpeg(buildCoverSvg(coverInput));
+    coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg");
+    coverSvg = undefined;
+  }
 
   const titleXhtml = xhtmlDocument(
     book.title,
@@ -202,14 +269,15 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", CONTAINER_XML);
-  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, auxFront, auxBack));
+  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, auxFront, auxBack, profile));
   zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
   // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
   // require it and render blank pages without it.
   zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
-  zip.file("OEBPS/css/style.css", STYLESHEET);
+  zip.file("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
   zip.file("OEBPS/cover.xhtml", coverXhtml);
-  zip.file("OEBPS/cover.svg", coverSvg);
+  if (coverSvg !== undefined) zip.file("OEBPS/cover.svg", coverSvg);
+  if (coverJpeg !== undefined) zip.file("OEBPS/cover.jpg", coverJpeg);
   zip.file("OEBPS/title.xhtml", titleXhtml);
   zip.file("OEBPS/colophon.xhtml", colophonXhtml);
   for (const d of [...auxFront, ...auxBack]) zip.file(`OEBPS/${d.href}`, d.xhtml);
@@ -301,26 +369,53 @@ function glossaryDoc(glossary: { term: string; definition: string }[], lang: str
 // are auto-derived from the actual content (math → MathML feature + textual
 // access; diagrams/images → a visual access mode) and can be overridden or
 // extended via book.metadata.accessibility. We deliberately do NOT auto-claim
-// WCAG conformance or `alternativeText`: a formal claim (dcterms:conformsTo /
-// a11y:certifiedBy) is only emitted when the author asserts it after an audit.
+// WCAG conformance or a general `alternativeText`: a formal claim
+// (dcterms:conformsTo / a11y:certifiedBy) is only emitted when the author
+// asserts it after an audit. ONE exception (D3, kdp profile,
+// docs/specs/kdp-clean-export-profile.md): when mathRaster.ts has replaced an
+// equation with a rasterized <img class="math ..."> carrying the original
+// LaTeX as `alt`, that IS safe to auto-claim as `alternativeText` — we
+// generate that alt text ourselves, for every rasterized equation, not the
+// author's general image alt text.
+//
+// hasMath and hasRasterMath are checked INDEPENDENTLY (not else-if): with the
+// kdp profile's per-equation-isolated rasterization (rasterizeManyToPngResilient
+// in rasterize.ts), a single chapter can end up with BOTH kinds — most
+// equations rasterized fine (→ <img class="math ...">) but one Chromium
+// couldn't render (→ left as MathML, mathRaster.ts's fallback). Gating
+// `alternativeText` on "no MathML anywhere in the book" would silently
+// under-report that fallback-covered equations exist. Report both claims
+// whenever both are true.
 // See docs/PROFESSIONAL_PUBLISHING.md §7/§14.
 function accessibilityMeta(book: Book, chapters: Chapter[], images: ImageRes[]): string[] {
   const a = book.metadata?.accessibility ?? {};
   const hasVisual = images.length > 0 || chapters.some((c) => c.hasSvg);
   const hasMath = chapters.some((c) => c.hasMath);
+  const hasRasterMath = chapters.some((c) => c.xhtml.includes('class="math math-'));
 
   const accessModes = a.accessModes ?? ["textual", ...(hasVisual ? ["visual"] : [])];
   const accessModeSufficient = a.accessModeSufficient ?? [hasVisual ? "textual,visual" : "textual"];
 
   const autoFeatures = ["tableOfContents", "readingOrder", "structuralNavigation", "displayTransformability"];
   if (hasMath) autoFeatures.push("MathML");
+  if (hasRasterMath) autoFeatures.push("alternativeText");
   const features = [...new Set([...autoFeatures, ...(a.features ?? [])])];
 
   const hazards = a.hazards ?? ["none"];
+  let mathSummary = "";
+  if (hasMath && hasRasterMath) {
+    mathSummary =
+      " Most mathematics is rendered as images with the original notation given as a text alternative; " +
+      "a small number of equations remain encoded as MathML.";
+  } else if (hasMath) {
+    mathSummary = " Mathematics is encoded as MathML.";
+  } else if (hasRasterMath) {
+    mathSummary = " Mathematics is rendered as images with the original notation given as a text alternative.";
+  }
   const summary =
     a.summary ??
     ("Reflowable EPUB with structural navigation, a table of contents, and resizable text." +
-      (hasMath ? " Mathematics is encoded as MathML." : "") +
+      mathSummary +
       (hasVisual ? " The publication contains diagrams and images." : ""));
 
   const out: string[] = [];
@@ -341,15 +436,25 @@ function buildOpf(
   images: ImageRes[] = [],
   auxFront: AuxDoc[] = [],
   auxBack: AuxDoc[] = [],
+  profile: "default" | "kdp" = "default",
 ): string {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
     '<item id="css" href="css/style.css" media-type="text/css"/>',
-    // Cover: the SVG is the EPUB3 cover-image; cover.xhtml is the rendered page
-    // (inline SVG → needs the svg property).
-    '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
-    '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
+    // Cover: default profile registers the vector SVG as the EPUB3 cover-image
+    // (cover.xhtml embeds it inline, hence properties="svg"); the kdp profile
+    // (D5) registers a raster JPEG instead, and cover.xhtml points at it via a
+    // plain <img> (no "svg" property).
+    ...(profile === "kdp"
+      ? [
+          '<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>',
+          '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>',
+        ]
+      : [
+          '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
+          '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
+        ]),
     '<item id="titlepage" href="title.xhtml" media-type="application/xhtml+xml"/>',
     '<item id="colophon" href="colophon.xhtml" media-type="application/xhtml+xml"/>',
     ...images.map(
@@ -387,7 +492,7 @@ function buildOpf(
     meta.push(`<meta refines="#creator" property="file-as">${escapeHtml(m.authorFileAs || m.author)}</meta>`);
   }
   if (m.publisher) meta.push(`<dc:publisher>${escapeHtml(m.publisher)}</dc:publisher>`);
-  if (m.date) meta.push(`<dc:date>${escapeHtml(m.date)}</dc:date>`);
+  if (m.date) meta.push(`<dc:date>${escapeHtml(profile === "kdp" ? isoDate(m.date) : m.date)}</dc:date>`);
   if (m.description) meta.push(`<dc:description>${escapeHtml(m.description)}</dc:description>`);
   for (const s of m.subjects ?? []) meta.push(`<dc:subject>${escapeHtml(s)}</dc:subject>`);
   if (m.rights) meta.push(`<dc:rights>${escapeHtml(m.rights)}</dc:rights>`);
@@ -396,6 +501,14 @@ function buildOpf(
     meta.push(`<meta refines="#series" property="collection-type">series</meta>`);
     if (m.seriesIndex != null)
       meta.push(`<meta refines="#series" property="group-position">${escapeHtml(String(m.seriesIndex))}</meta>`);
+  }
+  if (profile === "kdp" && m.translator) {
+    meta.push(`<dc:contributor id="translator">${escapeHtml(m.translator)}</dc:contributor>`);
+    meta.push(`<meta refines="#translator" property="role" scheme="marc:relators">trl</meta>`);
+  }
+  if (profile === "kdp" && m.isbn) {
+    meta.push(`<dc:identifier id="isbn">${escapeHtml(m.isbn)}</dc:identifier>`);
+    meta.push(`<meta refines="#isbn" property="identifier-type" scheme="onix:codelist5">15</meta>`);
   }
   meta.push(...accessibilityMeta(book, chapters, images));
   meta.push(`<meta name="cover" content="cover-image"/>`);

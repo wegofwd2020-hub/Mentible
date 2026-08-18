@@ -503,6 +503,26 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "kdp-export",
+    title: "Export a KDP-clean EPUB for Kindle",
+    featureKey: "kdp-export",
+    keywords: ["kdp", "kindle", "amazon", "export", "epub", "epubcheck", "publish"],
+    blocks: [
+      {
+        kind: "text",
+        text: "\"Kindle (KDP)\" produces a separate, distribution-ready EPUB tuned for Amazon KDP: math and diagrams are rendered as images instead of MathML/SVG (Kindle's support for both is inconsistent), the cover is a raster JPEG instead of the app's vector cover, and the body no longer forces our house font — Kindle's reading system controls that. It's a different file from your regular EPUB/PDF checkout, not a setting on it.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Where's the button?", def: "On a Library book's Check out panel, next to EPUB3 and PDF: \"Kindle (KDP)\"." },
+          { term: "Why does it need a released book?", def: "KDP exports refuse a draft book — release it first (clears the \"DRAFT\" watermark) so what you upload to KDP is the finished edition." },
+          { term: "Does it change what's published?", def: "No — it's a separate, read-only export tuned for one destination. Your regular EPUB/PDF checkout is unaffected." },
+        ],
+      },
+    ],
+  },
+  {
     id: "project-fields",
     title: "New Project fields: Title, Topic, Audience, Goal",
     featureKey: "project-fields",

@@ -27,19 +27,22 @@ import type { Book } from "./types";
 
 type Format = "epub" | "pdf" | "cover" | "docx" | "card" | "carousel" | "animated";
 
-function parseArgs(argv: string[]): {
+export function parseArgs(argv: string[]): {
   input?: string;
   output?: string;
   mermaid: boolean;
   format: Format;
+  profile: "default" | "kdp";
 } {
   let input: string | undefined;
   let output: string | undefined;
   let mermaid = false;
   let format: Format = "epub";
+  let profile: "default" | "kdp" = "default";
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--mermaid") mermaid = true;
+    else if (a === "--profile") profile = argv[++i] === "kdp" ? "kdp" : "default";
     else if (a === "--format") {
       const f = argv[++i];
       format =
@@ -60,7 +63,7 @@ function parseArgs(argv: string[]): {
     else if (a === "-o") output = argv[++i];
     else if (!input) input = a;
   }
-  return { input, output, mermaid, format };
+  return { input, output, mermaid, format, profile };
 }
 
 async function readStdin(): Promise<Buffer> {
@@ -70,7 +73,7 @@ async function readStdin(): Promise<Buffer> {
 }
 
 async function main(): Promise<void> {
-  const { input, output, mermaid, format } = parseArgs(process.argv.slice(2));
+  const { input, output, mermaid, format, profile } = parseArgs(process.argv.slice(2));
 
   const fromStdin = !input || input === "-";
   const raw = fromStdin ? (await readStdin()).toString("utf8") : readFileSync(input, "utf8");
@@ -103,7 +106,7 @@ async function main(): Promise<void> {
         ? await renderCoverPng(buildCoverSvgFile(coverInputForBook(book)))
         : format === "docx"
           ? await compileDocx(book)
-          : await compileEpub(book, mermaidOpt);
+          : await compileEpub(book, { ...mermaidOpt, profile });
 
   // Write to stdout when asked, or by default when input came from stdin.
   const toStdout = output === "-" || (fromStdin && !output);
@@ -118,7 +121,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  });
+}

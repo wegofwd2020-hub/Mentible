@@ -1,7 +1,26 @@
 # KDP-Clean EPUB Export Profile — Design Spec
 
-**Status:** Proposed · **Date:** 2026-07-21 · **Tracks:** issue #336 (workstream B)
+**Status:** Accepted (2026-08-17) · **Date:** 2026-07-21 · **Tracks:** issue #336 (workstream B) · shortlist **P2-6, Scope A**
 **Scope:** a `kdp` export profile in the `compiler/` package that produces an EPUB3 which ingests cleanly on Amazon KDP and passes validation. **eBook only** — KDP's reflowable eBook target is EPUB; the PDF path is a separate print/paperback concern (out of scope, see Non-goals).
+
+> **★ Amendment (2026-08-17 — accepted as P2-6 Scope A).** Chosen over the literal
+> P2-6 ("retailer distribution APIs + royalty dashboard") because those retailers
+> (KDP/Apple/IngramSpark/Draft2Digital) expose **no public book-ingest API**, and the
+> repo's own strategy (`docs/competitive-publishing-landscape.md`, companion to ADR-004)
+> is *"ride the rail — export **into** the retailers, don't build a store."* This
+> profile IS that rail. **Two updates to the body below:**
+> - **`compiler/src/rasterize.ts` now exists** (built 2026-08-17 for the card/carousel/
+>   animated derivatives). It exports `rasterizeToPng` (single SVG→PNG) and
+>   `rasterizeManyToPng` (book-wide batch, one browser). **D3 (math) and D4 (diagrams)
+>   reuse `rasterizeManyToPng` directly** — the spec's "build one small rasterize helper"
+>   is already done, collapsing D3 (the "biggest item") to wiring. **D5 (cover)** only
+>   needs a small **JPEG** capability added to that helper (`screenshot` is PNG-only today).
+> - **Open questions resolved** (adopting this spec's own recommendations): (1) a
+>   **distinct "Export for Kindle (KDP)" action**, not a checkbox; (2) **`epubcheck` in
+>   CI** on the kdp output as the automated gate + a documented manual **Kindle Previewer**
+>   pre-ship step; (3) **raster math keeps the LaTeX `alt`**, and `accessibilityMeta()`
+>   flips to a textual-alternative mode for the profile. ISBN/imprint fold into D6 as an
+>   optional metadata field (KDP assigns its own ASIN; ISBN optional for eBooks).
 
 ## Why
 

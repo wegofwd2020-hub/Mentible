@@ -178,6 +178,20 @@ describe("exportBook (async job: submit → poll → download)", () => {
     expect(url).toContain("diagrams=true");
   });
 
+  it("includes profile=kdp in the submit query string when set", async () => {
+    mockAsyncExport();
+    await exportBook(book, { format: "epub", diagrams: true, profile: "kdp" });
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain("profile=kdp");
+  });
+
+  it("omits the profile param when unset (default export behavior unchanged)", async () => {
+    mockAsyncExport();
+    await exportBook(book);
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).not.toContain("profile=");
+  });
+
   it("decodes the X-Content-Trust-Manifest header from the artifact (SBQ-TRUST-002)", async () => {
     const manifest = {
       trust_manifest_version: 1,

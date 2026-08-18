@@ -30,6 +30,7 @@
     "@types/katex": "^0.16.8",
     "@types/node": "^20.19.43",
     "@types/pngjs": "^6.0.5",
+    "epubcheck-assets": "^5.1.0",
     "fast-xml-parser": "^5.9.3",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.11",

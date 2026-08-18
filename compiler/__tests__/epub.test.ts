@@ -1,8 +1,22 @@
 import fs from "node:fs";
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
-import { compileEpub, EmptyBookError } from "../src/epub";
+import { compileEpub, EmptyBookError, KdpDraftError, isoDate } from "../src/epub";
 import type { Book, BookMetadata, LessonOutput } from "../src/types";
+
+// Stand in for Puppeteer/Chromium (D3/D4/D5 raster paths) so these tests never
+// need real Chromium. Also stands in for Task 6's cover-JPEG call, exercised
+// unconditionally once that lands.
+jest.mock("../src/rasterize", () => ({
+  rasterizeManyToPng: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
+  rasterizeManyToPngResilient: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
+  rasterizeToPng: jest.fn(async () => Buffer.from("fake-png-cover")),
+  rasterizeToJpeg: jest.fn(async () => Buffer.from([0xff, 0xd8, 0xff, 0x00])), // real JPEG magic number
+}));
 
 // XML well-formedness check (dependency-free stand-in for full epubcheck, which
 // needs Java — see scripts/epubcheck.sh). Strips the html5 DOCTYPE, which the
@@ -51,6 +65,15 @@ function syntheticBook(): Book {
   };
 }
 
+function bookWithMermaidDiagram(): Book {
+  const book = syntheticBook();
+  book.content!.u1.lesson!.sections.push({
+    heading: "Flow",
+    body_markdown: "```mermaid\ngraph TD; A-->B;\n```",
+  });
+  return book;
+}
+
 async function unzip(bytes: Uint8Array): Promise<JSZip> {
   return JSZip.loadAsync(bytes);
 }
@@ -60,6 +83,77 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     const empty = syntheticBook();
     empty.content = {};
     await expect(compileEpub(empty)).rejects.toBeInstanceOf(EmptyBookError);
+  });
+
+  it("profile 'default' (explicit) compiles to the exact same bytes as omitting profile", async () => {
+    const withoutOpt = await compileEpub(syntheticBook());
+    const withDefault = await compileEpub(syntheticBook(), { profile: "default" });
+    expect(Buffer.from(withDefault)).toEqual(Buffer.from(withoutOpt));
+  });
+
+  it("profile 'kdp' writes KDP_STYLESHEET instead of STYLESHEET", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    const css = await zip.file("OEBPS/css/style.css")!.async("string");
+    expect(css).not.toContain("@font-face");
+    expect(css).toMatch(/table\s*\{/); // headings/tables kept
+  });
+
+  it("profile 'kdp' rasterizes math to <img>, dropping <math> from the chapter", async () => {
+    const book = syntheticBook(); // LESSON's Velocity section has $v=\frac{\Delta x}{\Delta t}$
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-(inline|block)" alt="[^"]*"/);
+  });
+
+  it("profile 'kdp' rasterizes BOTH an inline and a display-block equation through the real KaTeX render path", async () => {
+    const book: Book = JSON.parse(JSON.stringify(syntheticBook()));
+    book.content!.u1.lesson!.sections[0].body_markdown += "\n\n$$\nE=mc^2\n$$";
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-inline" alt="[^"]*"/);
+    expect(chapter).toMatch(/<img class="math math-block" alt="[^"]*"/);
+  });
+
+  it("profile 'kdp' + mermaid rasterizes diagrams to <img>, not inline <svg>", async () => {
+    const book = bookWithMermaidDiagram();
+    const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    expect(chapter).not.toContain("<svg");
+  });
+
+  it("default profile + mermaid keeps diagrams as inline <svg> (no rasterization)", async () => {
+    const book = bookWithMermaidDiagram();
+    const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain("<svg");
+    expect(chapter).not.toContain('<img src="data:image/png;base64,');
+  });
+
+  it("profile 'kdp' + mermaid: a diagram that fails to rasterize falls back to the inline-SVG/placeholder figure while the rest become <img> (partial-failure fallback)", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    const book = bookWithMermaidDiagram();
+    book.content!.u1.lesson!.sections.push({
+      heading: "Flow 2",
+      body_markdown: "```mermaid\nsequenceDiagram; X->>Y: hi;\n```",
+    });
+    const svgFor = (s: string) => `<svg xmlns="http://www.w3.org/2000/svg" data-src="${s}"><rect width="1" height="1"/></svg>`;
+    const fakeMermaid = {
+      renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, svgFor(s)])),
+    };
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((svg: string) => (svg.includes("sequenceDiagram") ? null : Buffer.from("ok"))),
+    );
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/); // rasterized
+    expect(chapter).toContain("sequenceDiagram"); // failed diagram — falls back to placeholder text, not <img>
+    expect(chapter).toContain('class="diagram diagram--placeholder"'); // fallback is the text placeholder, not the raw inline SVG
+    expect(chapter).not.toContain("<svg"); // never leaks the raw pre-rasterized SVG either
   });
 
   it("produces a valid EPUB3 OCF structure", async () => {
@@ -191,6 +285,84 @@ describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
     const col = await zip.file("OEBPS/colophon.xhtml")!.async("string");
     expect(col).toContain("All rights reserved.");
   });
+
+  it("profile 'kdp' registers a JPEG cover-image and drops the vector cover.svg", async () => {
+    const book = withMeta({ author: "A", status: "release" });
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    expect(zip.file("OEBPS/cover.svg")).toBeNull();
+    const coverJpg = await zip.file("OEBPS/cover.jpg")!.async("nodebuffer");
+    expect(coverJpg[0]).toBe(0xff); // JPEG magic number, from the mocked rasterizeToJpeg
+    expect(coverJpg[1]).toBe(0xd8);
+    expect(coverJpg[2]).toBe(0xff);
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>');
+    const coverXhtml = await zip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(coverXhtml).toContain('<img src="cover.jpg"');
+  });
+
+  it("profile 'kdp' normalizes dc:date to ISO-8601 and leaves the default profile's date untouched", async () => {
+    const book = withMeta({ author: "A", status: "release", date: "June 1, 2026" });
+    const kdpOpf = await (await unzip(await compileEpub(book, { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    expect(kdpOpf).toContain("<dc:date>2026-06-01</dc:date>");
+    const defaultOpf = await (await unzip(await compileEpub(book))).file("OEBPS/content.opf")!.async("string");
+    expect(defaultOpf).toContain("<dc:date>June 1, 2026</dc:date>");
+  });
+
+  it("profile 'kdp' emits a translator contributor and an ISBN identifier when present", async () => {
+    const book = withMeta({ author: "A", status: "release", translator: "T. Ranslator", isbn: "9780000000000" });
+    const opf = await (await unzip(await compileEpub(book, { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<dc:contributor id="translator">T. Ranslator</dc:contributor>');
+    expect(opf).toContain('scheme="marc:relators">trl</meta>');
+    expect(opf).toContain('<dc:identifier id="isbn">9780000000000</dc:identifier>');
+  });
+
+  it("profile 'kdp' refuses to compile a draft book with a clear error", async () => {
+    const book = withMeta({ author: "A", status: "draft" });
+    await expect(compileEpub(book, { profile: "kdp" })).rejects.toThrow(/kdp export profile requires a released book/i);
+  });
+
+  it("profile 'default' still compiles a draft book (no guard)", async () => {
+    const book = withMeta({ author: "A", status: "draft" });
+    await expect(compileEpub(book)).resolves.toBeInstanceOf(Uint8Array);
+  });
+
+  // Pin: backend/src/export/compiler.py greps this exact substring (case-
+  // insensitively) against the compiler subprocess's stderr to map a kdp
+  // draft-refusal to a friendly 422 instead of a generic 500. There is no
+  // shared constant across the TS/Python boundary, so a reword here that
+  // drops this substring would keep every other test green while silently
+  // breaking that mapping in production — this test is the only thing
+  // pinning it. Keep in sync with the "kdp export profile requires a
+  // released book" check in compiler.py.
+  it("KdpDraftError's message contains the substring the backend greps for", () => {
+    expect(new KdpDraftError().message.toLowerCase()).toContain(
+      "kdp export profile requires a released book",
+    );
+  });
+});
+
+// Timezone-immune by construction (never round-trips through toISOString()),
+// so these hold regardless of the test-runner's TZ.
+describe("isoDate", () => {
+  it("parses a loose month+year civil string", () => {
+    expect(isoDate("Jan 2026")).toBe("2026-01-01");
+  });
+
+  it("parses a loose day+month+year civil string", () => {
+    expect(isoDate("June 1, 2026")).toBe("2026-06-01");
+  });
+
+  it("takes an already-ISO date verbatim", () => {
+    expect(isoDate("2026-06-01")).toBe("2026-06-01");
+  });
+
+  it("takes the date part of an ISO datetime with a Z suffix verbatim", () => {
+    expect(isoDate("2026-06-01T23:00:00Z")).toBe("2026-06-01");
+  });
+
+  it("passes an unparseable string through unchanged", () => {
+    expect(isoDate("not a date")).toBe("not a date");
+  });
 });
 
 describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () => {
@@ -206,6 +378,36 @@ describe("compileEpub — accessibility metadata (EPUB Accessibility 1.1)", () =
     expect(opf).toContain('<meta property="schema:accessibilityFeature">tableOfContents</meta>');
     expect(opf).toContain('<meta property="schema:accessibilityHazard">none</meta>');
     expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*MathML/);
+    assertWellFormed(opf, "content.opf");
+  });
+
+  it("profile 'kdp' flips the MathML feature to alternativeText (math is rasterized, not MathML anymore)", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).not.toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
+    expect(opf).toMatch(/<meta property="schema:accessibilitySummary">[^<]*text alternative/);
+    assertWellFormed(opf, "content.opf");
+  });
+
+  it("profile 'kdp' reports BOTH MathML and alternativeText when only some equations in the book rasterize (partial-failure fallback)", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    const book: Book = JSON.parse(JSON.stringify(syntheticBook()));
+    book.content!.u1.lesson!.sections[0].body_markdown += "\n\n$$\nE=mc^2\n$$";
+    // Let the inline $v=...$ equation rasterize; fail the E=mc^2 block equation
+    // specifically — it should fall back to MathML while the other becomes <img>.
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((svg: string) => (svg.includes("E=mc^2") ? null : Buffer.from("ok"))),
+    );
+
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain("<math"); // the failed equation stayed MathML
+    expect(chapter).toMatch(/<img class="math math-inline"/); // the other rasterized fine
+
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">MathML</meta>');
+    expect(opf).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
     assertWellFormed(opf, "content.opf");
   });
 

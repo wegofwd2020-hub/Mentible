@@ -260,6 +260,27 @@ ${buildCoverSvg(input)}
 `;
 }
 
+// KDP profile raster cover page (D5, docs/specs/kdp-clean-export-profile.md):
+// unlike buildCoverXhtml, this page shows the RASTER cover (a plain <img>) —
+// no inline SVG, so no embedded @font-face is needed here either.
+export function buildCoverXhtmlRaster(title: string, imgHref: string): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>${escapeHtml(title)}</title>
+<style>html,body{margin:0;padding:0;height:100%}.cv{width:100%;height:100vh}.cv img{width:100%;height:100%;object-fit:contain;display:block}</style>
+</head>
+<body>
+<section epub:type="cover" class="cv">
+<img src="${escapeHtml(imgHref)}" alt="${escapeHtml(title)}"/>
+</section>
+</body>
+</html>
+`;
+}
+
 // Derive cover copy from a book. Subtitle comes from the title split; a tagline
 // is only used when the lead topic's synopsis opens with a short, punchy sentence.
 export function coverInputForBook(book: Book): CoverInput {

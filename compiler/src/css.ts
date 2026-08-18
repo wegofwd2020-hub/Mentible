@@ -132,3 +132,125 @@ export const STYLESHEET = `
   math { font-size: 1.05em; }
   img { max-width: 100%; height: auto; display: block; margin: 0.9em auto; }
 `;
+
+// KDP profile (D2, docs/specs/kdp-clean-export-profile.md): the reflowable
+// body reading system controls body typography (no embedded font, no forced
+// line-height) — KDP disallows forcing the body font. Deliberately a SEPARATE
+// literal (not derived from STYLESHEET) so the default export's bytes can
+// never drift from a KDP-only edit: every rule below except the two dropped
+// @font-face injections and the body font-family/line-height is identical to
+// STYLESHEET, including every non-body selector (headings/tables/figures/quiz
+// are allowed and encouraged to keep their styling per D2).
+export const KDP_STYLESHEET = `
+  * { box-sizing: border-box; }
+  body {
+    color: #1a1a1a;
+    background: #faf8f3; /* warm ivory ground (Anthropic-leaning, calmer than pure white) */
+    margin: 0;
+    padding: 1em;
+    counter-reset: figure table;
+  }
+  /* Only 400 + 500 weights are embedded (playfairFont.ts) — font-synthesis:none
+     stops readers from faux-bolding Playfair against the UA's default bold,
+     which reads as ugly, distorted type (the P3 lesson). Not embedded for kdp
+     (no font-embed rule above), so this is a graceful-fallback declaration:
+     readers that happen to carry Playfair use it, everyone else falls through
+     to the listed serif fallbacks. */
+  h1, h2, h3, h4, h5, h6 { font-family: ${DISPLAY}; font-weight: 500; font-synthesis: none; }
+  h1 { font-size: 1.6em; margin: 0 0 0.3em; }
+  h2 { font-size: 1.3em; margin: 1.2em 0 0.4em; }
+  h3 { font-size: 1.1em; margin: 1em 0 0.3em; color: ${STUDIO.ink}; }
+  h4 { font-size: 1em; margin: 0.8em 0 0.2em; }
+  p { margin: 0.6em 0; }
+  ul, ol { padding-left: 1.4em; margin: 0.5em 0; }
+  li { margin: 0.25em 0; }
+  a { color: ${STUDIO.gold}; }
+  code {
+    font-family: "Courier New", monospace;
+    font-size: 0.9em;
+    background: #f2f2f2;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+  }
+  pre {
+    background: #f6f6f6;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.8em;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  blockquote {
+    border-left: 3px solid ${STUDIO.gold};
+    padding: 0.4em 0.9em;
+    margin: 0.8em 0;
+    color: #444;
+    font-style: italic;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.95em; counter-increment: table; }
+  th { background: ${STUDIO.gold}; color: #fff; font-weight: 700; font-family: ${SANS}; padding: 0.5em 0.8em; border: 1px solid ${STUDIO.gold}; text-align: left; }
+  td { padding: 0.45em 0.8em; border: 1px solid #e6e0d4; }
+  tbody tr:nth-child(even) td { background: #f4f1ea; }
+  caption { caption-side: top; text-align: left; font-family: ${SANS}; font-size: 0.85em; color: #666; margin-bottom: 0.3em; }
+  hr.section-divider { border: none; border-top: 1px solid #ddd; margin: 1.4em 0; }
+  .synopsis {
+    color: #444; padding: 0.8em; margin: 0.8em 0 1.2em;
+    background: #f6f8fa; border-left: 3px solid ${STUDIO.gold}; border-radius: 4px;
+  }
+  .objectives, .takeaways, .further, .mistakes, .examples, .materials, .safety {
+    background: #f6f8fa; border-radius: 4px; padding: 0.8em 1em; margin: 1em 0;
+  }
+  .objectives { border-left: 3px solid ${STUDIO.gold}; }
+  .further    { border-left: 3px solid ${BRAND.green}; }
+  .mistakes   { border-left: 3px solid #ef6c00; }
+  .safety     { border-left: 3px solid #ef6c00; }
+  /* Key Takeaways: Studio navy callout panel (matches the PDF). */
+  .takeaways {
+    background: ${STUDIO.navy}; color: #eceaf6; border: none;
+    border-radius: 8px; padding: 0.9em 1.1em; margin: 1em 0;
+  }
+  .takeaways h3 { color: ${STUDIO.goldBright}; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82em; margin: 0 0 0.45em; }
+  .takeaways strong { color: #fff; }
+  .takeaways a { color: #9fd8ff; }
+  .practice {
+    background: #fff8e1; border-left: 3px solid #ef6c00;
+    padding: 0.5em 0.8em; border-radius: 4px; margin: 0.7em 0;
+  }
+  .quiz-q {
+    background: #fafafa; border: 1px solid #e0e0e0;
+    border-radius: 6px; padding: 0.8em 1em; margin: 0.8em 0;
+  }
+  .quiz-qtext, .quiz-qtext p { font-family: ${SANS}; font-weight: 600; }
+  .quiz-options { list-style: none; padding-left: 0; margin: 0.5em 0; }
+  .quiz-options li { padding: 0.2em 0; font-family: ${SERIF}; font-size: 0.9em; }
+  .quiz-options li.correct { color: #2e7d32; font-weight: 600; }
+  .quiz-answer { margin-top: 0.5em; color: #2e7d32; font-size: 0.92em; }
+  .quiz-expl { color: #444; font-size: 0.92em; }
+  .difficulty { margin-top: 0.4em; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; color: #888; }
+  .step .obs { color: #555; font-style: italic; font-size: 0.95em; }
+  .diagram {
+    margin: 1.4em 0; counter-increment: figure; text-align: center;
+    background: ${STUDIO.panel}; border: 1px solid ${STUDIO.goldSoft};
+    border-radius: 10px; padding: 1.1em 1em 0.8em; break-inside: avoid;
+  }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram img { max-width: 100%; height: auto; }
+  .diagram--placeholder { background: #f6f6f6; border-color: #e3e3e3; }
+  .diagram--placeholder pre { white-space: pre-wrap; text-align: left; }
+  .diagram figcaption { font-family: ${SANS}; font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.5em; }
+  .fnum { font-weight: 700; color: ${STUDIO.gold}; }
+  .floatlist ol { list-style: none; padding-left: 0; }
+  .floatlist li { margin: 0.4em 0; }
+  .floatlist a { text-decoration: none; color: #1a1a1a; }
+  .floatlist .fnum { display: inline-block; min-width: 5em; }
+  .glossary dt { font-family: ${SANS}; font-weight: 700; color: ${STUDIO.navy}; margin-top: 0.7em; }
+  .glossary dd { margin: 0.1em 0 0.5em; color: #333; }
+  .colophon .draft-notice { color: #b91c1c; font-weight: 700; }
+  .colophon .edition { color: ${BRAND.green}; font-weight: 700; }
+  .colophon .revisions ul { padding-left: 1.2em; font-size: 0.9em; color: #555; }
+  /* Rasterized math (D3): inline equations stay inline with surrounding text;
+     block/display equations center on their own line like the default's MathML. */
+  img.math-inline { display: inline-block; max-width: 100%; height: auto; vertical-align: middle; margin: 0 0.12em; }
+  img.math-block { display: block; max-width: 100%; height: auto; margin: 0.9em auto; }
+  img { max-width: 100%; height: auto; display: block; margin: 0.9em auto; }
+`;

@@ -96,6 +96,12 @@ jobs:
           cache: "npm"
           cache-dependency-path: compiler/package-lock.json
 
+      - name: Set up Java (epubcheck — V gate, docs/specs/kdp-clean-export-profile.md)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Install compiler deps
         working-directory: compiler
         run: npm ci

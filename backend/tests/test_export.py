@@ -76,7 +76,9 @@ def test_validate_book_rejects_bad_input(raw, needle):
 
 # ── endpoint with the compiler mocked ────────────────────────────────────────
 def _fake_compile(record: dict, warnings: list[dict] | None = None):
-    async def fake(raw: bytes, *, fmt: str = "epub", diagrams: bool = False) -> ExportResult:
+    async def fake(
+        raw: bytes, *, fmt: str = "epub", diagrams: bool = False, profile: str = "default"
+    ) -> ExportResult:
         record["fmt"] = fmt
         record["diagrams"] = diagrams
         return ExportResult(
@@ -188,7 +190,7 @@ async def test_export_succeeds_even_if_trust_assembly_fails(client, monkeypatch)
 async def test_export_rejects_unknown_format(client, monkeypatch):
     called = False
 
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         nonlocal called
         called = True
         return ExportResult(data=b"", title="x", warnings=[])
@@ -202,7 +204,7 @@ async def test_export_rejects_unknown_format(client, monkeypatch):
 
 
 async def test_export_validation_error_is_422(client, monkeypatch):
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         raise ExportValidationError("Book has no generated content to compile.")
 
     monkeypatch.setattr(compiler, "compile_book", fake)
@@ -213,7 +215,7 @@ async def test_export_validation_error_is_422(client, monkeypatch):
 
 
 async def test_export_compiler_error_is_500_without_internals(client, monkeypatch):
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         raise CompilerError("node exploded: /secret/path/stacktrace")
 
     monkeypatch.setattr(compiler, "compile_book", fake)
@@ -227,7 +229,7 @@ async def test_export_compiler_error_is_500_without_internals(client, monkeypatc
 async def test_export_rejects_oversized_body(client, monkeypatch):
     called = False
 
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         nonlocal called
         called = True
         return ExportResult(data=b"", title="x", warnings=[])
