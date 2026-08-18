@@ -45,11 +45,20 @@ from backend.src.generate.tasks import (
     _write_status,
 )
 
-from . import artifact_repo, book_gen, generation_job_repo, grounding_repo, project_repo, topic_repo
+from . import (
+    artifact_repo,
+    book_gen,
+    generation_job_repo,
+    grounding_repo,
+    originality_repo,
+    project_repo,
+    topic_repo,
+)
 from .access import project_id_for_artifact, project_id_for_version
 from .generate import draft_output_to_sections, generate_draft
 from .generate_topic import generate_topic_draft
 from .grounding import generate_grounding
+from .originality import generate_originality
 from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
 
@@ -1239,6 +1248,198 @@ def grounding_check_task(
 ) -> None:
     asyncio.run(
         _run_grounding_check(
+            job_id=uuid.UUID(job_id),
+            version_id=uuid.UUID(version_id),
+            version_kind=version_kind,
+            provider_id=provider_id,
+            model=model,
+            managed=managed,
+            recorded_by_sub=recorded_by_sub,
+        )
+    )
+
+
+async def _run_originality_check(
+    *,
+    job_id: uuid.UUID,
+    version_id: uuid.UUID,
+    version_kind: str,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    """Do the actual work for one originality-check job (B3 T2).
+
+    Byte-for-byte mirror of `_run_grounding_check`'s shape (key resolution,
+    the `running` write, shred-on-every-exit-path, managed metering) —
+    deltas are: `generate_originality` replaces `generate_grounding`, and
+    the result is upserted into `version_originality` instead of
+    `version_grounding`. Never raises — every exit path (success, a known
+    LLM failure, or an unexpected error) writes a status row and shreds the
+    BYOK envelope.
+    """
+    r = _redis_client()
+    api_key: str | None = None
+    try:
+        raw = await r.get(_job_status_redis_key(job_id))
+        if raw is not None:
+            try:
+                already = json.loads(raw).get("status")
+            except (json.JSONDecodeError, AttributeError):
+                already = None
+            if already == "done":
+                return
+
+        if managed:
+            api_key = get_managed_key(provider_id)
+            if not api_key:
+                log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
+                await _write_status(r, job_id, "failed", error="managed generation unavailable")
+                return
+        else:
+            envelope_blob = await r.get(_byok_redis_key(job_id))
+            if envelope_blob is None:
+                log.warning("envelope_missing", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="job timed out")
+                return
+            try:
+                master_key = parse_master_key(settings.byok_master_key)
+                api_key = decrypt_api_key(master_key, str(job_id), envelope_blob)
+            except Exception:
+                log.warning("envelope_decrypt_failed", job_id=str(job_id))
+                await _write_status(r, job_id, "failed", error="internal error")
+                return
+
+        conn = await _db_connect()
+        try:
+            if version_kind == "artifact":
+                v = await artifact_repo.get_version(conn, version_id=version_id)
+                if v is None:
+                    await _write_status(r, job_id, "failed", error="version not found")
+                    return
+                project_id = await project_id_for_version(conn, version_id=version_id)
+            else:
+                v = await topic_repo.get_topic_version(conn, topic_version_id=version_id)
+                if v is None:
+                    await _write_status(r, job_id, "failed", error="version not found")
+                    return
+                project_id = await topic_repo.project_id_for_topic_version(
+                    conn, topic_version_id=version_id
+                )
+            if project_id is None:
+                await _write_status(r, job_id, "failed", error="version not found")
+                return
+
+            sections = (v.content or {}).get("sections", [])
+            sources = await project_repo.list_inputs(conn, project_id=project_id)
+
+            resolved_model = model or settings.anthropic_default_model
+            await _write_status(r, job_id, "running")
+            try:
+                report, in_tok, out_tok = await asyncio.to_thread(
+                    generate_originality,
+                    sections=sections,
+                    sources=sources,
+                    provider_id=provider_id,
+                    api_key=api_key,
+                    model=resolved_model,
+                )
+            except LLMSchemaError:
+                log.warning("originality_check_failed", job_id=str(job_id), reason="schema")
+                await _write_status(
+                    r, job_id, "failed", error="generated originality report failed validation"
+                )
+                return
+            except LLMAuthError:
+                log.warning("originality_check_failed", job_id=str(job_id), reason="auth")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The API key was rejected by the provider. Check it in Settings.",
+                )
+                return
+            except LLMRateLimitError:
+                log.warning("originality_check_failed", job_id=str(job_id), reason="rate_limit")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error="The provider is rate-limiting requests. Try again shortly.",
+                )
+                return
+            except LLMError:
+                log.warning("originality_check_failed", job_id=str(job_id), reason="llm_error")
+                await _write_status(r, job_id, "failed", error="originality check failed")
+                return
+            except Exception:
+                log.warning("originality_check_failed", job_id=str(job_id), reason="unexpected")
+                await _write_status(r, job_id, "failed", error="originality check failed")
+                return
+
+            cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+            await originality_repo.upsert(
+                conn,
+                version_id=version_id,
+                version_kind=version_kind,
+                report=report,
+                model=resolved_model,
+                cited_content_hash=cited_content_hash(sources, cited),
+            )
+
+            if managed:
+                try:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=recorded_by_sub, email=None
+                    )
+                    await _record_trust_usage(
+                        conn,
+                        account_id=acct.id,
+                        provider=provider_id,
+                        model=resolved_model,
+                        input_tokens=in_tok,
+                        output_tokens=out_tok,
+                        job_id=job_id,
+                    )
+                except Exception:
+                    log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
+        finally:
+            await conn.close()
+
+        await _write_status(
+            r,
+            job_id,
+            "done",
+            result={"version_id": str(version_id), "version_kind": version_kind},
+        )
+    except Exception:
+        log.warning("trust_originality_check_task_failed", job_id=str(job_id), reason="unexpected")
+        try:
+            await _write_status(r, job_id, "failed", error="originality check failed")
+        except Exception:
+            log.warning("status_write_failed", job_id=str(job_id))
+    finally:
+        if api_key is not None:
+            del api_key
+        await _shred_envelope(r, job_id)
+        await r.aclose()
+
+
+@celery_app.task(bind=True, name="trust.originality_check")
+def originality_check_task(
+    self,
+    *,
+    job_id: str,
+    version_id: str,
+    version_kind: str,
+    provider_id: str,
+    model: str | None,
+    managed: bool,
+    recorded_by_sub: str,
+) -> None:
+    asyncio.run(
+        _run_originality_check(
             job_id=uuid.UUID(job_id),
             version_id=uuid.UUID(version_id),
             version_kind=version_kind,

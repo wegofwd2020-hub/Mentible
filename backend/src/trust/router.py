@@ -29,6 +29,7 @@ from . import (
     generation_job_repo,
     grounding_repo,
     membership_repo,
+    originality_repo,
     project_repo,
     schemas,
     topic_approval_repo,
@@ -49,6 +50,7 @@ from .tasks import (
     generate_topic_task,
     generate_version_task,
     grounding_check_task,
+    originality_check_task,
     suggest_toc_task,
 )
 from .toc_util import find_toc_topic
@@ -322,6 +324,12 @@ async def get_version(
         cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
         g["stale"] = stored_hash != cited_content_hash(live, cited)
     q["grounding"] = g
+    o = await originality_repo.get(conn, version_id=version_id, version_kind="artifact")
+    if o is not None:
+        o_stored_hash = o.pop("cited_content_hash")
+        o_cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+        o["stale"] = o_stored_hash != cited_content_hash(live, o_cited)
+    q["originality"] = o
     return schemas.VersionDetailOut(
         id=str(v.id),
         artifact_id=str(v.artifact_id),
@@ -581,6 +589,146 @@ async def grounding_check_topic_version(
     # Safe-surface logging only — never the api_key, never the request body.
     log.info(
         "grounding_check_submitted",
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="topic",
+        managed=managed,
+    )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.post(
+    "/artifacts/versions/{version_id}/originality-check",
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def originality_check_version(
+    version_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """Submit a source-overlap originality audit job for an existing artifact
+    version (B3 T2 — async). Billable, so owner-only; checks ONLY the
+    project's own cited sources, never the web (see the design spec). Byte-for-
+    byte mirror of `grounding_check_version`'s eligibility/envelope/enqueue
+    shape — the actual LLM call happens in `originality_check_task` (Celery).
+    Poll `GET /api/v1/jobs/{job_id}` for the eventual `done`/`failed` status;
+    on success the stored report is picked up by the next
+    `GET /versions/{version_id}` read."""
+    project_id = await project_id_for_version(conn, version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))  # billable → owner only
+
+    managed = body.api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
+            )
+    model = body.model or settings.anthropic_default_model
+
+    job_id = uuid.uuid4()
+
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    originality_check_task.delay(
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="artifact",
+        provider_id=body.provider_id,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    log.info(
+        "originality_check_submitted",
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="artifact",
+        managed=managed,
+    )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
+
+
+@router.post(
+    "/topic-versions/{version_id}/originality-check",
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def originality_check_topic_version(
+    version_id: uuid.UUID,
+    body: schemas.DraftGenerateIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """The topic-version twin of `originality_check_version` — same shape,
+    `version_kind="topic"`."""
+    project_id = await topic_repo.project_id_for_topic_version(conn, topic_version_id=version_id)
+    if project_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))  # billable → owner only
+
+    managed = body.api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=body.provider_id, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
+            )
+    model = body.model or settings.anthropic_default_model
+
+    job_id = uuid.uuid4()
+
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), body.api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    originality_check_task.delay(
+        job_id=str(job_id),
+        version_id=str(version_id),
+        version_kind="topic",
+        provider_id=body.provider_id,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    log.info(
+        "originality_check_submitted",
         job_id=str(job_id),
         version_id=str(version_id),
         version_kind="topic",
@@ -1203,6 +1351,12 @@ async def get_topic_version(
         cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
         g["stale"] = stored_hash != cited_content_hash(live, cited)
     q["grounding"] = g
+    o = await originality_repo.get(conn, version_id=topic_version_id, version_kind="topic")
+    if o is not None:
+        o_stored_hash = o.pop("cited_content_hash")
+        o_cited = {sid for s in sections for sid in (s.get("source_ids") or [])}
+        o["stale"] = o_stored_hash != cited_content_hash(live, o_cited)
+    q["originality"] = o
     return schemas.TopicVersionDetailOut(
         id=str(tv.id),
         topic_id=tv.topic_id,
