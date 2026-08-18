@@ -99,9 +99,9 @@ async def update_project_toc(conn, *, project_id, toc) -> None:
 async def set_rights(conn, *, project_id, attested: bool, rights_holder: str | None) -> None:
     """Owner-only rights attestation (B3 Part B) — DISPLAY-ONLY, never
     referenced by any export gate. `attested=True` stamps `now()`;
-    `attested=False` withdraws the attestation (sets the timestamp back to
-    null) without touching `rights_holder`'s stored value's caller-supplied
-    replacement."""
+    `attested=False` sets the timestamp back to null. `rights_holder` is
+    ALWAYS overwritten with the caller-supplied value (null if omitted) — the
+    caller must resend the current holder on every call or it is wiped."""
     await conn.execute(
         "UPDATE project SET rights_attested_at = CASE WHEN $2 THEN now() ELSE NULL END, "
         "rights_holder = $3 WHERE id = $1",
