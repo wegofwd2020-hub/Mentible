@@ -26,6 +26,7 @@ export const FEATURES = [
   { key: "word-export", label: "Word (.docx) export" },
   { key: "kdp-export", label: "Export for Kindle (KDP)" },
   { key: "publish-pack", label: "Download a publish pack for retailers" },
+  { key: "epub2-export", label: "EPUB 2 export (max compatibility)" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },
   { key: "originality-report", label: "Originality check (source overlap)" },
   { key: "project-rights", label: "Rights & attribution (copyright)" },

@@ -105,6 +105,40 @@ export function CheckoutButton({ book }: { book: Book }) {
     }
   };
 
+  // EPUB 2 (max compatibility) export (ADR-041 Initiative A,
+  // docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md) — a
+  // distinct action, not a checkbox, since it produces a DIFFERENT artifact
+  // (strict EPUB 2.0.1: rasterized math/diagrams, no audio — narration
+  // survives as transcript prose instead). Mirrors checkoutKdp exactly:
+  // bypasses trackedExport's exportStatus tracking (keyed by format
+  // "epub"/"pdf"/"docx" — a concurrent plain-EPUB export would collide with
+  // this one under the same "epub" key).
+  const checkoutEpub2 = async () => {
+    setState({ kind: "working", fmt: "epub" });
+    try {
+      // "epub2" — buildCompilePayload emits transcript prose instead of
+      // <audio> for this target (EPUB 2 can't carry <audio>).
+      const payload = await buildCompilePayload(book, "epub2");
+      const { artifact, trust } = await exportBook(payload, {
+        format: "epub",
+        diagrams: true,
+        profile: "epub2",
+      });
+      const res = await downloadArtifact(
+        artifact,
+        `${slug(book.title)}-epub2.epub`,
+        "application/epub+zip",
+      );
+      setState({
+        kind: "done",
+        msg: res.savedPath ? `Saved: ${res.savedPath}` : "EPUB 2 (max compatibility) downloaded.",
+        trust,
+      });
+    } catch (err) {
+      setState({ kind: "error", msg: messageFor(err) });
+    }
+  };
+
   const working = state.kind === "working";
 
   return (
@@ -141,6 +175,14 @@ export function CheckoutButton({ book }: { book: Book }) {
           onPress={checkoutPack}
           disabled={working}
           accessibilityLabel="Download a publish pack for retailers"
+          style={styles.btn}
+        />
+        <Button
+          variant="ghost"
+          label="EPUB 2 (max compatibility)"
+          onPress={checkoutEpub2}
+          disabled={working}
+          accessibilityLabel="Export an EPUB 2 for maximum compatibility"
           style={styles.btn}
         />
       </View>

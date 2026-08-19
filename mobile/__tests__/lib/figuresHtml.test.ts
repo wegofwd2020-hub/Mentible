@@ -1,4 +1,4 @@
-import { countBookFigures, renderAudioHtml, renderFiguresHtml } from "@/lib/figuresHtml";
+import { countBookFigures, renderAudioHtml, renderAudioTranscriptHtml, renderFiguresHtml } from "@/lib/figuresHtml";
 import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 const img = (id: string, caption?: string): TopicImage => ({
@@ -67,6 +67,29 @@ describe("renderAudioHtml", () => {
   it("falls back to 'Narration' when the clip has no title", () => {
     const urls = new Map([["a", "data:audio/mpeg;base64,AAAA"]]);
     const html = renderAudioHtml([aud("a")], urls);
+    expect(html).toContain("<figcaption>Narration</figcaption>");
+  });
+});
+
+const audT = (id: string, transcript?: string, title?: string): TopicAudio => ({
+  id, file: `media/b/${id}.mp3`, mime: "audio/mpeg", title, transcript,
+});
+
+describe("renderAudioTranscriptHtml", () => {
+  it("returns empty string for no clips, a clip with no transcript, or a whitespace-only transcript", () => {
+    expect(renderAudioTranscriptHtml([])).toBe("");
+    expect(renderAudioTranscriptHtml([audT("a")])).toBe("");
+    expect(renderAudioTranscriptHtml([audT("a", "   ")])).toBe("");
+  });
+  it("emits a figure per clip with a transcript, as escaped prose with no <audio>", () => {
+    const html = renderAudioTranscriptHtml([audT("a", "Hello <b>there</b>.", "Intro")]);
+    expect(html).toContain('<figure class="topic-audio-transcript">');
+    expect(html).toContain("<p>Hello &lt;b&gt;there&lt;/b&gt;.</p>");
+    expect(html).toContain("<figcaption>Intro</figcaption>");
+    expect(html).not.toContain("<audio");
+  });
+  it("falls back to 'Narration' when the clip has no title", () => {
+    const html = renderAudioTranscriptHtml([audT("a", "Hello.")]);
     expect(html).toContain("<figcaption>Narration</figcaption>");
   });
 });

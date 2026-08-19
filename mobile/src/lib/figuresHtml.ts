@@ -95,3 +95,25 @@ export function renderAudioHtml(audio: TopicAudio[], dataUrls: Map<string, strin
     .filter(Boolean)
     .join("");
 }
+
+/**
+ * Audio clips for a topic as prose "Narration (transcript)" markup — the
+ * EPUB 2 / max-compatibility fallback (ADR-041 Initiative A D4,
+ * docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md). EPUB 2
+ * is XHTML 1.1 and can't carry `<audio>`, so the narration's WORDS survive as
+ * a paragraph per clip instead of the clip itself. A clip with no transcript
+ * is skipped (nothing to show). Unlike renderAudioHtml this needs no resolved
+ * data: URL — transcript text has no bytes to resolve, so this function is
+ * synchronous and takes no dataUrls map.
+ */
+export function renderAudioTranscriptHtml(audio: TopicAudio[]): string {
+  return (audio ?? [])
+    .map((a) => {
+      const text = a.transcript?.trim();
+      if (!text) return "";
+      const cap = `<figcaption>${esc(audioCaption(a))}</figcaption>`;
+      return `<figure class="topic-audio-transcript"><p>${esc(text)}</p>${cap}</figure>`;
+    })
+    .filter(Boolean)
+    .join("");
+}

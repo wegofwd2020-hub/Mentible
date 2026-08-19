@@ -275,3 +275,74 @@ describe("buildCompilePayload — audio format gate", () => {
     expect(headings).toContain("Narration");
   });
 });
+
+describe("buildCompilePayload — epub2 transcript fallback (ADR-041 Initiative A D4)", () => {
+  function bookWithAudioTranscript(): Book {
+    return bookWithTopic({
+      content: {
+        t1: {
+          topicId: "t1", title: "U", generatedAt: "x",
+          lesson: {
+            topic: "U", synopsis: "s", learning_objectives: [],
+            sections: [{ heading: "H", body_markdown: "b" }],
+            key_takeaways: [],
+          } as any,
+          audio: [{ id: "a1", file: "media/b/a1.mp3", mime: "audio/mpeg", title: "Intro", transcript: "Hello there." }],
+        },
+      },
+    });
+  }
+
+  it("an epub2-target payload emits the transcript as prose, not <audio>", async () => {
+    const payload = await buildCompilePayload(bookWithAudioTranscript(), "epub2");
+    const secs = payload.content!.t1.lesson.sections;
+    expect(secs.at(-1)!.heading).toBe("Narration (transcript)");
+    expect(secs.at(-1)!.body_markdown).toContain("Hello there.");
+    expect(secs.at(-1)!.body_markdown).not.toContain("<audio");
+  });
+
+  it("an epub2-target payload does NOT call resolveAudioDataUrls (no data: URL needed for prose)", async () => {
+    const { resolveAudioDataUrls } = jest.requireMock("@/storage/mediaStore");
+    (resolveAudioDataUrls as jest.Mock).mockClear();
+    await buildCompilePayload(bookWithAudioTranscript(), "epub2");
+    expect(resolveAudioDataUrls).not.toHaveBeenCalled();
+  });
+
+  it("a clip with no transcript gets no Narration section on the epub2 target", async () => {
+    const book = bookWithTopic({
+      content: {
+        t1: {
+          topicId: "t1", title: "U", generatedAt: "x",
+          lesson: {
+            topic: "U", synopsis: "s", learning_objectives: [],
+            sections: [{ heading: "H", body_markdown: "b" }],
+            key_takeaways: [],
+          } as any,
+          audio: [{ id: "a1", file: "media/b/a1.mp3", mime: "audio/mpeg" }], // no transcript
+        },
+      },
+    });
+    const payload = await buildCompilePayload(book, "epub2");
+    const headings = payload.content!.t1.lesson.sections.map((s) => s.heading);
+    expect(headings).not.toContain("Narration (transcript)");
+  });
+
+  it("escapes special characters in the transcript text", async () => {
+    const book = bookWithTopic({
+      content: {
+        t1: {
+          topicId: "t1", title: "U", generatedAt: "x",
+          lesson: {
+            topic: "U", synopsis: "s", learning_objectives: [],
+            sections: [{ heading: "H", body_markdown: "b" }],
+            key_takeaways: [],
+          } as any,
+          audio: [{ id: "a1", file: "media/b/a1.mp3", mime: "audio/mpeg", transcript: "A <b> & C" }],
+        },
+      },
+    });
+    const payload = await buildCompilePayload(book, "epub2");
+    const md = payload.content!.t1.lesson.sections.at(-1)!.body_markdown;
+    expect(md).toContain("A &lt;b&gt; &amp; C");
+  });
+});
