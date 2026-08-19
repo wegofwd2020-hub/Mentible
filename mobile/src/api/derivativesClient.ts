@@ -180,3 +180,46 @@ export async function makeAnimated(req: MakeAnimatedRequest): Promise<MakeAnimat
   }
   return res.json() as Promise<MakeAnimatedResponse>;
 }
+
+export interface MakeAudioResponse {
+  script: string;
+  title: string;
+  audio_base64: string;
+  mime: string;
+  provenance: string;
+}
+
+export interface MakeAudioRequest {
+  // Exactly one of source_text / topic_version_id — the caller (the Publish
+  // screen's audio mode) enforces that, this module just forwards it.
+  source_text?: string;
+  topic_version_id?: string;
+  tone?: string;
+  voice?: string;
+  // Omit entirely (never send "") for a keyless managed-plan request — the
+  // backend resolves the vendor key from the caller's entitlement instead.
+  // Present = BYOK, passed through per-request (never logged/stored).
+  api_key?: string;
+  provider_id?: string; // default "openai" — the only TTS-capable provider at launch
+  model?: string;
+}
+
+// Turn source text (or a validated topic-version's content) into a narrated
+// audio clip (P1-5 P4). Synchronous endpoint, mirrors makeCard. Key-free
+// client shape (no JWT) — the caller populates api_key in the request; this
+// module never reads or stores it.
+export async function makeAudio(req: MakeAudioRequest): Promise<MakeAudioResponse> {
+  // A demo build has no backend; the Publish tab is hidden there, but never
+  // let a request leave the device regardless (mirrors makeCard).
+  if (IS_DEMO) throw new Error("Making narration is disabled in this demo build.");
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/derivatives/audio`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider_id: "openai", ...req }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<MakeAudioResponse>;
+}
