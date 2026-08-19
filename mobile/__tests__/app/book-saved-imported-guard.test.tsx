@@ -48,6 +48,9 @@ jest.mock("@/components/ExportBookJsonButton", () => ({
 jest.mock("@/components/ShareDraftModal", () => ({
   ShareDraftModal: () => null,
 }));
+jest.mock("@/components/GenerateAllNarration", () => ({
+  GenerateAllNarration: () => null,
+}));
 jest.mock("@/storage/bookStore", () => ({ loadBook: jest.fn() }));
 
 import { loadBook } from "@/storage/bookStore";
