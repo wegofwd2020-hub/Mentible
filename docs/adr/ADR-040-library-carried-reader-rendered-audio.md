@@ -36,6 +36,23 @@ But the media-attach machinery for the moat **already exists** — images proved
 - **Inline audio bytes (base64) into `book.json`.** Rejected: audio is heavy; base64 in the JSON bloats every load/sync and breaks the established refs-only invariant. Bytes belong in the media dir.
 - **Play audio inside the native WebView via a data: `<audio>`.** Rejected as the native path: OEM data:-URI support is unreliable (P4's own hard-won lesson). Native uses the RN `expo-audio` player over the WebView.
 
+## Format compatibility (EPUB tier) — audio is EPUB 3-only, and that changes nothing
+
+A natural worry: does adding audio drop EPUB 2 compatibility? **No — because the compiler has always emitted EPUB 3, never EPUB 2.** Verified against `compiler/src/epub.ts` (rung-2 state):
+
+- The package is `<package … version="3.0">` (`epub.ts:557`) with EPUB 3 markers — a `properties="nav"` `nav.xhtml` (`epub:type="toc"`, `:307`/`:478`), a required `dcterms:modified` (`:554`), and `<html xmlns:epub="…/ops">` content documents (`xhtml.ts`). This predates audio.
+- A `toc.ncx` (the EPUB 2 nav, `application/x-dtbncx+xml`, `:310`/`:479`) is *also* emitted — but only as the standard EPUB 3 **backward-compat gesture** that lets an older EPUB 2 reader *open and navigate* the file. It never made the books EPUB 2 *documents*.
+
+So the tiers are unchanged by audio:
+
+| | before audio | after audio |
+|---|---|---|
+| Package | EPUB 3 (v3.0) | EPUB 3 (v3.0) — unchanged |
+| Openable in an EPUB 2 reader (via the `toc.ncx` fallback) | yes | **still yes** — the ncx is untouched |
+| `<audio>` element | n/a | EPUB 3-only; an EPUB 2 reader ignores the unrecognized tag, text still reads |
+
+What audio actually does: it adds an **EPUB 3-only content-media element** (`audio/mpeg` is an EPUB 3 core media type; there is no EPUB 2 way to embed playable in-content audio — media overlays are EPUB 3). An EPUB 2-only reader opening the book reads all the text and simply **does not play the audio** — graceful degradation, no loss of openability. (Contrast: **images**, shipped earlier, are valid in EPUB 2 and never affected the tier; audio is the first EPUB 3-only content-media addition, but since the package was already v3.0 it moves nothing.) If stricter old-reader friendliness is ever wanted, gate audio behind the KDP/profile system — but nothing is broken today.
+
 ## Non-goals / out of scope for this ADR
 
 - **Video / A-V** (narrated video). Still deferred — needs ffmpeg or a render service the stack lacks (see the P4 spec). A separate later decision.
