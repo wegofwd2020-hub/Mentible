@@ -10,6 +10,10 @@ Two hard facts from the feasibility pass shape the design:
 1. The LLM seam (`wegofwd_llm`) is **chat-completions only** — its `Capabilities` has no TTS field. So text-to-speech needs a **separate audio client** (an `httpx.AsyncClient` call to a vendor TTS endpoint), exactly like B3's originality situation. The **compiler is not involved** (it renders images/GIF, not audio).
 2. Mobile can **save** any audio file for free (`downloadArtifact` is mime-generic) but has **no in-app player** — playback needs a new `expo-audio` dependency (locked decision: in-app play + download).
 
+## Relationship to the north-star (multi-modal Personal Library)
+
+The product north-star is a **multi-modal Personal Library** of text + graphics + **audio** (later video) books that **only our Web+Android reader renders** — that is the moat. This slice is deliberately **rung 1 of that path, not the destination**: it ships audio as a **Share-phase derivative** (a downloadable/playable narration clip), NOT as audio carried inside a library book the reader plays. Verified current state: `book.json`/the EPUB artifact carry no audio, and the sandboxed-HTML reader has no audio pipeline — so library-carried audio is a **separate, larger follow-on** (audio in `book.json` + the artifact + a new reader audio pipeline, web + native). This slice's **TTS client + narration-script generator are built to be reused by that follow-on** — the engine is the shared foundation; only the *delivery* (share-clip now → reader-rendered library book later) differs. When the library slice is taken up, capture it in an ADR (target + staged path: derivative → book.json audio → reader pipeline → video).
+
 ## Decisions (locked with the user)
 
 - **D1 — Audio only; video deferred.** Narrated audio now; A-V (mux audio onto animation via ffmpeg) is a separate later slice, out of scope.
