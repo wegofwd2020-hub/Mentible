@@ -18,8 +18,9 @@ import { sanitizeFragment, sanitizeImportedChapterHtml } from "@/reader/sanitize
 export function renderTopicToSafeHtml(
   topic: GeneratedTopic,
   dataUrls?: Map<string, string>,
+  audioUrls?: Map<string, string>,
 ): string {
-  return sanitizeFragment(renderTopicToHtml(topic, dataUrls));
+  return sanitizeFragment(renderTopicToHtml(topic, dataUrls, { audioTarget: "web", audioUrls }));
 }
 
 /**

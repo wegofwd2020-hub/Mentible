@@ -496,8 +496,9 @@ export function buildTopicHtml(
   topic: GeneratedTopic,
   dataUrls: Map<string, string> | undefined,
   palette: Palette,
+  audioTarget: "web" | "native" = "native",
 ): string {
-  return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls) }), palette);
+  return htmlDocument(jsonForScriptBlock({ __html: renderTopicToHtml(topic, dataUrls, { audioTarget }) }), palette);
 }
 
 /**

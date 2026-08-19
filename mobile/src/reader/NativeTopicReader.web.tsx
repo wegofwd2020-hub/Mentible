@@ -14,6 +14,7 @@ import { renderTopicToSafeHtml } from "@/reader/renderContent";
 import { readerCss, READER_ROOT_CLASS } from "@/reader/readerStyles";
 import { enhanceReaderNode } from "@/reader/enhance";
 import { useTheme } from "@/theme";
+import { useTopicAudio } from "@/reader/useTopicAudio";
 
 // The content div is isolated in a React.memo so it re-renders ONLY when the
 // html string changes. KaTeX and (lazily) Mermaid mutate this subtree OUT OF
@@ -58,7 +59,8 @@ export function NativeTopicReader({
   inline?: boolean;
 }) {
   const theme = useTheme();
-  const html = useMemo(() => renderTopicToSafeHtml(topic, figures), [topic, figures]);
+  const { webUrls } = useTopicAudio(topic);
+  const html = useMemo(() => renderTopicToSafeHtml(topic, figures, webUrls), [topic, figures, webUrls]);
 
   return (
     <View

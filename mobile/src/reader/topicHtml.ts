@@ -22,7 +22,7 @@
 
 import type { GeneratedTopic, ExperimentOutput, ImportedChapter, QuizSet, TutorialOutput } from "@/types/book";
 import type { LessonOutput } from "@/types/lesson";
-import { renderFiguresHtml } from "@/lib/figuresHtml";
+import { renderFiguresHtml, renderReaderAudioHtml } from "@/lib/figuresHtml";
 import { escapeHtml, li, md, stripDupHeading } from "@/reader/markdown";
 
 const DIVIDER = '<hr class="section-divider">';
@@ -132,12 +132,16 @@ function renderExperiment(exp: ExperimentOutput): string {
 export function renderTopicToHtml(
   topic: GeneratedTopic,
   dataUrls?: Map<string, string>,
+  opts?: { audioUrls?: Map<string, string>; audioTarget?: "web" | "native" },
 ): string {
   let html = renderLesson(topic.lesson);
   if (topic.tutorial) html += renderTutorial(topic.tutorial);
   if (topic.quizSets?.length) html += renderQuizzes(topic.quizSets);
   if (topic.experiment) html += renderExperiment(topic.experiment);
   if (topic.images?.length && dataUrls?.size) html += renderFiguresHtml(topic.images, dataUrls);
+  if (topic.audio?.length && opts?.audioTarget) {
+    html += renderReaderAudioHtml(topic.audio, { target: opts.audioTarget, dataUrls: opts.audioUrls });
+  }
   return html;
 }
 
