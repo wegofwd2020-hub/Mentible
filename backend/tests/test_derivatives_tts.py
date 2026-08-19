@@ -126,15 +126,30 @@ async def test_synthesize_speech_key_never_leaks_on_transport_failure(monkeypatc
         "https://api.openai.com/v1/audio/speech",
         headers={"Authorization": f"Bearer {_API_KEY}"},
     )
-    exc = httpx.ConnectError("boom", request=req)
+    # The underlying transport exception's OWN message carries the key — a
+    # worst-case stand-in (same trick as `_StatusError` in
+    # test_anthropic_adapter.py) for a vendor/transport exception whose
+    # str()/repr() embeds sensitive request material. `str(exc)`/`repr(exc)`
+    # is exactly what Python's traceback formatter prints for a chained
+    # exception, so this is what actually proves `from None` matters below.
+    exc = httpx.ConnectError(f"boom {_API_KEY}", request=req)
     monkeypatch.setattr(
         "backend.src.derivatives.tts.httpx.AsyncClient",
         lambda **kw: _FakeAsyncClient(exc=exc),
     )
-    with pytest.raises(TTSError) as excinfo:
+    try:
         await synthesize_speech("x", provider_id="openai", api_key=_API_KEY, voice=None)
-    # The raised exception's own message must not carry the key — a caller
-    # that logs str(exc) (the router does) must never leak it.
-    assert _API_KEY not in str(excinfo.value)
-    logging.getLogger("test").warning("tts failed: %s", excinfo.value)
+        pytest.fail("expected TTSError")
+    except TTSError as caught:
+        # The raised exception's own message must not carry the key — a
+        # caller that logs str(exc) (the router does) must never leak it.
+        assert _API_KEY not in str(caught)
+        # Log with exc_info=True (inside the except block, so it captures the
+        # LIVE exception chain via sys.exc_info()) — this walks __cause__ and
+        # formats the chained exception into the record exactly like a real
+        # `logger.exception(...)` call would. This is the actual gate: with
+        # `from None`, the chained httpx.ConnectError (and the key embedded
+        # in its message) is suppressed and never reaches the traceback text;
+        # without it, the chain is preserved and the key IS rendered.
+        logging.getLogger("test").error("tts failed", exc_info=True)
     assert _API_KEY not in caplog.text
