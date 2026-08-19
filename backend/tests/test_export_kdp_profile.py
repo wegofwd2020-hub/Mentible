@@ -50,6 +50,23 @@ async def test_compile_book_appends_profile_kdp_to_argv():
     assert argv[argv.index("--profile") + 1] == "kdp"
 
 
+async def test_compile_book_appends_profile_epub2_to_argv():
+    mock_proc = MagicMock()
+    mock_proc.communicate = AsyncMock(return_value=(b"EPUBBYTES", b""))
+    mock_proc.returncode = 0
+    with patch(
+        "backend.src.export.compiler.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=mock_proc),
+    ) as create_exec:
+        await compiler.compile_book(
+            b'{"title":"t","toc":{"subjects":[{"subject_label":"s","units":[]}]}}',
+            profile="epub2",
+        )
+    argv = create_exec.call_args.args
+    assert "--profile" in argv
+    assert argv[argv.index("--profile") + 1] == "epub2"
+
+
 async def test_compile_book_default_profile_omits_the_flag():
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(return_value=(b"EPUBBYTES", b""))
@@ -122,6 +139,45 @@ async def test_sync_export_rejects_unknown_profile_value(client):
     resp = await client.post("/api/v1/export?format=epub&profile=bogus", content=json.dumps(_BOOK))
     assert resp.status_code == 422
     assert "profile" in resp.json()["detail"].lower()
+
+
+async def test_sync_export_rejects_epub2_profile_for_pdf(client):
+    resp = await client.post("/api/v1/export?format=pdf&profile=epub2", content=json.dumps(_BOOK))
+    assert resp.status_code == 422
+    assert "epub2" in resp.json()["detail"].lower()
+    assert "epub" in resp.json()["detail"].lower()
+
+
+async def test_async_export_rejects_epub2_profile_for_pdf(client):
+    resp = await client.post(
+        "/api/v1/export/jobs?format=pdf&profile=epub2", content=json.dumps(_BOOK)
+    )
+    assert resp.status_code == 422
+    assert "epub2" in resp.json()["detail"].lower()
+    assert "epub" in resp.json()["detail"].lower()
+
+
+async def test_sync_export_allows_epub2_profile_for_epub(client, monkeypatch):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
+        return compiler.ExportResult(data=b"EPUBBYTES", title="Physics & Friends", warnings=[])
+
+    monkeypatch.setattr(compiler, "compile_book", fake)
+
+    resp = await client.post("/api/v1/export?format=epub&profile=epub2", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/epub+zip")
+
+
+async def test_sync_export_allows_format_pack_with_epub2_profile(client, monkeypatch):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
+        return compiler.ExportResult(
+            data=b"PK\x03\x04zipbytes", title="Physics & Friends", warnings=[]
+        )
+
+    monkeypatch.setattr(compiler, "compile_book", fake)
+
+    resp = await client.post("/api/v1/export?format=pack&profile=epub2", content=json.dumps(_BOOK))
+    assert resp.status_code == 200
 
 
 # ── Publish Pack (P2-6 Scope B) ───────────────────────────────────────────────
