@@ -124,3 +124,94 @@ Recommended answers pre-filled; **confirm before executing.**
 - Not required — the `mentible://` scheme keeps working regardless.
 
 **Legacy hosts to note:** `fly.toml` / `docs/DEPLOY_FLY.md` reference an OLD Fly.io backend (`studybuddyq-backend.fly.dev`) — not current prod; decommission-flag only.
+
+---
+
+## 6. Web setup — how to serve `mentible.app` (detailed)
+
+**Current architecture (what you're extending):**
+```
+Internet → Cloudflare (TLS edge, DDoS, cache; "Full (strict)" + Origin Cert)
+         → VPS host-nginx :443   (mambakkam-net: infra/nginx/mambakkam.net.conf,
+                                   /etc/nginx/, MANUAL reload — co-tenant risk)
+              ├─ location /            → 127.0.0.1:8081  (astrowind container)
+              └─ location /mentible-api/→ 127.0.0.1:8092  (Mentible backend, same-origin)
+         astrowind container: Dockerfile builds Astro → dist/ (includes public/*),
+              internal nginx (nginx/nginx.conf) serves /usr/share/nginx/html on :8080→:8081.
+              The Expo app export lives at dist/app/mentible/ (from public/app/mentible/).
+```
+Deploy: `Mentible/scripts/deploy/web-deploy.sh app` → commits the export into `mambakkam-net/public/app/mentible/` → push → GH Actions `deploy-mambakkam.yml` → VPS `docker compose build` + host-nginx serves it.
+
+### Recommended: Option A — same VPS + Cloudflare, app at ROOT, same-origin `/api` (mirrors today, no CORS)
+
+**A1. Build the app for root** `[repo]` — the export currently bakes `baseUrl:/app/mentible` (assets at `/app/mentible/_expo/…`). Served at `mentible.app/` root those 404. Rebuild with `baseUrl:"/"` (assets at `/_expo/…`):
+- `mobile/app.json:44` → `"baseUrl": "/"`, and/or a new `web-deploy.sh` target that `sed`s baseUrl to `/` and publishes to a **new root-served dir** `public/mentible-app/` in the mambakkam-net repo (keep `public/app/mentible/` for the old URL during transition).
+- Bake same-origin API: `EXPO_PUBLIC_API_BASE_URL=https://mentible.app/api`.
+
+**A2. Cloudflare + DNS** `[external]`:
+- Add `mentible.app` as a Cloudflare zone; point the registrar's nameservers at Cloudflare.
+- DNS: `A`/`AAAA` (or a proxied `CNAME`) `mentible.app` → the VPS (`178.105.160.62`), **proxied (orange cloud)**. Add `www` → 301 to apex.
+- SSL/TLS mode **Full (strict)**; "Always Use HTTPS" on.
+- **Origin Cert:** either reissue the Cloudflare Origin Cert to add a `mentible.app` (+`*.mentible.app`) SAN, or create a new Origin Cert for mentible.app and reference it in the vhost. Full(strict) requires the origin cert to cover `mentible.app`.
+
+**A3. Container nginx** `[mambakkam-net]` — serve the root-built export at `/` for Host `mentible.app`, WITH the content-hash-404 discipline (the load-bearing CDN-poisoning fix). Add to `nginx/nginx.conf` a server block:
+```nginx
+server {
+    listen 8080;
+    server_name mentible.app;
+    root /usr/share/nginx/html/mentible-app;   # = public/mentible-app/ (root-baseUrl build)
+    index index.html;
+    include /etc/nginx/mime.types;
+    # Content-hashed assets MUST resolve to a real file or a real 404 — NEVER
+    # fall back to index.html (serving HTML under a .js/.ttf URL poisons the CF
+    # cache and hangs the app on a blank splash). Cache them forever.
+    location ^~ /_expo/  { try_files $uri =404; add_header Cache-Control "public, max-age=31536000, immutable" always; }
+    location ^~ /assets/ { try_files $uri =404; add_header Cache-Control "public, max-age=31536000, immutable" always; }
+    # Genuine SPA deep links fall back to index.html — keep it uncached.
+    location / { try_files $uri $uri/ /index.html; add_header Cache-Control "no-cache" always; }
+}
+```
+
+**A4. Host nginx** `[mambakkam-net]` — new vhost `infra/nginx/mentible.app.conf` (mirror `mambakkam.net.conf`):
+```nginx
+server { listen 80; listen [::]:80; server_name mentible.app www.mentible.app;
+         return 301 https://mentible.app$request_uri; }
+server {
+    listen 443 ssl; listen [::]:443 ssl; http2 on;
+    server_name mentible.app;
+    ssl_certificate     /etc/ssl/cloudflare/origin-cert.pem;   # must cover mentible.app (SAN)
+    ssl_certificate_key /etc/ssl/cloudflare/origin-key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    client_max_body_size 5m;
+    # Long-cache the fingerprinted Expo assets (proxied through the container).
+    location ~ ^/_expo/ { proxy_pass http://127.0.0.1:8081; proxy_set_header Host $host;
+        proxy_hide_header Cache-Control; add_header Cache-Control "public, max-age=31536000, immutable" always; }
+    # Same-origin API → backend :8092. No trailing slash → passes /api/v1/... through unchanged.
+    location /api/ { proxy_pass http://127.0.0.1:8092; proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1; proxy_read_timeout 300s; client_max_body_size 25m; }
+    # Everything else → the container (which vhosts on Host: mentible.app).
+    location / { proxy_pass http://127.0.0.1:8081; proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme; proxy_http_version 1.1; }
+}
+```
+Symlink into `sites-enabled/`, then **`sudo nginx -t` BEFORE reload** (a syntax error takes down the co-tenant StudyBuddy + mambakkam.net stacks), then `sudo systemctl reload nginx`.
+
+**A5. Backend** `[repo]`+`[external]` — same-origin `/api` means **no CORS in play** (as today). Still set `backend/config.py:245` default → `https://mentible.app` and its test, for safety/defence-in-depth.
+
+**A6. Verify** — `curl -I https://mentible.app/` (200, HTML uncached), `curl -I https://mentible.app/_expo/<hashed>.js` (200, immutable, NOT text/html), `curl -s https://mentible.app/api/v1/... `→ backend, and the live hashed `entry-*.js` carries the build (not just a 200 — CF cached-404 self-heal). Then Supabase redirect allowlist + Google OAuth origins (§2) before first sign-in.
+
+### Alternative: Option B — Cloudflare Pages / Netlify / Vercel (static host)
+The mambakkam-net repo carries `netlify.toml` / `vercel.json` / `public/_headers` — the Astro site can deploy to a static host. For the **app** you could point a CF Pages/Netlify/Vercel project at the Expo export. **Tradeoff:** a static host serves the app trivially, but a **same-origin `/api`** then needs a Cloudflare Worker / redirect rule reverse-proxying `/api/*` → the VPS `:8092`, OR you go **split-origin** (`api.mentible.app` + CORS: set `config.py` allowlist to `https://mentible.app`). Since the VPS already does same-origin cleanly, **Option A is recommended**; Option B mainly buys you not touching nginx, at the cost of a Worker or CORS.
+
+### Key gotchas (web)
+- **`baseUrl:"/"` rebuild is mandatory** to serve at root — an `/app/mentible`-based build 404s its own assets at the apex.
+- **Replicate the content-hash-404 rule** (A3) — without it, a missing `.js`/`.ttf` falls back to `index.html`, Cloudflare caches HTML under an asset URL, and the app hangs on a blank splash (this exact bug bit the mambakkam.net deploy).
+- **Origin Cert must cover `mentible.app`** or Full(strict) fails the TLS handshake.
+- **Host nginx reload is manual + co-tenant** — always `nginx -t` first.
+- **Keep `mambakkam.net/mentible-api` alive** for old APKs (they bake it); the new `/api` is additive, not a replacement, during transition.
