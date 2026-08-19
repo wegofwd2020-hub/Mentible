@@ -8,7 +8,7 @@ jest.mock("@/hooks/useMakeCarousel", () => ({ useMakeCarousel: jest.fn() }));
 jest.mock("@/hooks/useMakeAnimated", () => ({ useMakeAnimated: jest.fn() }));
 jest.mock("@/hooks/useMakeAudio", () => ({ useMakeAudio: jest.fn() }));
 jest.mock("@/lib/clipboard", () => ({ copyText: jest.fn().mockResolvedValue(undefined) }));
-jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
+jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-x") }));
 jest.mock("@/lib/pickReferenceImage", () => ({ pickReferenceImage: jest.fn() }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: jest.fn() } }));
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: jest.fn() }));
@@ -17,6 +17,16 @@ jest.mock("@/api/trustClient", () => ({
   getProject: jest.fn(),
 }));
 jest.mock("@/storage/epubLibrary", () => ({ downloadArtifact: jest.fn().mockResolvedValue({}) }));
+jest.mock("expo-file-system", () => ({
+  __esModule: true,
+  cacheDirectory: "file:///cache/",
+  EncodingType: { Base64: "base64" },
+  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock("expo-audio", () => ({
+  useAudioPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn() })),
+  useAudioPlayerStatus: jest.fn(() => ({ playing: false })),
+}));
 
 import { useMakePost } from "@/hooks/useMakePost";
 import { useMakeCard } from "@/hooks/useMakeCard";
@@ -33,32 +43,24 @@ function mockPostHook(over: Record<string, unknown> = {}) {
     run: jest.fn(), reset: jest.fn(), ...over,
   });
 }
-
 function mockCardHook(over: Record<string, unknown> = {}) {
   (useMakeCard as jest.Mock).mockReturnValue({
-    status: "idle", error: null, result: null,
-    run: jest.fn(), reset: jest.fn(), ...over,
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(), ...over,
   });
 }
-
 function mockCarouselHook(over: Record<string, unknown> = {}) {
   (useMakeCarousel as jest.Mock).mockReturnValue({
-    status: "idle", error: null, result: null,
-    run: jest.fn(), reset: jest.fn(), ...over,
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(), ...over,
   });
 }
-
 function mockAnimatedHook(over: Record<string, unknown> = {}) {
   (useMakeAnimated as jest.Mock).mockReturnValue({
-    status: "idle", error: null, result: null,
-    run: jest.fn(), reset: jest.fn(), ...over,
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(), ...over,
   });
 }
-
 function mockAudioHook(over: Record<string, unknown> = {}) {
   (useMakeAudio as jest.Mock).mockReturnValue({
-    status: "idle", error: null, result: null,
-    run: jest.fn(), reset: jest.fn(), ...over,
+    status: "idle", error: null, result: null, run: jest.fn(), reset: jest.fn(), ...over,
   });
 }
 
@@ -86,12 +88,11 @@ const VALIDATED_PROJECT_DETAIL = {
   topic_status: [{ topic_id: "topic-1", status: "validated", latest_version_id: "tv-1", version_no: 1 }],
 };
 
-const CAROUSEL_RESULT = {
-  frames: [
-    { card: { headline: "Frame one", subtext: "First frame body.", source_label: "Stormwater 101" }, image_png_base64: "AAA" },
-    { card: { headline: "Frame two", subtext: "Second frame body.", source_label: "Stormwater 101" }, image_png_base64: "BBB" },
-    { card: { headline: "Frame three", subtext: "Third frame body.", source_label: "Stormwater 101" }, image_png_base64: "CCC" },
-  ],
+const AUDIO_RESULT = {
+  script: "Water finds the lowest point.",
+  title: "Detention basins, decoded",
+  audio_base64: "SUQzZmFrZQ==",
+  mime: "audio/mpeg",
   provenance: "ai-generated",
 };
 
@@ -107,69 +108,58 @@ beforeEach(() => {
   (getProject as jest.Mock).mockResolvedValue(VALIDATED_PROJECT_DETAIL);
 });
 
-it("switching to Carousel mode shows the source field", async () => {
+it("switching to Audio mode shows the source field", async () => {
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  expect(await screen.findByLabelText("Carousel source text")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
+  expect(await screen.findByLabelText("Audio source text")).toBeTruthy();
 });
 
-it("Make carousel with source text calls makeCarousel with source_text", async () => {
+it("Make narration with source text calls useMakeAudio.run with source_text", async () => {
   const runMock = jest.fn();
-  mockCarouselHook({ run: runMock });
+  mockAudioHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.changeText(screen.getByLabelText("Carousel source text"), "Detention basins hold stormwater.");
-  fireEvent.press(screen.getByLabelText("Make carousel"));
+  fireEvent.changeText(screen.getByLabelText("Audio source text"), "Detention basins hold stormwater.");
+  fireEvent.press(screen.getByLabelText("Make narration"));
   expect(runMock).toHaveBeenCalledWith(
     expect.objectContaining({ source_text: "Detention basins hold stormwater." }),
   );
-  const sent = runMock.mock.calls[0][0];
-  expect("size" in sent).toBe(false);
 });
 
-it("renders 3 frame images and headlines plus a Download all button for a 3-frame result", async () => {
-  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
+it("renders the title/script, an inline player, and a Download button for a returned result", async () => {
+  mockAudioHook({ status: "done", result: AUDIO_RESULT });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
 
-  const img1 = screen.getByLabelText("Carousel frame 1 preview");
-  const img2 = screen.getByLabelText("Carousel frame 2 preview");
-  const img3 = screen.getByLabelText("Carousel frame 3 preview");
-  expect(img1.props.source.uri).toBe("data:image/png;base64,AAA");
-  expect(img2.props.source.uri).toBe("data:image/png;base64,BBB");
-  expect(img3.props.source.uri).toBe("data:image/png;base64,CCC");
-
-  expect(screen.getByText("Frame one")).toBeTruthy();
-  expect(screen.getByText("Frame two")).toBeTruthy();
-  expect(screen.getByText("Frame three")).toBeTruthy();
-
-  expect(screen.getByLabelText("Download all")).toBeTruthy();
+  expect(screen.getByText("Detention basins, decoded")).toBeTruthy();
+  expect(screen.getByText("Water finds the lowest point.")).toBeTruthy();
+  expect(await screen.findByLabelText("Play narration")).toBeTruthy();
+  expect(screen.getByLabelText("Download narration")).toBeTruthy();
 });
 
-it("pressing Download all downloads every frame as image/png", async () => {
-  mockCarouselHook({ status: "done", result: CAROUSEL_RESULT });
+it("pressing Download calls downloadArtifact with narration.mp3 and audio/mpeg", async () => {
+  mockAudioHook({ status: "done", result: AUDIO_RESULT });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
-  fireEvent.press(screen.getByLabelText("Download all"));
-  await waitFor(() => expect(downloadArtifact).toHaveBeenCalledTimes(3));
-  expect(downloadArtifact).toHaveBeenNthCalledWith(1, expect.anything(), "frame-1.png", "image/png");
-  expect(downloadArtifact).toHaveBeenNthCalledWith(2, expect.anything(), "frame-2.png", "image/png");
-  expect(downloadArtifact).toHaveBeenNthCalledWith(3, expect.anything(), "frame-3.png", "image/png");
+  fireEvent.press(screen.getByLabelText("Download narration"));
+  await waitFor(() =>
+    expect(downloadArtifact).toHaveBeenCalledWith(expect.anything(), "narration.mp3", "audio/mpeg"),
+  );
 });
 
-it("picking a validated section calls makeCarousel with topic_version_id, not source_text", async () => {
+it("picking a validated section calls useMakeAudio.run with topic_version_id, not source_text", async () => {
   const runMock = jest.fn();
-  mockCarouselHook({ run: runMock });
+  mockAudioHook({ run: runMock });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
-  fireEvent.press(screen.getByLabelText("Carousel source: Pick a validated section"));
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
+  fireEvent.press(screen.getByLabelText("Audio source: Pick a validated section"));
 
   const row = await screen.findByLabelText(/Validated section: Stormwater 101/);
   fireEvent.press(row);
-  fireEvent.press(screen.getByLabelText("Make carousel"));
+  fireEvent.press(screen.getByLabelText("Make narration"));
 
   expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ topic_version_id: "tv-1" }));
   const sent = runMock.mock.calls[0][0];
@@ -177,9 +167,9 @@ it("picking a validated section calls makeCarousel with topic_version_id, not so
 });
 
 it("shows the add-key message when known-not-Pro and no key", async () => {
-  mockCarouselHook({ status: "failed", error: "No API key saved. Go to Settings and paste your Anthropic key." });
+  mockAudioHook({ status: "failed", error: "No API key saved. Go to Settings and paste your OpenAI key." });
   render(<PostsScreen />);
-  fireEvent.press(screen.getByLabelText("Mode: Carousel"));
+  fireEvent.press(screen.getByLabelText("Mode: Audio"));
   await waitFor(() => expect(listOwnedProjects).toHaveBeenCalled());
   expect(screen.getByText(/no api key saved/i)).toBeTruthy();
 });

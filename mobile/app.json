@@ -19,7 +19,9 @@
     "android": {
       "package": "com.wegofwd2020.studybuddyq",
       "versionCode": 37,
-      "permissions": ["android.permission.INTERNET"],
+      "permissions": [
+        "android.permission.INTERNET"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -33,7 +35,8 @@
           "configureAndroidBackup": false
         }
       ],
-      "./plugins/withReleaseSigning.js"
+      "./plugins/withReleaseSigning.js",
+      "expo-audio"
     ],
     "scheme": "mentible",
     "experiments": {

@@ -82,12 +82,13 @@ export const HELP_TREE: HelpTreeNode[] = [
   {
     id: "share-shortform",
     title: "Share & short-form",
-    blurb: "The Publish nav tab — posts, image cards, carousels, animated cards.",
+    blurb: "The Publish nav tab — posts, image cards, carousels, animated cards, narrated audio.",
     children: [
       { id: "leaf-make-a-post", title: "Make a post from your writing", topicId: "make-a-post" },
       { id: "leaf-publish-card", title: "Publish an image card", topicId: "publish-card" },
       { id: "leaf-publish-carousel", title: "Publish a carousel", topicId: "publish-carousel" },
       { id: "leaf-publish-animated", title: "Publish an animated card", topicId: "publish-animated" },
+      { id: "leaf-publish-audio", title: "Publish narrated audio", topicId: "publish-audio" },
     ],
   },
   {
