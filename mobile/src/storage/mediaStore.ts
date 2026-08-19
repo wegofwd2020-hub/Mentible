@@ -198,8 +198,14 @@ export async function resolveAudioFileUris(topic: GeneratedTopic): Promise<Map<s
   const out = new Map<string, string>();
   for (const aud of topic.audio ?? []) {
     const abs = absPath(aud.file);
-    const info = await FileSystem.getInfoAsync(abs);
-    if (info.exists) out.set(aud.id, abs);
+    try {
+      const info = await FileSystem.getInfoAsync(abs);
+      if (info.exists) out.set(aud.id, abs);
+    } catch {
+      // getInfoAsync rejected (e.g. a bad/missing clip) → skip this clip,
+      // mirroring resolveAudioDataUrls/resolveFigureDataUrls's per-item
+      // try/catch shape. Never let one bad clip reject the whole resolve.
+    }
   }
   return out;
 }

@@ -67,7 +67,17 @@ const AUTO_HEIGHT_JS = `(function () {
 // `@/lib/figuresHtml`) to `postMessage`, and defines `window.__rdAudioState`
 // so RN can push playback state back in via `injectJavaScript`. Only the clip
 // id ever crosses the bridge — never a data: URI or file path.
-const AUDIO_BRIDGE_JS = `(function () {
+//
+// `__rdAudioState` locates the target `.topic-audio` wrap by iterating
+// `querySelectorAll('.topic-audio')` and comparing `data-audio-id` in JS,
+// rather than building a `[data-audio-id="<id>"]` attribute-selector string
+// by concatenation. Our own ids are UUIDs, but an imported book.json could
+// carry a crafted id containing a `"` (or `\`) that would malform a
+// concatenated selector — the compare form has no selector-injection surface
+// at all, for any id value. Exported for the jsdom unit test that exercises
+// it directly (this string never runs in the Jest/RN environment otherwise —
+// it's only ever handed to a real WebView).
+export const AUDIO_BRIDGE_JS = `(function () {
   function post(m){ if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); }
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('.rd-audio-toggle');
@@ -81,7 +91,12 @@ const AUDIO_BRIDGE_JS = `(function () {
   });
   function fmt(ms){ var t=Math.max(0,Math.floor(ms/1000)); var m=Math.floor(t/60); var s=('0'+(t%60)).slice(-2); return m+':'+s; }
   window.__rdAudioState = function (st) {
-    var wrap = document.querySelector('.topic-audio[data-audio-id="'+st.id+'"]'); if (!wrap) return;
+    var wrap = null;
+    var candidates = document.querySelectorAll('.topic-audio');
+    for (var i = 0; i < candidates.length; i++) {
+      if (candidates[i].getAttribute('data-audio-id') === st.id) { wrap = candidates[i]; break; }
+    }
+    if (!wrap) return;
     var btn = wrap.querySelector('.rd-audio-toggle'); if (btn) { btn.innerHTML = st.playing ? '&#10073;&#10073;' : '&#9658;'; btn.setAttribute('aria-label', st.playing ? 'Pause' : 'Play'); }
     var seek = wrap.querySelector('.rd-audio-seek'); if (seek) { seek.max = String(st.durationMs || 0); seek.value = String(st.positionMs || 0); }
     var time = wrap.querySelector('.rd-audio-time'); if (time) { time.innerHTML = fmt(st.positionMs||0) + '&nbsp;/&nbsp;' + fmt(st.durationMs||0); }

@@ -13,6 +13,11 @@ export function useTopicAudio(topic: GeneratedTopic | null | undefined) {
     if (!topic?.audio?.length) { setUrls(EMPTY); return; }
     Promise.all([resolveAudioDataUrls(topic), resolveAudioFileUris(topic)]).then(([webUrls, fileUris]) => {
       if (live) setUrls({ webUrls, fileUris });
+    }).catch(() => {
+      // Resolution failed outright (shouldn't happen — both resolvers already
+      // swallow per-clip errors — but defense in depth): degrade to "no
+      // player" rather than an unhandled promise rejection.
+      if (live) setUrls(EMPTY);
     });
     return () => { live = false; };
   }, [topic]);

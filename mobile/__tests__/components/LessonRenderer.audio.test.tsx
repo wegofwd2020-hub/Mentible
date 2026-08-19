@@ -1,5 +1,5 @@
 import { act, render } from "@testing-library/react-native";
-import { TopicRenderer } from "@/components/LessonRenderer";
+import { TopicRenderer, AUDIO_BRIDGE_JS } from "@/components/LessonRenderer";
 
 // Jest's mock-factory hoist guard only allows out-of-scope references whose
 // name starts with "mock" (case-insensitive) — see
@@ -117,4 +117,66 @@ it("a bare-number height message still auto-heights (not misrouted to audio)", (
   render(<TopicRenderer topic={topic} inline />);
   expect(() => capturedProps.onMessage({ nativeEvent: { data: "420" } })).not.toThrow();
   expect(mockPlay).not.toHaveBeenCalled();
+});
+
+// Review finding #3: window.__rdAudioState (the RN→WebView status-push) used
+// to build its selector by string-concatenating the raw clip id into
+// `'.topic-audio[data-audio-id="'+st.id+'"]'`. Our own ids are UUIDs, but an
+// IMPORTED book.json could carry a crafted id containing a `"`, which would
+// malform that selector and silently leave the control unupdated. The fix
+// walks `querySelectorAll('.topic-audio')` and compares `data-audio-id` in
+// JS instead of building a selector string at all.
+//
+// AUDIO_BRIDGE_JS runs inside a WebView, not this Jest/RN environment, so it
+// isn't reachable through TopicRenderer's render tree (WebView is mocked to
+// `null`). Prove it directly two ways: (1) eval the actual exported script
+// string against a real DOM (via jsdom, independent of this file's RN test
+// environment) with a hostile `data-audio-id` and confirm the right control
+// updates without throwing; (2) lock the source shape so a regression back to
+// string-concatenation fails even if (1) were ever skipped.
+describe("AUDIO_BRIDGE_JS status-push selector hardening", () => {
+  it("does not build the selector by string-concatenating the raw id", () => {
+    expect(AUDIO_BRIDGE_JS).not.toMatch(/data-audio-id="'\s*\+\s*st\.id\s*\+\s*'"/);
+    expect(AUDIO_BRIDGE_JS).toContain("querySelectorAll('.topic-audio')");
+  });
+
+  it("a status push for an id containing a double-quote still updates the right control, and does not throw", () => {
+    const { JSDOM } = require("jsdom");
+    const hostileId = 'a1"><script>x</script>';
+    const dom = new JSDOM(
+      `<!doctype html><body>
+         <figure class="topic-audio" data-audio-id="other-clip">
+           <button class="rd-audio-toggle" aria-label="Play">&#9658;</button>
+           <input class="rd-audio-seek" min="0" max="0" value="0">
+           <span class="rd-audio-time">0:00&nbsp;/&nbsp;0:00</span>
+         </figure>
+         <figure class="topic-audio" data-audio-id="${hostileId.replace(/"/g, "&quot;")}">
+           <button class="rd-audio-toggle" aria-label="Play">&#9658;</button>
+           <input class="rd-audio-seek" min="0" max="0" value="0">
+           <span class="rd-audio-time">0:00&nbsp;/&nbsp;0:00</span>
+         </figure>
+       </body>`,
+      { runScripts: "dangerously" },
+    );
+
+    expect(() => dom.window.eval(AUDIO_BRIDGE_JS)).not.toThrow();
+    expect(typeof dom.window.__rdAudioState).toBe("function");
+
+    expect(() => dom.window.__rdAudioState({
+      id: hostileId, playing: true, positionMs: 5000, durationMs: 10000,
+    })).not.toThrow();
+
+    const wraps = dom.window.document.querySelectorAll(".topic-audio");
+    const other = wraps[0];
+    const hostile = wraps[1];
+
+    // The hostile clip's control updated (proves the compare-based lookup
+    // found the right element despite the `"` in the id)...
+    expect(hostile.querySelector(".rd-audio-toggle").getAttribute("aria-label")).toBe("Pause");
+    expect(hostile.querySelector(".rd-audio-seek").value).toBe("5000");
+    // ...and the OTHER clip's control was left untouched (proves it's not a
+    // blanket "update everything" fallback).
+    expect(other.querySelector(".rd-audio-toggle").getAttribute("aria-label")).toBe("Play");
+    expect(other.querySelector(".rd-audio-seek").value).toBe("0");
+  });
 });

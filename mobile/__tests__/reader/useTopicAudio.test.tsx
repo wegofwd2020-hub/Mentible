@@ -19,3 +19,22 @@ it("empty maps when the topic has no audio", async () => {
   await waitFor(() => expect(result.current.webUrls.size).toBe(0));
   expect(result.current.fileUris.size).toBe(0);
 });
+
+it("a rejecting resolver resets the maps to empty (not stale) and does not throw", async () => {
+  const mediaStore = require("@/storage/mediaStore");
+  const { result, rerender } = renderHook<ReturnType<typeof useTopicAudio>, { t: typeof topic }>(
+    ({ t }) => useTopicAudio(t), { initialProps: { t: topic } },
+  );
+  // First resolve succeeds — establishes non-empty maps so the next assertion
+  // can tell "the .catch reset us" apart from "we never left the initial
+  // empty state" (the hook's initial state is already EMPTY, so a rejection
+  // on the very first render would prove nothing).
+  await waitFor(() => expect(result.current.webUrls.get("a1")).toBe("data:audio/mpeg;base64,AAA="));
+
+  const topic2 = { ...topic, topicId: "u2" }; // new identity → effect re-runs
+  (mediaStore.resolveAudioFileUris as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+  rerender({ t: topic2 });
+
+  await waitFor(() => expect(result.current.webUrls.size).toBe(0));
+  expect(result.current.fileUris.size).toBe(0);
+});
