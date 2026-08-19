@@ -371,6 +371,35 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "narrate-topic",
+    title: "Generating narration for a topic",
+    featureKey: "narrate-topic",
+    keywords: ["narrate", "narration", "audio", "generate", "voice", "openai", "tts", "text-to-speech", "topic editor", "generate all narration"],
+    blocks: [
+      {
+        kind: "text",
+        text: "You can turn any topic's text into a spoken audio clip right from the topic editor. Tap \"Generate narration\" and Mentible reads the topic's content aloud with a text-to-speech voice, then attaches the clip to that topic — it plays back in the reader (alongside the transcript) and is bundled in when you export the book.",
+      },
+      {
+        kind: "text",
+        text: "To narrate a whole book in one pass, open the book's screen and use \"Generate all narration\". It's resumable: topics that already have a clip are skipped, so if you stop partway through or add new topics later, running it again only narrates what's still missing.",
+      },
+      {
+        kind: "text",
+        text: "Narration uses your own OpenAI key (Settings) — it's the same key used for other text-to-speech features, and today it only works BYOK: the managed plan's token allowance doesn't cover audio narration yet.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Add your OpenAI key in Settings, if you haven't already.",
+          "Open a topic in the topic editor and tap \"Generate narration\" for a single clip, or",
+          "Open the book's screen and tap \"Generate all narration\" to narrate every topic that doesn't already have a clip.",
+          "Play back a clip from the topic editor or the reader; it's included automatically when you export the book.",
+        ],
+      },
+    ],
+  },
+  {
     id: "projects",
     title: "What a project is — and how to start one",
     featureKey: "projects",
