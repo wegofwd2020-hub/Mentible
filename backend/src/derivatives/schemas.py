@@ -156,6 +156,15 @@ class CardResponse(BaseModel):
     provenance: str = "ai-generated"
 
 
+class NarrationContent(BaseModel):
+    """Shape the model's JSON response is validated against for the audio
+    narration script (P1-5 P4) — a speakable rewrite of the source, not a
+    promotional headline/subtext pair like `CardContent`."""
+
+    title: str
+    script: str
+
+
 # --- Publish animated card (P1-5 P3) ----------------------------------------
 
 AnimatedPreset = Literal["fade", "slide", "build"]

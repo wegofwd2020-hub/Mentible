@@ -25,8 +25,20 @@ from wegofwd_llm.registry import build_provider
 
 from backend.src.generate.anthropic_caller import parse_json_response
 
-from .prompt import build_card_prompt, build_carousel_prompt, build_derivative_prompt
-from .schemas import CardContent, DerivativeResponse, PostVariant, ReferenceImage, _DerivativeOutput
+from .prompt import (
+    build_card_prompt,
+    build_carousel_prompt,
+    build_derivative_prompt,
+    build_narration_prompt,
+)
+from .schemas import (
+    CardContent,
+    DerivativeResponse,
+    NarrationContent,
+    PostVariant,
+    ReferenceImage,
+    _DerivativeOutput,
+)
 
 # Repair budget mirrors generate.tasks._MAX_REPAIRS (1 initial call + 2 repairs).
 _MAX_REPAIRS = 2
@@ -37,6 +49,9 @@ _CARD_MAX_TOKENS = 1024
 # 4-8 headline/subtext pairs needs more headroom than a single card, but far
 # less than a full lesson.
 _CAROUSEL_MAX_TOKENS = 2048
+# A ~60-90s spoken script (150-230 words) needs modest headroom — less than
+# the carousel's multi-frame output, more than a single card's headline pair.
+_NARRATION_MAX_TOKENS = 1024
 
 
 class _CarouselFrame(_BM):
@@ -192,3 +207,23 @@ def generate_carousel(
     return [
         CardContent(headline=f.headline, subtext=f.subtext, source_label=None) for f in out.frames
     ]
+
+
+def generate_narration(
+    *, source_text: str, tone: str | None, provider_id: str, api_key: str, model: str
+) -> NarrationContent:
+    """Generate a speakable narration script + title for `source_text` (P1-5 P4).
+
+    Mirrors `generate_card`'s text path: build a provider from the registry,
+    issue a JSON-mode request, and validate + repair via `generate_validated`.
+    Never logs `api_key`. Raises `LLMSchemaError` on repair-budget exhaustion
+    (the router maps it to a 502 — Task 2).
+    """
+    prompt = build_narration_prompt(source_text, tone)
+    provider = build_provider(provider_id, api_key=api_key, model=model)
+    req = LLMRequest(prompt=prompt, max_tokens=_NARRATION_MAX_TOKENS, response_format="json")
+
+    def _validate(text: str) -> NarrationContent:
+        return NarrationContent.model_validate(parse_json_response(text))
+
+    return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS).parsed
