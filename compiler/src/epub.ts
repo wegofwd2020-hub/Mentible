@@ -160,6 +160,21 @@ function packAudio(xhtml: string, audios: ImageRes[], seen: Map<string, string>)
   return packMedia(xhtml, "audio", "audio", "aud", "bin", audios, seen);
 }
 
+// EPUB2 packaging (D4, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md,
+// ADR-041 Initiative A): <audio> is EPUB3-only. Strip it defensively from
+// chapter XHTML before packaging — sibling to packMedia, but this profile
+// drops the element entirely rather than packaging it (no OEBPS/audio/
+// resource, no manifest item; the compileEpub caller also skips calling
+// packAudio for epub2 entirely). A stray topic-audio wrapper <figure>
+// survives with just its <figcaption> — the narration's WORDS travel
+// separately via the mobile-side transcript-prose fallback
+// (buildCompilePayload / renderAudioTranscriptHtml in mobile/src/lib/).
+// Non-greedy: <audio> elements never nest, so this can't over-match across
+// two separate clips in the same chapter.
+function stripAudioElements(xhtml: string): string {
+  return xhtml.replace(/<audio\b[^>]*>[\s\S]*?<\/audio>/gi, "");
+}
+
 const CONTAINER_XML = `<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
 <rootfiles>
@@ -258,7 +273,8 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
         images,
         seenImages,
       );
-      const xhtml = packAudio(packedImages, audios, seenAudio);
+      const xhtml =
+        profile === "epub2" ? stripAudioElements(packedImages) : packAudio(packedImages, audios, seenAudio);
       for (const x of cf) allFigs.push({ ...x, href });
       for (const x of ct) allTbls.push({ ...x, href });
       chapters.push({

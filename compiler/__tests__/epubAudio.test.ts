@@ -2,6 +2,24 @@ import JSZip from "jszip";
 import { compileEpub } from "../src/epub";
 import type { Book } from "../src/types";
 
+// Stand in for Puppeteer/Chromium — this file's new epub2/kdp regression
+// check (below) exercises the kdp profile's unconditional cover-JPEG raster
+// (epub.ts's renderCoverJpeg call), which needs a real browser otherwise.
+// Mirrors epub.test.ts's mock verbatim so these tests never need real
+// Chromium; no math/diagrams appear in this file's fixtures, so only
+// rasterizeToJpeg is actually exercised, but the full mock is kept for
+// parity with the rest of the suite.
+jest.mock("../src/rasterize", () => ({
+  rasterizeManyToPng: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
+  rasterizeManyToPngResilient: jest.fn(async (svgs: string[], _w: number, _omit?: boolean) =>
+    svgs.map((_, i) => Buffer.from(`fake-png-${i}`)),
+  ),
+  rasterizeToPng: jest.fn(async () => Buffer.from("fake-png-cover")),
+  rasterizeToJpeg: jest.fn(async () => Buffer.from([0xff, 0xd8, 0xff, 0x00])), // real JPEG magic number
+}));
+
 // A tiny fake MP3 payload (not a real decodable clip — this test only proves
 // the extract/pack/manifest mechanics, not audio validity; the real-render
 // check at the end of this task covers a genuinely playable clip).
@@ -157,5 +175,38 @@ describe("compileEpub — no-audio regression", () => {
     expect(audFiles).toHaveLength(0);
     const opf = await zip.file("OEBPS/content.opf")!.async("string");
     expect(opf).not.toContain("audio/mpeg");
+  });
+});
+
+describe("compileEpub — epub2 strips <audio> (D4, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md)", () => {
+  it("strips <audio> from the chapter and emits no OEBPS/audio/ resource or manifest item", async () => {
+    const bytes = await compileEpub(bookWithAudio([MP3_B64]), { profile: "epub2" });
+    const zip = await JSZip.loadAsync(bytes);
+
+    const audFiles = Object.keys(zip.files).filter((f) => f.startsWith("OEBPS/audio/"));
+    expect(audFiles).toHaveLength(0);
+
+    const ch = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(ch).not.toContain("<audio");
+    expect(ch).not.toContain("data:audio");
+    // the wrapping figure survives — just the <audio> clip itself is gone.
+    expect(ch).toContain("<figcaption>Intro</figcaption>");
+
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).not.toContain("audio/mpeg");
+  });
+
+  it("default and kdp profiles are unaffected by the epub2 strip (regression)", async () => {
+    const defaultBytes = await compileEpub(bookWithAudio([MP3_B64]));
+    const defaultZip = await JSZip.loadAsync(defaultBytes);
+    expect(
+      Object.keys(defaultZip.files).some((f) => /^OEBPS\/audio\/aud-001\.mp3$/.test(f)),
+    ).toBe(true);
+
+    const kdpBytes = await compileEpub(bookWithAudio([MP3_B64]), { profile: "kdp" });
+    const kdpZip = await JSZip.loadAsync(kdpBytes);
+    expect(
+      Object.keys(kdpZip.files).some((f) => /^OEBPS\/audio\/aud-001\.mp3$/.test(f)),
+    ).toBe(true);
   });
 });
