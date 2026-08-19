@@ -189,8 +189,12 @@ describe("compileEpub — epub2 strips <audio> (D4, docs/superpowers/specs/2026-
     const ch = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
     expect(ch).not.toContain("<audio");
     expect(ch).not.toContain("data:audio");
-    // the wrapping figure survives — just the <audio> clip itself is gone.
-    expect(ch).toContain("<figcaption>Intro</figcaption>");
+    // the wrapping figure survives — just the <audio> clip itself is gone. XHTML
+    // 1.1 has no <figure>/<figcaption> either (fix round 1, bucket 2), so epub2
+    // downgrades both to DTD-legal elements (xhtml.ts's downgradeToXhtml11).
+    expect(ch).not.toContain("<figure");
+    expect(ch).not.toContain("<figcaption");
+    expect(ch).toContain('<div class="figure topic-audio"><p class="figcaption">Intro</p></div>');
 
     const opf = await zip.file("OEBPS/content.opf")!.async("string");
     expect(opf).not.toContain("audio/mpeg");

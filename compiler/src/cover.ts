@@ -249,29 +249,44 @@ export function buildCoverSvgRaster(input: CoverInput): string {
 // whatever generic serif the reading system has, never rendering the actual
 // Studio typeface. Inlined here (not linked) to keep the page fully
 // self-contained, matching how the SVG itself is inlined.
-// EPUB2 (D3, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md):
-// cover.xhtml is the FIRST spine document, so it needs the same profile-gated
-// doctype/namespace treatment xhtmlDocument (xhtml.ts) applies to every other
-// content document — the html5 doctype + xmlns:epub namespace are EPUB3-only
-// and invalid in an EPUB2 content document. Mirrors xhtml.ts's epub2 doctype
-// string exactly (don't invent a second one). default/kdp are byte-identical
-// to the pre-existing hardcoded markup.
+// EPUB2 (D3, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md;
+// fix round 1 buckets 1/3/5): cover.xhtml is the FIRST spine document, so it
+// needs the same profile-gated doctype/namespace treatment xhtmlDocument
+// (xhtml.ts) applies to every other content document — the html5 doctype +
+// xmlns:epub namespace are EPUB3-only and invalid in an EPUB2 content
+// document. Mirrors xhtml.ts's epub2 doctype string exactly (don't invent a
+// second one). Three more epub2-only swaps live here rather than going
+// through xhtml.ts's downgradeToXhtml11, because this page never routes
+// through xhtmlDocument: `<section>` → `<div>` (XHTML 1.1 has no <section> —
+// and epub2's cover carries no inline SVG at all as of fix round 1, so there's
+// no <figure>/<figcaption> here to downgrade), the HTML5 `<meta charset>`
+// shorthand → `http-equiv`, and `<style>` needs an explicit `type` attribute.
+// default/kdp are byte-identical to the pre-existing hardcoded markup.
 function coverDocShell(profile: "default" | "kdp" | "epub2"): {
   doctype: string;
   htmlOpen: string;
+  metaCharset: string;
+  styleOpen: string;
   sectionOpen: string;
+  sectionClose: string;
 } {
   if (profile === "epub2") {
     return {
       doctype: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">`,
       htmlOpen: `<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">`,
-      sectionOpen: `<section class="cv">`,
+      metaCharset: `<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>`,
+      styleOpen: `<style type="text/css">`,
+      sectionOpen: `<div class="cv">`,
+      sectionClose: `</div>`,
     };
   }
   return {
     doctype: `<!DOCTYPE html>`,
     htmlOpen: `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">`,
+    metaCharset: `<meta charset="utf-8"/>`,
+    styleOpen: `<style>`,
     sectionOpen: `<section epub:type="cover" class="cv">`,
+    sectionClose: `</section>`,
   };
 }
 
@@ -279,14 +294,14 @@ export function buildCoverXhtml(
   input: CoverInput,
   profile: "default" | "kdp" | "epub2" = "default",
 ): string {
-  const { doctype, htmlOpen, sectionOpen } = coverDocShell(profile);
+  const { doctype, htmlOpen, metaCharset, styleOpen, sectionOpen, sectionClose } = coverDocShell(profile);
   return `<?xml version="1.0" encoding="utf-8"?>
 ${doctype}
 ${htmlOpen}
 <head>
-<meta charset="utf-8"/>
+${metaCharset}
 <title>${escapeHtml(input.title)}</title>
-<style>
+${styleOpen}
 ${SOURCE_SERIF_FONTFACE}
 ${PLAYFAIR_FONTFACE}
 html,body{margin:0;padding:0;height:100%;background:${STUDIO.navy}}.cv{width:100%;height:100vh}.cv svg{width:100%;height:100%;display:block}
@@ -295,33 +310,34 @@ html,body{margin:0;padding:0;height:100%;background:${STUDIO.navy}}.cv{width:100
 <body>
 ${sectionOpen}
 ${buildCoverSvg(input)}
-</section>
+${sectionClose}
 </body>
 </html>
 `;
 }
 
-// KDP profile raster cover page (D5, docs/specs/kdp-clean-export-profile.md):
-// unlike buildCoverXhtml, this page shows the RASTER cover (a plain <img>) —
-// no inline SVG, so no embedded @font-face is needed here either.
+// KDP profile raster cover page (D5, docs/specs/kdp-clean-export-profile.md;
+// epub2 also renders through here as of fix round 1 — see epub.ts): unlike
+// buildCoverXhtml, this page shows the RASTER cover (a plain <img>) — no
+// inline SVG, so no embedded @font-face is needed here either.
 export function buildCoverXhtmlRaster(
   title: string,
   imgHref: string,
   profile: "default" | "kdp" | "epub2" = "default",
 ): string {
-  const { doctype, htmlOpen, sectionOpen } = coverDocShell(profile);
+  const { doctype, htmlOpen, metaCharset, styleOpen, sectionOpen, sectionClose } = coverDocShell(profile);
   return `<?xml version="1.0" encoding="utf-8"?>
 ${doctype}
 ${htmlOpen}
 <head>
-<meta charset="utf-8"/>
+${metaCharset}
 <title>${escapeHtml(title)}</title>
-<style>html,body{margin:0;padding:0;height:100%}.cv{width:100%;height:100vh}.cv img{width:100%;height:100%;object-fit:contain;display:block}</style>
+${styleOpen}html,body{margin:0;padding:0;height:100%}.cv{width:100%;height:100vh}.cv img{width:100%;height:100%;object-fit:contain;display:block}</style>
 </head>
 <body>
 ${sectionOpen}
 <img src="${escapeHtml(imgHref)}" alt="${escapeHtml(title)}"/>
-</section>
+${sectionClose}
 </body>
 </html>
 `;

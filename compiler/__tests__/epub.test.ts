@@ -78,6 +78,29 @@ async function unzip(bytes: Uint8Array): Promise<JSZip> {
   return JSZip.loadAsync(bytes);
 }
 
+// Everything the epub2 fix-round-1 buckets touch in one book: math (bucket
+// N/A, already covered elsewhere), a Mermaid diagram (→ a <figure>, bucket 2),
+// a topic-audio <figure> (→ <audio> strip, D4, PLUS the same bucket-2
+// downgrade), and a glossary (→ another <section>-bearing content document).
+function bookWithEverythingEpub2Touches(): Book {
+  const book = bookWithMermaidDiagram();
+  book.content!.u1.lesson!.sections.push({
+    heading: "Narration",
+    body_markdown:
+      '<figure class="topic-audio"><audio controls="controls" src="data:audio/mpeg;base64,aGVsbG8="></audio><figcaption>Intro</figcaption></figure>',
+  });
+  book.metadata = {
+    ...(book.metadata ?? {}),
+    glossary: [{ term: "Velocity", definition: "Rate of change of position." }],
+  } as unknown as BookMetadata;
+  return book;
+}
+
+const fakeMermaidRenderer = {
+  renderAll: async (sources: readonly string[]) =>
+    new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])),
+};
+
 describe("compileEpub — structure & well-formedness (M2/M3)", () => {
   it("throws on a book with no generated content", async () => {
     const empty = syntheticBook();
@@ -169,7 +192,10 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
     const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "epub2" }));
     const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
-    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    // XHTML 1.1 has no <figure> (fix round 1, bucket 2) — epub2 downgrades it
+    // to a DTD-legal <div class="figure …"> (xhtml.ts's downgradeToXhtml11).
+    expect(chapter).toMatch(/<div class="figure diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    expect(chapter).not.toContain("<figure");
     expect(chapter).not.toContain("<svg");
   });
 
@@ -352,6 +378,96 @@ describe("compileEpub — epub2 packaging (D3, OPF v2.0 / NCX-primary / XHTML 1.
     expect(kdpCover).toContain("<!DOCTYPE html>\n");
     expect(kdpCover).toContain("xmlns:epub");
     expect(kdpCover).toContain('epub:type="cover"');
+  });
+
+  it("rasters the cover to JPEG — no cover.svg, no inline <svg> in cover.xhtml (fix round 1, bucket 1)", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }));
+    expect(zip.file("OEBPS/cover.svg")).toBeNull();
+    expect(zip.file("OEBPS/cover.jpg")).not.toBeNull();
+    const cover = await zip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(cover).not.toContain("<svg");
+    expect(cover).toContain('<img src="cover.jpg"');
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<item id="cover-image" href="cover.jpg" media-type="image/jpeg"/>');
+    expect(opf).not.toContain("cover.svg");
+
+    // regression: default keeps the inline-SVG cover, kdp keeps its existing JPEG cover
+    const defaultZip = await unzip(await compileEpub(syntheticBook()));
+    expect(defaultZip.file("OEBPS/cover.svg")).not.toBeNull();
+    expect(defaultZip.file("OEBPS/cover.jpg")).toBeNull();
+    const defaultOpf = await defaultZip.file("OEBPS/content.opf")!.async("string");
+    expect(defaultOpf).toContain(
+      '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
+    );
+
+    const kdpZip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    expect(kdpZip.file("OEBPS/cover.svg")).toBeNull();
+    expect(kdpZip.file("OEBPS/cover.jpg")).not.toBeNull();
+  });
+
+  it("has no HTML5 <section>/<figure>/<figcaption>/<audio> anywhere in the package (fix round 1, bucket 2 + D4) — default keeps them (regression)", async () => {
+    const book = bookWithEverythingEpub2Touches();
+    const epub2Zip = await unzip(await compileEpub(book, { mermaid: fakeMermaidRenderer, profile: "epub2" }));
+    const xhtmlPaths = Object.keys(epub2Zip.files).filter((f) => f.endsWith(".xhtml"));
+    // Sanity: this fixture actually produces every content document type
+    // (chapter, title, colophon, list of figures, glossary, cover) — a thin
+    // fixture that skips one would silently narrow what this test proves.
+    expect(xhtmlPaths).toEqual(
+      expect.arrayContaining([
+        "OEBPS/cover.xhtml",
+        "OEBPS/title.xhtml",
+        "OEBPS/colophon.xhtml",
+        "OEBPS/lof.xhtml",
+        "OEBPS/glossary.xhtml",
+        "OEBPS/chapters/ch-001.xhtml",
+      ]),
+    );
+    for (const p of xhtmlPaths) {
+      const xhtml = await epub2Zip.file(p)!.async("string");
+      expect(xhtml).not.toContain("<section");
+      expect(xhtml).not.toContain("<figure");
+      expect(xhtml).not.toContain("<figcaption");
+      expect(xhtml).not.toContain("<audio");
+    }
+
+    // regression: default still emits <section> (title/colophon/glossary/lof)
+    // and <figure>/<figcaption> (the diagram + the surviving topic-audio
+    // wrapper — default never strips <audio>, only epub2 does, D4).
+    const defaultZip = await unzip(await compileEpub(book, { mermaid: fakeMermaidRenderer }));
+    const defaultTitle = await defaultZip.file("OEBPS/title.xhtml")!.async("string");
+    expect(defaultTitle).toContain("<section");
+    const defaultChapter = await defaultZip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(defaultChapter).toContain('<figure class="diagram"');
+    expect(defaultChapter).toContain("<audio");
+  });
+
+  it("emits the http-equiv <meta> form, not the HTML5 charset shorthand (fix round 1, bucket 3) — default/kdp keep <meta charset> (regression)", async () => {
+    const epub2Zip = await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }));
+    for (const p of ["OEBPS/title.xhtml", "OEBPS/colophon.xhtml", "OEBPS/chapters/ch-001.xhtml", "OEBPS/cover.xhtml"]) {
+      const xhtml = await epub2Zip.file(p)!.async("string");
+      expect(xhtml).toContain('<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>');
+      expect(xhtml).not.toContain("<meta charset=");
+    }
+
+    const defaultZip = await unzip(await compileEpub(syntheticBook()));
+    const kdpZip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    for (const zip of [defaultZip, kdpZip]) {
+      const title = await zip.file("OEBPS/title.xhtml")!.async("string");
+      expect(title).toContain('<meta charset="utf-8"/>');
+      expect(title).not.toContain("http-equiv");
+    }
+  });
+
+  it("drops xml:lang from the OPF <package> element (fix round 1, bucket 4) — default/kdp keep it (regression)", async () => {
+    const epub2Opf = await (await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }))).file("OEBPS/content.opf")!.async("string");
+    expect(epub2Opf).not.toContain("xml:lang=");
+    expect(epub2Opf).toContain("<dc:language>en</dc:language>"); // language isn't lost, just moved off the attribute
+
+    const defaultOpf = await (await unzip(await compileEpub(syntheticBook()))).file("OEBPS/content.opf")!.async("string");
+    const kdpOpf = await (await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    for (const opf of [defaultOpf, kdpOpf]) {
+      expect(opf).toContain('xml:lang="en"');
+    }
   });
 });
 

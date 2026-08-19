@@ -296,7 +296,17 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   let coverXhtml = buildCoverXhtml(coverInput, profile);
   let coverSvg: string | undefined = buildCoverSvgFile(coverInput);
   let coverJpeg: Buffer | undefined;
-  if (profile === "kdp") {
+  // kdp (D5, docs/specs/kdp-clean-export-profile.md) rasters the cover to
+  // JPEG. epub2 does too, as of fix round 1: buildCoverSvg's inline <svg>
+  // carries HTML5/ARIA-only attributes (role, aria-label, font-synthesis),
+  // the feDropShadow filter primitive (not in SVG 1.1), and an unprefixed
+  // `href` (XHTML+SVG 1.1 requires xlink:href) — none of that is fixable by
+  // patching the SVG in place without breaking the default-profile inline
+  // cover, so epub2 sidesteps all of it by never embedding SVG in its cover
+  // at all, exactly like kdp. Generalized from `=== "kdp"` to `!== "default"`
+  // — this branch is COVER-only; kdp-only non-cover branches (font-drop
+  // stylesheet, dc:date isoDate, the draft guard) stay `=== "kdp"` below.
+  if (profile !== "default") {
     coverJpeg = await renderCoverJpeg(buildCoverSvgRaster(coverInput));
     coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg", profile);
     coverSvg = undefined;
@@ -526,11 +536,12 @@ function buildOpf(
     // Cover: default profile registers the vector SVG as the EPUB3 cover-image
     // (cover.xhtml embeds it inline, hence properties="svg"); the kdp profile
     // (D5, docs/specs/kdp-clean-export-profile.md) registers a raster JPEG
-    // instead. epub2 does NOT raster the cover (out of scope for this
-    // profile — only math/diagrams/audio are touched) but, like every other
-    // manifest item under epub2, drops the OPF3-only "properties" attribute;
-    // the cover is still correctly registered via the EPUB2
-    // <meta name="cover" content="cover-image"/> convention below.
+    // instead. epub2 ALSO rasters the cover as of fix round 1 (see the
+    // `profile !== "default"` cover branch above — the inline SVG carries
+    // several HTML5/SVG1.1-incompatible bits with no epub2-safe fix) and,
+    // like every other manifest item under epub2, drops the OPF3-only
+    // "properties" attribute; the cover is still correctly registered via the
+    // EPUB2 <meta name="cover" content="cover-image"/> convention below.
     ...(profile === "kdp"
       ? [
           '<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>',
@@ -538,7 +549,7 @@ function buildOpf(
         ]
       : isEpub2
         ? [
-            '<item id="cover-image" href="cover.svg" media-type="image/svg+xml"/>',
+            '<item id="cover-image" href="cover.jpg" media-type="image/jpeg"/>',
             '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>',
           ]
         : [
@@ -621,8 +632,13 @@ function buildOpf(
   if (!isEpub2) meta.push(`<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>`);
 
   const opfVersion = isEpub2 ? "2.0" : "3.0";
+  // EPUB2 (fix round 1, bucket 4): epubcheck rejects `xml:lang` on OPF 2.0's
+  // <package> element ("expected attribute id") — it's an OPF3-only
+  // attribute there. Dropped for epub2; dc:language above already carries
+  // the book's language, so nothing is lost.
+  const packageLangAttr = isEpub2 ? "" : ` xml:lang="${escapeHtml(lang)}"`;
   return `<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="${opfVersion}" unique-identifier="bookid" xml:lang="${escapeHtml(lang)}">
+<package xmlns="http://www.idpf.org/2007/opf" version="${opfVersion}" unique-identifier="bookid"${packageLangAttr}>
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 ${meta.join("\n")}
 </metadata>
