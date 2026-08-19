@@ -14,6 +14,7 @@ import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
 import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
+import { GenerateAllNarration } from "@/components/GenerateAllNarration";
 import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -121,6 +122,8 @@ function SavedBookScreenInner() {
               Save your edits first. Generation runs one topic at a time against
               your Anthropic key.
             </Text>
+
+            <GenerateAllNarration book={book} onBookChange={setBook} />
 
             <View style={styles.publishDivider} />
             <Text style={styles.publishLabel}>Publish</Text>
