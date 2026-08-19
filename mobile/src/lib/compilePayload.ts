@@ -1,7 +1,7 @@
 import type { Book, GeneratedTopic } from "@/types/book";
 import type { LessonSection } from "@/types/lesson";
-import { resolveFigureDataUrls } from "@/storage/mediaStore";
-import { figureAltText } from "@/lib/figuresHtml";
+import { resolveFigureDataUrls, resolveAudioDataUrls } from "@/storage/mediaStore";
+import { figureAltText, renderAudioHtml } from "@/lib/figuresHtml";
 
 function mdEsc(s: string): string {
   return s.replace(/([[\]()\\])/g, "\\$1");
@@ -21,6 +21,18 @@ export async function buildCompilePayload(book: Book): Promise<Book> {
   const copy: Book = JSON.parse(JSON.stringify(book));
   for (const gen of Object.values(copy.content ?? {})) {
     const topic = gen as GeneratedTopic;
+
+    if (topic.audio?.length) {
+      const audioUrls = await resolveAudioDataUrls(topic);
+      if (audioUrls.size) {
+        const html = renderAudioHtml(topic.audio, audioUrls);
+        if (html) {
+          const section: LessonSection = { heading: "Narration", body_markdown: html };
+          topic.lesson.sections = [...(topic.lesson.sections ?? []), section];
+        }
+      }
+    }
+
     if (!topic.images?.length) continue;
 
     const urls = await resolveFigureDataUrls(topic);
