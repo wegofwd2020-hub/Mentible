@@ -277,12 +277,12 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   if (chapters.length === 0) throw new EmptyBookError();
 
   const coverInput = coverInputForBook(book);
-  let coverXhtml = buildCoverXhtml(coverInput);
+  let coverXhtml = buildCoverXhtml(coverInput, profile);
   let coverSvg: string | undefined = buildCoverSvgFile(coverInput);
   let coverJpeg: Buffer | undefined;
   if (profile === "kdp") {
     coverJpeg = await renderCoverJpeg(buildCoverSvgRaster(coverInput));
-    coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg");
+    coverXhtml = buildCoverXhtmlRaster(book.title, "cover.jpg", profile);
     coverSvg = undefined;
   }
 
@@ -566,15 +566,23 @@ function buildOpf(
   ];
   if (m.author) {
     meta.push(`<dc:creator id="creator">${escapeHtml(m.author)}</dc:creator>`);
-    meta.push(`<meta refines="#creator" property="role" scheme="marc:relators">aut</meta>`);
-    meta.push(`<meta refines="#creator" property="file-as">${escapeHtml(m.authorFileAs || m.author)}</meta>`);
+    // EPUB2 (D3): `property="role"`/`property="file-as"` + `refines=` are
+    // EPUB3-only OPF3 meta syntax, invalid under a version="2.0" package —
+    // the plain <dc:creator> above already carries the author for EPUB2.
+    if (!isEpub2) {
+      meta.push(`<meta refines="#creator" property="role" scheme="marc:relators">aut</meta>`);
+      meta.push(`<meta refines="#creator" property="file-as">${escapeHtml(m.authorFileAs || m.author)}</meta>`);
+    }
   }
   if (m.publisher) meta.push(`<dc:publisher>${escapeHtml(m.publisher)}</dc:publisher>`);
   if (m.date) meta.push(`<dc:date>${escapeHtml(profile === "kdp" ? isoDate(m.date) : m.date)}</dc:date>`);
   if (m.description) meta.push(`<dc:description>${escapeHtml(m.description)}</dc:description>`);
   for (const s of m.subjects ?? []) meta.push(`<dc:subject>${escapeHtml(s)}</dc:subject>`);
   if (m.rights) meta.push(`<dc:rights>${escapeHtml(m.rights)}</dc:rights>`);
-  if (m.series) {
+  // EPUB2 (D3): the whole series block is OPF3 `property=`/`refines=` meta
+  // syntax with no EPUB2 equivalent — dropped entirely for epub2 (there's no
+  // dc:* fallback for series, unlike author).
+  if (m.series && !isEpub2) {
     meta.push(`<meta property="belongs-to-collection" id="series">${escapeHtml(m.series)}</meta>`);
     meta.push(`<meta refines="#series" property="collection-type">series</meta>`);
     if (m.seriesIndex != null)

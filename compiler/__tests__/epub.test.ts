@@ -306,6 +306,53 @@ describe("compileEpub — epub2 packaging (D3, OPF v2.0 / NCX-primary / XHTML 1.
     expect(opf).toContain('properties="nav"');
     expect(opf).toContain('version="3.0"');
   });
+
+  it("drops the EPUB3-only author role/file-as and series meta (fix round 1, defect 1)", async () => {
+    const book: Book = {
+      ...syntheticBook(),
+      metadata: {
+        author: "Jane Doe",
+        authorFileAs: "Doe, Jane",
+        series: "Vol",
+        seriesIndex: 2,
+      },
+    };
+    const epub2Opf = await (await unzip(await compileEpub(book, { profile: "epub2" }))).file("OEBPS/content.opf")!.async("string");
+    expect(epub2Opf).toContain('<dc:creator id="creator">Jane Doe</dc:creator>');
+    expect(epub2Opf).not.toContain("<meta property=");
+    expect(epub2Opf).not.toContain("refines=");
+
+    // regression: default/kdp still emit the EPUB3 author-role/file-as + series meta
+    const defaultOpf = await (await unzip(await compileEpub(book))).file("OEBPS/content.opf")!.async("string");
+    const kdpOpf = await (await unzip(await compileEpub(book, { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    for (const opf of [defaultOpf, kdpOpf]) {
+      expect(opf).toContain('property="role" scheme="marc:relators">aut<');
+      expect(opf).toContain('property="belongs-to-collection" id="series">Vol<');
+      expect(opf).toContain('property="group-position">2<');
+    }
+  });
+
+  it("cover.xhtml uses the XHTML 1.1 doctype with no xmlns:epub/epub:type (fix round 1, defect 2)", async () => {
+    const epub2Zip = await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }));
+    const epub2Cover = await epub2Zip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(epub2Cover).toContain('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"');
+    expect(epub2Cover).not.toContain("<!DOCTYPE html>\n");
+    expect(epub2Cover).not.toContain("xmlns:epub");
+    expect(epub2Cover).not.toContain("epub:type");
+
+    // regression: default/kdp cover.xhtml stays HTML5 + epub namespace
+    const defaultZip = await unzip(await compileEpub(syntheticBook()));
+    const defaultCover = await defaultZip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(defaultCover).toContain("<!DOCTYPE html>\n");
+    expect(defaultCover).toContain("xmlns:epub");
+    expect(defaultCover).toContain('epub:type="cover"');
+
+    const kdpZip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    const kdpCover = await kdpZip.file("OEBPS/cover.xhtml")!.async("string");
+    expect(kdpCover).toContain("<!DOCTYPE html>\n");
+    expect(kdpCover).toContain("xmlns:epub");
+    expect(kdpCover).toContain('epub:type="cover"');
+  });
 });
 
 describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
