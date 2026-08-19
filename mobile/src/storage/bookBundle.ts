@@ -1,7 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
-import type { Book, GeneratedTopic, TopicImage } from "@/types/book";
+import type { Book, GeneratedTopic, TopicAudio, TopicImage } from "@/types/book";
 import { ImportError, parseBook } from "@/storage/importBook";
 import { pruneOrphanMedia } from "@/storage/mediaStore";
 import { fromBase64 } from "@/storage/pickBookFile";
@@ -14,6 +14,9 @@ import {
   mediaDirRel,
   mediaFileRel,
   MAX_IMAGE_BYTES,
+  extForAudioMime,
+  isAllowedAudioMime,
+  MAX_AUDIO_BYTES,
 } from "@/storage/mediaPaths";
 
 // A book's exportable/importable "bundle": book.json plus every still-referenced
@@ -58,28 +61,59 @@ export async function exportBookBundle(book: Book): Promise<Uint8Array> {
 
   for (const [topicId, gen] of Object.entries(book.content ?? {})) {
     const images = gen.images ?? [];
-    if (images.length === 0) {
+    const audio = gen.audio ?? [];
+    if (images.length === 0 && audio.length === 0) {
       nextContent[topicId] = gen;
       continue;
     }
-    const nextImages: TopicImage[] = [];
-    for (const img of images) {
-      const basename = basenameOf(img.file);
-      const entryKey = `media/${basename}`;
-      try {
-        const b64 = await FileSystem.readAsStringAsync(absPath(img.file), {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        mediaFiles[entryKey] = new Uint8Array(fromBase64(b64));
-        nextImages.push({ ...img, file: entryKey });
-      } catch {
-        // File missing on disk — drop the ref rather than bundle a dangling one,
-        // but warn so an export losing an image isn't silent (symmetric with
-        // the collected warnings on import, below).
-        console.warn(`[bookBundle] could not read media file for image ${img.id} (${img.file}); dropped from export.`);
+
+    let nextImages: TopicImage[] | undefined;
+    if (images.length > 0) {
+      nextImages = [];
+      for (const img of images) {
+        const basename = basenameOf(img.file);
+        const entryKey = `media/${basename}`;
+        try {
+          const b64 = await FileSystem.readAsStringAsync(absPath(img.file), {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          mediaFiles[entryKey] = new Uint8Array(fromBase64(b64));
+          nextImages.push({ ...img, file: entryKey });
+        } catch {
+          // File missing on disk — drop the ref rather than bundle a dangling one,
+          // but warn so an export losing an image isn't silent (symmetric with
+          // the collected warnings on import, below).
+          console.warn(`[bookBundle] could not read media file for image ${img.id} (${img.file}); dropped from export.`);
+        }
       }
     }
-    nextContent[topicId] = { ...gen, images: nextImages };
+
+    // Mirrors the image loop above exactly — same read/drop/warn shape, just for
+    // TopicAudio (ADR-040 rung 4: a book's narration clips must survive export
+    // too, not just its images).
+    let nextAudio: TopicAudio[] | undefined;
+    if (audio.length > 0) {
+      nextAudio = [];
+      for (const aud of audio) {
+        const basename = basenameOf(aud.file);
+        const entryKey = `media/${basename}`;
+        try {
+          const b64 = await FileSystem.readAsStringAsync(absPath(aud.file), {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          mediaFiles[entryKey] = new Uint8Array(fromBase64(b64));
+          nextAudio.push({ ...aud, file: entryKey });
+        } catch {
+          console.warn(`[bookBundle] could not read media file for audio ${aud.id} (${aud.file}); dropped from export.`);
+        }
+      }
+    }
+
+    nextContent[topicId] = {
+      ...gen,
+      ...(nextImages !== undefined ? { images: nextImages } : {}),
+      ...(nextAudio !== undefined ? { audio: nextAudio } : {}),
+    };
   }
 
   const bookCopy: Book = { ...book, content: nextContent };
@@ -113,6 +147,27 @@ async function writeImportedMedia(
   return rel;
 }
 
+// Mirrors writeImportedMedia above, minus the EXIF-strip step — audio has no
+// EXIF to re-strip, so the base64 lands straight at the new book id's media
+// dir via a scratch file (kept for parity with the image path's write shape,
+// and so a failed copy never leaves a partial file at the final path).
+async function writeImportedAudio(
+  newBookId: string,
+  audioId: string,
+  ext: string,
+  data: Uint8Array,
+): Promise<string> {
+  const tmpUri = `${FileSystem.cacheDirectory}bundle-import-audio-${audioId}.${ext}`;
+  await FileSystem.writeAsStringAsync(tmpUri, u8ToBase64(data), {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const rel = mediaFileRel(newBookId, audioId, ext);
+  await FileSystem.makeDirectoryAsync(absPath(mediaDirRel(newBookId)), { intermediates: true });
+  await FileSystem.copyAsync({ from: tmpUri, to: absPath(rel) });
+  await FileSystem.deleteAsync(tmpUri, { idempotent: true }).catch(() => {});
+  return rel;
+}
+
 /**
  * Parse a `.book.zip` bundle back into a `Book`: validates + structurally
  * parses `book.json` (via `parseBook`), assigns it a FRESH id (so re-importing
@@ -135,59 +190,112 @@ export async function parseBookBundle(bytes: Uint8Array): Promise<Book> {
 
   for (const [topicId, gen] of Object.entries(parsed.content ?? {})) {
     const images = gen.images ?? [];
-    if (images.length === 0) {
+    const audio = gen.audio ?? [];
+    if (images.length === 0 && audio.length === 0) {
       nextContent[topicId] = gen;
       continue;
     }
-    const nextImages: TopicImage[] = [];
-    for (const img of images) {
-      // parseBook does not deep-validate content[topicId].images[] — this bundle
-      // came from parseBook's structural-only pass, so `img` may not actually be
-      // a well-formed TopicImage. Guard before touching img.file (basenameOf
-      // calls .split on it): a missing/non-string file must be dropped with a
-      // warning like any other bad ref, never thrown — a single malformed image
-      // entry must not abort the whole import.
-      if (!img || typeof img !== "object" || typeof img.file !== "string" || img.file.length === 0) {
-        const label = img && typeof (img as { id?: unknown }).id === "string" ? (img as { id: string }).id : "?";
-        warnings.push(`Image ${label} has a missing/invalid file path; dropped.`);
-        continue;
-      }
-      const entryKey = `media/${basenameOf(img.file)}`;
-      const data = entries[entryKey];
-      if (!data) {
-        warnings.push(`Missing media file for image ${img.id} (${entryKey}); dropped.`);
-        continue;
-      }
-      if (!isAllowedMime(img.mime)) {
-        warnings.push(`Disallowed mime "${img.mime}" for image ${img.id}; dropped.`);
-        continue;
-      }
-      if (data.byteLength > MAX_IMAGE_BYTES) {
-        warnings.push(`Image ${img.id} exceeds the size limit; dropped.`);
-        continue;
-      }
-      const ext = extForMime(img.mime);
-      if (!ext) {
-        warnings.push(`No file extension for mime "${img.mime}" (image ${img.id}); dropped.`);
-        continue;
-      }
-      // The incoming img.id is attacker-controlled (parseBook is structural-only,
-      // so it never validated this bundle's contents) and must never reach the
-      // on-disk filename — a crafted id like "../../../../evil" would otherwise
-      // let copyAsync write outside media/<newId>/. Import already reassigns the
-      // book's own identity (newId, above); do the same per-image by minting a
-      // fresh, generator-controlled id and using it for BOTH the filename and the
-      // image's id in the resulting schema. This also sidesteps object-prototype
-      // key hazards further downstream (e.g. "__proto__" as a lookup key).
-      const freshImageId = randomUUID();
-      try {
-        const rel = await writeImportedMedia(newId, freshImageId, ext, img.mime, data);
-        nextImages.push({ ...img, id: freshImageId, file: rel });
-      } catch {
-        warnings.push(`Failed to write image ${img.id}; dropped.`);
+
+    let nextImages: TopicImage[] | undefined;
+    if (images.length > 0) {
+      nextImages = [];
+      for (const img of images) {
+        // parseBook does not deep-validate content[topicId].images[] — this bundle
+        // came from parseBook's structural-only pass, so `img` may not actually be
+        // a well-formed TopicImage. Guard before touching img.file (basenameOf
+        // calls .split on it): a missing/non-string file must be dropped with a
+        // warning like any other bad ref, never thrown — a single malformed image
+        // entry must not abort the whole import.
+        if (!img || typeof img !== "object" || typeof img.file !== "string" || img.file.length === 0) {
+          const label = img && typeof (img as { id?: unknown }).id === "string" ? (img as { id: string }).id : "?";
+          warnings.push(`Image ${label} has a missing/invalid file path; dropped.`);
+          continue;
+        }
+        const entryKey = `media/${basenameOf(img.file)}`;
+        const data = entries[entryKey];
+        if (!data) {
+          warnings.push(`Missing media file for image ${img.id} (${entryKey}); dropped.`);
+          continue;
+        }
+        if (!isAllowedMime(img.mime)) {
+          warnings.push(`Disallowed mime "${img.mime}" for image ${img.id}; dropped.`);
+          continue;
+        }
+        if (data.byteLength > MAX_IMAGE_BYTES) {
+          warnings.push(`Image ${img.id} exceeds the size limit; dropped.`);
+          continue;
+        }
+        const ext = extForMime(img.mime);
+        if (!ext) {
+          warnings.push(`No file extension for mime "${img.mime}" (image ${img.id}); dropped.`);
+          continue;
+        }
+        // The incoming img.id is attacker-controlled (parseBook is structural-only,
+        // so it never validated this bundle's contents) and must never reach the
+        // on-disk filename — a crafted id like "../../../../evil" would otherwise
+        // let copyAsync write outside media/<newId>/. Import already reassigns the
+        // book's own identity (newId, above); do the same per-image by minting a
+        // fresh, generator-controlled id and using it for BOTH the filename and the
+        // image's id in the resulting schema. This also sidesteps object-prototype
+        // key hazards further downstream (e.g. "__proto__" as a lookup key).
+        const freshImageId = randomUUID();
+        try {
+          const rel = await writeImportedMedia(newId, freshImageId, ext, img.mime, data);
+          nextImages.push({ ...img, id: freshImageId, file: rel });
+        } catch {
+          warnings.push(`Failed to write image ${img.id}; dropped.`);
+        }
       }
     }
-    nextContent[topicId] = { ...gen, images: nextImages };
+
+    // Mirrors the image loop above exactly (same guard/drop/warn shape and the
+    // same fresh-id path-traversal discipline), for TopicAudio.
+    let nextAudio: TopicAudio[] | undefined;
+    if (audio.length > 0) {
+      nextAudio = [];
+      for (const aud of audio) {
+        if (!aud || typeof aud !== "object" || typeof aud.file !== "string" || aud.file.length === 0) {
+          const label = aud && typeof (aud as { id?: unknown }).id === "string" ? (aud as { id: string }).id : "?";
+          warnings.push(`Audio ${label} has a missing/invalid file path; dropped.`);
+          continue;
+        }
+        const entryKey = `media/${basenameOf(aud.file)}`;
+        const data = entries[entryKey];
+        if (!data) {
+          warnings.push(`Missing media file for audio ${aud.id} (${entryKey}); dropped.`);
+          continue;
+        }
+        if (!isAllowedAudioMime(aud.mime)) {
+          warnings.push(`Disallowed mime "${aud.mime}" for audio ${aud.id}; dropped.`);
+          continue;
+        }
+        if (data.byteLength > MAX_AUDIO_BYTES) {
+          warnings.push(`Audio ${aud.id} exceeds the size limit; dropped.`);
+          continue;
+        }
+        const ext = extForAudioMime(aud.mime);
+        if (!ext) {
+          warnings.push(`No file extension for mime "${aud.mime}" (audio ${aud.id}); dropped.`);
+          continue;
+        }
+        // Same discipline as images: never trust the bundle's own id/file for
+        // the on-disk write target — mint a fresh, generator-controlled id and
+        // use it for both the filename and the audio ref's id.
+        const freshAudioId = randomUUID();
+        try {
+          const rel = await writeImportedAudio(newId, freshAudioId, ext, data);
+          nextAudio.push({ ...aud, id: freshAudioId, file: rel });
+        } catch {
+          warnings.push(`Failed to write audio ${aud.id}; dropped.`);
+        }
+      }
+    }
+
+    nextContent[topicId] = {
+      ...gen,
+      ...(nextImages !== undefined ? { images: nextImages } : {}),
+      ...(nextAudio !== undefined ? { audio: nextAudio } : {}),
+    };
   }
 
   if (warnings.length > 0) {

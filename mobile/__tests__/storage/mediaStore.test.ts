@@ -27,7 +27,7 @@ jest.mock("expo-image-manipulator", () => ({
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import {
-  attachImage, deleteImage, resolveFigureDataUrls, pruneOrphanMedia, MediaCapError,
+  attachImage, deleteImage, deleteAudio, resolveFigureDataUrls, pruneOrphanMedia, MediaCapError,
   attachAudio, resolveAudioDataUrls, resolveAudioFileUris,
 } from "@/storage/mediaStore";
 import {
@@ -322,5 +322,17 @@ describe("mediaStore audio", () => {
     expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(
       expect.stringContaining("keptaud.mp3"), expect.anything(),
     );
+  });
+
+  it("deleteAudio removes the ref (copy-on-write) and leaves other clips", async () => {
+    const book: any = { id: "b", content: { u1: { topicId: "u1", audio: [{ id: "a1", file: "media/b/a1.mp3", mime: "audio/mpeg" }, { id: "a2", file: "media/b/a2.mp3", mime: "audio/mpeg" }] } } };
+    const next = await deleteAudio(book, "u1", "a1");
+    expect(next).not.toBe(book); // copy
+    expect(next.content!.u1.audio!.map((a: any) => a.id)).toEqual(["a2"]);
+    expect(book.content.u1.audio).toHaveLength(2); // original untouched
+  });
+  it("deleteAudio is a no-op when the topic/clip is absent", async () => {
+    const book: any = { id: "b", content: { u1: { topicId: "u1" } } };
+    expect(await deleteAudio(book, "u1", "x")).toBe(book);
   });
 });

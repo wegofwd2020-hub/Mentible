@@ -19,6 +19,7 @@ import { useCurrentProvenance } from "@/hooks/useCurrentProvenance";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import { demoBlocked } from "@/constants/demo";
 import { FiguresPanel } from "@/components/FiguresPanel";
+import { NarrationPanel } from "@/components/NarrationPanel";
 import { useTopicFigures } from "@/reader/useTopicFigures";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -270,6 +271,9 @@ export default function BookTopicScreen() {
           <>
             {canEdit && book && (
               <FiguresPanel book={book} topicId={topicId} onBookChange={setBook} />
+            )}
+            {canEdit && book && (
+              <NarrationPanel book={book} topicId={topicId} onBookChange={setBook} />
             )}
             <TopicRenderer topic={topic} figures={figures} />
           </>

@@ -156,6 +156,23 @@ export async function deleteImage(book: Book, topicId: string, imageId: string):
   return next;
 }
 
+/** Remove one narration clip from a topic (copy-on-write), best-effort deleting
+ *  its file. Mirrors deleteImage. A missing topic/clip is a no-op (returns the
+ *  same book). */
+export async function deleteAudio(book: Book, topicId: string, audioId: string): Promise<Book> {
+  const gen = book.content?.[topicId];
+  if (!gen?.audio) return book;
+  const clip = gen.audio.find((a) => a.id === audioId);
+  if (!clip) return book;
+  const audio = gen.audio.filter((a) => a.id !== audioId);
+  await FileSystem.deleteAsync(absPath(clip.file), { idempotent: true }).catch(() => {});
+  return {
+    ...book,
+    content: { ...book.content, [topicId]: { ...gen, audio } },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 /** Read each of a topic's images into a data: URL keyed by image id. */
 export async function resolveFigureDataUrls(topic: GeneratedTopic): Promise<Map<string, string>> {
   const out = new Map<string, string>();
