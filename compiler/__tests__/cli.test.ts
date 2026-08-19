@@ -9,6 +9,10 @@ describe("parseArgs — --profile", () => {
     expect(parseArgs(["book.json", "--profile", "kdp"]).profile).toBe("kdp");
   });
 
+  it("parses --profile epub2", () => {
+    expect(parseArgs(["book.json", "--profile", "epub2"]).profile).toBe("epub2");
+  });
+
   it("falls back to 'default' for an unrecognized --profile value", () => {
     expect(parseArgs(["book.json", "--profile", "bogus"]).profile).toBe("default");
   });

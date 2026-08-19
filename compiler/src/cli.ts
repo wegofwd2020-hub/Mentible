@@ -36,18 +36,20 @@ export function parseArgs(argv: string[]): {
   output?: string;
   mermaid: boolean;
   format: Format;
-  profile: "default" | "kdp";
+  profile: "default" | "kdp" | "epub2";
 } {
   let input: string | undefined;
   let output: string | undefined;
   let mermaid = false;
   let format: Format = "epub";
-  let profile: "default" | "kdp" = "default";
+  let profile: "default" | "kdp" | "epub2" = "default";
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--mermaid") mermaid = true;
-    else if (a === "--profile") profile = argv[++i] === "kdp" ? "kdp" : "default";
-    else if (a === "--format") {
+    else if (a === "--profile") {
+      const p = argv[++i];
+      profile = p === "kdp" ? "kdp" : p === "epub2" ? "epub2" : "default";
+    } else if (a === "--format") {
       const f = argv[++i];
       format =
         f === "pdf"

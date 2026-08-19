@@ -1,7 +1,7 @@
 import type { Book, GeneratedTopic } from "@/types/book";
 import type { LessonSection } from "@/types/lesson";
 import { resolveFigureDataUrls, resolveAudioDataUrls } from "@/storage/mediaStore";
-import { figureAltText, renderAudioHtml } from "@/lib/figuresHtml";
+import { figureAltText, renderAudioHtml, renderAudioTranscriptHtml } from "@/lib/figuresHtml";
 
 function mdEsc(s: string): string {
   return s.replace(/([[\]()\\])/g, "\\$1");
@@ -9,15 +9,18 @@ function mdEsc(s: string): string {
 
 // Every export target buildCompilePayload feeds: EPUB and its EPUB-based
 // derivatives (kdp profile, the publish pack) can carry narration audio (the
-// compiler's packAudio embeds it as a real EPUB resource); PDF and DOCX
-// cannot — audio has nowhere to render there, so injecting it would only ship
-// a dead, non-functional base64 blob (spec non-goal: "No PDF/DOCX audio
-// (EPUB only)"). "pack" is included here (not just "epub") because the
-// Publish Pack's KDP-EPUB is itself EPUB-based.
-export type CompileFormat = "epub" | "pdf" | "docx" | "pack";
+// compiler's packAudio embeds it as a real EPUB resource) — EXCEPT epub2,
+// which strips <audio> entirely (EPUB 2 is XHTML 1.1, no HTML5 media) and
+// instead gets the narration's TRANSCRIPT as prose (ADR-041 Initiative A D4,
+// docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md). PDF and
+// DOCX cannot carry audio at all — audio has nowhere to render there, so
+// injecting it would only ship a dead, non-functional base64 blob (spec
+// non-goal: "No PDF/DOCX audio (EPUB only)"). "pack" is included here (not
+// just "epub") because the Publish Pack's KDP-EPUB is itself EPUB-based.
+export type CompileFormat = "epub" | "epub2" | "pdf" | "docx" | "pack";
 
 function isEpubFamily(format: CompileFormat): boolean {
-  return format === "epub" || format === "pack";
+  return format === "epub" || format === "epub2" || format === "pack";
 }
 
 // The remote compiler is a stateless HTTP service — the app POSTs the whole
@@ -34,7 +37,7 @@ function isEpubFamily(format: CompileFormat): boolean {
 // `format` gates the Narration/audio section — omitted defaults to "pdf" (no
 // audio), the safe choice for a call site that doesn't know its target yet;
 // callers that DO compile to an EPUB-family target must say so explicitly to
-// get narration audio at all.
+// get narration audio (or, for epub2, the transcript) at all.
 export async function buildCompilePayload(book: Book, format: CompileFormat = "pdf"): Promise<Book> {
   const copy: Book = JSON.parse(JSON.stringify(book));
   const withAudio = isEpubFamily(format);
@@ -42,12 +45,23 @@ export async function buildCompilePayload(book: Book, format: CompileFormat = "p
     const topic = gen as GeneratedTopic;
 
     if (withAudio && topic.audio?.length) {
-      const audioUrls = await resolveAudioDataUrls(topic);
-      if (audioUrls.size) {
-        const html = renderAudioHtml(topic.audio, audioUrls);
+      if (format === "epub2") {
+        // EPUB 2 can't carry <audio> — emit the transcript as prose instead
+        // so the narration's words survive. No data: URL resolution needed;
+        // the transcript is already plain text on the ref.
+        const html = renderAudioTranscriptHtml(topic.audio);
         if (html) {
-          const section: LessonSection = { heading: "Narration", body_markdown: html };
+          const section: LessonSection = { heading: "Narration (transcript)", body_markdown: html };
           topic.lesson.sections = [...(topic.lesson.sections ?? []), section];
+        }
+      } else {
+        const audioUrls = await resolveAudioDataUrls(topic);
+        if (audioUrls.size) {
+          const html = renderAudioHtml(topic.audio, audioUrls);
+          if (html) {
+            const section: LessonSection = { heading: "Narration", body_markdown: html };
+            topic.lesson.sections = [...(topic.lesson.sections ?? []), section];
+          }
         }
       }
     }

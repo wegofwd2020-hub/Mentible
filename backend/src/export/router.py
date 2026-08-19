@@ -85,23 +85,26 @@ async def export_book(
     principal: Principal | None = Depends(optional_user),
 ) -> Response:
     """Compile a book to an artifact. `format`=epub|pdf|docx; `diagrams`=true renders
-    Mermaid → SVG (Chromium; much slower); `profile`=default|kdp (kdp is epub-only —
-    docs/specs/kdp-clean-export-profile.md)."""
+    Mermaid → SVG (Chromium; much slower); `profile`=default|kdp|epub2 (kdp/epub2
+    are epub-only — docs/specs/kdp-clean-export-profile.md,
+    docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md)."""
     fmt = format.lower()
     if fmt not in _FORMATS:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "format must be 'epub', 'pdf', 'docx' or 'pack'."},
         )
-    if profile not in ("default", "kdp"):
+    if profile not in ("default", "kdp", "epub2"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "profile must be 'default' or 'kdp'."},
+            content={"detail": "profile must be 'default', 'kdp' or 'epub2'."},
         )
-    if profile == "kdp" and fmt not in ("epub", "pack"):
+    if profile in ("kdp", "epub2") and fmt not in ("epub", "pack"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "the kdp profile is only supported for format=epub or format=pack."},
+            content={
+                "detail": f"the {profile} profile is only supported for format=epub or format=pack."
+            },
         )
     media_type, ext = _FORMATS[fmt]
 
@@ -212,15 +215,17 @@ async def submit_export(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "format must be 'epub', 'pdf', 'docx' or 'pack'."},
         )
-    if profile not in ("default", "kdp"):
+    if profile not in ("default", "kdp", "epub2"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "profile must be 'default' or 'kdp'."},
+            content={"detail": "profile must be 'default', 'kdp' or 'epub2'."},
         )
-    if profile == "kdp" and fmt not in ("epub", "pack"):
+    if profile in ("kdp", "epub2") and fmt not in ("epub", "pack"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "the kdp profile is only supported for format=epub or format=pack."},
+            content={
+                "detail": f"the {profile} profile is only supported for format=epub or format=pack."
+            },
         )
 
     raw = await request.body()

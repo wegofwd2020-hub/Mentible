@@ -78,13 +78,14 @@ async def compile_book(
     always emits a kdp-profile EPUB internally, so it needs no `profile=kdp`
     from the caller). diagrams: render Mermaid → SVG (needs Chromium; much
     slower, so it gets the longer diagram timeout). profile: "default" |
-    "kdp" (KDP-clean export profile, epub-only — see
-    docs/specs/kdp-clean-export-profile.md). Raises ExportValidationError for
-    bad input, CompilerError otherwise.
+    "kdp" | "epub2" ("kdp" — docs/specs/kdp-clean-export-profile.md; "epub2" —
+    docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md, ADR-041
+    Initiative A — both epub-only). Raises ExportValidationError for bad
+    input, CompilerError otherwise.
     """
     book = validate_book(raw_book)
-    if profile not in ("default", "kdp"):
-        raise ExportValidationError("profile must be 'default' or 'kdp'.")
+    if profile not in ("default", "kdp", "epub2"):
+        raise ExportValidationError("profile must be 'default', 'kdp' or 'epub2'.")
 
     # Gate 3 — format-drift scan over the whole book's generated content (lesson +
     # tutorial + experiment). Non-fatal: never blocks a compile. This is the only
@@ -108,6 +109,8 @@ async def compile_book(
         argv.append("--mermaid")
     if profile == "kdp":
         argv.extend(["--profile", "kdp"])
+    elif profile == "epub2":
+        argv.extend(["--profile", "epub2"])
     # Diagram rendering (108 Chromium passes) is minutes-long; give it room.
     timeout = (
         settings.export_diagram_timeout_seconds if diagrams else settings.export_timeout_seconds

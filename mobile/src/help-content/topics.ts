@@ -434,6 +434,26 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "epub2-export",
+    title: "Export an EPUB 2 for maximum compatibility",
+    featureKey: "epub2-export",
+    keywords: ["epub2", "epub 2", "compatibility", "old reader", "export", "epubcheck"],
+    blocks: [
+      {
+        kind: "text",
+        text: "\"EPUB 2 (max compatibility)\" produces a separate EPUB tuned for older reading apps and devices that reject the modern EPUB3 files Mentible normally exports. Math and diagrams are rendered as images (same as the Kindle export), and narrated audio can't travel in EPUB 2 at all — instead, the narration's transcript is included as a plain \"Narration (transcript)\" section, so the words survive even though the clip can't. It's a different, more limited file from your regular EPUB3/PDF checkout, not a setting on it — reach for it only if a specific reader or device won't open the regular EPUB.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Where's the button?", def: "On a Library book's Check out panel, next to EPUB3, PDF, Kindle (KDP), and Publish pack: \"EPUB 2 (max compatibility)\"." },
+          { term: "What do I lose compared to the regular EPUB?", def: "Rich math/diagram rendering becomes static images, and narrated audio clips are dropped (their transcript replaces them as text). Everything else — chapters, figures, the table of contents — carries over." },
+          { term: "Does it change what's published?", def: "No — it's a separate, read-only export for one compatibility need. Your regular EPUB3/PDF checkout is unaffected." },
+        ],
+      },
+    ],
+  },
+  {
     id: "project-fields",
     title: "New Project fields: Title, Topic, Audience, Goal",
     featureKey: "project-fields",

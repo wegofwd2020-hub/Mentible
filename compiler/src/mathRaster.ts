@@ -67,7 +67,10 @@ export function collectMathHtml(book: Book): string[] {
 // failing the whole batch. replaceMathWithImages' existing map-miss path is
 // what makes that fragment fall back to MathML — this is the real, reachable
 // trigger for that fallback, not just a defensive branch.
-export async function rasterizeMath(mathmlList: readonly string[]): Promise<Map<string, string>> {
+export async function rasterizeMath(
+  mathmlList: readonly string[],
+  profile: "kdp" | "epub2" = "kdp",
+): Promise<Map<string, string>> {
   const unique = [...new Set(mathmlList)];
   const out = new Map<string, string>();
   if (unique.length === 0) return out;
@@ -76,16 +79,22 @@ export async function rasterizeMath(mathmlList: readonly string[]): Promise<Map<
     const png = pngs[i];
     if (png) out.set(m, `data:image/png;base64,${png.toString("base64")}`);
   });
-  // A partial raster failure is otherwise silent: the failed fragment quietly
-  // reverts to MathML (replaceMathWithImages' map-miss fallback), which is
-  // exactly what the kdp profile exists to eliminate, and epubcheck can't
-  // catch it (MathML is valid EPUB3). Surface it on stderr — the compiler
-  // writes the EPUB bytes to stdout (-o -), so this must never be
-  // console.log — so a silently-degraded Kindle book doesn't ship unnoticed.
+  // A partial raster failure is otherwise silent: the failed fragment falls
+  // through replaceMathWithImages' map-miss path — for kdp it reverts to
+  // MathML (valid EPUB3 but the very thing kdp exists to eliminate, and
+  // epubcheck can't catch it); for epub2 it degrades to LaTeX text (MathML is
+  // XHTML-1.1-INVALID, so the raster miss must NOT leave MathML behind).
+  // Either way, surface it on stderr — the compiler writes the EPUB bytes to
+  // stdout (-o -), so this must never be console.log — so a silently-degraded
+  // book doesn't ship unnoticed.
   const missing = unique.length - out.size;
   if (missing > 0) {
+    const detail =
+      profile === "epub2"
+        ? "remain as LaTeX text (raster unavailable)"
+        : "remain as MathML (may render poorly on Kindle)";
     console.error(
-      `[kdp] warning: ${missing} of ${unique.length} equations could not be rasterized and remain as MathML (may render poorly on Kindle)`,
+      `[${profile}] warning: ${missing} of ${unique.length} equations could not be rasterized and ${detail}`,
     );
   }
   return out;
@@ -93,18 +102,35 @@ export async function rasterizeMath(mathmlList: readonly string[]): Promise<Map<
 
 // Replace every KaTeX MathML span in a chapter's body HTML with a rasterized
 // <img class="math math-inline|math-block" alt="<LaTeX>">, using the batch
-// built by rasterizeMath. A fragment with no matching PNG (a raster failure)
-// is left as MathML — a single bad equation never breaks the compile.
-export function replaceMathWithImages(bodyHtml: string, pngByMathml: Map<string, string>): string {
+// built by rasterizeMath.
+//
+// A fragment with no matching PNG (a raster failure) falls back per profile:
+//   - kdp/default: left as MathML — valid in EPUB3, a single bad equation
+//     never breaks the compile.
+//   - epub2: MathML is INVALID in XHTML 1.1, so a leftover <math> would make
+//     the whole EPUB2 epubcheck-invalid — the opposite of this profile's
+//     "guaranteed valid" purpose. Degrade instead to a plain-text LaTeX span
+//     (<span class="math …math-fallback">LATEX</span>), which is XHTML-1.1
+//     valid and keeps the equation's source visible. The LaTeX comes from
+//     latexOf() straight out of KaTeX's <annotation>, already XML-escaped, so
+//     it is safe as element text content.
+export function replaceMathWithImages(
+  bodyHtml: string,
+  pngByMathml: Map<string, string>,
+  profile: "default" | "kdp" | "epub2" = "default",
+): string {
   return bodyHtml.replace(KATEX_SPAN, (full: string, mathml: string) => {
     // Keyed by `full` (the entire `<span class="katex">...</span>` match) to
     // match collectMathHtml's output, which is what rasterizeMath's map is
     // built from. `mathml` (the inner `<math>` capture) is only used below to
     // pull the display mode + LaTeX out.
-    const src = pngByMathml.get(full);
-    if (!src) return full;
     const block = /<math[^>]*\bdisplay="block"/.test(mathml);
     const cls = block ? "math math-block" : "math math-inline";
+    const src = pngByMathml.get(full);
+    if (!src) {
+      if (profile === "epub2") return `<span class="${cls} math-fallback">${latexOf(mathml)}</span>`;
+      return full;
+    }
     return `<img class="${cls}" alt="${latexOf(mathml)}" src="${src}"/>`;
   });
 }

@@ -164,10 +164,14 @@ export async function getStructureJob(
 export interface ExportOptions {
   format?: "epub" | "pdf" | "cover" | "docx" | "pack"; // "cover" → a PNG thumbnail of the cover; "pack" → a zip Publish Pack (P2-6 Scope B)
   diagrams?: boolean;
-  // KDP-clean export profile (docs/specs/kdp-clean-export-profile.md) — epub
-  // only. Rasters math/diagrams/cover and drops the embedded body font so the
-  // artifact ingests cleanly on Amazon KDP. Omitted/"default" is today's export.
-  profile?: "default" | "kdp";
+  // Distribution-target profile — epub-family only. "kdp"
+  // (docs/specs/kdp-clean-export-profile.md) rasters math/diagrams/cover and
+  // drops the embedded body font so the artifact ingests cleanly on Amazon
+  // KDP. "epub2" (docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md,
+  // ADR-041 Initiative A) rasters math/diagrams too but packages a strict
+  // EPUB 2.0.1 (OPF version="2.0", NCX-primary nav, no <audio>) for readers
+  // that reject EPUB3 outright. Omitted/"default" is today's export.
+  profile?: "default" | "kdp" | "epub2";
   // Called with the async job id right after submit (epub/pdf only), before the
   // compile finishes — lets a caller persist a "generating" status that a list
   // can reconcile later. Not called for the synchronous `cover` path.
@@ -256,7 +260,7 @@ async function submitExportJob(
   book: Book,
   format: "epub" | "pdf" | "docx" | "pack",
   diagrams: boolean,
-  profile?: "default" | "kdp",
+  profile?: "default" | "kdp" | "epub2",
 ): Promise<string> {
   const params = new URLSearchParams({ format, diagrams: String(diagrams) });
   if (profile) params.set("profile", profile);

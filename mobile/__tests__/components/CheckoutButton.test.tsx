@@ -50,6 +50,27 @@ const bookWithAudio = {
   },
 } as unknown as Book;
 
+// Like bookWithAudio, but the clip carries a transcript — used by the epub2
+// transcript-fallback test below. bookWithAudio has no transcript, which the
+// epub2 path correctly treats as "nothing to show" (see the no-transcript
+// test below), so this needs its own fixture.
+const bookWithAudioTranscript = {
+  ...book,
+  content: {
+    t1: {
+      topicId: "t1",
+      title: "U",
+      generatedAt: "x",
+      lesson: {
+        topic: "U", synopsis: "s", learning_objectives: [],
+        sections: [{ heading: "H", body_markdown: "b" }],
+        key_takeaways: [],
+      },
+      audio: [{ id: "a1", file: "media/b1/a1.mp3", mime: "audio/mpeg", title: "Intro", transcript: "Hello there." }],
+    },
+  },
+} as unknown as Book;
+
 const manifest: TrustManifest = {
   trust_manifest_version: 1,
   provenance: {
@@ -205,4 +226,66 @@ it("Publish pack posts a payload that includes the book's narration audio", asyn
   const secs = postedBook.content!.t1.lesson.sections;
   expect(secs.at(-1)!.heading).toBe("Narration");
   expect(secs.at(-1)!.body_markdown).toContain("<audio");
+});
+
+it("renders the EPUB 2 (max compatibility) button", () => {
+  render(<CheckoutButton book={book} />);
+  expect(
+    screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" }),
+  ).toBeTruthy();
+});
+
+it("EPUB 2 (max compatibility) checks out a distinct, profile=epub2 EPUB", async () => {
+  mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
+  render(<CheckoutButton book={book} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" }));
+
+  await waitFor(() => expect(screen.getByText(/EPUB 2 \(max compatibility\) downloaded|Saved:/)).toBeTruthy());
+  expect(mockExport).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ format: "epub", diagrams: true, profile: "epub2" }),
+  );
+  expect(mockDownload).toHaveBeenCalledWith(
+    expect.anything(),
+    "physics-epub2.epub",
+    "application/epub+zip",
+  );
+});
+
+it("EPUB 2 (max compatibility) button re-enables after a failed export", async () => {
+  mockExport.mockRejectedValue(new Error("network fetch failed"));
+  render(<CheckoutButton book={book} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" }));
+
+  await waitFor(() => expect(screen.getByText(/Couldn’t reach the server/)).toBeTruthy());
+  const button = screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" });
+  expect(button.props.accessibilityState?.disabled).toBe(false);
+});
+
+it("EPUB 2 (max compatibility) posts a payload with the narration TRANSCRIPT, not <audio>", async () => {
+  mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
+  render(<CheckoutButton book={bookWithAudioTranscript} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" }));
+
+  await waitFor(() => expect(screen.getByText(/EPUB 2 \(max compatibility\) downloaded|Saved:/)).toBeTruthy());
+  const postedBook = mockExport.mock.calls[0][0] as Book;
+  const secs = postedBook.content!.t1.lesson.sections;
+  expect(secs.at(-1)!.heading).toBe("Narration (transcript)");
+  expect(secs.at(-1)!.body_markdown).toContain("Hello there.");
+  expect(secs.at(-1)!.body_markdown).not.toContain("<audio");
+});
+
+it("EPUB 2 (max compatibility) with a clip that has no transcript gets no Narration section", async () => {
+  mockExport.mockResolvedValue({ artifact: new ArrayBuffer(8), trust: undefined });
+  render(<CheckoutButton book={bookWithAudio} />);
+
+  fireEvent.press(screen.getByRole("button", { name: "Export an EPUB 2 for maximum compatibility" }));
+
+  await waitFor(() => expect(screen.getByText(/EPUB 2 \(max compatibility\) downloaded|Saved:/)).toBeTruthy());
+  const postedBook = mockExport.mock.calls[0][0] as Book;
+  const headings = postedBook.content!.t1.lesson.sections.map((s) => s.heading);
+  expect(headings).not.toContain("Narration (transcript)");
 });
