@@ -45,3 +45,21 @@ def cost_micros(provider: str, model: str, input_tokens: int, output_tokens: int
     tokens at $3/1M = 300 micros = $0.0003)."""
     inp_rate, out_rate = _PRICES.get((provider, model), _DEFAULT_RATE)
     return round(input_tokens * inp_rate + output_tokens * out_rate)
+
+
+# TTS is priced per INPUT CHARACTER, not per input/output token pair — there
+# is no "output tokens" concept for a speech-synthesis call. USD per
+# 1,000,000 characters.
+_TTS_PRICES: dict[str, float] = {
+    # OpenAI tts-1: $15.00 / 1M characters (verify on update — O6).
+    "openai": 15.0,
+}
+_TTS_DEFAULT_RATE = 15.0
+
+
+def tts_cost_micros(provider_id: str, char_count: int) -> int:
+    """Estimated cost of a TTS synthesis call in micro-USD (1e-6 USD),
+    rounded to the nearest micro. Same reduction as `cost_micros`: rate is
+    per 1M characters, so cost_micros = char_count × rate."""
+    rate = _TTS_PRICES.get(provider_id, _TTS_DEFAULT_RATE)
+    return round(char_count * rate)
