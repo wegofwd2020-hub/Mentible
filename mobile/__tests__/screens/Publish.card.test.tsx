@@ -7,6 +7,7 @@ jest.mock("@/hooks/useMakePost", () => ({ useMakePost: jest.fn() }));
 jest.mock("@/hooks/useMakeCard", () => ({ useMakeCard: jest.fn() }));
 jest.mock("@/hooks/useMakeCarousel", () => ({ useMakeCarousel: jest.fn() }));
 jest.mock("@/hooks/useMakeAnimated", () => ({ useMakeAnimated: jest.fn() }));
+jest.mock("@/hooks/useMakeAudio", () => ({ useMakeAudio: jest.fn() }));
 jest.mock("@/lib/clipboard", () => ({ copyText: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
 jest.mock("@/lib/pickReferenceImage", () => ({ pickReferenceImage: jest.fn() }));
@@ -22,6 +23,7 @@ import { useMakePost } from "@/hooks/useMakePost";
 import { useMakeCard } from "@/hooks/useMakeCard";
 import { useMakeCarousel } from "@/hooks/useMakeCarousel";
 import { useMakeAnimated } from "@/hooks/useMakeAnimated";
+import { useMakeAudio } from "@/hooks/useMakeAudio";
 import { useAuth } from "@/auth/AuthProvider";
 import { listOwnedProjects, getProject } from "@/api/trustClient";
 import { downloadArtifact } from "@/storage/epubLibrary";
@@ -49,6 +51,13 @@ function mockCarouselHook(over: Record<string, unknown> = {}) {
 
 function mockAnimatedHook(over: Record<string, unknown> = {}) {
   (useMakeAnimated as jest.Mock).mockReturnValue({
+    status: "idle", error: null, result: null,
+    run: jest.fn(), reset: jest.fn(), ...over,
+  });
+}
+
+function mockAudioHook(over: Record<string, unknown> = {}) {
+  (useMakeAudio as jest.Mock).mockReturnValue({
     status: "idle", error: null, result: null,
     run: jest.fn(), reset: jest.fn(), ...over,
   });
@@ -91,6 +100,7 @@ beforeEach(() => {
   mockCardHook();
   mockCarouselHook();
   mockAnimatedHook();
+  mockAudioHook();
   (useAuth as jest.Mock).mockReturnValue({ accessToken: "token-x", status: "signed_in" });
   (listOwnedProjects as jest.Mock).mockResolvedValue([VALIDATED_PROJECT]);
   (getProject as jest.Mock).mockResolvedValue(VALIDATED_PROJECT_DETAIL);

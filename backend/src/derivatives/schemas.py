@@ -156,6 +156,15 @@ class CardResponse(BaseModel):
     provenance: str = "ai-generated"
 
 
+class NarrationContent(BaseModel):
+    """Shape the model's JSON response is validated against for the audio
+    narration script (P1-5 P4) — a speakable rewrite of the source, not a
+    promotional headline/subtext pair like `CardContent`."""
+
+    title: str
+    script: str
+
+
 # --- Publish animated card (P1-5 P3) ----------------------------------------
 
 AnimatedPreset = Literal["fade", "slide", "build"]
@@ -247,4 +256,50 @@ class CarouselResponse(BaseModel):
     """Body of a completed publish-carousel generation."""
 
     frames: list[CarouselFrame]
+    provenance: str = "ai-generated"
+
+
+# --- Publish narrated audio (P1-5 P4) ---------------------------------------
+
+
+class AudioRequest(BaseModel):
+    """Body of POST /derivatives/audio — generate a narrated audio clip.
+
+    Same `api_key` custody discipline as `CardRequest` (ADR-001): never
+    logged, never persisted in plaintext. Exactly one of `source_text` /
+    `topic_version_id` must be supplied, mirroring `CardRequest`. Unlike the
+    other derivatives, `provider_id` defaults to "openai" — the only
+    TTS-capable provider at launch (`tts.TTS_CAPABLE`); "anthropic" has no
+    TTS endpoint and would fail the router's `is_tts_available` gate.
+    """
+
+    source_text: str | None = Field(default=None, min_length=1, max_length=20000)
+    topic_version_id: uuid.UUID | None = None
+    tone: str | None = None
+    voice: str | None = None
+    api_key: str | None = Field(default=None, min_length=20, max_length=512)
+    provider_id: str = "openai"
+    model: str | None = None
+
+    @field_validator("provider_id")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in PROVIDER_REGISTRY:
+            raise ValueError(f"unknown provider_id {v!r}")
+        return v
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> AudioRequest:
+        if bool(self.source_text) == bool(self.topic_version_id):
+            raise ValueError("provide exactly one of source_text or topic_version_id")
+        return self
+
+
+class AudioResponse(BaseModel):
+    """Body of a completed audio-narration generation."""
+
+    script: str
+    title: str
+    audio_base64: str
+    mime: str = "audio/mpeg"
     provenance: str = "ai-generated"

@@ -178,6 +178,21 @@ class Settings(BaseSettings):
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
 
+    # ── Audio narration derivative TTS (P1-5 P4) ──────────────────────────────
+    # The LLM seam is chat-completions only (no TTS field on Capabilities), so
+    # text-to-speech is a SEPARATE, dormant-config httpx client (tts.py) — the
+    # base URL is config, never request-supplied (no SSRF). Non-empty by
+    # default so BYOK narration works out of the box at launch (D4/launch
+    # posture); set to "" to kill-switch the whole /derivatives/audio endpoint
+    # (it returns a clean 422). NOTE: the mobile Audio mode has no capability
+    # probe — it stays visible and surfaces that 422 as an inline error rather
+    # than hiding. The managed vendor KEY is the existing `managed_openai_api_key`
+    # above — no new key config.
+    tts_base_url_openai: str = Field(
+        default="https://api.openai.com/v1",
+        description="OpenAI TTS base URL; empty = audio narration disabled",
+    )
+
     # ── Artifact compiler (Node) ──────────────────────────────────────────────
     # POST /export shells out to the Node EPUB/PDF compiler (compiler/dist/cli.js).
     # Compilation is deterministic and KEY-FREE (no Anthropic key). Build it with

@@ -1,4 +1,4 @@
-import { makeCard, makeCarousel, makePost } from "@/api/derivativesClient";
+import { makeAudio, makeCard, makeCarousel, makePost } from "@/api/derivativesClient";
 import { ApiError } from "@/api/client";
 
 const RESPONSE = {
@@ -167,4 +167,68 @@ it("makeCarousel throws in a demo build without hitting the network", async () =
   expect(fetchMock).not.toHaveBeenCalled();
   jest.dontMock("@/constants/demo");
   jest.resetModules();
+});
+
+const AUDIO_RESPONSE = {
+  script: "Water finds the lowest point.",
+  title: "Stormwater, decoded",
+  audio_base64: "SUQzZmFrZQ==",
+  mime: "audio/mpeg",
+  provenance: "ai-generated",
+};
+
+it("POSTs to /derivatives/audio with the exact body and returns the parsed response", async () => {
+  mockFetchOnce(200, AUDIO_RESPONSE);
+  const out = await makeAudio({
+    source_text: "Stormwater basics.",
+    tone: "warm",
+    api_key: "sk-xxxxxxxxxxxxxxxxxxxx",
+    provider_id: "openai",
+  });
+  expect(out.title).toBe("Stormwater, decoded");
+  expect(out.mime).toBe("audio/mpeg");
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toMatch(/\/api\/v1\/derivatives\/audio$/);
+  expect(init.method).toBe("POST");
+  const sent = JSON.parse(init.body);
+  expect(sent.source_text).toBe("Stormwater basics.");
+  expect(sent.tone).toBe("warm");
+  expect(sent.provider_id).toBe("openai");
+  expect(sent.api_key).toBe("sk-xxxxxxxxxxxxxxxxxxxx");
+});
+
+it("makeAudio defaults provider_id to openai when omitted", async () => {
+  mockFetchOnce(200, AUDIO_RESPONSE);
+  await makeAudio({ source_text: "x", api_key: "sk-xxxxxxxxxxxxxxxxxxxx" });
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [, init] = fetchMock.mock.calls[0];
+  expect(JSON.parse(init.body).provider_id).toBe("openai");
+});
+
+it("makeAudio sends topic_version_id instead of source_text when given", async () => {
+  mockFetchOnce(200, AUDIO_RESPONSE);
+  await makeAudio({ topic_version_id: "tv-1", api_key: "sk-x" });
+  const fetchMock = (global as unknown as { fetch: jest.Mock }).fetch;
+  const [, init] = fetchMock.mock.calls[0];
+  const sent = JSON.parse(init.body);
+  expect(sent.topic_version_id).toBe("tv-1");
+  expect("source_text" in sent).toBe(false);
+});
+
+it("makeAudio throws ApiError on a non-2xx response", async () => {
+  mockFetchOnce(422, { detail: "audio narration is not available for anthropic" });
+  await expect(
+    makeAudio({ source_text: "x", api_key: "sk-x" }),
+  ).rejects.toBeInstanceOf(ApiError);
+});
+
+it("makeAudio throws in a demo build without hitting the network", async () => {
+  jest.resetModules();
+  jest.doMock("@/constants/demo", () => ({ IS_DEMO: true }));
+  const fetchMock = jest.fn();
+  (global as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+  const { makeAudio: demoMakeAudio } = await import("@/api/derivativesClient");
+  await expect(demoMakeAudio({ source_text: "x" })).rejects.toThrow(/demo/i);
+  expect(fetchMock).not.toHaveBeenCalled();
 });

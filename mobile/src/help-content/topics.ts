@@ -603,6 +603,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "publish-audio",
+    title: "Publish narrated audio",
+    featureKey: "publish-audio",
+    keywords: ["publish", "audio", "narration", "voice", "mp3", "share", "podcast", "listen"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Audio mode on the Publish tab turns your own writing into a short narrated audio clip — a spoken summary a text-to-speech voice reads aloud, built from either pasted text or a validated section from one of your projects. Play it back in the app, then download the MP3 to share it yourself. This is a short narrated clip of one section, not a whole-book audiobook. Making one uses a billable LLM call plus a text-to-speech call — narration works with your own OpenAI key today (Settings); Mentible's managed plan doesn't cover audio narration yet.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Publish and switch to Audio mode.",
+          "Choose a source: paste text, or pick a validated section from your projects.",
+          "Optionally set a tone, then make the narration.",
+          "Play it back in the app, or Download to save the MP3 and share it yourself.",
+        ],
+      },
+    ],
+  },
+  {
     id: "sources",
     title: "Input — capture the expert's sources",
     featureKey: "sources",

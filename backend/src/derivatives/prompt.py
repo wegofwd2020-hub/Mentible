@@ -100,3 +100,29 @@ def build_carousel_prompt(source_text: str, tone: str | None) -> str:
         'Return ONLY JSON: {"frames":[{"headline": string, "subtext": string}]} with between 4 and 8 frames.\n\n'
         f'SOURCE:\n"""\n{source_text}\n"""'
     )
+
+
+def build_narration_prompt(source_text: str, tone: str | None) -> str:
+    """Return the prompt for generating a speakable audio-narration script.
+
+    Output is JSON conforming to `schemas.NarrationContent`. Unlike the other
+    derivative prompts (write ABOUT/promote the source), this REWRITES the
+    source into natural spoken prose: strip markdown/headings/citation
+    markers/bullet points, and produce a short narration a text-to-speech
+    voice can read aloud without stumbling over syntax.
+    """
+    tone_line = f"Tone: {tone}.\n" if tone else ""
+    return (
+        "You are a narrator turning written material into a SPOKEN summary. Using ONLY the "
+        "source material below, write natural, speakable prose that a text-to-speech voice "
+        "can read aloud — no markdown, no headings, no bullet points, no citation markers "
+        "like [1] or (Smith, 2020), no code blocks, no LaTeX. Write complete sentences a "
+        "person would actually say out loud.\n"
+        f"{tone_line}"
+        "Target length: about 60-90 seconds of spoken narration (roughly 150-230 words). "
+        "Do not invent facts beyond the source.\n"
+        'Return ONLY JSON: {"title": string, "script": string}.\n'
+        "title: <= 60 characters, a short label for this clip. script: the full spoken "
+        "narration as plain prose (no line breaks needed).\n\n"
+        f'SOURCE:\n"""\n{source_text}\n"""'
+    )

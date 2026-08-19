@@ -15,6 +15,20 @@ jest.mock("@expo/vector-icons", () => {
   return new Proxy({}, { get: (_t, prop) => (prop === "__esModule" ? false : Icon) });
 });
 
+// expo-audio's native module isn't registered under jest (no native runtime),
+// and its index unconditionally reads a field off it at import time — any
+// test that transitively imports AudioNarrationPlayer.tsx (i.e. renders
+// posts.tsx in any mode, not just Audio) would otherwise crash at require()
+// with "Cannot read properties of undefined (reading 'prototype')". Provide
+// an inert default (never playing, no-op controls) here so every other
+// Publish-tab test keeps working unmodified; tests that need real play/pause
+// assertions (AudioNarrationPlayer.test.tsx, Publish.audio.test.tsx) declare
+// their own jest.mock("expo-audio", …), which overrides this one for that file.
+jest.mock("expo-audio", () => ({
+  useAudioPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn() })),
+  useAudioPlayerStatus: jest.fn(() => ({ playing: false })),
+}));
+
 // jest's jsdom test environment (jest-environment-jsdom@29, jsdom@20) does not
 // expose TextEncoder/TextDecoder on its global — a long-standing upstream gap
 // (jestjs/jest#9983). Node's `jsdom` package (imported directly by tests that

@@ -8,6 +8,8 @@ import { useMakePost } from "@/hooks/useMakePost";
 import { useMakeCard } from "@/hooks/useMakeCard";
 import { useMakeCarousel } from "@/hooks/useMakeCarousel";
 import { useMakeAnimated } from "@/hooks/useMakeAnimated";
+import { useMakeAudio } from "@/hooks/useMakeAudio";
+import { AudioNarrationPlayer } from "@/components/AudioNarrationPlayer";
 import { copyText } from "@/lib/clipboard";
 import { pickReferenceImage } from "@/lib/pickReferenceImage";
 import { Alert } from "@/lib/alert";
@@ -27,11 +29,12 @@ const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "x", label: "X" },
 ];
 
-const MODES: { id: "post" | "card" | "carousel" | "animated"; label: string }[] = [
+const MODES: { id: "post" | "card" | "carousel" | "animated" | "audio"; label: string }[] = [
   { id: "post", label: "Text post" },
   { id: "card", label: "Image card" },
   { id: "carousel", label: "Carousel" },
   { id: "animated", label: "Animated" },
+  { id: "audio", label: "Audio" },
 ];
 
 const PRESETS: { id: AnimatedPreset; label: string }[] = [
@@ -143,7 +146,7 @@ export default function PostsScreen() {
   }, []);
 
   // ── Image card mode ────────────────────────────────────────────────────
-  const [mode, setMode] = useState<"post" | "card" | "carousel" | "animated">("post");
+  const [mode, setMode] = useState<"post" | "card" | "carousel" | "animated" | "audio">("post");
   const [cardSource, setCardSource] = useState<"text" | "section">("text");
   const [cardText, setCardText] = useState("");
   const [cardSize, setCardSize] = useState<CardSize>("square");
@@ -269,6 +272,40 @@ export default function PostsScreen() {
     }
   }, [animatedResult]);
 
+  // ── Audio mode ───────────────────────────────────────────────────────────
+  // Reuses the SAME source switch as card/carousel/animated modes
+  // (cardSource/cardText/selectedSectionId/cardTone) via renderSourcePicker —
+  // no preset selector (unlike animated); the result is a script/title pair
+  // plus a narrated MP3 (played inline via AudioNarrationPlayer, downloaded
+  // via the existing mime-generic downloadArtifact).
+  const {
+    status: audioStatus, error: audioError, result: audioResult, run: runAudio,
+  } = useMakeAudio({ getApiKey: () => loadApiKey("openai") });
+
+  const audioBusy = audioStatus === "generating";
+  const canMakeAudio =
+    !audioBusy
+    && ((cardSource === "text" && cardText.trim().length > 0)
+      || (cardSource === "section" && selectedSectionId != null));
+
+  const onMakeAudio = useCallback(() => {
+    void runAudio({
+      ...(cardSource === "section"
+        ? { topic_version_id: selectedSectionId as string }
+        : { source_text: cardText.trim() }),
+      ...(cardTone.trim() ? { tone: cardTone.trim() } : {}),
+    });
+  }, [runAudio, cardSource, cardText, cardTone, selectedSectionId]);
+
+  const onDownloadAudio = useCallback(async () => {
+    if (!audioResult) return;
+    try {
+      await downloadArtifact(fromBase64(audioResult.audio_base64), "narration.mp3", "audio/mpeg");
+    } catch (e) {
+      Alert.alert("Could not download", e instanceof Error ? e.message : "Try again.");
+    }
+  }, [audioResult]);
+
   // Shared between card, carousel, and animated modes — all three pick a
   // source the same way (paste text, or a validated section from an owned
   // project); only what happens after (size/preset selector, single card vs.
@@ -276,8 +313,12 @@ export default function PostsScreen() {
   // prefix ("Card"/"Carousel"/"Animated") so the a11y tree reads correctly
   // per mode — the visible UI (copy, placeholder, layout) is identical
   // either way.
-  const renderSourcePicker = (kind: "Card" | "Carousel" | "Animated") => {
-    const noun = kind === "Card" ? "card" : kind === "Carousel" ? "carousel" : "animated card";
+  const renderSourcePicker = (kind: "Card" | "Carousel" | "Animated" | "Audio") => {
+    const noun =
+      kind === "Card" ? "card"
+      : kind === "Carousel" ? "carousel"
+      : kind === "Animated" ? "animated card"
+      : "narration";
     return (
     <>
       <Label tone="secondary">Source</Label>
@@ -551,6 +592,50 @@ export default function PostsScreen() {
                     label="Download"
                     onPress={() => void onDownloadAnimated()}
                     accessibilityLabel="Download animated card"
+                    style={styles.copyBtn}
+                  />
+                </Card>
+              </View>
+            ) : null}
+          </>
+        ) : mode === "audio" ? (
+          <>
+            {renderSourcePicker("Audio")}
+
+            <Label tone="secondary">Tone (optional)</Label>
+            <TextInput
+              accessibilityLabel="Audio tone"
+              style={styles.tone}
+              placeholder="e.g. punchy, professional"
+              placeholderTextColor={theme.textMuted}
+              value={cardTone}
+              onChangeText={setCardTone}
+            />
+
+            <Button
+              variant="primary"
+              label="Make narration"
+              onPress={onMakeAudio}
+              busy={audioBusy}
+              disabled={!canMakeAudio}
+              accessibilityLabel="Make narration"
+              style={styles.generate}
+            />
+
+            {audioStatus === "failed" && audioError ? <Text style={styles.error}>{audioError}</Text> : null}
+
+            {audioStatus === "done" && audioResult ? (
+              <View style={styles.results}>
+                <Label tone="muted">{humanizeProvenance(audioResult.provenance)}</Label>
+                <Card style={styles.card}>
+                  <Text style={styles.hook}>{audioResult.title}</Text>
+                  <Text style={styles.postBody}>{audioResult.script}</Text>
+                  <AudioNarrationPlayer base64={audioResult.audio_base64} mime={audioResult.mime} />
+                  <Button
+                    variant="ghost"
+                    label="Download"
+                    onPress={() => void onDownloadAudio()}
+                    accessibilityLabel="Download narration"
                     style={styles.copyBtn}
                   />
                 </Card>

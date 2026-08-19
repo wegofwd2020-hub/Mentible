@@ -23,17 +23,23 @@ from wegofwd_llm.errors import (
     LLMRateLimitError,
     LLMSchemaError,
 )
+from wegofwd_llm.registry import PROVIDER_REGISTRY
 
 from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing import access
+from backend.src.billing import access, pricing, usage_repo
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
 from backend.src.core.rate_limit import enforce_rate_limit
-from backend.src.derivatives.generate import generate_card, generate_carousel, generate_post
+from backend.src.derivatives.generate import (
+    generate_card,
+    generate_carousel,
+    generate_narration,
+    generate_post,
+)
 from backend.src.derivatives.render import (
     CardRenderError,
     compile_animated_gif,
@@ -43,6 +49,8 @@ from backend.src.derivatives.render import (
 from backend.src.derivatives.schemas import (
     AnimatedRequest,
     AnimatedResponse,
+    AudioRequest,
+    AudioResponse,
     CardContent,
     CardRequest,
     CardResponse,
@@ -52,6 +60,12 @@ from backend.src.derivatives.schemas import (
     DerivativeRequest,
     DerivativeResponse,
 )
+from backend.src.derivatives.tts import (
+    TTSError,
+    TTSProviderNotSupported,
+    is_tts_available,
+    synthesize_speech,
+)
 from backend.src.trust import topic_repo
 from backend.src.trust.access import ProjectAccessError, require_project_access
 
@@ -60,7 +74,7 @@ log = get_logger("derivatives")
 
 
 async def _resolve_key_and_source(
-    body: CardRequest | CarouselRequest | AnimatedRequest,
+    body: CardRequest | CarouselRequest | AnimatedRequest | AudioRequest,
     request: Request,
     principal: Principal | None,
 ) -> tuple[str, str, str, str | None]:
@@ -575,5 +589,148 @@ async def make_animated(
         card=CardContent(headline=card.headline, subtext=card.subtext, source_label=label),
         preset=body.preset,
         image_gif_base64=base64.b64encode(gif).decode(),
+        provenance="ai-generated",
+    )
+
+
+@router.post(
+    "/audio",
+    response_model=AudioResponse,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def make_audio(
+    body: AudioRequest,
+    request: Request,
+    principal: Principal | None = Depends(optional_user),
+) -> AudioResponse:
+    """Generate a narrated audio clip (a spoken-summary script + MP3 render).
+
+    Pipeline mirrors `make_card` minus the compiler: resolve key/source via
+    `_resolve_key_and_source` (identical managed/BYOK fork + trust-section
+    access gate), generate a speakable narration script via the LLM seam
+    (`generate_narration`), then synthesize it via a SEPARATE TTS client
+    (`synthesize_speech` — the LLM seam is chat-only, no TTS capability).
+
+    `body.provider_id` must be TTS-capable AND the feature must be
+    configured (`is_tts_available`) — checked FIRST, before any key
+    resolution or LLM call, so an unsupported/disabled provider fails fast
+    with a clean 422 and no wasted spend. Managed spend (character count ->
+    cost) is metered once, on success only, on the managed path.
+
+    Never logs `api_key` or the script content.
+    """
+    if not is_tts_available(body.provider_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"audio narration is not available for {body.provider_id}",
+        )
+
+    api_key, model, source_text, _source_label = await _resolve_key_and_source(
+        body, request, principal
+    )
+    # _resolve_key_and_source falls back to settings.anthropic_default_model
+    # when body.model is omitted, regardless of provider_id — wrong here
+    # since AudioRequest defaults to the TTS-only "openai" provider. Re-
+    # resolve the registry's OWN default model when the caller pinned none.
+    if body.model is None and body.provider_id != "anthropic":
+        model = PROVIDER_REGISTRY[body.provider_id].default_model
+
+    try:
+        narration = await asyncio.to_thread(
+            generate_narration,
+            source_text=source_text,
+            tone=body.tone,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            model=model,
+        )
+    except LLMSchemaError:
+        log.warning("audio_validation_failed", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not generate the narration script",
+        ) from None
+    except LLMAuthError:
+        log.warning("audio_auth_rejected", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Your API key was rejected by the provider. Check it in Settings — "
+                "it may be invalid, revoked, or out of credit."
+            ),
+        ) from None
+    except LLMRateLimitError:
+        log.warning("audio_rate_limited", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The provider is rate-limiting requests. Wait a moment and try again.",
+        ) from None
+    except LLMError:
+        log.warning("audio_llm_error", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="narration generation failed",
+        ) from None
+    except Exception:
+        # Defense in depth: never let a raw exception escape with key material
+        # to the framework logger. Type-only log, generic 502.
+        log.warning("audio_unexpected_error", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="narration generation failed",
+        ) from None
+
+    try:
+        audio_bytes, char_count = await synthesize_speech(
+            narration.script,
+            provider_id=body.provider_id,
+            api_key=api_key,
+            voice=body.voice,
+        )
+    except TTSProviderNotSupported:
+        log.warning("audio_tts_not_supported", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"audio narration is not available for {body.provider_id}",
+        ) from None
+    except TTSError:
+        log.warning("audio_tts_failed", provider_id=body.provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not synthesize audio",
+        ) from None
+
+    # Meter managed spend (char_count -> cost) on success only, managed path
+    # only — best-effort, mirrors generate/tasks.py's _record_managed_usage.
+    if body.api_key is None:
+        db_pool = getattr(request.app.state, "db", None)
+        if db_pool is not None and principal is not None:
+            try:
+                async with db_pool.acquire() as conn:
+                    account = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=principal.sub, email=principal.email
+                    )
+                    cost = pricing.tts_cost_micros(body.provider_id, char_count)
+                    await usage_repo.record_usage(
+                        conn,
+                        account_id=account.id,
+                        provider=body.provider_id,
+                        model=f"tts:{body.voice or 'default'}",
+                        input_tokens=0,
+                        output_tokens=char_count,
+                        cost_micros=cost,
+                        job_id=uuid.uuid4(),
+                    )
+                log.info("audio_usage_recorded", cost_micros=cost)
+            except Exception:
+                # Counts/cost only — no key, no content — so a warning is
+                # safe, and metering never fails a clip the user already got.
+                log.warning("audio_usage_record_failed")
+
+    return AudioResponse(
+        script=narration.script,
+        title=narration.title,
+        audio_base64=base64.b64encode(audio_bytes).decode(),
+        mime="audio/mpeg",
         provenance="ai-generated",
     )
