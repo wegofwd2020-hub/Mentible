@@ -117,3 +117,49 @@ export function renderAudioTranscriptHtml(audio: TopicAudio[]): string {
     .filter(Boolean)
     .join("");
 }
+
+// Reader-side audio block (ADR-040 rung 3) — DISTINCT from renderAudioHtml
+// (the compiler/EPUB path) and renderAudioTranscriptHtml (epub2). This renders
+// the in-app reader's player:
+//   - web target: the browser's native <audio controls> transport, fed the
+//     resolved data: URI (plays direct-to-DOM). A clip with no resolved url is
+//     omitted (the file was missing).
+//   - native target: an id-keyed control block (play/pause button + seek range +
+//     time), NO <audio> element and NO data: URI — ExoPlayer data:-URI playback
+//     is unreliable across OEMs (see AudioNarrationPlayer.tsx). The WebView's
+//     injected JS wires these to the expo-audio bridge in LessonRenderer.
+// Both targets always render the transcript in a <details> (a11y + resilience).
+function readerAudioTranscript(a: TopicAudio): string {
+  const text = a.transcript?.trim();
+  if (!text) return "";
+  return `<details class="rd-audio-transcript"><summary>Transcript</summary><p>${esc(text)}</p></details>`;
+}
+
+export function renderReaderAudioHtml(
+  audio: TopicAudio[],
+  opts: { target: "web" | "native"; dataUrls?: Map<string, string> },
+): string {
+  const blocks = (audio ?? [])
+    .map((a) => {
+      const cap = `<figcaption>${esc(audioCaption(a))}</figcaption>`;
+      const transcript = readerAudioTranscript(a);
+      if (opts.target === "web") {
+        const src = opts.dataUrls?.get(a.id);
+        if (!src) return ""; // missing file → omit the player (web can't bridge)
+        return `<figure class="topic-audio" data-audio-id="${esc(a.id)}"><audio class="rd-audio" controls="controls" preload="none" src="${esc(src)}"></audio>${cap}${transcript}</figure>`;
+      }
+      // native: id-only control block, driven by the WebView bridge.
+      const id = esc(a.id);
+      const control =
+        `<div class="rd-audio-ctl">` +
+        `<button type="button" class="rd-audio-toggle" data-audio-id="${id}" aria-label="Play">&#9658;</button>` +
+        `<input type="range" class="rd-audio-seek" data-audio-id="${id}" min="0" max="0" value="0" step="1" aria-label="Seek">` +
+        `<span class="rd-audio-time" data-audio-id="${id}">0:00&nbsp;/&nbsp;0:00</span>` +
+        `</div>`;
+      return `<figure class="topic-audio" data-audio-id="${id}">${control}${cap}${transcript}</figure>`;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!blocks) return "";
+  return `<hr class="section-divider"><section class="audio"><h3>Narration</h3>${blocks}</section>`;
+}
