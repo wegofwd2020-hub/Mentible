@@ -177,6 +177,21 @@ export interface TopicImage {
   addedAt: string; // ISO
 }
 
+// An audio narration clip attached to a topic (ADR-040 rung 2). Ref only:
+// bytes live on device at `media/<bookId>/<id>.mp3` (see mediaStore); they are
+// never stored in this JSON. Mirrors TopicImage exactly. `title`/`transcript`
+// come free from the P4 narration engine (generate_narration's {title,script})
+// when the clip was produced by generateAndStoreTopicAudio — both optional so
+// a hand-attached clip (future authoring path) can omit them.
+export interface TopicAudio {
+  id: string; // randomUUID (@/lib/uuid)
+  file: string; // device-relative, e.g. "media/<bookId>/<id>.mp3"
+  mime: string; // "audio/mpeg" (the only format the P4 TTS engine produces today)
+  title?: string; // narration title, from generate_narration
+  transcript?: string; // the narration script — a11y + search; cheap, the engine already returns it
+  durationMs?: number; // optional, if cheaply known
+}
+
 // One topic's generated content, produced by the generate-all loop (lesson
 // only) or imported from a migrated book (lesson + any of the extras).
 export interface GeneratedTopic {
@@ -199,6 +214,8 @@ export interface GeneratedTopic {
   revisionCount?: number;
   // Author-attached images for this topic (ordered = render order). Refs only.
   images?: TopicImage[];
+  // Narration audio clips for this topic (ADR-040 rung 2). Ordered; refs only.
+  audio?: TopicAudio[];
 }
 
 // Conventional bibliographic metadata → EPUB OPF (dc:*) + colophon page on

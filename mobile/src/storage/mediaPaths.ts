@@ -35,3 +35,26 @@ export function mediaFileRel(bookId: string, id: string, ext: string): string {
 export function absPath(rel: string): string {
   return `${FileSystem.documentDirectory}${rel}`;
 }
+
+export const AUDIO_MIME_ALLOWLIST = ["audio/mpeg"] as const;
+export type AllowedAudioMime = (typeof AUDIO_MIME_ALLOWLIST)[number];
+
+const AUDIO_MIME_EXT: Record<string, string> = {
+  "audio/mpeg": "mp3",
+};
+
+// A P4 narration clip runs ~60–90s (generate_narration's bound) — well under
+// 1-2 MB at typical MP3 bitrates. The cap is set larger than MAX_IMAGE_BYTES
+// (10 MB) to leave real headroom for longer clips without acting as a de
+// facto duration limit; it shares the book-wide MAX_MEDIA_PER_BOOK_BYTES
+// budget with images (bookMediaBytes counts both).
+export const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
+export const MAX_AUDIO_PER_TOPIC = 5;
+
+export function extForAudioMime(mime: string): string | null {
+  return AUDIO_MIME_EXT[mime] ?? null;
+}
+
+export function isAllowedAudioMime(mime: string): mime is AllowedAudioMime {
+  return (AUDIO_MIME_ALLOWLIST as readonly string[]).includes(mime);
+}
