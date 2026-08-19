@@ -254,7 +254,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
       if (profile !== "default") body = replaceMathWithImages(body, mathPngs);
       const packedImages = packImages(
-        xhtmlDocument(title, body, "../css/style.css", lang),
+        xhtmlDocument(title, body, "../css/style.css", lang, profile),
         images,
         seenImages,
       );
@@ -291,30 +291,35 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     `<section epub:type="titlepage"><h1>${escapeHtml(book.title)}</h1></section>`,
     "css/style.css",
     lang,
+    profile,
   );
-  const colophonXhtml = buildColophon(book, lang);
+  const colophonXhtml = buildColophon(book, lang, profile);
 
   // Front matter: List of Figures / List of Tables. Reflowable EPUB has no fixed
   // pages, so these are link lists (no page numbers), unlike the PDF. Back
   // matter: a Glossary from book.metadata.glossary.
   const auxFront: AuxDoc[] = [];
   if (allFigs.length)
-    auxFront.push({ id: "lof", href: "lof.xhtml", title: "List of Figures", xhtml: floatListDoc("List of Figures", "Figure", allFigs, lang) });
+    auxFront.push({ id: "lof", href: "lof.xhtml", title: "List of Figures", xhtml: floatListDoc("List of Figures", "Figure", allFigs, lang, profile) });
   if (allTbls.length)
-    auxFront.push({ id: "lot", href: "lot.xhtml", title: "List of Tables", xhtml: floatListDoc("List of Tables", "Table", allTbls, lang) });
+    auxFront.push({ id: "lot", href: "lot.xhtml", title: "List of Tables", xhtml: floatListDoc("List of Tables", "Table", allTbls, lang, profile) });
   const auxBack: AuxDoc[] = [];
   const glossary = (book.metadata as { glossary?: { term: string; definition: string }[] } | undefined)?.glossary;
   if (glossary && glossary.length)
-    auxBack.push({ id: "glossary", href: "glossary.xhtml", title: "Glossary", xhtml: glossaryDoc(glossary, lang) });
+    auxBack.push({ id: "glossary", href: "glossary.xhtml", title: "Glossary", xhtml: glossaryDoc(glossary, lang, profile) });
 
   const zip = new JSZip();
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", CONTAINER_XML);
   zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, audios, auxFront, auxBack, profile));
-  zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
-  // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
-  // require it and render blank pages without it.
+  // EPUB2 (D3, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md):
+  // NCX is the PRIMARY nav for epub2 — no nav.xhtml at all (its manifest item
+  // is dropped in buildOpf below). default/kdp keep the EPUB3 nav.xhtml.
+  if (profile !== "epub2") zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
+  // EPUB2 NCX navigation — emitted for every profile (older/"traditional"
+  // readers require it and render blank pages without it; epub2 relies on it
+  // as the ONLY nav).
   zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
   zip.file("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
   zip.file("OEBPS/cover.xhtml", coverXhtml);
@@ -381,14 +386,20 @@ function buildNav(
 
 // A conventional copyright / colophon page, emitted right after the title page.
 // Shares colophonSection() with the PDF path so the two artifacts match.
-function buildColophon(book: Book, lang: string): string {
-  return xhtmlDocument(book.title, colophonSection(book), "css/style.css", lang);
+function buildColophon(book: Book, lang: string, profile: "default" | "kdp" | "epub2" = "default"): string {
+  return xhtmlDocument(book.title, colophonSection(book), "css/style.css", lang, profile);
 }
 
 // Front-matter list (List of Figures / List of Tables) as a link list. EPUB is
 // reflowable, so each entry links to its float by id — no page numbers (the PDF
 // path adds those via paged-media target-counter).
-function floatListDoc(title: string, kind: string, items: CrossFloat[], lang: string): string {
+function floatListDoc(
+  title: string,
+  kind: string,
+  items: CrossFloat[],
+  lang: string,
+  profile: "default" | "kdp" | "epub2" = "default",
+): string {
   const lis = items
     .map(
       (x) =>
@@ -396,15 +407,19 @@ function floatListDoc(title: string, kind: string, items: CrossFloat[], lang: st
     )
     .join("");
   const body = `<section class="floatlist"><h1>${escapeHtml(title)}</h1><ol>${lis}</ol></section>`;
-  return xhtmlDocument(title, body, "css/style.css", lang);
+  return xhtmlDocument(title, body, "css/style.css", lang, profile);
 }
 
-function glossaryDoc(glossary: { term: string; definition: string }[], lang: string): string {
+function glossaryDoc(
+  glossary: { term: string; definition: string }[],
+  lang: string,
+  profile: "default" | "kdp" | "epub2" = "default",
+): string {
   const dl = glossary
     .map((g) => `<dt>${escapeHtml(g.term)}</dt><dd>${escapeHtml(g.definition)}</dd>`)
     .join("");
   const body = `<section class="glossary" epub:type="glossary"><h1>Glossary</h1><dl>${dl}</dl></section>`;
-  return xhtmlDocument("Glossary", body, "css/style.css", lang);
+  return xhtmlDocument("Glossary", body, "css/style.css", lang, profile);
 }
 
 // EPUB Accessibility 1.1 metadata (schema.org a11y vocabulary, emitted with the
@@ -482,23 +497,38 @@ function buildOpf(
   auxBack: AuxDoc[] = [],
   profile: "default" | "kdp" | "epub2" = "default",
 ): string {
+  const isEpub2 = profile === "epub2";
   const manifest = [
-    '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
+    // EPUB2 (D3): no nav.xhtml at all for epub2 — NCX is the only/primary
+    // nav, and "properties" is an OPF3-only attribute with no meaning under
+    // an OPF2 (version="2.0") package.
+    ...(isEpub2
+      ? []
+      : ['<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>']),
     '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
     '<item id="css" href="css/style.css" media-type="text/css"/>',
     // Cover: default profile registers the vector SVG as the EPUB3 cover-image
     // (cover.xhtml embeds it inline, hence properties="svg"); the kdp profile
-    // (D5) registers a raster JPEG instead, and cover.xhtml points at it via a
-    // plain <img> (no "svg" property).
+    // (D5, docs/specs/kdp-clean-export-profile.md) registers a raster JPEG
+    // instead. epub2 does NOT raster the cover (out of scope for this
+    // profile — only math/diagrams/audio are touched) but, like every other
+    // manifest item under epub2, drops the OPF3-only "properties" attribute;
+    // the cover is still correctly registered via the EPUB2
+    // <meta name="cover" content="cover-image"/> convention below.
     ...(profile === "kdp"
       ? [
           '<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>',
           '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>',
         ]
-      : [
-          '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
-          '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
-        ]),
+      : isEpub2
+        ? [
+            '<item id="cover-image" href="cover.svg" media-type="image/svg+xml"/>',
+            '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>',
+          ]
+        : [
+            '<item id="cover-image" href="cover.svg" media-type="image/svg+xml" properties="cover-image"/>',
+            '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>',
+          ]),
     '<item id="titlepage" href="title.xhtml" media-type="application/xhtml+xml"/>',
     '<item id="colophon" href="colophon.xhtml" media-type="application/xhtml+xml"/>',
     ...images.map(
@@ -511,6 +541,7 @@ function buildOpf(
       (d) => `<item id="${d.id}" href="${escapeHtml(d.href)}" media-type="application/xhtml+xml"/>`,
     ),
     ...chapters.map((ch) => {
+      if (isEpub2) return `<item id="${ch.id}" href="${escapeHtml(ch.href)}" media-type="application/xhtml+xml"/>`;
       const props = [ch.hasMath ? "mathml" : "", ch.hasSvg ? "svg" : ""].filter(Boolean).join(" ");
       const attr = props ? ` properties="${props}"` : "";
       return `<item id="${ch.id}" href="${escapeHtml(ch.href)}" media-type="application/xhtml+xml"${attr}/>`;
@@ -557,12 +588,17 @@ function buildOpf(
     meta.push(`<dc:identifier id="isbn">${escapeHtml(m.isbn)}</dc:identifier>`);
     meta.push(`<meta refines="#isbn" property="identifier-type" scheme="onix:codelist5">15</meta>`);
   }
-  meta.push(...accessibilityMeta(book, chapters, images));
+  // EPUB2 (D3): drop the EPUB3-only accessibility a11y block (schema:*
+  // property syntax) and dcterms:modified (an EPUB3-required OPF3 property).
+  // EPUB2 uses only dc:* elements + <meta name=.. content=..>, both of which
+  // are unaffected and stay emitted above/below unconditionally.
+  if (!isEpub2) meta.push(...accessibilityMeta(book, chapters, images));
   meta.push(`<meta name="cover" content="cover-image"/>`);
-  meta.push(`<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>`);
+  if (!isEpub2) meta.push(`<meta property="dcterms:modified">${modifiedTimestamp(book.updatedAt)}</meta>`);
 
+  const opfVersion = isEpub2 ? "2.0" : "3.0";
   return `<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="${escapeHtml(lang)}">
+<package xmlns="http://www.idpf.org/2007/opf" version="${opfVersion}" unique-identifier="bookid" xml:lang="${escapeHtml(lang)}">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 ${meta.join("\n")}
 </metadata>

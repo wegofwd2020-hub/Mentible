@@ -254,6 +254,60 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
   });
 });
 
+describe("compileEpub — epub2 packaging (D3, OPF v2.0 / NCX-primary / XHTML 1.1)", () => {
+  it("emits OPF version=\"2.0\" (default/kdp stay 3.0)", async () => {
+    const defaultOpf = await (await unzip(await compileEpub(syntheticBook()))).file("OEBPS/content.opf")!.async("string");
+    const kdpOpf = await (await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
+    const epub2Opf = await (await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }))).file("OEBPS/content.opf")!.async("string");
+    expect(defaultOpf).toContain('version="3.0"');
+    expect(kdpOpf).toContain('version="3.0"');
+    expect(epub2Opf).toContain('version="2.0"');
+  });
+
+  it("drops nav.xhtml and the properties=\"nav\" manifest item; NCX stays the primary nav", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }));
+    expect(zip.file("OEBPS/nav.xhtml")).toBeNull();
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).not.toContain('properties="nav"');
+    expect(opf).not.toContain('id="nav"');
+    expect(opf).toContain('<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>');
+    expect(opf).toContain('<spine toc="ncx">');
+    expect(zip.file("OEBPS/toc.ncx")).not.toBeNull();
+  });
+
+  it("drops dcterms:modified and the schema:accessMode a11y block (EPUB3-only property syntax)", async () => {
+    const opf = await (await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }))).file("OEBPS/content.opf")!.async("string");
+    expect(opf).not.toContain("dcterms:modified");
+    expect(opf).not.toContain("schema:accessMode");
+    expect(opf).not.toContain("schema:accessibility");
+  });
+
+  it("emits an XHTML 1.1 doctype with no xmlns:epub or epub:type, for chapters and the title page", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"');
+    expect(chapter).not.toContain("<!DOCTYPE html>\n");
+    expect(chapter).not.toContain("xmlns:epub");
+    const title = await zip.file("OEBPS/title.xhtml")!.async("string");
+    expect(title).not.toContain("xmlns:epub");
+    expect(title).not.toContain("epub:type");
+  });
+
+  it("still registers cover-image via the EPUB2 <meta name=\"cover\"> convention, with no properties attribute on any manifest item", async () => {
+    const opf = await (await unzip(await compileEpub(syntheticBook(), { profile: "epub2" }))).file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('<meta name="cover" content="cover-image"/>');
+    expect(opf).not.toMatch(/properties="/);
+  });
+
+  it("kdp keeps nav.xhtml + properties=\"nav\" + version=\"3.0\" (unaffected by the epub2 nav-skip, regression)", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
+    expect(zip.file("OEBPS/nav.xhtml")).not.toBeNull();
+    const opf = await zip.file("OEBPS/content.opf")!.async("string");
+    expect(opf).toContain('properties="nav"');
+    expect(opf).toContain('version="3.0"');
+  });
+});
+
 describe("compileEpub — bibliographic metadata → OPF + colophon", () => {
   function withMeta(metadata: BookMetadata): Book {
     return { ...syntheticBook(), metadata };
