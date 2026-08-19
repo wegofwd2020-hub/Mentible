@@ -82,3 +82,21 @@ describe("sanitizeFragment — animation allowlist does not reopen the href vect
     expect(out).not.toMatch(/attributeName\s*=\s*"?(xlink:)?href/i);
   });
 });
+
+// ADR-040 rung 3 — the reader's audio control markup must survive the topic
+// sanitizer on both targets: the web `<audio controls src=data:>` element, and
+// (defensively — native renders through the WebView's own document, not this
+// sanitizer, but the vectors are shared) the native id-keyed control block.
+describe("sanitizeFragment — keeps the reader audio control markup", () => {
+  it("keeps the web reader <audio controls src=data:> through the topic sanitizer", () => {
+    const out = sanitizeFragment('<audio class="rd-audio" controls="controls" src="data:audio/mpeg;base64,AAA="></audio>');
+    expect(out).toContain("<audio");
+    expect(out).toContain("data:audio/mpeg;base64,AAA=");
+  });
+  it("keeps the native audio control markup (button/range/data-audio-id) through the sanitizer", () => {
+    const out = sanitizeFragment('<button class="rd-audio-toggle" data-audio-id="a1">&#9658;</button><input type="range" class="rd-audio-seek" data-audio-id="a1">');
+    expect(out).toContain("rd-audio-toggle");
+    expect(out).toContain('data-audio-id="a1"');
+    expect(out).toContain('type="range"');
+  });
+});
