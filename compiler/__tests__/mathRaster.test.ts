@@ -94,6 +94,19 @@ describe("rasterizeMath", () => {
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it("labels the raster-miss warning by profile — epub2 says LaTeX text, not the kdp default", async () => {
+    const { rasterizeManyToPngResilient } = require("../src/rasterize");
+    (rasterizeManyToPngResilient as jest.Mock).mockImplementationOnce(async (svgs: string[]) =>
+      svgs.map((_, i) => (i === 1 ? null : Buffer.from(`png-${i}`))),
+    );
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await rasterizeMath([KATEX_INLINE, KATEX_BLOCK], "epub2");
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("[epub2]"));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("LaTeX text"));
+    expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining("Kindle"));
+    errorSpy.mockRestore();
+  });
 });
 
 describe("replaceMathWithImages", () => {
@@ -112,6 +125,27 @@ describe("replaceMathWithImages", () => {
     const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p>`, new Map());
     expect(out).toContain("<math");
     expect(out).not.toContain("<img");
+  });
+
+  it("kdp map-miss keeps MathML (unchanged — EPUB3 tolerates it)", () => {
+    const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p>`, new Map(), "kdp");
+    expect(out).toContain("<math");
+    expect(out).not.toContain("<img");
+  });
+
+  it("epub2 map-miss degrades to XHTML-1.1-valid LaTeX text, never MathML (which is invalid in XHTML 1.1)", () => {
+    const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p><p>${KATEX_BLOCK}</p>`, new Map(), "epub2");
+    expect(out).not.toContain("<math"); // MathML would fail epubcheck as EPUB2
+    expect(out).not.toContain("<img"); // no raster available
+    expect(out).toContain('<span class="math math-inline math-fallback">v=d/t</span>');
+    expect(out).toContain('<span class="math math-block math-fallback">E=mc^2</span>');
+  });
+
+  it("epub2 still uses the <img> when the raster IS present (fallback only on miss)", () => {
+    const pngByMathml = new Map([[KATEX_INLINE, "data:image/png;base64,AAA="]]);
+    const out = replaceMathWithImages(`<p>${KATEX_INLINE}</p>`, pngByMathml, "epub2");
+    expect(out).toContain('<img class="math math-inline" alt="v=d/t" src="data:image/png;base64,AAA="/>');
+    expect(out).not.toContain("math-fallback");
   });
 
   it("end-to-end: one fragment failing to rasterize stays MathML while the rest become <img>", async () => {

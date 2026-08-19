@@ -239,7 +239,8 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // per-topic loop — one Chromium browser for every equation in the book
   // (mathRaster.ts mirrors mermaid.ts's collect→batch→embed pattern). No-op
   // for the default profile, which keeps emitting MathML.
-  const mathPngs = profile !== "default" ? await rasterizeMath(collectMathHtml(book)) : new Map<string, string>();
+  const mathPngs =
+    profile !== "default" ? await rasterizeMath(collectMathHtml(book), profile) : new Map<string, string>();
   const content = book.content ?? {};
   const lang = book.metadata?.language || "en";
 
@@ -267,7 +268,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const ct: FloatRef[] = [];
       const tableCaps = (topic.lesson as { table_captions?: string[] }).table_captions ?? [];
       let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
-      if (profile !== "default") body = replaceMathWithImages(body, mathPngs);
+      if (profile !== "default") body = replaceMathWithImages(body, mathPngs, profile);
       const packedImages = packImages(
         xhtmlDocument(title, body, "../css/style.css", lang, profile),
         images,
