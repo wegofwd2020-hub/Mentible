@@ -201,6 +201,13 @@ function WebViewTopicRenderer({
       }
       if (!m || m.t !== "audio") return false;
       const uri = fileUris.get(m.id);
+      // Capture "already the active clip AND already playing" BEFORE the
+      // switch below reassigns activeId.current — otherwise this is always
+      // true post-reassignment and a stale status.playing (describing the
+      // clip that was JUST replaced, not the new one) turns a tap on a
+      // different, not-yet-playing clip into an immediate pause() instead of
+      // starting it.
+      const wasActivePlaying = activeId.current === m.id && status.playing;
       // Single active clip: switching to a different id (whether via toggle or
       // seek) swaps the player's source, which stops whatever was playing.
       if (activeId.current !== m.id) {
@@ -208,10 +215,13 @@ function WebViewTopicRenderer({
         if (uri) player.replace({ uri });
       }
       if (m.action === "toggle") {
-        // Toggle: if this clip is the active one and already playing, pause; else play.
-        if (status.playing && activeId.current === m.id) player.pause();
+        // Toggle: pause only if THIS clip was already the active, playing
+        // one; otherwise (a fresh clip, or the active clip paused) play it.
+        if (wasActivePlaying) player.pause();
         else player.play();
       } else if (m.action === "seek") {
+        // Seek only ever promotes+repositions (via the switch above) — it
+        // never itself starts playback.
         player.seekTo((m.positionMs ?? 0) / 1000);
       }
       return true;
