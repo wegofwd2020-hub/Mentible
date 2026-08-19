@@ -366,7 +366,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "There's no in-app recording or authoring UI yet — narration arrives with a topic through generation or import, not from a \"record\" button in the reader.",
+        text: "Narration is generated from a topic's text, not recorded — create it with \"Generate narration\" in the topic editor (see \"Generating narration for a topic\"), or it can arrive with an imported book. The reader plays it; it doesn't record.",
       },
     ],
   },
