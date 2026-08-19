@@ -99,6 +99,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-reading-a-book", title: "Open a book & get around", topicId: "reading-a-book" },
       { id: "leaf-share-a-draft", title: "Share a draft for feedback", topicId: "share-a-draft" },
       { id: "leaf-attach-figures", title: "Add figures to a topic", topicId: "attach-figures" },
+      { id: "leaf-reader-audio", title: "Listening to a book's narration", topicId: "reader-audio" },
     ],
   },
   {

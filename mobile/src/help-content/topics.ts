@@ -341,6 +341,36 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "reader-audio",
+    title: "Listening to a book's narration",
+    featureKey: "reader-audio",
+    keywords: ["audio", "narration", "listen", "play", "pause", "seek", "transcript", "voice", "sound", "reader"],
+    blocks: [
+      {
+        kind: "text",
+        text: "When a topic carries narration, an audio player appears inside the reader — on the web app and on Android — right alongside the topic's text. This isn't a separate app or a download: audio is part of our reader, one more rung of the multi-modal library alongside text and figures.",
+      },
+      {
+        kind: "text",
+        text: "The transcript is always available underneath the player, so you can read along or skip listening entirely without losing anything.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a topic that has narration attached.",
+          "Tap Play to start listening; tap again to pause.",
+          "Drag the seek bar, or tap anywhere on it, to jump to a point in the clip.",
+          "Elapsed and total time are shown next to the transport controls.",
+          "Playing a different clip automatically stops whatever was already playing.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "There's no in-app recording or authoring UI yet — narration arrives with a topic through generation or import, not from a \"record\" button in the reader.",
+      },
+    ],
+  },
+  {
     id: "projects",
     title: "What a project is — and how to start one",
     featureKey: "projects",

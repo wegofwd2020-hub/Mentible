@@ -33,6 +33,7 @@ export const FEATURES = [
   { key: "project-structure", label: "Building a project's outline (Structure)" },
   { key: "project-drafts", label: "Generating project drafts (Drafts)" },
   { key: "project-publish", label: "Publishing a project's validated work" },
+  { key: "reader-audio", label: "Listening to a book's narration" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
