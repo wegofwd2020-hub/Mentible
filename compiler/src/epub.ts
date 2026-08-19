@@ -116,6 +116,7 @@ function packMedia(
   mimePrefix: "image" | "audio",
   dir: string,
   idPrefix: string,
+  fallbackExt: string,
   resources: ImageRes[],
   seen: Map<string, string>,
 ): string {
@@ -123,7 +124,7 @@ function packMedia(
   return xhtml.replace(re, (_full, pre: string, mediaType: string, b64: string, post: string) => {
     let href = seen.get(b64);
     if (!href) {
-      const ext = MEDIA_EXT[mediaType.toLowerCase()] ?? "bin";
+      const ext = MEDIA_EXT[mediaType.toLowerCase()] ?? fallbackExt;
       const idx = String(resources.length + 1).padStart(3, "0");
       href = `${dir}/${idPrefix}-${idx}.${ext}`;
       resources.push({
@@ -139,15 +140,19 @@ function packMedia(
   });
 }
 
+// Fallback extension "img" for an unmapped image mime type — matches
+// packImages's pre-refactor behavior exactly (byte-for-byte preserved).
 function packImages(xhtml: string, images: ImageRes[], seen: Map<string, string>): string {
-  return packMedia(xhtml, "image", "images", "img", images, seen);
+  return packMedia(xhtml, "image", "images", "img", "img", images, seen);
 }
 
 // Sibling to packImages, one media type wider (ADR-040 rung 2). `audios` and
 // `seen` are separate accumulators from packImages's — audio and image
-// resources number independently (aud-001 vs img-001).
+// resources number independently (aud-001 vs img-001). Fallback extension
+// "bin" for an unmapped audio mime type (packAudio has no legacy behavior to
+// preserve, so "bin" is a deliberate, intentional choice — locked by test).
 function packAudio(xhtml: string, audios: ImageRes[], seen: Map<string, string>): string {
-  return packMedia(xhtml, "audio", "audio", "aud", audios, seen);
+  return packMedia(xhtml, "audio", "audio", "aud", "bin", audios, seen);
 }
 
 const CONTAINER_XML = `<?xml version="1.0" encoding="utf-8"?>
