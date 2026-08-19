@@ -1,4 +1,4 @@
-import { countBookFigures, renderAudioHtml, renderAudioTranscriptHtml, renderFiguresHtml } from "@/lib/figuresHtml";
+import { countBookFigures, renderAudioHtml, renderAudioTranscriptHtml, renderFiguresHtml, renderReaderAudioHtml } from "@/lib/figuresHtml";
 import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 const img = (id: string, caption?: string): TopicImage => ({
@@ -91,5 +91,45 @@ describe("renderAudioTranscriptHtml", () => {
   it("falls back to 'Narration' when the clip has no title", () => {
     const html = renderAudioTranscriptHtml([audT("a", "Hello.")]);
     expect(html).toContain("<figcaption>Narration</figcaption>");
+  });
+});
+
+const AUD: TopicAudio = { id: "a1", file: "media/b/a1.mp3", mime: "audio/mpeg", title: "Intro", transcript: "Hello world." };
+
+describe("renderReaderAudioHtml", () => {
+  it("web target emits a native <audio controls> with the data: src + transcript details", () => {
+    const html = renderReaderAudioHtml([AUD], { target: "web", dataUrls: new Map([["a1", "data:audio/mpeg;base64,AAA="]]) });
+    expect(html).toContain('<audio class="rd-audio" controls="controls" preload="none" src="data:audio/mpeg;base64,AAA="></audio>');
+    expect(html).toContain('data-audio-id="a1"');
+    expect(html).toContain("<summary>Transcript</summary>");
+    expect(html).toContain("Hello world.");
+    expect(html).not.toContain("rd-audio-toggle"); // no native control on web
+  });
+
+  it("native target emits an id-keyed control block, NO <audio> and NO data: URI", () => {
+    const html = renderReaderAudioHtml([AUD], { target: "native" });
+    expect(html).toContain('class="rd-audio-toggle" data-audio-id="a1"');
+    expect(html).toContain('class="rd-audio-seek" data-audio-id="a1"');
+    expect(html).toContain('class="rd-audio-time" data-audio-id="a1"');
+    expect(html).not.toContain("<audio"); // native must not embed <audio>
+    expect(html).not.toContain("data:"); // no base64 in native markup
+    expect(html).toContain("Hello world."); // transcript still present
+  });
+
+  it("web: a clip with no resolved url is skipped; native: rendered regardless (id-only)", () => {
+    expect(renderReaderAudioHtml([AUD], { target: "web", dataUrls: new Map() })).toBe("");
+    expect(renderReaderAudioHtml([AUD], { target: "native" })).toContain("data-audio-id");
+  });
+
+  it("empty / no audio → empty string", () => {
+    expect(renderReaderAudioHtml([], { target: "web", dataUrls: new Map() })).toBe("");
+    expect(renderReaderAudioHtml(undefined as unknown as TopicAudio[], { target: "native" })).toBe("");
+  });
+
+  it("escapes a hostile transcript / title (no raw HTML injection)", () => {
+    const evil: TopicAudio = { id: "x", file: "media/b/x.mp3", mime: "audio/mpeg", title: "<img src=x onerror=1>", transcript: "</p><script>alert(1)</script>" };
+    const html = renderReaderAudioHtml([evil], { target: "native" });
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<img src=x");
   });
 });

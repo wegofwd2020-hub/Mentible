@@ -288,6 +288,20 @@ describe("mediaStore audio", () => {
     expect(map.has("missing")).toBe(false);
   });
 
+  it("resolveAudioFileUris skips a clip whose getInfoAsync REJECTS, still resolving the others", async () => {
+    const gen = {
+      topicId: "t1", title: "U", lesson: { topic: "U", synopsis: "s", sections: [] } as any, generatedAt: "x",
+      audio: [fakeAudio("bad", "media/bk1/bad.mp3"), fakeAudio("present", "media/bk1/present.mp3")],
+    };
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => {
+      if (p.endsWith("bad.mp3")) throw new Error("ENOENT");
+      return { exists: p.endsWith("present.mp3"), size: 10, uri: p };
+    });
+    const map = await resolveAudioFileUris(gen as any);
+    expect(map.has("bad")).toBe(false);
+    expect(map.get("present")).toBe("file:///doc/media/bk1/present.mp3");
+  });
+
   it("bookMediaBytes / pruneOrphanMedia count and prune BOTH images and audio", async () => {
     const book = bookWithTopic();
     book.content!.t1.images = [fakeImage("keptimg", "media/bk1/keptimg.jpg")];
