@@ -84,7 +84,13 @@ export function renderAudioHtml(audio: TopicAudio[], dataUrls: Map<string, strin
       const src = dataUrls.get(a.id);
       if (!src) return "";
       const cap = `<figcaption>${esc(audioCaption(a))}</figcaption>`;
-      return `<figure class="topic-audio"><audio controls src="${esc(src)}"></audio>${cap}</figure>`;
+      // `controls="controls"` — NOT the bare boolean `controls`. This module's
+      // markup is embedded as raw HTML inside a compiled EPUB3 chapter, which
+      // gets parsed as XML; a bare boolean attribute is a FATAL well-formedness
+      // error there (epubcheck RSC-016). Same convention as the checkbox
+      // renderer in `compiler/src/markdown.ts` (`checked="checked"
+      // disabled="disabled"`), for the same XHTML/XML reason.
+      return `<figure class="topic-audio"><audio controls="controls" src="${esc(src)}"></audio>${cap}</figure>`;
     })
     .filter(Boolean)
     .join("");

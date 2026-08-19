@@ -60,7 +60,7 @@ describe("renderAudioHtml", () => {
     const urls = new Map([["a", "data:audio/mpeg;base64,AAAA"]]);
     const html = renderAudioHtml([aud("a", "Intro <b>Narration</b>")], urls);
     expect(html).toContain('<figure class="topic-audio">');
-    expect(html).toContain('<audio controls src="data:audio/mpeg;base64,AAAA"></audio>');
+    expect(html).toContain('<audio controls="controls" src="data:audio/mpeg;base64,AAAA"></audio>');
     expect(html).toContain("Intro &lt;b&gt;Narration&lt;/b&gt;");
     expect(html).not.toContain("<b>Narration</b>");
   });

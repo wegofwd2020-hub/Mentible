@@ -8,7 +8,11 @@ import type { Book } from "../src/types";
 const MP3_B64 = Buffer.from("ID3-fake-mp3-bytes").toString("base64");
 
 function audioHtml(b64: string): string {
-  return `<figure class="topic-audio"><audio controls src="data:audio/mpeg;base64,${b64}"></audio><figcaption>Intro</figcaption></figure>`;
+  // Valued boolean attribute (`controls="controls"`, not bare `controls`) —
+  // this is XHTML/XML content, and a bare boolean attribute is a FATAL
+  // well-formedness error there (epubcheck RSC-016). Matches what
+  // mobile/src/lib/figuresHtml.ts actually emits post-fix.
+  return `<figure class="topic-audio"><audio controls="controls" src="data:audio/mpeg;base64,${b64}"></audio><figcaption>Intro</figcaption></figure>`;
 }
 
 function bookWithAudio(clips: string[]): Book {
@@ -51,7 +55,7 @@ describe("compileEpub — embedded audio", () => {
     const ch = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
     expect(ch).toContain('src="../audio/aud-001.mp3"');
     expect(ch).not.toContain("data:audio");
-    expect(ch).toContain("<audio controls");
+    expect(ch).toContain('<audio controls="controls"');
 
     const opf = await zip.file("OEBPS/content.opf")!.async("string");
     expect(opf).toContain('href="audio/aud-001.mp3"');
@@ -111,7 +115,7 @@ describe("compileEpub — packMedia fallback extension (per-caller, not shared)"
 
   it("packAudio: an unmapped audio mime falls back to .bin (intentional, separate from packImages)", async () => {
     const b64 = Buffer.from("weird-audio-bytes").toString("base64");
-    const body = `<audio controls src="data:audio/x-unknown;base64,${b64}"></audio>`;
+    const body = `<audio controls="controls" src="data:audio/x-unknown;base64,${b64}"></audio>`;
     const bytes = await compileEpub(bookWithBody(body));
     const zip = await JSZip.loadAsync(bytes);
 

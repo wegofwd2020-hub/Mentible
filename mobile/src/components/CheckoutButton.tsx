@@ -60,7 +60,8 @@ export function CheckoutButton({ book }: { book: Book }) {
   const checkoutKdp = async () => {
     setState({ kind: "working", fmt: "epub" });
     try {
-      const payload = await buildCompilePayload(book);
+      // "epub" — the kdp profile is still EPUB-based, so narration audio belongs.
+      const payload = await buildCompilePayload(book, "epub");
       const { artifact, trust } = await exportBook(payload, {
         format: "epub",
         diagrams: true,
@@ -86,7 +87,8 @@ export function CheckoutButton({ book }: { book: Book }) {
   const checkoutPack = async () => {
     setState({ kind: "working", fmt: "pack" });
     try {
-      const payload = await buildCompilePayload(book);
+      // "pack" — the Publish Pack's KDP-EPUB is EPUB-based, so narration audio belongs.
+      const payload = await buildCompilePayload(book, "pack");
       const { artifact, trust } = await exportBook(payload, { format: "pack", diagrams: true });
       const res = await downloadArtifact(
         artifact,
