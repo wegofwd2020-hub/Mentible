@@ -20,10 +20,12 @@ import type { Book } from "@/types/book";
 // The compiler is a remote HTTP service with no media channel: attached images
 // only reach it as data: URIs already inline in the markdown. So the stored
 // book is inflated (buildCompilePayload — a deep copy, never mutates `book`)
-// before it's POSTed. `fmt` is always "epub" | "pdf" here (ExportFormat has no
-// "cover" member — the cover thumbnail always goes through a raw exportBook
-// call instead, see SaveToLibraryButton), so both tracked formats get the
-// Figures section and cover never does.
+// before it's POSTed, with `fmt` threaded straight through so buildCompilePayload
+// can gate the Narration/audio section to EPUB-family targets only (`fmt` is
+// always "epub" | "pdf" here — ExportFormat has no "cover" member; the cover
+// thumbnail always goes through a raw exportBook call instead, see
+// SaveToLibraryButton). Both tracked formats get the Figures section; only the
+// "epub" one also gets audio.
 export async function trackedExport(
   book: Book,
   fmt: ExportFormat,
@@ -31,7 +33,7 @@ export async function trackedExport(
 ): Promise<ExportedArtifact> {
   const sourceUpdatedAt = book.updatedAt;
   try {
-    const payload = await buildCompilePayload(book);
+    const payload = await buildCompilePayload(book, fmt);
     const result = await exportBook(payload, {
       format: fmt,
       diagrams: opts.diagrams,

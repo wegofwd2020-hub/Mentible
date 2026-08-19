@@ -1,4 +1,4 @@
-import type { Book, TopicImage } from "@/types/book";
+import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 /**
  * How many figures a book carries in total, counted from the schema refs alone.
@@ -60,4 +60,38 @@ export function renderFiguresHtml(images: TopicImage[], dataUrls: Map<string, st
     .join("");
   if (!figs) return "";
   return `<hr class="section-divider"><section class="figures"><h3>Figures</h3>${figs}</section>`;
+}
+
+/** The figcaption for one narration clip — falls back to a generic label. */
+export function audioCaption(audio: TopicAudio): string {
+  return audio.title?.trim() || "Narration";
+}
+
+/**
+ * Audio clips for a topic, as raw `<audio>` markup. Only clips whose id has a
+ * resolved data: URL are rendered — same "resolved-only" contract as
+ * renderFiguresHtml. `src` is ALWAYS a caller-provided data: URL (never
+ * remote) — the local-only invariant.
+ *
+ * Unlike renderFiguresHtml this returns bare `<figure>` markup with NO
+ * wrapping `<section>`/heading: the caller (compilePayload.ts) embeds the
+ * result as the body_markdown of its own "Narration" LessonSection, which
+ * already carries the heading.
+ */
+export function renderAudioHtml(audio: TopicAudio[], dataUrls: Map<string, string>): string {
+  return (audio ?? [])
+    .map((a) => {
+      const src = dataUrls.get(a.id);
+      if (!src) return "";
+      const cap = `<figcaption>${esc(audioCaption(a))}</figcaption>`;
+      // `controls="controls"` — NOT the bare boolean `controls`. This module's
+      // markup is embedded as raw HTML inside a compiled EPUB3 chapter, which
+      // gets parsed as XML; a bare boolean attribute is a FATAL well-formedness
+      // error there (epubcheck RSC-016). Same convention as the checkbox
+      // renderer in `compiler/src/markdown.ts` (`checked="checked"
+      // disabled="disabled"`), for the same XHTML/XML reason.
+      return `<figure class="topic-audio"><audio controls="controls" src="${esc(src)}"></audio>${cap}</figure>`;
+    })
+    .filter(Boolean)
+    .join("");
 }

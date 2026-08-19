@@ -1,5 +1,5 @@
-import { countBookFigures, renderFiguresHtml } from "@/lib/figuresHtml";
-import type { Book, TopicImage } from "@/types/book";
+import { countBookFigures, renderAudioHtml, renderFiguresHtml } from "@/lib/figuresHtml";
+import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 const img = (id: string, caption?: string): TopicImage => ({
   id, file: `media/b/${id}.png`, mime: "image/png", caption, addedAt: "x",
@@ -44,5 +44,29 @@ describe("renderFiguresHtml", () => {
     expect(html).toContain('src="data:image/png;base64,AAAA"');
     expect(html).toContain("A &lt;b&gt;cap&lt;/b&gt;");
     expect(html).not.toContain("<b>cap</b>");
+  });
+});
+
+const aud = (id: string, title?: string): TopicAudio => ({
+  id, file: `media/b/${id}.mp3`, mime: "audio/mpeg", title,
+});
+
+describe("renderAudioHtml", () => {
+  it("returns empty string when no clips resolve", () => {
+    expect(renderAudioHtml([], new Map())).toBe("");
+    expect(renderAudioHtml([aud("a")], new Map())).toBe(""); // no dataUrl → skipped
+  });
+  it("emits a figure per resolved clip with an <audio controls> and escaped title", () => {
+    const urls = new Map([["a", "data:audio/mpeg;base64,AAAA"]]);
+    const html = renderAudioHtml([aud("a", "Intro <b>Narration</b>")], urls);
+    expect(html).toContain('<figure class="topic-audio">');
+    expect(html).toContain('<audio controls="controls" src="data:audio/mpeg;base64,AAAA"></audio>');
+    expect(html).toContain("Intro &lt;b&gt;Narration&lt;/b&gt;");
+    expect(html).not.toContain("<b>Narration</b>");
+  });
+  it("falls back to 'Narration' when the clip has no title", () => {
+    const urls = new Map([["a", "data:audio/mpeg;base64,AAAA"]]);
+    const html = renderAudioHtml([aud("a")], urls);
+    expect(html).toContain("<figcaption>Narration</figcaption>");
   });
 });

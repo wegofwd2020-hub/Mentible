@@ -100,34 +100,59 @@ const MEDIA_EXT: Record<string, string> = {
   "image/gif": "gif",
   "image/webp": "webp",
   "image/svg+xml": "svg",
+  "audio/mpeg": "mp3",
 };
 
-// Pull data-URI images out of chapter XHTML into packaged resources: EPUB3
-// requires referenced media to be manifest items, and many readers won't render
-// inline data: URIs. Rewrites each `src="data:image/…;base64,…"` to a packaged
-// path (../images/img-NNN.ext) and records the bytes. Identical images are
-// shared. `images` and `seen` accumulate across chapters.
+// Pull data-URI media of a given mime-prefix ("image"/"audio") out of chapter
+// XHTML into packaged resources: EPUB3 requires referenced media to be
+// manifest items, and many readers won't render inline data: URIs. Rewrites
+// each `src="data:<mimePrefix>/…;base64,…"` to a packaged path
+// (../<dir>/<idPrefix>-NNN.ext) and records the bytes. Identical clips (same
+// base64) are shared via `seen`. `resources` and `seen` accumulate across
+// chapters — callers keep separate arrays/maps per media type so images and
+// audio number independently (img-001, aud-001, …).
+function packMedia(
+  xhtml: string,
+  mimePrefix: "image" | "audio",
+  dir: string,
+  idPrefix: string,
+  fallbackExt: string,
+  resources: ImageRes[],
+  seen: Map<string, string>,
+): string {
+  const re = new RegExp(`(src=")data:(${mimePrefix}\\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)(")`, "gi");
+  return xhtml.replace(re, (_full, pre: string, mediaType: string, b64: string, post: string) => {
+    let href = seen.get(b64);
+    if (!href) {
+      const ext = MEDIA_EXT[mediaType.toLowerCase()] ?? fallbackExt;
+      const idx = String(resources.length + 1).padStart(3, "0");
+      href = `${dir}/${idPrefix}-${idx}.${ext}`;
+      resources.push({
+        id: `${idPrefix}${idx}`,
+        href,
+        mediaType: mediaType.toLowerCase(),
+        bytes: new Uint8Array(Buffer.from(b64, "base64")),
+      });
+      seen.set(b64, href);
+    }
+    // Chapters live in OEBPS/chapters/, media in OEBPS/<dir>/.
+    return `${pre}../${href}${post}`;
+  });
+}
+
+// Fallback extension "img" for an unmapped image mime type — matches
+// packImages's pre-refactor behavior exactly (byte-for-byte preserved).
 function packImages(xhtml: string, images: ImageRes[], seen: Map<string, string>): string {
-  return xhtml.replace(
-    /(src=")data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)(")/gi,
-    (_full, pre: string, mediaType: string, b64: string, post: string) => {
-      let href = seen.get(b64);
-      if (!href) {
-        const ext = MEDIA_EXT[mediaType.toLowerCase()] ?? "img";
-        const idx = String(images.length + 1).padStart(3, "0");
-        href = `images/img-${idx}.${ext}`;
-        images.push({
-          id: `img${idx}`,
-          href,
-          mediaType: mediaType.toLowerCase(),
-          bytes: new Uint8Array(Buffer.from(b64, "base64")),
-        });
-        seen.set(b64, href);
-      }
-      // Chapters live in OEBPS/chapters/, images in OEBPS/images/.
-      return `${pre}../${href}${post}`;
-    },
-  );
+  return packMedia(xhtml, "image", "images", "img", "img", images, seen);
+}
+
+// Sibling to packImages, one media type wider (ADR-040 rung 2). `audios` and
+// `seen` are separate accumulators from packImages's — audio and image
+// resources number independently (aud-001 vs img-001). Fallback extension
+// "bin" for an unmapped audio mime type (packAudio has no legacy behavior to
+// preserve, so "bin" is a deliberate, intentional choice — locked by test).
+function packAudio(xhtml: string, audios: ImageRes[], seen: Map<string, string>): string {
+  return packMedia(xhtml, "audio", "audio", "aud", "bin", audios, seen);
 }
 
 const CONTAINER_XML = `<?xml version="1.0" encoding="utf-8"?>
@@ -201,6 +226,8 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   const navSubjects: NavSubject[] = [];
   const images: ImageRes[] = [];
   const seenImages = new Map<string, string>();
+  const audios: ImageRes[] = [];
+  const seenAudio = new Map<string, string>();
   const allFigs: CrossFloat[] = [];
   const allTbls: CrossFloat[] = [];
   let n = 0;
@@ -218,11 +245,12 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const tableCaps = (topic.lesson as { table_captions?: string[] }).table_captions ?? [];
       let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
       if (profile === "kdp") body = replaceMathWithImages(body, mathPngs);
-      const xhtml = packImages(
+      const packedImages = packImages(
         xhtmlDocument(title, body, "../css/style.css", lang),
         images,
         seenImages,
       );
+      const xhtml = packAudio(packedImages, audios, seenAudio);
       for (const x of cf) allFigs.push({ ...x, href });
       for (const x of ct) allTbls.push({ ...x, href });
       chapters.push({
@@ -275,7 +303,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", CONTAINER_XML);
-  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, auxFront, auxBack, profile));
+  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, audios, auxFront, auxBack, profile));
   zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
   // EPUB2 NCX navigation alongside the EPUB3 nav — older/"traditional" readers
   // require it and render blank pages without it.
@@ -289,6 +317,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   for (const d of [...auxFront, ...auxBack]) zip.file(`OEBPS/${d.href}`, d.xhtml);
   for (const ch of chapters) zip.file(`OEBPS/${ch.href}`, ch.xhtml);
   for (const img of images) zip.file(`OEBPS/${img.href}`, img.bytes);
+  for (const aud of audios) zip.file(`OEBPS/${aud.href}`, aud.bytes);
 
   return zip.generateAsync({ type: "uint8array", mimeType: "application/epub+zip" });
 }
@@ -440,6 +469,7 @@ function buildOpf(
   book: Book,
   chapters: Chapter[],
   images: ImageRes[] = [],
+  audios: ImageRes[] = [],
   auxFront: AuxDoc[] = [],
   auxBack: AuxDoc[] = [],
   profile: "default" | "kdp" = "default",
@@ -465,6 +495,9 @@ function buildOpf(
     '<item id="colophon" href="colophon.xhtml" media-type="application/xhtml+xml"/>',
     ...images.map(
       (img) => `<item id="${img.id}" href="${escapeHtml(img.href)}" media-type="${img.mediaType}"/>`,
+    ),
+    ...audios.map(
+      (aud) => `<item id="${aud.id}" href="${escapeHtml(aud.href)}" media-type="${aud.mediaType}"/>`,
     ),
     ...[...auxFront, ...auxBack].map(
       (d) => `<item id="${d.id}" href="${escapeHtml(d.href)}" media-type="application/xhtml+xml"/>`,

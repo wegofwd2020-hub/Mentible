@@ -1,4 +1,4 @@
-import type { Book, TopicImage } from "@/types/book";
+import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 jest.mock("expo-file-system", () => {
   const files: Record<string, string> = {};
@@ -28,8 +28,12 @@ import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import {
   attachImage, deleteImage, resolveFigureDataUrls, pruneOrphanMedia, MediaCapError,
+  attachAudio, resolveAudioDataUrls, resolveAudioFileUris,
 } from "@/storage/mediaStore";
-import { MAX_IMAGE_BYTES, MAX_IMAGES_PER_TOPIC, MAX_MEDIA_PER_BOOK_BYTES } from "@/storage/mediaPaths";
+import {
+  MAX_IMAGE_BYTES, MAX_IMAGES_PER_TOPIC, MAX_MEDIA_PER_BOOK_BYTES,
+  MAX_AUDIO_BYTES, MAX_AUDIO_PER_TOPIC,
+} from "@/storage/mediaPaths";
 
 function bookWithTopic(): Book {
   return {
@@ -42,6 +46,10 @@ function bookWithTopic(): Book {
 
 function fakeImage(id: string, file: string): TopicImage {
   return { id, file, mime: "image/jpeg", addedAt: "x" };
+}
+
+function fakeAudio(id: string, file: string): TopicAudio {
+  return { id, file, mime: "audio/mpeg" };
 }
 
 afterEach(() => {
@@ -182,6 +190,123 @@ describe("mediaStore", () => {
     );
     expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(
       expect.stringContaining("kept.jpg"), expect.anything(),
+    );
+  });
+});
+
+describe("mediaStore audio", () => {
+  it("attaches audio: writes a ref, bytes stay off the book", async () => {
+    const book = await attachAudio(
+      bookWithTopic(), "t1",
+      { uri: "file:///gen.mp3", mime: "audio/mpeg", fileSize: 2000 },
+      { title: "Intro", transcript: "Hello there." },
+    );
+    const clips = book.content!.t1.audio!;
+    expect(clips).toHaveLength(1);
+    expect(clips[0].file).toMatch(/^media\/bk1\/.+\.mp3$/);
+    expect(clips[0].title).toBe("Intro");
+    expect(clips[0].transcript).toBe("Hello there.");
+    expect(JSON.stringify(book)).not.toContain("data:"); // refs only
+  });
+
+  it("rejects a disallowed mime", async () => {
+    await expect(
+      attachAudio(bookWithTopic(), "t1", { uri: "file:///a.wav", mime: "audio/wav" }),
+    ).rejects.toBeInstanceOf(MediaCapError);
+  });
+
+  it("rejects an oversize clip (fileSize present, early-out)", async () => {
+    await expect(
+      attachAudio(bookWithTopic(), "t1", { uri: "file:///big.mp3", mime: "audio/mpeg", fileSize: MAX_AUDIO_BYTES + 1 }),
+    ).rejects.toBeInstanceOf(MediaCapError);
+  });
+
+  it("rejects an oversize clip by real on-disk size when fileSize is undefined", async () => {
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => {
+      if (p === "file:///big2.mp3") return { exists: true, size: MAX_AUDIO_BYTES + 1 };
+      return { exists: false, size: 0 };
+    });
+    await expect(
+      attachAudio(bookWithTopic(), "t1", { uri: "file:///big2.mp3", mime: "audio/mpeg" }),
+    ).rejects.toBeInstanceOf(MediaCapError);
+  });
+
+  it("rejects attaching to a topic already at MAX_AUDIO_PER_TOPIC", async () => {
+    const book = bookWithTopic();
+    book.content!.t1.audio = Array.from({ length: MAX_AUDIO_PER_TOPIC }, (_, i) =>
+      fakeAudio(`aud${i}`, `media/bk1/aud${i}.mp3`),
+    );
+    await expect(
+      attachAudio(book, "t1", { uri: "file:///one-more.mp3", mime: "audio/mpeg" }),
+    ).rejects.toBeInstanceOf(MediaCapError);
+  });
+
+  it("rejects when the real on-disk size would push the book over its shared media budget", async () => {
+    const book = bookWithTopic();
+    book.content!.t1.audio = [fakeAudio("existing", "media/bk1/existing.mp3")];
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => {
+      if (p.endsWith("existing.mp3")) return { exists: true, size: MAX_MEDIA_PER_BOOK_BYTES - 100 };
+      if (p === "file:///new.mp3") return { exists: true, size: 200 };
+      return { exists: false, size: 0 };
+    });
+    await expect(
+      attachAudio(book, "t1", { uri: "file:///new.mp3", mime: "audio/mpeg" }),
+    ).rejects.toBeInstanceOf(MediaCapError);
+  });
+
+  it("resolves refs to data: URLs", async () => {
+    const book = await attachAudio(bookWithTopic(), "t1", { uri: "file:///gen.mp3", mime: "audio/mpeg", fileSize: 10 });
+    const map = await resolveAudioDataUrls(book.content!.t1);
+    const url = [...map.values()][0];
+    expect(url).toMatch(/^data:audio\/mpeg;base64,/);
+  });
+
+  it("resolveAudioDataUrls skips a missing file without throwing", async () => {
+    const gen = {
+      topicId: "t1", title: "U", lesson: { topic: "U", synopsis: "s", sections: [] } as any, generatedAt: "x",
+      audio: [fakeAudio("present", "media/bk1/present.mp3"), fakeAudio("missing", "media/bk1/missing.mp3")],
+    };
+    (FileSystem.readAsStringAsync as jest.Mock).mockImplementation(async (p: string) => {
+      if (p.endsWith("missing.mp3")) throw new Error("ENOENT");
+      return "QUJD";
+    });
+    const map = await resolveAudioDataUrls(gen as any);
+    expect(map.has("present")).toBe(true);
+    expect(map.has("missing")).toBe(false);
+  });
+
+  it("resolveAudioFileUris returns an absolute file:// path per existing clip, skipping missing ones", async () => {
+    const gen = {
+      topicId: "t1", title: "U", lesson: { topic: "U", synopsis: "s", sections: [] } as any, generatedAt: "x",
+      audio: [fakeAudio("present", "media/bk1/present.mp3"), fakeAudio("missing", "media/bk1/missing.mp3")],
+    };
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => ({
+      exists: p.endsWith("present.mp3"), size: 10, uri: p,
+    }));
+    const map = await resolveAudioFileUris(gen as any);
+    expect(map.get("present")).toBe("file:///doc/media/bk1/present.mp3");
+    expect(map.has("missing")).toBe(false);
+  });
+
+  it("bookMediaBytes / pruneOrphanMedia count and prune BOTH images and audio", async () => {
+    const book = bookWithTopic();
+    book.content!.t1.images = [fakeImage("keptimg", "media/bk1/keptimg.jpg")];
+    book.content!.t1.audio = [fakeAudio("keptaud", "media/bk1/keptaud.mp3")];
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => ({ exists: true, size: 1234, uri: p }));
+    (FileSystem as any).__files["file:///doc/media/bk1/keptimg.jpg"] = "COPIED";
+    (FileSystem as any).__files["file:///doc/media/bk1/keptaud.mp3"] = "COPIED";
+    (FileSystem as any).__files["file:///doc/media/bk1/orphan.mp3"] = "COPIED";
+
+    await pruneOrphanMedia(book);
+
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+      expect.stringContaining("orphan.mp3"), expect.anything(),
+    );
+    expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(
+      expect.stringContaining("keptimg.jpg"), expect.anything(),
+    );
+    expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(
+      expect.stringContaining("keptaud.mp3"), expect.anything(),
     );
   });
 });

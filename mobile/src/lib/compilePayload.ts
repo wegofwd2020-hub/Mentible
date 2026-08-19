@@ -1,10 +1,23 @@
 import type { Book, GeneratedTopic } from "@/types/book";
 import type { LessonSection } from "@/types/lesson";
-import { resolveFigureDataUrls } from "@/storage/mediaStore";
-import { figureAltText } from "@/lib/figuresHtml";
+import { resolveFigureDataUrls, resolveAudioDataUrls } from "@/storage/mediaStore";
+import { figureAltText, renderAudioHtml } from "@/lib/figuresHtml";
 
 function mdEsc(s: string): string {
   return s.replace(/([[\]()\\])/g, "\\$1");
+}
+
+// Every export target buildCompilePayload feeds: EPUB and its EPUB-based
+// derivatives (kdp profile, the publish pack) can carry narration audio (the
+// compiler's packAudio embeds it as a real EPUB resource); PDF and DOCX
+// cannot — audio has nowhere to render there, so injecting it would only ship
+// a dead, non-functional base64 blob (spec non-goal: "No PDF/DOCX audio
+// (EPUB only)"). "pack" is included here (not just "epub") because the
+// Publish Pack's KDP-EPUB is itself EPUB-based.
+export type CompileFormat = "epub" | "pdf" | "docx" | "pack";
+
+function isEpubFamily(format: CompileFormat): boolean {
+  return format === "epub" || format === "pack";
 }
 
 // The remote compiler is a stateless HTTP service — the app POSTs the whole
@@ -17,10 +30,28 @@ function mdEsc(s: string): string {
 // synthetic "Figures" lesson section whose markdown embeds each resolved
 // image in author order. The stored book is never mutated — callers must use
 // the returned copy for the compile POST, not the original.
-export async function buildCompilePayload(book: Book): Promise<Book> {
+//
+// `format` gates the Narration/audio section — omitted defaults to "pdf" (no
+// audio), the safe choice for a call site that doesn't know its target yet;
+// callers that DO compile to an EPUB-family target must say so explicitly to
+// get narration audio at all.
+export async function buildCompilePayload(book: Book, format: CompileFormat = "pdf"): Promise<Book> {
   const copy: Book = JSON.parse(JSON.stringify(book));
+  const withAudio = isEpubFamily(format);
   for (const gen of Object.values(copy.content ?? {})) {
     const topic = gen as GeneratedTopic;
+
+    if (withAudio && topic.audio?.length) {
+      const audioUrls = await resolveAudioDataUrls(topic);
+      if (audioUrls.size) {
+        const html = renderAudioHtml(topic.audio, audioUrls);
+        if (html) {
+          const section: LessonSection = { heading: "Narration", body_markdown: html };
+          topic.lesson.sections = [...(topic.lesson.sections ?? []), section];
+        }
+      }
+    }
+
     if (!topic.images?.length) continue;
 
     const urls = await resolveFigureDataUrls(topic);
