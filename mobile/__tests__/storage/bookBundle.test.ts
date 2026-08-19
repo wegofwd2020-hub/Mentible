@@ -1,4 +1,4 @@
-import type { Book, TopicImage } from "@/types/book";
+import type { Book, TopicAudio, TopicImage } from "@/types/book";
 
 // Reuses the expo-file-system + expo-image-manipulator mock shape from
 // mediaStore.test.ts, extended with writeAsStringAsync (bundle import writes a
@@ -67,6 +67,32 @@ function bookWithImage(): Book {
         lesson: { topic: "U", synopsis: "s", sections: [] } as any,
         generatedAt: "x",
         images: [image],
+      },
+    },
+  };
+}
+
+function bookWithAudio(): Book {
+  const audio: TopicAudio = {
+    id: "orig-audio-id",
+    file: "media/bk1/orig-audio-id.mp3",
+    mime: "audio/mpeg",
+    title: "Narration",
+    transcript: "hello",
+  };
+  return {
+    id: "bk1",
+    title: "T",
+    toc: { subjects: [{ title: "S", units: [{ id: "u1", title: "U" }] }] } as any,
+    createdAt: "x",
+    updatedAt: "x",
+    content: {
+      u1: {
+        topicId: "u1",
+        title: "U",
+        lesson: { topic: "U", synopsis: "s", sections: [] } as any,
+        generatedAt: "x",
+        audio: [audio],
       },
     },
   };
@@ -243,5 +269,144 @@ describe("bookBundle", () => {
     });
     const back = await parseBookBundle(bundle);
     expect(back.content!.t1.images ?? []).toHaveLength(0);
+  });
+
+  it("round-trips a topic's audio (export includes the file; import restores under a fresh id/path)", async () => {
+    const book = bookWithAudio();
+    (FileSystem as any).__files["file:///doc/media/bk1/orig-audio-id.mp3"] = "aGVsbG8tYXVkaW8="; // "hello-audio"
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => ({
+      exists: p in (FileSystem as any).__files,
+      size: 1234,
+      uri: p,
+    }));
+
+    const zip = await exportBookBundle(book);
+    const entries = unzipSync(zip);
+    expect(Object.keys(entries)).toContain("media/orig-audio-id.mp3");
+
+    const bookJson = JSON.parse(strFromU8(entries["book.json"]));
+    expect(bookJson.content.u1.audio[0].file).toBe("media/orig-audio-id.mp3");
+
+    const back = await parseBookBundle(zip);
+    const aud = back.content!.u1!.audio!;
+    expect(aud).toHaveLength(1);
+    expect(aud[0].id).not.toBe("orig-audio-id"); // re-minted, never the bundle's id
+    expect(aud[0].file).toMatch(new RegExp(`^media/${back.id}/[0-9a-f-]+\\.mp3$`));
+    expect(aud[0].mime).toBe("audio/mpeg");
+    expect(aud[0].transcript).toBe("hello"); // non-file metadata preserved
+
+    // The bytes actually landed at the new path — audio has no EXIF strip, so
+    // they must be byte-for-byte the seeded base64, written straight through.
+    const writtenPath = `file:///doc/${aud[0].file}`;
+    expect((FileSystem as any).__files[writtenPath]).toBe("aGVsbG8tYXVkaW8=");
+  });
+
+  it("drops an audio clip with a disallowed mime, keeps the book", async () => {
+    const book = bookWithAudio();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: {
+            u1: { ...book.content!.u1, audio: [{ ...book.content!.u1.audio![0], mime: "audio/wav", file: "media/orig-audio-id.mp3" }] },
+          },
+        }),
+      ),
+      "media/orig-audio-id.mp3": strToU8("audio-bytes"),
+    });
+    const back = await parseBookBundle(bundle);
+    expect(back.content!.u1.audio ?? []).toHaveLength(0);
+  });
+
+  it("drops an audio clip whose bundled file is oversize, keeps the book", async () => {
+    const book = bookWithAudio();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    const oversized = new Uint8Array(16 * 1024 * 1024); // > MAX_AUDIO_BYTES (15 MiB)
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: {
+            u1: { ...book.content!.u1, audio: [{ ...book.content!.u1.audio![0], file: "media/orig-audio-id.mp3" }] },
+          },
+        }),
+      ),
+      "media/orig-audio-id.mp3": oversized,
+    });
+    const back = await parseBookBundle(bundle);
+    expect(back.content!.u1.audio ?? []).toHaveLength(0);
+  });
+
+  it("drops an audio clip whose bundled media file is missing, keeps the book", async () => {
+    const book = bookWithAudio();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: {
+            u1: { ...book.content!.u1, audio: [{ ...book.content!.u1.audio![0], file: "media/orig-audio-id.mp3" }] },
+          },
+        }),
+      ),
+      // no "media/orig-audio-id.mp3" entry — the ref points at a file the bundle never carried.
+    });
+    const back = await parseBookBundle(bundle);
+    expect(back.content!.u1.audio ?? []).toHaveLength(0);
+  });
+
+  it("an audio-less book is byte-identical to today (existing image round-trip unaffected)", async () => {
+    // The pre-existing image-only book must not gain an "audio" key anywhere
+    // in the exported JSON, and the round-trip content must still be exactly
+    // what the original image-only tests assert.
+    const book = bookWithImage();
+    (FileSystem as any).__files["file:///doc/media/bk1/img1.png"] = "aW1hZ2UtYnl0ZXM=";
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(async (p: string) => ({
+      exists: p in (FileSystem as any).__files,
+      size: 1234,
+      uri: p,
+    }));
+
+    const zip = await exportBookBundle(book);
+    const entries = unzipSync(zip);
+    const bookJson = JSON.parse(strFromU8(entries["book.json"]));
+    expect(bookJson.content.t1.audio).toBeUndefined();
+
+    const back = await parseBookBundle(zip);
+    expect(back.content!.t1.audio).toBeUndefined();
+    expect(back.content!.t1.images![0].file).toMatch(new RegExp(`^media/${back.id}/`));
+  });
+
+  it("mints a fresh on-disk id for a bundle's untrusted audio id/file, closing a path-traversal hole", async () => {
+    const book = bookWithAudio();
+    const { zipSync, strToU8 } = jest.requireActual("fflate");
+    // parseBook is structural-only, so a bundle's aud.id (and its file) are
+    // untrusted. Crafted values like these must never reach the on-disk write
+    // target, or copyAsync would be asked to write outside media/<newId>/.
+    const maliciousAudio = { ...book.content!.u1.audio![0], id: "../../../../evil", file: "media/orig-audio-id.mp3" };
+    const bundle = zipSync({
+      "book.json": strToU8(
+        JSON.stringify({
+          ...book,
+          content: { u1: { ...book.content!.u1, audio: [maliciousAudio] } },
+        }),
+      ),
+      "media/orig-audio-id.mp3": strToU8("audio-bytes"),
+    });
+
+    const back = await parseBookBundle(bundle);
+    const aud = back.content!.u1.audio ?? [];
+    expect(aud).toHaveLength(1);
+    // Fresh, generator-controlled uuid — no ".." segment, filename under the
+    // new book's own media dir.
+    expect(aud[0].file).toMatch(new RegExp(`^media/${back.id}/[A-Za-z0-9_-]+\\.mp3$`));
+    expect(aud[0].id).not.toMatch(/\.\./);
+
+    const copyCalls = (FileSystem.copyAsync as jest.Mock).mock.calls;
+    expect(copyCalls.length).toBeGreaterThan(0);
+    for (const [{ to }] of copyCalls) {
+      expect(to).not.toMatch(/\.\./);
+    }
   });
 });
