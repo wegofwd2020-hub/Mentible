@@ -74,6 +74,17 @@ function bookWithMermaidDiagram(): Book {
   return book;
 }
 
+// A GFM task-list — markdown.ts's checkbox() renders each item as a raw
+// <input type="checkbox">, which fix round 2 downgrades for epub2 only.
+function bookWithChecklist(): Book {
+  const book = syntheticBook();
+  book.content!.u1.lesson!.sections.push({
+    heading: "Checklist",
+    body_markdown: "- [ ] Unchecked item\n- [x] Checked item\n",
+  });
+  return book;
+}
+
 async function unzip(bytes: Uint8Array): Promise<JSZip> {
   return JSZip.loadAsync(bytes);
 }
@@ -467,6 +478,25 @@ describe("compileEpub — epub2 packaging (D3, OPF v2.0 / NCX-primary / XHTML 1.
     const kdpOpf = await (await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }))).file("OEBPS/content.opf")!.async("string");
     for (const opf of [defaultOpf, kdpOpf]) {
       expect(opf).toContain('xml:lang="en"');
+    }
+  });
+
+  it("swaps a GFM checklist's <input type=\"checkbox\"> for a ☑/☐ glyph (fix round 2) — default/kdp keep the <input> checkbox (regression)", async () => {
+    const book = bookWithChecklist();
+    const epub2Zip = await unzip(await compileEpub(book, { profile: "epub2" }));
+    const epub2Chapter = await epub2Zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(epub2Chapter).not.toContain("<input");
+    expect(epub2Chapter).toContain("☐"); // unchecked
+    expect(epub2Chapter).toContain("☑"); // checked
+
+    // regression: default/kdp still emit the real <input type="checkbox"> —
+    // it's EPUB3-valid, only XHTML 1.1 (epub2) rejects it.
+    const defaultZip = await unzip(await compileEpub(book));
+    const kdpZip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    for (const zip of [defaultZip, kdpZip]) {
+      const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+      expect(chapter).toContain('<input disabled="disabled" type="checkbox"/>');
+      expect(chapter).toContain('<input checked="checked" disabled="disabled" type="checkbox"/>');
     }
   });
 });

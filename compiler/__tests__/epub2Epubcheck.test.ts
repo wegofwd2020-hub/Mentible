@@ -1,12 +1,16 @@
 // The D6 gate (docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md):
 // the epub2-profile output must pass epubcheck AS EPUB 2 (epubcheck
 // auto-detects the OPF version from content.opf) with zero fatals/errors.
-// This fixture carries math, a Mermaid diagram, AND narration audio — all
-// three of the profile's lossy-downgrade paths (D2 raster math/diagrams, D4
-// strip audio) in one book, so a regression in any of them (a stray <math>,
-// an un-rastered <svg>, a surviving <audio> element — none of which are
-// valid in strict XHTML 1.1) fails this gate. Needs Java (to run
-// epubcheck.jar) — auto-skips locally without it, mirroring
+// This fixture carries math, a Mermaid diagram, narration audio, AND a GFM
+// task-list checklist — every one of the profile's lossy-downgrade paths (D2
+// raster math/diagrams, D4 strip audio, fix round 2's checkbox→glyph swap) in
+// one book, so a regression in any of them (a stray <math>, an un-rastered
+// <svg>, a surviving <audio> element, a surviving <input type="checkbox"> —
+// none of which are valid in strict XHTML 1.1) fails this gate. The
+// checklist section is fix round 2's regression guard: the original fixture
+// had no checklist, so CI missed that markdown.ts's checkbox() renderer
+// emits a raw <input> that XHTML 1.1 (no Forms module) rejects. Needs Java
+// (to run epubcheck.jar) — auto-skips locally without it, mirroring
 // kdpEpubcheck.test.ts's `gated` pattern.
 //
 // rasterize.ts is mocked (real Puppeteer/Chromium is not required to prove
@@ -79,6 +83,9 @@ const LESSON: LessonOutput = {
     { heading: "Motion", body_markdown: "Velocity is $v = d/t$." },
     { heading: "Flow", body_markdown: "```mermaid\ngraph TD; A-->B;\n```" },
     { heading: "Narration", body_markdown: audioHtml() },
+    // GFM task-list (fix round 2 regression guard) — markdown.ts's checkbox()
+    // renders each of these as a raw <input type="checkbox">.
+    { heading: "Checklist", body_markdown: "- [ ] Unchecked item\n- [x] Checked item\n" },
   ],
   key_takeaways: ["It validates"],
   further_reading: [],
@@ -102,7 +109,7 @@ const fakeMermaid = {
 };
 
 gated("epub2-profile EPUB — epubcheck gate (D6)", () => {
-  it("passes epubcheck AS EPUB 2 with zero fatals/errors (math rastered, diagram rastered, audio stripped)", async () => {
+  it("passes epubcheck AS EPUB 2 with zero fatals/errors (math rastered, diagram rastered, audio stripped, checklist glyph-swapped)", async () => {
     const bytes = await compileEpub(fixtureBook(), { mermaid: fakeMermaid, profile: "epub2" });
     const tmp = path.join(os.tmpdir(), `epub2-epubcheck-${Date.now()}.epub`);
     fs.writeFileSync(tmp, bytes);

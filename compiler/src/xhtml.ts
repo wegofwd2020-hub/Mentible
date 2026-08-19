@@ -21,6 +21,27 @@ const XHTML11_DOWNGRADES: { tag: string; as: "div" | "p"; cls: string }[] = [
   { tag: "figcaption", as: "p", cls: "figcaption" },
 ];
 
+// EPUB2 (fix round 2): markdown.ts's `checkbox()` renderer emits a raw GFM
+// task-list `<input type="checkbox" .../>` (the exact strings, attribute
+// order included: `<input disabled="disabled" type="checkbox"/>` unchecked,
+// `<input checked="checked" disabled="disabled" type="checkbox"/>` checked) —
+// XHTML 1.1 Strict has no Forms module, so `<input>` isn't legal there either
+// (same problem class as bucket 2's <section>/<figure>, caught later because
+// the original D6 fixture had no checklist). No structural element preserves
+// "checked-ness" in this DTD, so — unlike the div/p renames above — this
+// drops the element entirely in favor of a plain-text Unicode glyph that
+// carries the same meaning: ☑ U+2611 BALLOT BOX WITH CHECK (checked), ☐
+// U+2610 BALLOT BOX (unchecked). Matched by `type="checkbox"` (not the tag
+// alone) so a future non-checkbox `<input>` isn't silently swallowed here —
+// it would still need its own handling. Attribute-order-tolerant (checks for
+// `checked` anywhere in the matched tag) rather than relying on markdown.ts's
+// exact emission order.
+function downgradeCheckboxes(html: string): string {
+  return html.replace(/<input\b[^>]*\btype="checkbox"[^>]*\/?>/gi, (m) =>
+    /\bchecked\b/i.test(m) ? '<span class="checkbox">☑</span>' : '<span class="checkbox">☐</span>',
+  );
+}
+
 export function downgradeToXhtml11(html: string): string {
   let out = html;
   for (const { tag, as, cls } of XHTML11_DOWNGRADES) {
@@ -34,6 +55,7 @@ export function downgradeToXhtml11(html: string): string {
     });
     out = out.replace(new RegExp(`</${tag}>`, "gi"), `</${as}>`);
   }
+  out = downgradeCheckboxes(out);
   return out;
 }
 
