@@ -156,6 +156,38 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     expect(chapter).not.toContain("<svg"); // never leaks the raw pre-rasterized SVG either
   });
 
+  it("profile 'epub2' rasterizes math to <img>, dropping <math> from the chapter (same raster path as kdp)", async () => {
+    const book = syntheticBook(); // LESSON's Velocity section has $v=\frac{\Delta x}{\Delta t}$
+    const zip = await unzip(await compileEpub(book, { profile: "epub2" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-(inline|block)" alt="[^"]*"/);
+  });
+
+  it("profile 'epub2' + mermaid rasterizes diagrams to <img>, not inline <svg> (same raster path as kdp)", async () => {
+    const book = bookWithMermaidDiagram();
+    const fakeMermaid = { renderAll: async (sources: readonly string[]) => new Map(sources.map((s) => [s, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'])) };
+    const zip = await unzip(await compileEpub(book, { mermaid: fakeMermaid, profile: "epub2" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toMatch(/<figure class="diagram"[^>]*><img src="\.\.\/images\/img-\d+\.png"/);
+    expect(chapter).not.toContain("<svg");
+  });
+
+  it("profile 'default' still emits MathML (no raster) after generalizing the kdp branch to 'profile !== default'", async () => {
+    const zip = await unzip(await compileEpub(syntheticBook()));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).toContain("<math");
+    expect(chapter).not.toMatch(/<img class="math/);
+  });
+
+  it("profile 'kdp' still rasterizes math to <img> after generalizing the branch to 'profile !== default' (regression)", async () => {
+    const book = syntheticBook();
+    const zip = await unzip(await compileEpub(book, { profile: "kdp" }));
+    const chapter = await zip.file("OEBPS/chapters/ch-001.xhtml")!.async("string");
+    expect(chapter).not.toContain("<math");
+    expect(chapter).toMatch(/<img class="math math-(inline|block)" alt="[^"]*"/);
+  });
+
   it("produces a valid EPUB3 OCF structure", async () => {
     const zip = await unzip(await compileEpub(syntheticBook()));
 

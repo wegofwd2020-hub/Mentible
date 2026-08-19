@@ -65,11 +65,16 @@ export interface CompileOptions {
   // When set, diagrams are pre-rendered to inline SVG with this renderer before
   // compiling (async). Takes precedence over `diagrams`. See mermaid.ts.
   mermaid?: MermaidRenderer;
-  // Distribution-target profile (D1, docs/specs/kdp-clean-export-profile.md).
-  // "default" (or omitted) is today's output, byte-for-byte. "kdp" rasters
+  // Distribution-target profile. "default" (or omitted) is today's output,
+  // byte-for-byte. "kdp" (docs/specs/kdp-clean-export-profile.md) rasters
   // math/diagrams/cover and drops the embedded body font so the artifact
-  // ingests cleanly on Amazon KDP — see epub.ts's per-profile branches.
-  profile?: "default" | "kdp";
+  // ingests cleanly on Amazon KDP. "epub2"
+  // (docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md, ADR-041
+  // Initiative A) rasters math/diagrams the same way (D2 — see the `profile
+  // !== "default"` branches below) but packages a strict, validation-clean
+  // EPUB 2.0.1 instead of EPUB3 (D3) and strips <audio> (D4) — see epub.ts's
+  // per-profile branches.
+  profile?: "default" | "kdp" | "epub2";
 }
 
 interface Chapter {
@@ -200,23 +205,26 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     throw new KdpDraftError();
   }
   // Diagram strategy: a Mermaid renderer (pre-render to SVG) wins, else an
-  // explicit override, else the passthrough placeholder. kdp profile takes
-  // the pre-rendered SVGs one step further and rasterizes them to PNG
-  // (diagramRaster.ts, D4, docs/specs/kdp-clean-export-profile.md) — Kindle's
-  // SVG support is limited. default keeps emitting inline SVG.
+  // explicit override, else the passthrough placeholder. Any non-default
+  // profile (kdp, epub2 — D2, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md)
+  // takes the pre-rendered SVGs one step further and rasterizes them to PNG
+  // (diagramRaster.ts) — Kindle's SVG support is limited, and EPUB2 has no
+  // SMIL-in-content story for animated SVG at all. default keeps emitting
+  // inline SVG.
   let diagrams = opts.diagrams ?? new PassthroughDiagramRenderer();
   if (opts.mermaid) {
     const svgBySource = await prerenderDiagrams(book, opts.mermaid);
     diagrams =
-      profile === "kdp"
+      profile !== "default"
         ? new PrerenderedRasterDiagramRenderer(await rasterizeDiagramPngs(svgBySource))
         : new PrerenderedDiagramRenderer(svgBySource);
   }
-  // Math-raster pass (D3, docs/specs/kdp-clean-export-profile.md): kdp only,
-  // book-wide, before the per-topic loop — one Chromium browser for every
-  // equation in the book (mathRaster.ts mirrors mermaid.ts's collect→batch→
-  // embed pattern). No-op for the default profile, which keeps emitting MathML.
-  const mathPngs = profile === "kdp" ? await rasterizeMath(collectMathHtml(book)) : new Map<string, string>();
+  // Math-raster pass (D3, docs/specs/kdp-clean-export-profile.md; reused
+  // verbatim by epub2 per D2): any non-default profile, book-wide, before the
+  // per-topic loop — one Chromium browser for every equation in the book
+  // (mathRaster.ts mirrors mermaid.ts's collect→batch→embed pattern). No-op
+  // for the default profile, which keeps emitting MathML.
+  const mathPngs = profile !== "default" ? await rasterizeMath(collectMathHtml(book)) : new Map<string, string>();
   const content = book.content ?? {};
   const lang = book.metadata?.language || "en";
 
@@ -244,7 +252,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
       const ct: FloatRef[] = [];
       const tableCaps = (topic.lesson as { table_captions?: string[] }).table_captions ?? [];
       let body = numberFloats(renderTopicBody(topic, diagrams), n, cf, ct, tableCaps);
-      if (profile === "kdp") body = replaceMathWithImages(body, mathPngs);
+      if (profile !== "default") body = replaceMathWithImages(body, mathPngs);
       const packedImages = packImages(
         xhtmlDocument(title, body, "../css/style.css", lang),
         images,
@@ -472,7 +480,7 @@ function buildOpf(
   audios: ImageRes[] = [],
   auxFront: AuxDoc[] = [],
   auxBack: AuxDoc[] = [],
-  profile: "default" | "kdp" = "default",
+  profile: "default" | "kdp" | "epub2" = "default",
 ): string {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
