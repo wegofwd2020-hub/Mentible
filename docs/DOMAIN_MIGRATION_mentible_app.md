@@ -45,7 +45,7 @@ Recommended answers pre-filled; **confirm before executing.**
 
 ## 2. External / manual (NOT in this checkout)
 
-> **✅ WEB LIVE 2026-08-20 — `https://mentible.app/` serves the app (root, same-origin `/api`).** Done: DNS+CF (proxied A @/www → VPS), dedicated Origin Cert (SAN mentible.app), mambakkam-net PR #123 MERGED (container block), host vhost installed on VPS (`nginx -t`+reload), app published via `web-deploy.sh mentible` → `public/mentible-app/`. Verified: index 200, assets at `/_expo/`, `/api/v1/account` 401 (backend same-origin), missing-asset 404 (CDN-poison guard). **STILL PENDING before it's a full replacement: Supabase redirect allowlist (sign-in ⭐), APK vc43, landing/301, docs-sweep.**
+> **✅ WEB LIVE 2026-08-20 — `https://mentible.app/` serves the app (root, same-origin `/api`).** Done: DNS+CF (proxied A @/www → VPS), dedicated Origin Cert (SAN mentible.app), mambakkam-net PR #123 MERGED (container block), host vhost installed on VPS (`nginx -t`+reload), app published via `web-deploy.sh mentible` → `public/mentible-app/`. Verified: index 200, assets at `/_expo/`, `/api/v1/account` 401 (backend same-origin), missing-asset 404 (CDN-poison guard). (Fix ccf3c04: first publish rendered BLANK — Expo `baseUrl:"/"` double-slashes asset URLs; `mentible` target now bakes EMPTY baseUrl. Render + Google-OAuth-initiate browser-verified.) **STILL PENDING: Supabase redirect allowlist (sign-in return leg ⭐), APK vc43, landing/301, docs-sweep.**
 
 - [ ] **DNS + Cloudflare `[external]`** — point `mentible.app` (apex; add `api.` `[split-only]`). CF zone, DNS records, Origin Cert SAN for any new hostname, SSL mode.
 - [~] **`mambakkam-net` repo `[mambakkam-net]`:**
