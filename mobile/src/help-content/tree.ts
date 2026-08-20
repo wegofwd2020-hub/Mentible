@@ -102,6 +102,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-narrate-topic", title: "Generating narration for a topic", topicId: "narrate-topic" },
       { id: "leaf-reader-audio", title: "Listening to a book's narration", topicId: "reader-audio" },
       { id: "leaf-backup-restore", title: "Backup & restore your library", topicId: "backup-restore" },
+      { id: "leaf-library-sync", title: "Cloud sync (end-to-end encrypted)", topicId: "library-sync" },
     ],
   },
   {

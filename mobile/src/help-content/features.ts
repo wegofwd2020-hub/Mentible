@@ -36,6 +36,7 @@ export const FEATURES = [
   { key: "reader-audio", label: "Listening to a book's narration" },
   { key: "narrate-topic", label: "Generating narration for a topic" },
   { key: "backup-restore", label: "Backup & restore your library" },
+  { key: "library-sync", label: "Cloud sync (end-to-end encrypted)" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];

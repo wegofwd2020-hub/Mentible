@@ -430,6 +430,38 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "library-sync",
+    title: "Cloud sync — keep your library on all your devices",
+    featureKey: "library-sync",
+    keywords: ["sync", "cloud", "encrypted", "end-to-end", "recovery key", "new device", "devices", "backup", "mentible.app", "settings"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Cloud sync keeps your authored books on every device you sign in on. Turn it on in Settings → Sync, then tap \"Sync now\" to push and pull your library.",
+      },
+      {
+        kind: "text",
+        text: "Your books are encrypted on your device before they're uploaded — end-to-end. We store only the encrypted data and can never read your library.",
+      },
+      {
+        kind: "text",
+        text: "When you enable sync you get a one-time recovery key. Save it. It's the ONLY way to unlock sync on a new device, and we can't recover it for you. Your exported EPUB/PDF is your fallback if you lose it.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "On your first device, open Settings → Sync and tap \"Enable cloud sync\". Copy and save the recovery key it shows once.",
+          "Tap \"Sync now\" to upload your library.",
+          "On a new device, sign in, open Settings → Sync, and enter your recovery key to unlock, then Sync now.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Increment 1 syncs your authored books and is manual (tap \"Sync now\"). Your reader EPUBs and your API key are not part of sync yet — use Backup & Restore for those.",
+      },
+    ],
+  },
+  {
     id: "projects",
     title: "What a project is — and how to start one",
     featureKey: "projects",

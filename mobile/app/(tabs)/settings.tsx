@@ -9,6 +9,7 @@ import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
 import { BackupRestore } from "@/components/BackupRestore";
+import { LibrarySync } from "@/components/LibrarySync";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
@@ -146,6 +147,12 @@ export default function SettingsScreen() {
       <View style={styles.divider} />
 
       <BackupRestore />
+
+      <View style={styles.divider} />
+
+      <RequireSignIn action="sync your library">
+        <LibrarySync />
+      </RequireSignIn>
       </>
       )}
 
