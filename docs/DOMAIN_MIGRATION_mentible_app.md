@@ -45,7 +45,7 @@ Recommended answers pre-filled; **confirm before executing.**
 
 ## 2. External / manual (NOT in this checkout)
 
-> **✅ WEB LIVE 2026-08-20 — `https://mentible.app/` serves the app (root, same-origin `/api`).** Done: DNS+CF (proxied A @/www → VPS), dedicated Origin Cert (SAN mentible.app), mambakkam-net PR #123 MERGED (container block), host vhost installed on VPS (`nginx -t`+reload), app published via `web-deploy.sh mentible` → `public/mentible-app/`. Verified: index 200, assets at `/_expo/`, `/api/v1/account` 401 (backend same-origin), missing-asset 404 (CDN-poison guard). (Fix ccf3c04: first publish rendered BLANK — Expo `baseUrl:"/"` double-slashes asset URLs; `mentible` target now bakes EMPTY baseUrl. Render + Google-OAuth-initiate browser-verified.) **STILL PENDING: Supabase redirect allowlist (sign-in return leg ⭐), APK vc43, landing/301.** (docs-sweep DONE 2026-08-20.)
+> **✅ WEB LIVE 2026-08-20 — `https://mentible.app/` serves the app (root, same-origin `/api`).** Done: DNS+CF (proxied A @/www → VPS), dedicated Origin Cert (SAN mentible.app), mambakkam-net PR #123 MERGED (container block), host vhost installed on VPS (`nginx -t`+reload), app published via `web-deploy.sh mentible` → `public/mentible-app/`. Verified: index 200, assets at `/_expo/`, `/api/v1/account` 401 (backend same-origin), missing-asset 404 (CDN-poison guard). (Fix ccf3c04: first publish rendered BLANK — Expo `baseUrl:"/"` double-slashes asset URLs; `mentible` target now bakes EMPTY baseUrl. Render + Google-OAuth-initiate browser-verified.) **STILL PENDING: APK vc43, landing/301.** (docs-sweep DONE 2026-08-20; Supabase redirect DONE 2026-08-20 — Google sign-in verified live on `mentible.app`, authenticated session + same-origin `/api` confirmed in-browser.)
 
 - [ ] **DNS + Cloudflare `[external]`** — point `mentible.app` (apex; add `api.` `[split-only]`). CF zone, DNS records, Origin Cert SAN for any new hostname, SSL mode.
 - [~] **`mambakkam-net` repo `[mambakkam-net]`:**
@@ -53,9 +53,9 @@ Recommended answers pre-filled; **confirm before executing.**
   - [x] **Landing page `src/pages/mentible.astro`** — ✅ DONE + LIVE (mambakkam-net PR #124 merged 2026-08-20): app CTAs (APP_URL/WORK_URL) → https://mentible.app/ . Landing stays at mambakkam.net/mentible (marketing); APK/demo links unchanged.
   - [ ] Web publish destination + the `Deploy` workflow / new CF Pages project (per D3)
 - [ ] **VPS `.env.demo` `[external]`** (`178.105.160.62`, `/opt/mentible/`, root-owned) — set `CORS_ALLOW_ORIGINS=https://mentible.app` `[split-only]`. No other domain-tied keys; port binding unchanged.
-- [ ] **⭐ Supabase → Auth → URL Configuration `[external]`** *(the #1 silent break — do BEFORE anyone signs in on the new domain):*
-  - [ ] **Site URL** → `https://mentible.app/`
-  - [ ] **Redirect URLs** → add `https://mentible.app/**`; keep `mentible://**` (mobile) + localhost (dev)
+- [x] **⭐ Supabase → Auth → URL Configuration `[external]`** — DONE 2026-08-20. Redirect allowlist updated; Google sign-in verified live on `https://mentible.app/` (authenticated session for wegofwd2020@gmail.com, account + same-origin `/api` loading in-browser).
+  - [x] **Site URL** → `https://mentible.app/`
+  - [x] **Redirect URLs** → add `https://mentible.app/**`; keep `mentible://**` (mobile) + localhost (dev)
 - [ ] **Google Cloud OAuth console `[external]`** — add the new web origin to the Google provider's authorized JS origins/redirects
 - [ ] **GitHub Releases `[external]`** — update the landing APK link only if the tag/repo changes (else leave `releases/latest/download/Mentible.apk`)
 
