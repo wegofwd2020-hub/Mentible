@@ -101,6 +101,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-attach-figures", title: "Add figures to a topic", topicId: "attach-figures" },
       { id: "leaf-narrate-topic", title: "Generating narration for a topic", topicId: "narrate-topic" },
       { id: "leaf-reader-audio", title: "Listening to a book's narration", topicId: "reader-audio" },
+      { id: "leaf-backup-restore", title: "Backup & restore your library", topicId: "backup-restore" },
     ],
   },
   {
