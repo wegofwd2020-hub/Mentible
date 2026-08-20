@@ -46,8 +46,8 @@ Recommended answers pre-filled; **confirm before executing.**
 ## 2. External / manual (NOT in this checkout)
 
 - [ ] **DNS + Cloudflare `[external]`** — point `mentible.app` (apex; add `api.` `[split-only]`). CF zone, DNS records, Origin Cert SAN for any new hostname, SSL mode.
-- [ ] **`mambakkam-net` repo `[mambakkam-net]`:**
-  - [ ] Host **nginx vhost** (`infra/nginx/*.conf`) — `server_name mentible.app`, `location /api/` → `127.0.0.1:8092` (same-origin), or a new `api.mentible.app` server block `[split-only]`
+- [~] **`mambakkam-net` repo `[mambakkam-net]`:**
+  - [x] Host **nginx vhost** — **PR mambakkam-net#123 OPEN** (`ops/mentible-app-vhost`): adds `infra/nginx/mentible.app.conf` (host vhost, `/`→:8081, same-origin `/api/`→:8092), the container `server_name mentible.app` block in `nginx/nginx.conf` (root `/mentible-app`, content-hash-404 rule), and `provision.sh` installs both vhosts. **Merging deploys the CONTAINER block (safe/inert until DNS); the HOST vhost needs a manual VPS install** (`cp`→`sites-available` + symlink + `nginx -t` + `reload`, per the PR). PREREQ: DNS + Origin-Cert SAN for mentible.app.
   - [ ] **Landing page `src/pages/mentible.astro`** — copy, **canonical URL, OG `url`/`image`, sitemap host**, "Download Android app" link
   - [ ] Web publish destination + the `Deploy` workflow / new CF Pages project (per D3)
 - [ ] **VPS `.env.demo` `[external]`** (`178.105.160.62`, `/opt/mentible/`, root-owned) — set `CORS_ALLOW_ORIGINS=https://mentible.app` `[split-only]`. No other domain-tied keys; port binding unchanged.
