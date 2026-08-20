@@ -63,6 +63,28 @@ async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+// Bearer-authenticated fetch helper for any caller that isn't a React
+// component (e.g. syncClient.ts, which the sync engine drives with a token
+// passed in explicitly rather than via a hook) — mirrors `publishBook`'s raw
+// `fetch` + `${BASE_URL}/api/v1/...` + `Authorization: Bearer` pattern above.
+// Returns the raw Response so callers that need a 204/empty body (DELETE) or
+// custom status handling (e.g. 404/409 as expected outcomes, not just
+// errors) aren't forced through `.json()`.
+export async function authedFetch(
+  path: string,
+  token: string,
+  options?: RequestInit,
+): Promise<Response> {
+  return fetch(`${BASE_URL}/api/v1${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...options?.headers,
+    },
+  });
+}
+
 // Friendly phrasing for a 429, scaled by how long the caller must wait: a short
 // Retry-After is the per-minute burst guard; a long one is the per-day cap.
 function rateLimitMessage(retryAfter?: number): string {
