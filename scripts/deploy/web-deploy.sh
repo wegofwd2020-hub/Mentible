@@ -41,8 +41,8 @@ for a in "${@:2}"; do [ "$a" = "--no-push" ] && NO_PUSH=1; done
 case "$TARGET" in
   demo)          BASEURL="/demos/mentible"; PUBDIR="demos/mentible"; VHOST="mambakkam.net"; DEMO_FLAG="1"; DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # read-only public preview
   app)           BASEURL="/app/mentible";   PUBDIR="app/mentible";   VHOST="mambakkam.net"; DEMO_FLAG="";  DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # full app (generate/author/accounts)
-  mentible)      BASEURL="";                PUBDIR="mentible-app";   VHOST="mentible.app";  DEMO_FLAG="";  DEFAULT_API="https://mentible.app/api" ;;             # full app at the mentible.app root — EMPTY baseUrl (NOT "/": Expo bakes registered assets as httpServerLocation "/assets/…", and "/"+"/assets"="//assets" → host "assets" → 404 → blank app; ""+"/assets"="/assets" is correct)
-  mentible-demo) BASEURL="/demo";           PUBDIR="mentible-demo";  VHOST="mentible.app";  DEMO_FLAG="1"; DEFAULT_API="https://mentible.app/api" ;;             # read-only preview at mentible.app/demo
+  mentible)      BASEURL="";                PUBDIR="mentible-app";   VHOST="mentible.app";  DEMO_FLAG="";  DEFAULT_API="https://mentible.app" ;;                 # full app at the mentible.app root — EMPTY baseUrl (NOT "/": Expo bakes registered assets as httpServerLocation "/assets/…", and "/"+"/assets"="//assets" → host "assets" → 404 → blank app; ""+"/assets"="/assets" is correct). DEFAULT_API has NO /api suffix: the client appends /api/v1 itself, and nginx `location /api/` proxies to the backend — a /api suffix here makes /api/api/v1 → 404.
+  mentible-demo) BASEURL="/demo";           PUBDIR="mentible-demo";  VHOST="mentible.app";  DEMO_FLAG="1"; DEFAULT_API="https://mentible.app" ;;                 # read-only preview at mentible.app/demo (same no-/api-suffix rule as the `mentible` target)
   *) echo "usage: $0 <demo|app|mentible|mentible-demo> [--no-push]"; exit 2 ;;
 esac
 
