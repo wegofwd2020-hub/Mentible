@@ -242,7 +242,12 @@ class Settings(BaseSettings):
     # stored key. But `*` did leave the API callable from any browser page, an abuse
     # surface the per-IP limiter alone had to carry. Native apps ignore CORS entirely;
     # this only constrains browser clients.
-    cors_allow_origins: str = Field(default="https://mambakkam.net")
+    # Both live during the mentible.app migration: mambakkam.net (old surface,
+    # kept alive for old APKs) + mentible.app (new apex). Same-origin (D1) means
+    # the web app doesn't actually exercise CORS today, but the allowlist is
+    # defence-in-depth for any cross-origin browser call. See
+    # docs/DOMAIN_MIGRATION_mentible_app.md.
+    cors_allow_origins: str = Field(default="https://mambakkam.net,https://mentible.app")
     # Expo web dev serves on an arbitrary localhost port, so allow the loopback
     # hosts by regex rather than pinning ports. Turn OFF in production.
     cors_allow_localhost: bool = Field(default=True)

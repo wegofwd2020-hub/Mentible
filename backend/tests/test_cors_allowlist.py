@@ -16,7 +16,9 @@ def _origins(**kw: object) -> Settings:
 def test_default_allowlist_is_not_a_wildcard() -> None:
     s = _origins()
     assert "*" not in s.cors_origin_list
-    assert s.cors_origin_list == ["https://mambakkam.net"]
+    # Migration window: both the old mambakkam.net surface (kept alive for old
+    # APKs) and the new mentible.app apex are allowed (docs/DOMAIN_MIGRATION_*).
+    assert s.cors_origin_list == ["https://mambakkam.net", "https://mentible.app"]
 
 
 def test_allowlist_parses_comma_separated_and_drops_blanks() -> None:

@@ -29,19 +29,16 @@ Recommended answers pre-filled; **confirm before executing.**
 
 ## 1. In-repo changes `[repo]`
 
-- [ ] **`scripts/deploy/web-deploy.sh`** — the deploy engine:
-  - [ ] `API_BASE_URL` default (L38) → `https://mentible.app/api`
-  - [ ] `SUBPATH` cases (L32-33) → root (`""` / `app`) + `demo`
-  - [ ] `baseUrl` `sed` rewrite (L69) + the `grep -q "/$SUBPATH/_expo/"` assert (L88) — **verify a root `baseUrl:"/"` emits `/_expo/` and the grep still matches** (may need to special-case root)
-  - [ ] `MB_URL` (L39), `VERIFY_URL` (L40), `Deploy` workflow watch (L121-123), Supabase-allowlist reminder string (L132) → new host / repo / URL
-- [ ] **`mobile/app.json:44`** — `experiments.baseUrl` `/demos/mentible` → `/` (bakes `_expo/` asset paths into the export)
-- [ ] **`backend/config.py:245`** — `cors_allow_origins` default `https://mambakkam.net` → `https://mentible.app` (update even for same-origin, as safety)
-- [ ] **`backend/tests/test_cors_allowlist.py:19`** — asserts the exact allowlist value → update or CI fails
-- [ ] **APK build** (`Plans/DEPLOY_OPEN_SHELVES_APK_STAGE3.md` L67 export + L85 Hermes-grep assert) — exported `EXPO_PUBLIC_API_BASE_URL` + the bundle-grep string → new API base
-- [ ] **`mobile/.env.local`** — `EXPO_PUBLIC_API_BASE_URL` dev/build value
-- [ ] **Cosmetic (non-breaking courtesy strings):**
-  - [ ] `backend/src/shelves/feed_fetch.py:23` + `mobile/src/openshelves/fetchFeed.ts:13` — feed User-Agent `Mentible (+https://mambakkam.net/mentible)`
-  - [ ] `mobile/src/openshelves/opds12.ts:12` — support email `support_mentible@mambakkam.net` (only if migrating email)
+> **DONE on branch `ops/domain-migration-mentible-app` (D1 same-origin + D2 root).** Zero-downtime: the `demo`/`app` (mambakkam.net) targets are byte-unchanged; new `mentible`/`mentible-demo` targets serve the apex. Backend + mobile suites green for the touched areas. Not yet run/deployed — the `mentible` target needs the external §6 nginx vhost first.
+
+- [x] **`scripts/deploy/web-deploy.sh`** — added `mentible` (root `mentible.app/`, api `https://mentible.app/api`) + `mentible-demo` (`/demo`) targets. Parameterized `BASEURL`/`PUBDIR`/`VHOST`/`DEFAULT_API`; `baseUrl` sed + `${BASEURL%/}/_expo/` assert handle root; `VERIFY_URL=https://$VHOST${BASEURL%/}/`; Supabase gating on `-z DEMO_FLAG` (any full-app target). Verified per-target var resolution; `demo`/`app` identical to before.
+- [~] **`mobile/app.json:44`** — **intentionally left** `/demos/mentible`. The deploy script `sed`s `baseUrl` per-target in a disposable worktree, so it now owns the value; the committed one is only the local `expo start` web dev default (the native APK ignores `baseUrl`). No prod build uses the committed value. *(Ruling: changing it is a cosmetic no-op for prod; leave it to avoid churn. Revisit if we ever build web without the script.)*
+- [x] **`backend/config.py:245`** — `cors_allow_origins` default → `https://mambakkam.net,https://mentible.app` (BOTH — old surface stays live for old APKs during transition; new apex added). Same-origin (D1) doesn't exercise CORS, but it's defence-in-depth.
+- [x] **`backend/tests/test_cors_allowlist.py:19`** — updated to expect both origins. `pytest -k cors` → 5/5 (20 incl. preflight).
+- [ ] **APK build** (`Plans/DEPLOY_OPEN_SHELVES_APK_STAGE3.md`) — done at cutover: bump vc43, export `EXPO_PUBLIC_API_BASE_URL=https://mentible.app/api`, update the Hermes-grep assert string. *(§3 — deferred to cutover; not a repo edit.)*
+- [ ] **`mobile/.env.local`** — `EXPO_PUBLIC_API_BASE_URL` dev value *(local file, not tracked; leave until cutover)*.
+- [x] **Cosmetic — feed User-Agent** `backend/src/shelves/feed_fetch.py:23` + `mobile/src/openshelves/fetchFeed.ts:13` → `Mentible (+https://mentible.app)`.
+  - [~] `mobile/src/openshelves/opds12.ts:12` support email `support_mentible@mambakkam.net` — **left as-is**: mentible.app email isn't provisioned, so changing it would create a bouncing address. Migrate when email is set up.
 - [ ] **Docs sweep** — `README.md`, `CLAUDE.md`, `docs/DEPLOYMENT_PIPELINE.md`, `docs/STATUS.md`, `docs/GO_LIVE.md`, `docs/user-guides/01-sign-in-with-google.md`, funnel specs: update surface tables + the now-obsolete "no standalone Mentible domain" statements; make `mentible.app` the canonical.
 
 ---

@@ -10,7 +10,7 @@ export const MAX_FEED_BYTES = 8 * 1024 * 1024;
 // (On web the request targets our own backend and browsers drop the forbidden
 // User-Agent header — harmless; the meaningful UA reaches the upstream host from
 // the backend proxy, see backend/src/shelves/feed_fetch.py.)
-export const FEED_USER_AGENT = "Mentible (+https://mambakkam.net/mentible)";
+export const FEED_USER_AGENT = "Mentible (+https://mentible.app)";
 
 // SSRF guard: block literal loopback/private/link-local hosts (incl. the
 // 169.254.169.254 cloud metadata address). Known residual: this blocks literal
