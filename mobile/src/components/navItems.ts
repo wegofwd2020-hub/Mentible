@@ -17,13 +17,14 @@ export const NAV_TABS: Record<string, { label: string; active: IconName; inactiv
   about: { label: NAV.about, active: "information-circle", inactive: "information-circle-outline" },
 };
 
-// Visual order. Shelves and Studio (books) are intentionally HIDDEN from the
-// nav — their routes stay registered (reachable elsewhere / by link), they're
-// just not shown here. Projects/Reviews/Publish (posts) need a backend account
-// (ADR-037) and stay omitted from the demo build.
+// Visual order. Shelves stays HIDDEN (route registered, reachable by link).
+// Studio (books) is shown — it's the authoring surface + where synced/authored
+// books live; hiding it left users with no way to reach their books. It's
+// omitted from the demo build alongside Projects/Reviews/Publish (posts), which
+// need a backend account (ADR-037); the demo is a read-only preview.
 export const NAV_ORDER: string[] = [
   "library",
-  ...(IS_DEMO ? [] : ["projects", "reviews", "posts"]),
+  ...(IS_DEMO ? [] : ["books", "projects", "reviews", "posts"]),
   "settings",
   "help",
   "about",

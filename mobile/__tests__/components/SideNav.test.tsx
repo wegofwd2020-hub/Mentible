@@ -55,14 +55,14 @@ beforeEach(() => {
 
 it("renders a row for every non-demo destination", () => {
   render(<SideNav {...makeProps()} />);
-  for (const label of ["Library", "Projects", "Reviews", "Settings", "Help", "About"]) {
+  for (const label of ["Library", "Studio", "Projects", "Reviews", "Settings", "Help", "About"]) {
     expect(screen.getByLabelText(label)).toBeTruthy();
   }
 });
 
-it("hides Shelves, Studio and Posts from the nav", () => {
+it("hides Shelves from the nav (Posts shows as 'Publish', not 'Posts')", () => {
   render(<SideNav {...makeProps()} />);
-  for (const label of ["Shelves", "Studio", "Posts"]) {
+  for (const label of ["Shelves", "Posts"]) {
     expect(screen.queryByLabelText(label)).toBeNull();
   }
 });
