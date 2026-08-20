@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { fromBase64 } from "@/storage/pickBookFile";
 
 // Local library of compiled EPUB3 books — the authoring app's "finished shelf".
 // EPUBs are multi-MB binaries, so AsyncStorage/localStorage won't do:
@@ -47,6 +48,21 @@ export function deleteEpub(id: string): Promise<void> {
 /** Open the EPUB: a browser download on web, a share sheet on native. */
 export function openEpub(id: string, title: string): Promise<void> {
   return isWeb ? webOpen(id, title) : nativeOpen(id);
+}
+
+// Read a saved EPUB's raw bytes (for Backup export). Web: the IndexedDB blob →
+// ArrayBuffer. Native: the on-disk .epub → ArrayBuffer. null if absent.
+export async function getEpubBytes(id: string): Promise<ArrayBuffer | null> {
+  if (isWeb) {
+    const rec = await tx<WebRecord | undefined>("readonly", (s) => s.get(id));
+    return rec ? await rec.blob.arrayBuffer() : null;
+  }
+  const p = epubPath(id);
+  const info = await FileSystem.getInfoAsync(p);
+  if (!info.exists) return null;
+  const b64 = await FileSystem.readAsStringAsync(p, { encoding: FileSystem.EncodingType.Base64 });
+  // fromBase64 already returns a standalone ArrayBuffer (byteOffset 0).
+  return fromBase64(b64);
 }
 
 function epubFilename(title: string): string {
