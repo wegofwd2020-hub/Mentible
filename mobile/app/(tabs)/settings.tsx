@@ -8,6 +8,7 @@ import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
 import { HelpButton } from "@/help";
 import { PageContainer } from "@/components/PageContainer";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
+import { BackupRestore } from "@/components/BackupRestore";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
@@ -141,6 +142,10 @@ export default function SettingsScreen() {
         you can adjust per book.
       </Text>
       <GenerationParamsEditor value={params} onChange={handleParamsChange} />
+
+      <View style={styles.divider} />
+
+      <BackupRestore />
       </>
       )}
 
