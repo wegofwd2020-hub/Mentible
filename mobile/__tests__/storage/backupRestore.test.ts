@@ -1,5 +1,7 @@
 import { unzipSync, strFromU8 } from "fflate";
-import { buildBackup } from "@/storage/backupRestore";
+import { restoreBackup, buildBackup } from "@/storage/backupRestore";
+import { saveBook } from "@/storage/bookStore";
+import { saveEpub } from "@/storage/epubLibrary";
 
 jest.mock("@/storage/bookStore", () => ({
   loadBookIndex: jest.fn(async () => [{ id: "b1", title: "One" }]),
@@ -35,4 +37,35 @@ it("builds a zip with manifest, books, epubs, settings — and NO api key", asyn
   const whole = Object.values(z).map((v) => strFromU8(v)).join("");
   expect(whole).not.toContain("SECRET-KEY");
   expect(settings.sbq_byok_key).toBeUndefined();
+});
+
+it("round-trips: restoreBackup(buildBackup()) writes books + epubs + settings", async () => {
+  const { bytes } = await buildBackup();
+  (saveBook as jest.Mock).mockClear(); (saveEpub as jest.Mock).mockClear();
+  const res = await restoreBackup(bytes);
+  expect(res.books).toBe(1);
+  expect(res.epubs).toBe(1);
+  expect(saveBook).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
+  expect(saveEpub).toHaveBeenCalledWith(expect.objectContaining({ bookId: "b1", title: "One" }));
+});
+
+it("rejects a non-backup zip with no writes", async () => {
+  const { zipSync, strToU8 } = require("fflate");
+  const junk = zipSync({ "manifest.json": strToU8(JSON.stringify({ _fmt: "something-else" })) });
+  (saveBook as jest.Mock).mockClear();
+  await expect(restoreBackup(junk)).rejects.toThrow();
+  expect(saveBook).not.toHaveBeenCalled();
+});
+
+it("skips a single malformed book entry with a warning, imports the rest", async () => {
+  const { zipSync, strToU8 } = require("fflate");
+  const z = zipSync({
+    "manifest.json": strToU8(JSON.stringify({ _fmt: "mentible-backup", _v: 1 })),
+    "books/good.json": strToU8(JSON.stringify({ id: "good", title: "G", toc: { subjects: [] }, content: {} })),
+    "books/bad.json": strToU8("{ not json"),
+    "epubs/index.json": strToU8("[]"),
+  });
+  const res = await restoreBackup(z);
+  expect(res.books).toBe(1);
+  expect(res.warnings.length).toBeGreaterThanOrEqual(1);
 });
