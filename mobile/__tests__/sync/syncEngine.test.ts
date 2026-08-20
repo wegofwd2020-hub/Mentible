@@ -1,15 +1,22 @@
 // syncEngine.ts is the client sync engine: envelope-encrypt/decrypt +
-// syncNow's LWW reconciliation. Everything it talks to is mocked here
-// (syncClient, envelope, bookStore, lmkStore) so these tests exercise only
-// the engine's own logic — the GLOBAL CONSTRAINT under test is that a
-// `syncNow` push NEVER puts plaintext book title/content on the wire; only
-// ciphertext (+ nonces/wrapped keys/client_version) crosses `putBook`.
+// syncNow's LWW reconciliation, disambiguated by a persisted "sync shadow"
+// (the set of book ids this device believes are currently synced) so a local
+// delete can be told apart from "never synced". Everything it talks to is
+// mocked here (syncClient, envelope, bookStore, lmkStore) EXCEPT
+// @react-native-async-storage/async-storage, which stays the real in-memory
+// jest mock (wired globally in jest.setup.js) — the shadow/last-synced state
+// syncEngine persists there is exactly what these tests need to exercise
+// (including that it survives across separate `syncNow` calls). The GLOBAL
+// CONSTRAINT under test is that a `syncNow` push NEVER puts plaintext book
+// title/content on the wire; only ciphertext (+ nonces/wrapped keys/
+// client_version) crosses `putBook`.
 
 jest.mock("@/sync/syncClient");
 jest.mock("@/crypto/envelope");
 jest.mock("@/storage/bookStore");
 jest.mock("@/sync/lmkStore");
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as syncClient from "@/sync/syncClient";
 import * as envelope from "@/crypto/envelope";
 import * as bookStore from "@/storage/bookStore";
@@ -34,6 +41,17 @@ const bytes = (n: number, seed = 1) => {
   for (let i = 0; i < n; i++) u[i] = (i * seed + 11) % 256;
   return u;
 };
+
+// A REAL (if trivial) transform — every byte flipped — so a test that
+// forgets to encrypt (i.e. forwards the plaintext straight through) produces
+// bytes that differ from this and DOES fail. A pass-through mock here would
+// make the "no plaintext leaves" tests below tautological, which is exactly
+// the bug this round fixes.
+function xorObfuscate(input: Uint8Array): Uint8Array {
+  const out = new Uint8Array(input.length);
+  for (let i = 0; i < input.length; i++) out[i] = input[i] ^ 0xff;
+  return out;
+}
 
 const LMK = bytes(32, 2);
 const TOKEN = "session-token";
@@ -61,8 +79,14 @@ function makeMeta(overrides: Partial<BookMeta> = {}): BookMeta {
   } as BookMeta;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  // syncEngine persists the sync shadow + last-synced timestamp to the REAL
+  // AsyncStorage mock (not jest.mock'd away in this file) — clear it between
+  // tests so one test's shadow state can't leak into the next. The one test
+  // that deliberately checks cross-call persistence does so entirely within
+  // its own `it()`, after this clear has already run once.
+  await AsyncStorage.clear();
 
   // Deterministic-enough envelope stand-ins. seal/open are NOT reciprocal
   // real crypto here — they're per-test-controlled mocks — except in the
@@ -78,9 +102,11 @@ beforeEach(() => {
   mEnvelope.open.mockImplementation((_key: Uint8Array, _nonce: Uint8Array, ct: Uint8Array) => ct);
   mEnvelope.encryptBook.mockImplementation((json: string) => ({
     nonce: bytes(12, 9),
-    ct: new TextEncoder().encode(json), // "ciphertext" — but content-derived so we can grep it for the plaintext check
+    ct: xorObfuscate(new TextEncoder().encode(json)), // NOT plaintext — see xorObfuscate
   }));
-  mEnvelope.decryptBook.mockImplementation((_n: Uint8Array, ct: Uint8Array) => new TextDecoder().decode(ct));
+  mEnvelope.decryptBook.mockImplementation((_n: Uint8Array, ct: Uint8Array) =>
+    new TextDecoder().decode(xorObfuscate(ct)), // inverse of encryptBook's XOR above
+  );
 
   mLmkStore.loadLMK.mockResolvedValue(LMK);
   mLmkStore.saveLMK.mockResolvedValue(undefined);
@@ -148,7 +174,7 @@ describe("syncNow — locked device", () => {
 });
 
 describe("syncNow — reconciliation", () => {
-  it("pushes a local-only/local-newer book: putBook called, and the wire body carries NO plaintext title/content", async () => {
+  it("pushes a local-only/local-newer book: putBook called, and the ciphertext is genuinely NOT the plaintext", async () => {
     const book = makeBook({ id: "b1", updatedAt: "2026-03-01T00:00:00.000Z" });
     mSyncClient.listBooks.mockResolvedValue([]); // nothing on the server yet
     mBookStore.loadBookIndex.mockResolvedValue([makeMeta({ id: "b1", updatedAt: book.updatedAt })]);
@@ -165,14 +191,16 @@ describe("syncNow — reconciliation", () => {
     const [, id, blob] = mSyncClient.putBook.mock.calls[0];
     expect(id).toBe("b1");
 
-    // The GLOBAL CONSTRAINT under test: the entire serialized PUT body must
-    // never contain the book's plaintext title or content — only ciphertext,
-    // nonces, wrapped key material, and the client_version string.
-    const serializedBody = JSON.stringify(blob, (_k, v) =>
-      v instanceof Uint8Array ? Array.from(v).join(",") : v,
-    );
-    expect(serializedBody).not.toContain("DISTINCTIVE TITLE");
-    expect(serializedBody).not.toContain(book.title);
+    // The GLOBAL CONSTRAINT under test, made REAL (not a tautology): the
+    // ciphertext bytes must differ byte-for-byte from the plaintext book
+    // JSON, and decoding them as UTF-8 must not surface the book's title. A
+    // regression that ships `JSON.stringify(book)` straight through as
+    // "ciphertext" would fail both assertions below.
+    const plaintextBytes = new TextEncoder().encode(JSON.stringify(book));
+    expect(blob.ciphertext).not.toEqual(plaintextBytes);
+    const decodedAsUtf8 = new TextDecoder().decode(blob.ciphertext);
+    expect(decodedAsUtf8).not.toContain(book.title);
+    expect(decodedAsUtf8).not.toContain("DISTINCTIVE TITLE");
   });
 
   it("pulls a server-newer book: getBook + decrypt + saveBook", async () => {
@@ -184,7 +212,7 @@ describe("syncNow — reconciliation", () => {
     mBookStore.loadBookIndex.mockResolvedValue([makeMeta({ id: "b2", updatedAt: "2026-03-01T00:00:00.000Z" })]);
     mSyncClient.getBook.mockResolvedValue({
       bookId: "b2", clientVersion: "2026-03-05T00:00:00.000Z", deleted: false, updatedAt: "2026-03-05T00:00:00.000Z",
-      ciphertext: new TextEncoder().encode(remoteJson), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
+      ciphertext: xorObfuscate(new TextEncoder().encode(remoteJson)), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
     });
 
     const result = await syncNow(TOKEN);
@@ -195,7 +223,7 @@ describe("syncNow — reconciliation", () => {
     expect(mSyncClient.putBook).not.toHaveBeenCalled();
   });
 
-  it("pulls a server-only book not present locally at all", async () => {
+  it("pulls a server-only book not present locally and not in the shadow (genuinely new from a peer)", async () => {
     const remoteBook = makeBook({ id: "b3", updatedAt: "2026-04-01T00:00:00.000Z" });
     mSyncClient.listBooks.mockResolvedValue([
       { bookId: "b3", clientVersion: remoteBook.updatedAt, deleted: false, updatedAt: remoteBook.updatedAt },
@@ -203,15 +231,16 @@ describe("syncNow — reconciliation", () => {
     mBookStore.loadBookIndex.mockResolvedValue([]);
     mSyncClient.getBook.mockResolvedValue({
       bookId: "b3", clientVersion: remoteBook.updatedAt, deleted: false, updatedAt: remoteBook.updatedAt,
-      ciphertext: new TextEncoder().encode(JSON.stringify(remoteBook)), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
+      ciphertext: xorObfuscate(new TextEncoder().encode(JSON.stringify(remoteBook))), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
     });
 
     const result = await syncNow(TOKEN);
     expect(result.pulled).toBe(1);
     expect(mBookStore.saveBook).toHaveBeenCalledWith(remoteBook);
+    expect(mSyncClient.deleteBook).not.toHaveBeenCalled();
   });
 
-  it("deletes locally on a newer server tombstone", async () => {
+  it("deletes locally on a newer server tombstone (compared via server.updatedAt, not client_version)", async () => {
     mSyncClient.listBooks.mockResolvedValue([
       { bookId: "b4", clientVersion: "2026-05-01T00:00:00.000Z", deleted: true, updatedAt: "2026-05-01T00:00:00.000Z" },
     ]);
@@ -224,7 +253,31 @@ describe("syncNow — reconciliation", () => {
     expect(mSyncClient.getBook).not.toHaveBeenCalled();
   });
 
-  it("skips a book whose local updatedAt equals the server client_version", async () => {
+  it("FIX 2: a steady-state tombstone (local.updatedAt === server.client_version, but server.updatedAt is newer) still deletes locally", async () => {
+    // client_version is never bumped by DELETE (T2), so it still equals what
+    // the last PUT set — a naive "compare against client_version" LWW would
+    // read this as cmp===0 ("equal, skip") and miss the tombstone forever.
+    // The real tombstone recency lives in server.updated_at, which IS newer.
+    mSyncClient.listBooks.mockResolvedValue([
+      {
+        bookId: "b6",
+        clientVersion: "2026-08-01T00:00:00.000Z", // unchanged by the delete
+        deleted: true,
+        updatedAt: "2026-08-02T00:00:00.000Z", // the real tombstone timestamp
+      },
+    ]);
+    mBookStore.loadBookIndex.mockResolvedValue([
+      makeMeta({ id: "b6", updatedAt: "2026-08-01T00:00:00.000Z" }), // equals client_version exactly
+    ]);
+
+    const result = await syncNow(TOKEN);
+
+    expect(mBookStore.deleteBook).toHaveBeenCalledWith("b6");
+    expect(result.deleted).toBe(1);
+    expect(mSyncClient.getBook).not.toHaveBeenCalled();
+  });
+
+  it("skips a book whose local updatedAt equals the server client_version (live, not a tombstone)", async () => {
     mSyncClient.listBooks.mockResolvedValue([
       { bookId: "b5", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
     ]);
@@ -255,13 +308,14 @@ describe("syncNow — reconciliation", () => {
       }
       return {
         bookId: "good", clientVersion: goodMeta.clientVersion, deleted: false, updatedAt: goodMeta.updatedAt,
-        ciphertext: new TextEncoder().encode(JSON.stringify(goodBook)), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
+        ciphertext: xorObfuscate(new TextEncoder().encode(JSON.stringify(goodBook))), nonce: bytes(12), wrappedDk: bytes(32), dkNonce: bytes(12),
       };
     });
 
-    // decryptBook throws only for the "bad" book's ciphertext.
+    // decryptBook throws only for the "bad" book's ciphertext (its unXOR'd
+    // bytes never start with "{").
     mEnvelope.decryptBook.mockImplementation((_n: Uint8Array, ct: Uint8Array) => {
-      const text = new TextDecoder().decode(ct);
+      const text = new TextDecoder().decode(xorObfuscate(ct));
       if (!text.startsWith("{")) throw new Error("bad ciphertext");
       return text;
     });
@@ -274,7 +328,7 @@ describe("syncNow — reconciliation", () => {
     expect(mBookStore.saveBook).not.toHaveBeenCalledWith(expect.objectContaining({ id: "bad" }));
   });
 
-  it("across a full run, no putBook body ever carries a plaintext book title/content substring", async () => {
+  it("across a full run, no putBook ciphertext ever decodes to a plaintext book title/content substring", async () => {
     const book1 = makeBook({ id: "p1", title: "SECRET TITLE ONE", updatedAt: "2026-07-01T00:00:00.000Z" });
     const book2 = makeBook({ id: "p2", title: "SECRET TITLE TWO", updatedAt: "2026-07-01T00:00:00.000Z" });
     mSyncClient.listBooks.mockResolvedValue([]);
@@ -291,12 +345,57 @@ describe("syncNow — reconciliation", () => {
     await syncNow(TOKEN);
 
     expect(mSyncClient.putBook).toHaveBeenCalledTimes(2);
-    for (const call of mSyncClient.putBook.mock.calls) {
-      const [, , blob] = call;
-      const serialized = JSON.stringify(blob, (_k, v) =>
-        v instanceof Uint8Array ? Array.from(v).join(",") : v,
-      );
-      expect(serialized).not.toMatch(/SECRET TITLE (ONE|TWO)/);
+    const booksById: Record<string, Book> = { p1: book1, p2: book2 };
+    for (const [, id, blob] of mSyncClient.putBook.mock.calls) {
+      const plaintextBytes = new TextEncoder().encode(JSON.stringify(booksById[id]));
+      expect(blob.ciphertext).not.toEqual(plaintextBytes);
+      const decoded = new TextDecoder().decode(blob.ciphertext);
+      expect(decoded).not.toMatch(/SECRET TITLE (ONE|TWO)/);
     }
+  });
+});
+
+describe("syncNow — sync shadow (FIX 1: local delete resurrection / missed peer tombstone)", () => {
+  it("a book synced then deleted locally: the SECOND syncNow pushes the tombstone (deleteBook) and does NOT re-pull it — and the shadow persisted across the two calls", async () => {
+    const book = makeBook({ id: "b1", updatedAt: "2026-09-01T00:00:00.000Z" });
+
+    // --- Run 1: book exists only locally → push, and the shadow should now
+    // remember "b1" as synced.
+    mSyncClient.listBooks.mockResolvedValueOnce([]);
+    mBookStore.loadBookIndex.mockResolvedValueOnce([makeMeta({ id: "b1", updatedAt: book.updatedAt })]);
+    mBookStore.loadBook.mockResolvedValueOnce(book);
+    mSyncClient.putBook.mockResolvedValueOnce({
+      bookId: "b1", clientVersion: book.updatedAt, deleted: false, updatedAt: book.updatedAt,
+      ciphertext: bytes(1), nonce: bytes(1), wrappedDk: bytes(1), dkNonce: bytes(1),
+    });
+
+    const run1 = await syncNow(TOKEN);
+    expect(run1.pushed).toBe(1);
+
+    // The shadow is real persisted state (AsyncStorage), not a mock return
+    // value — assert it directly to prove cross-call persistence.
+    const shadowRaw = await AsyncStorage.getItem("sbq_sync_shadow");
+    expect(JSON.parse(shadowRaw ?? "[]")).toContain("b1");
+
+    // --- Run 2: the user deleted "b1" locally (no longer in the local
+    // index); the server still has it as live (simulating what run 1 just
+    // pushed). Without the shadow, this looks identical to "never had it,
+    // pull it" — which would resurrect the delete.
+    mSyncClient.listBooks.mockResolvedValueOnce([
+      { bookId: "b1", clientVersion: book.updatedAt, deleted: false, updatedAt: book.updatedAt },
+    ]);
+    mBookStore.loadBookIndex.mockResolvedValueOnce([]); // deleted locally
+
+    const run2 = await syncNow(TOKEN);
+
+    expect(mSyncClient.deleteBook).toHaveBeenCalledWith(TOKEN, "b1");
+    expect(mSyncClient.getBook).not.toHaveBeenCalled(); // must NOT re-pull the "deleted" book
+    expect(mBookStore.saveBook).not.toHaveBeenCalled();
+    expect(run2.deleted).toBe(1);
+    expect(run2.pulled).toBe(0);
+
+    // The shadow should have forgotten "b1" now that both sides agree it's gone.
+    const shadowAfter = await AsyncStorage.getItem("sbq_sync_shadow");
+    expect(JSON.parse(shadowAfter ?? "[]")).not.toContain("b1");
   });
 });
