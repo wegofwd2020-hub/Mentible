@@ -18,7 +18,8 @@ build missing a merged feature — don't repeat it).
 |---|---|---|---|---|
 | **Local** | `expo start --web` (`:8081`) | local docker (`:8001`) | off | — (dev server) |
 | **Demo** | `mambakkam.net/demos/mentible/` | prod `/mentible-api` | **on** (read-only) | `/demos/mentible` |
-| **Production** | `mambakkam.net/app/mentible/` | prod `/mentible-api` | off | `/app/mentible` |
+| **Production (canonical)** | `https://mentible.app/` | same-origin `/api` | off | `/` |
+| **Production (legacy path, still live)** | `mambakkam.net/app/mentible/` | prod `/mentible-api` | off | `/app/mentible` |
 
 ---
 
@@ -128,10 +129,13 @@ Other notes:
 
 ## Domains / DNS
 
-**Decision (2026-06-28): the canonical public URL for Mentible is
-`https://mambakkam.net/mentible`.** The live product is served **entirely under
-`mambakkam.net`** (see the surface table above). There is **no standalone Mentible
-domain** under our control.
+**Decision (updated 2026-08-20): the canonical public URL for Mentible is its own apex
+domain `https://mentible.app/`.** The web app is live there (served at the root, with a
+same-origin `/api`). The `mambakkam.net/mentible*` sub-paths remain deliberately live
+during the staged migration: the marketing **landing** page stays at
+`mambakkam.net/mentible`, the older app path `mambakkam.net/app/mentible` and the
+read-only demo `/demos/mentible` stay up, and `mambakkam.net/mentible-api` keeps
+serving already-released Android APKs. See `docs/DOMAIN_MIGRATION_mentible_app.md`.
 
 - **`mentible.com` is NOT ours.** Investigation on 2026-06-28 established that neither
   we nor any associate ever registered it — it is owned by an **unrelated third

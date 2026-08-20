@@ -3,8 +3,9 @@
 This guide walks a brand-new user through opening Mentible on the web and creating
 an account with Google. It takes about a minute.
 
-> **Where to go:** Mentible runs in your browser at
-> **https://mambakkam.net/app/mentible**
+> **Where to go:** Mentible runs in your browser at its own address
+> **https://mentible.app/** (the older link `https://mambakkam.net/app/mentible` still
+> works too).
 > Works in Chrome, Edge, Safari, or Firefox on a laptop or phone — no install needed.
 
 ---
@@ -22,7 +23,7 @@ adding an API key, covered in the next guide) or to keep your account across dev
 
 ## Step-by-step: create your account with Google
 
-1. **Open the app.** Go to **https://mambakkam.net/app/mentible** in your browser.
+1. **Open the app.** Go to **https://mentible.app/** in your browser.
 
 2. **Open Settings.** In the bottom (or side) navigation, tap **Settings**.
 

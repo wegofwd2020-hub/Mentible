@@ -11,7 +11,8 @@
 Repo: `StudyBuddy_SelfLearner` (internal name). Brand: **Mentible** (public-facing).
 
 > **Status (2026-06-27): in production.** Backend live at `mambakkam.net/mentible-api`;
-> full web app at `mambakkam.net/app/mentible`; read-only demo at `/demos/mentible`;
+> full web app now at its own canonical domain **https://mentible.app/** (also still
+> served at `mambakkam.net/app/mentible`); read-only demo at `/demos/mentible`;
 > Android APK released. Accounts (Supabase) + super-admin verified live.
 > **Current "what's built" record → [`docs/STATUS.md`](docs/STATUS.md).**
 

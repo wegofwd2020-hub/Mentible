@@ -9,7 +9,8 @@
 > export / accounts / **super-admin admin API** — live at `mambakkam.net/mentible-api`),
 > Expo app (Books-only authoring, reader, BYOK, **accounts via Supabase**), the Node
 > **EPUB3/PDF compiler**, the **Content Trust Manifest** (SBQ-TRUST-001/002). Shipped
-> surfaces: **full web app** at `mambakkam.net/app/mentible`, read-only **demo** at
+> surfaces: **full web app** at its own canonical domain **https://mentible.app/** (also
+> still at `mambakkam.net/app/mentible`), read-only **demo** at
 > `/demos/mentible`, and an Android **APK** release. Google sign-in + the super-admin
 > console are **verified live on production**. **The canonical, current "what's built"
 > record is [`docs/STATUS.md`](docs/STATUS.md)** — read it first; the ADRs and STATUS.md
