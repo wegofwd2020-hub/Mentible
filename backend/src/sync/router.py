@@ -53,7 +53,11 @@ def _guard_b64_size(raw_b64: str, *, max_b64_chars: int, field: str) -> None:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, f"{field} too large")
 
 
-@router.get("/keyset", response_model=schemas.KeysetOut)
+@router.get(
+    "/keyset",
+    response_model=schemas.KeysetOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
 async def get_keyset(
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
@@ -104,7 +108,11 @@ async def put_keyset(
     return schemas.KeysetOut.from_repo(k)
 
 
-@router.get("/books", response_model=list[schemas.BookMetaOut])
+@router.get(
+    "/books",
+    response_model=list[schemas.BookMetaOut],
+    dependencies=[Depends(enforce_rate_limit)],
+)
 async def list_books(
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
@@ -114,7 +122,11 @@ async def list_books(
     return [schemas.BookMetaOut.from_repo(b) for b in books]
 
 
-@router.get("/books/{book_id}", response_model=schemas.BookOut)
+@router.get(
+    "/books/{book_id}",
+    response_model=schemas.BookOut,
+    dependencies=[Depends(enforce_rate_limit)],
+)
 async def get_book(
     book_id: str,
     principal: Principal = Depends(require_active_user),
@@ -164,7 +176,11 @@ async def put_book(
     return schemas.BookOut.from_repo(b)
 
 
-@router.delete("/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/books/{book_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(enforce_rate_limit)],
+)
 async def delete_book(
     book_id: str,
     principal: Principal = Depends(require_active_user),

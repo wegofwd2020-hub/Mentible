@@ -124,13 +124,30 @@ export async function unlockOnDevice(token: string, recoveryKey: string): Promis
   await saveLMK(lmk);
 }
 
-// Plain ISO-timestamp string compare. `b === null` (no server `updated_at`
+// Epoch-based ISO-timestamp compare. `b === null` (no server `updated_at`
 // recorded — shouldn't happen for an existing row, but defensive) sorts as
 // "older than anything", so `a` (local) always wins in that case rather than
 // throwing or silently no-op'ing.
+//
+// Compares by `Date.parse` (epoch ms), NOT lexically: `a` is a JS
+// `toISOString()` value (`…123Z`, millisecond precision) while `b` can be a
+// pydantic-serialized Postgres timestamptz (`…123456+00:00`, microsecond
+// precision, `+00:00` offset instead of `Z`). Those two forms are NOT
+// lexically comparable in the same second — e.g. `"...123Z"` sorts lexically
+// AFTER `"...123456+00:00"` (`Z` > `4`) even though the latter is the same-or-
+// later instant — so a lexical compare can pick the wrong winner. Parsing to
+// epoch ms sidesteps both the `Z` vs `+00:00` spelling and the ms-vs-µs
+// precision mismatch.
 function isoCompare(a: string, b: string | null): number {
   if (b === null) return 1;
-  return a < b ? -1 : a > b ? 1 : 0;
+  const aMs = Date.parse(a);
+  const bMs = Date.parse(b);
+  if (Number.isNaN(aMs) || Number.isNaN(bMs)) {
+    // Unparseable on either side — fall back to the previous lexical
+    // compare rather than throwing or treating it as silently equal.
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+  return aMs < bMs ? -1 : aMs > bMs ? 1 : 0;
 }
 
 // Reconcile the local library with the server by last-write-wins, per book

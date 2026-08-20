@@ -277,6 +277,34 @@ describe("syncNow — reconciliation", () => {
     expect(mSyncClient.getBook).not.toHaveBeenCalled();
   });
 
+  it("FIX A: tombstone compare is format-agnostic — a pydantic microsecond/+00:00 server.updatedAt vs a JS millisecond/Z local.updatedAt in the same second still deletes locally", async () => {
+    // local.updatedAt is JS `toISOString()` shape (ms precision, `Z`).
+    // server.updatedAt is a real pydantic-serialized Postgres timestamptz
+    // (µs precision, `+00:00` offset) landing in the SAME millisecond. A
+    // lexical string compare gets this backwards — `"...123Z"` sorts AFTER
+    // `"...123456+00:00"` because `Z` (0x5A) > `4` (0x34) — and would wrongly
+    // treat the local copy as newer, reviving a book that should stay
+    // deleted. The epoch-based compare must get this right.
+    mSyncClient.listBooks.mockResolvedValue([
+      {
+        bookId: "b7",
+        clientVersion: "2026-08-20T19:15:04.000Z",
+        deleted: true,
+        updatedAt: "2026-08-20T19:15:04.123456+00:00",
+      },
+    ]);
+    mBookStore.loadBookIndex.mockResolvedValue([
+      makeMeta({ id: "b7", updatedAt: "2026-08-20T19:15:04.123Z" }),
+    ]);
+
+    const result = await syncNow(TOKEN);
+
+    expect(mBookStore.deleteBook).toHaveBeenCalledWith("b7");
+    expect(result.deleted).toBe(1);
+    expect(mSyncClient.putBook).not.toHaveBeenCalled();
+    expect(mSyncClient.getBook).not.toHaveBeenCalled();
+  });
+
   it("skips a book whose local updatedAt equals the server client_version (live, not a tombstone)", async () => {
     mSyncClient.listBooks.mockResolvedValue([
       { bookId: "b5", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
