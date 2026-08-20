@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Mentible web deploy — build + publish a web build to mambakkam.net.
+# Mentible web deploy — build + publish a web build to mambakkam.net (demo/app
+# sub-paths) or mentible.app (mentible/mentible-demo, apex — the migration target).
 #
 # This is the codified pipeline for WEB stages 2 (demo) and 3 (production). It
 # ALWAYS builds from a clean `origin/main` worktree (never your working tree) and
@@ -13,13 +14,16 @@
 #     (we `git add -f` and assert the file count).
 #
 # Usage:
-#   scripts/deploy/web-deploy.sh demo            # build DEMO_MODE → /demos/mentible, deploy + verify
-#   scripts/deploy/web-deploy.sh app             # build full app  → /app/mentible,  deploy + verify
+#   scripts/deploy/web-deploy.sh demo            # DEMO_MODE → mambakkam.net/demos/mentible
+#   scripts/deploy/web-deploy.sh app             # full app  → mambakkam.net/app/mentible
+#   scripts/deploy/web-deploy.sh mentible        # full app  → mentible.app/ (root, same-origin /api)
+#   scripts/deploy/web-deploy.sh mentible-demo   # DEMO_MODE → mentible.app/demo
 #   scripts/deploy/web-deploy.sh demo --no-push  # build + stage only (dry run; no commit/push/deploy)
 #
 # Env overrides:
 #   MAMBAKKAM_REPO  path to an existing mambakkam-net checkout (default: a fresh shallow clone)
-#   API_BASE_URL    backend base baked into the build (default: https://mambakkam.net/mentible-api)
+#   API_BASE_URL    backend base baked into the build (default: per target — mambakkam.net/mentible-api
+#                   for demo/app, https://mentible.app/api for mentible/mentible-demo)
 #
 # Requires: node/npx (expo), git, gh (authed for wegofwd2020-hub/mambakkam-net), curl.
 set -euo pipefail
@@ -28,16 +32,25 @@ TARGET="${1:-}"
 NO_PUSH=0
 for a in "${@:2}"; do [ "$a" = "--no-push" ] && NO_PUSH=1; done
 
+# TARGET → (BASEURL baked into the export, PUBDIR under mambakkam-net public/,
+# VHOST for the live-verify probe, DEMO_FLAG, DEFAULT_API). demo/app serve the
+# mambakkam.net sub-paths (unchanged); mentible* serve the mentible.app apex
+# (D1 same-origin /api + D2 root — docs/DOMAIN_MIGRATION_mentible_app.md). The
+# mentible* targets require the mentible.app host/container nginx vhost to exist
+# first (see that doc §6) or the push publishes files nothing serves.
 case "$TARGET" in
-  demo) SUBPATH="demos/mentible"; DEMO_FLAG="1" ;;   # read-only public preview
-  app)  SUBPATH="app/mentible";   DEMO_FLAG=""  ;;    # full app (generate/author/accounts)
-  *) echo "usage: $0 <demo|app> [--no-push]"; exit 2 ;;
+  demo)          BASEURL="/demos/mentible"; PUBDIR="demos/mentible"; VHOST="mambakkam.net"; DEMO_FLAG="1"; DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # read-only public preview
+  app)           BASEURL="/app/mentible";   PUBDIR="app/mentible";   VHOST="mambakkam.net"; DEMO_FLAG="";  DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # full app (generate/author/accounts)
+  mentible)      BASEURL="/";               PUBDIR="mentible-app";   VHOST="mentible.app";  DEMO_FLAG="";  DEFAULT_API="https://mentible.app/api" ;;             # full app at the mentible.app root (same-origin /api)
+  mentible-demo) BASEURL="/demo";           PUBDIR="mentible-demo";  VHOST="mentible.app";  DEMO_FLAG="1"; DEFAULT_API="https://mentible.app/api" ;;             # read-only preview at mentible.app/demo
+  *) echo "usage: $0 <demo|app|mentible|mentible-demo> [--no-push]"; exit 2 ;;
 esac
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-API_BASE_URL="${API_BASE_URL:-https://mambakkam.net/mentible-api}"
+API_BASE_URL="${API_BASE_URL:-$DEFAULT_API}"
 MB_URL="https://github.com/wegofwd2020-hub/mambakkam-net.git"
-VERIFY_URL="https://mambakkam.net/${SUBPATH}/"
+# Live-verify URL: the app's served origin+base. Root (BASEURL=/) → https://vhost/ .
+VERIFY_URL="https://${VHOST}${BASEURL%/}/"
 WORK="$(mktemp -d)"
 WT="$WORK/build"
 cleanup() {
@@ -55,18 +68,19 @@ SB_KEY="$(grep -E '^EXPO_PUBLIC_SUPABASE_ANON_KEY=' "$SELF/mobile/.env.local" | 
 # Supabase is only baked into the full app. The demo is a read-only, no-account
 # preview (no sign-up), so it ships WITHOUT Supabase — otherwise an auth/sign-in
 # path appears in the demo (and a half-configured OAuth redirect leads astray).
-if [ "$TARGET" = app ]; then
+if [ -z "$DEMO_FLAG" ]; then
+  # Any full-app target (app, mentible) bakes Supabase for accounts/auth.
   [ -n "$SB_URL" ] && [ -n "$SB_KEY" ] || { echo "✗ missing EXPO_PUBLIC_SUPABASE_* in mobile/.env.local"; exit 1; }
 fi
 
-echo "▶ build '$TARGET' from origin/main  (baseUrl=/$SUBPATH, demo=${DEMO_FLAG:-off}, api=$API_BASE_URL)"
+echo "▶ build '$TARGET' from origin/main  (baseUrl=$BASEURL, demo=${DEMO_FLAG:-off}, api=$API_BASE_URL)"
 git -C "$SELF" fetch origin --quiet
 git -C "$SELF" worktree add --detach "$WT" origin/main >/dev/null
 MAIN_SHA="$(git -C "$WT" rev-parse --short HEAD)"
 ln -s "$SELF/mobile/node_modules" "$WT/mobile/node_modules"
 # Flip the (single, static) experiments.baseUrl for this build. The worktree is
 # disposable, so no revert is needed.
-sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mobile/app.json"
+sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"$BASEURL\"#" "$WT/mobile/app.json"
 
 (
   cd "$WT/mobile"
@@ -85,8 +99,8 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"/$SUBPATH\"#" "$WT/mo
   npx expo export --platform web --clear >/dev/null
 )
 
-grep -q "/$SUBPATH/_expo/" "$WT/mobile/dist/index.html" \
-  || { echo "✗ baseUrl /$SUBPATH not baked into the build"; exit 1; }
+grep -q "${BASEURL%/}/_expo/" "$WT/mobile/dist/index.html" \
+  || { echo "✗ baseUrl $BASEURL not baked into the build"; exit 1; }
 BUILT="$(find "$WT/mobile/dist" -type f | wc -l)"
 echo "  built $BUILT files from main@$MAIN_SHA"
 
@@ -99,12 +113,12 @@ else
   git clone --quiet --depth 1 "$MB_URL" "$MB"
 fi
 
-rm -rf "${MB:?}/public/$SUBPATH"/*
-mkdir -p "$MB/public/$SUBPATH"
-cp -r "$WT/mobile/dist/." "$MB/public/$SUBPATH/"
-git -C "$MB" add -f "public/$SUBPATH"   # -f: node_modules/-path fonts are gitignored otherwise
-STAGED="$(git -C "$MB" ls-files "public/$SUBPATH" | wc -l)"
-echo "  staged $STAGED files into public/$SUBPATH"
+rm -rf "${MB:?}/public/$PUBDIR"/*
+mkdir -p "$MB/public/$PUBDIR"
+cp -r "$WT/mobile/dist/." "$MB/public/$PUBDIR/"
+git -C "$MB" add -f "public/$PUBDIR"   # -f: node_modules/-path fonts are gitignored otherwise
+STAGED="$(git -C "$MB" ls-files "public/$PUBDIR" | wc -l)"
+echo "  staged $STAGED files into public/$PUBDIR"
 [ "$STAGED" -ge 80 ] || echo "  ⚠ only $STAGED files staged (expected ~87) — fonts may have been gitignored; check 'git add -f'"
 
 if [ "$NO_PUSH" = 1 ]; then
@@ -112,9 +126,9 @@ if [ "$NO_PUSH" = 1 ]; then
   exit 0
 fi
 
-git -C "$MB" commit -q -m "deploy(mentible): publish $TARGET web from main@$MAIN_SHA → /$SUBPATH"
+git -C "$MB" commit -q -m "deploy(mentible): publish $TARGET web from main@$MAIN_SHA → public/$PUBDIR ($VERIFY_URL)"
 git -C "$MB" push origin main >/dev/null
-echo "▶ pushed → mambakkam.net auto-deploy triggered"
+echo "▶ pushed → ${VHOST} auto-deploy triggered"
 
 # Verify: wait for the deploy run, then probe the live URL.
 sleep 8
@@ -129,5 +143,5 @@ echo "  $VERIFY_URL → HTTP $CODE"
 [ "$CODE" = 200 ] || { echo "✗ live URL not 200"; exit 1; }
 echo "✓ $TARGET live at $VERIFY_URL  (main@$MAIN_SHA)"
 echo
-[ "$TARGET" = app ] && echo "  reminder: Google sign-in needs $VERIFY_URL allowlisted in Supabase → Auth → URL Configuration."
+[ -z "$DEMO_FLAG" ] && echo "  reminder: Google sign-in needs $VERIFY_URL allowlisted in Supabase → Auth → URL Configuration."
 exit 0
