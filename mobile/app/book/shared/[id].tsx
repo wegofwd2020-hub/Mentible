@@ -128,9 +128,12 @@ export default function SharedDraftReader(): React.JSX.Element {
   }
 
   // Contents view: a normal scrolling page (the list + the comment thread).
+  // PageContainer + ScrollView both flex:1 so the ScrollView has a bounded
+  // height and actually scrolls — an unbounded ScrollView here clipped the
+  // list/comments on native (RNW/native both need a flex chain to the screen).
   return (
-    <PageContainer>
-      <ScrollView contentContainerStyle={styles.content}>
+    <PageContainer style={{ flex: 1 }}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.title}>{book.title}</Text>
         <TopicReadList book={book} onOpen={setTopicId} />
         <Text style={styles.commentsHeader}>Comments</Text>
@@ -145,6 +148,7 @@ const makeStyles = (c: Palette) => ({
   error: { fontSize: typography.sizeMd, color: c.textSecondary, textAlign: "center" as const },
   backBtn: { backgroundColor: c.surfaceHigh, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   backBtnText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeSm },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   title: { fontSize: typography.sizeXl, fontWeight: "700" as const, color: c.text },
   screen: { flex: 1, backgroundColor: "transparent" },
