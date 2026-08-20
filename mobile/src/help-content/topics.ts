@@ -400,6 +400,36 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "backup-restore",
+    title: "Backup & restore your library",
+    featureKey: "backup-restore",
+    keywords: ["backup", "restore", "export library", "import", "migrate", "new device", "mentible.app", "settings"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Settings → Backup & Restore lets you save your whole library to a single file and bring it back later — the way to move your library to a new device, or to the new mentible.app site.",
+      },
+      {
+        kind: "text",
+        text: "\"Export library\" downloads a .mentible-backup file containing your authored books, your saved reader EPUBs, your shelves, and your generation settings. It does NOT include your API key — re-enter that in Settings after restoring on a new device.",
+      },
+      {
+        kind: "text",
+        text: "\"Restore from backup\" imports a .mentible-backup file. It overwrites any book or EPUB that shares an id with something already in your library, so it asks you to confirm before importing.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Settings and find the \"Backup & Restore\" section.",
+          "Tap \"Export library\" to download a .mentible-backup file of your books, EPUBs, shelves, and generation settings.",
+          "On the new device or site, open Settings → Backup & Restore and tap \"Restore from backup\", then pick that file.",
+          "Confirm the import when asked — items that match an existing id are overwritten.",
+          "Re-enter your API key in Settings; it isn't included in the backup.",
+        ],
+      },
+    ],
+  },
+  {
     id: "projects",
     title: "What a project is — and how to start one",
     featureKey: "projects",
