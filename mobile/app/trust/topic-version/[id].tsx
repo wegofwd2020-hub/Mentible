@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { getTopicVersion, runTopicGroundingCheck, runTopicOriginalityCheck, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
@@ -350,14 +350,15 @@ function TopicVersionViewerInner() {
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
   if (!topicVersion) return <View style={styles.center}><ActivityIndicator color={theme.primary} /></View>;
 
-  // NOT a page-level ScrollView: TopicRenderer's reader div/WebView needs a
-  // bounded (flex:1) parent to size against and scrolls its own content — a
-  // ScrollView here would give it no definite height and collapse it to a
-  // tiny box (the bug app/book/shared/[id].tsx's topic view hit and fixed).
-  // Header, actions, and the back link stay fixed above/below the reader body.
+  // A normal scrolling page: the draft preview uses the INLINE reader, which
+  // auto-heights to its content (no self-scroll), so the whole page — quality
+  // card, actions, preview, notes — scrolls as one. The earlier design used a
+  // NON-inline reader in a flex:1 column with no page scroll; with no bounded
+  // parent the reader collapsed to a ~60px box and the action buttons overlapped
+  // it. `inline` needs no bounded parent, so a ScrollView is safe here.
   return (
-    <View style={styles.screen}>
-      <PageContainer style={{ flex: 1 }}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+      <PageContainer>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>{topicVersion.title}</Text>
@@ -377,11 +378,8 @@ function TopicVersionViewerInner() {
         <View style={styles.qualityRow}>
           <QualityCard quality={topicVersion.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} origBusy={orBusy} onRunOriginality={onRunOriginality} />
         </View>
-        {!editing ? (
-          <View style={styles.readerBody}>
-            {builtTopic ? <TopicRenderer topic={builtTopic} /> : null}
-          </View>
-        ) : null}
+        {/* Actions ABOVE the preview so they never overlap it (they used to sit
+            on top of the collapsed reader). Compact ghost/primary buttons. */}
         {!editing ? (
           <View style={styles.actionsRow}>
             {isOwner ? (
@@ -419,6 +417,11 @@ function TopicVersionViewerInner() {
                 />
               )
             ) : null}
+          </View>
+        ) : null}
+        {!editing ? (
+          <View style={styles.readerBody}>
+            {builtTopic ? <TopicRenderer topic={builtTopic} inline /> : null}
           </View>
         ) : null}
         {!editing && regen ? (
@@ -628,7 +631,7 @@ function TopicVersionViewerInner() {
           <Text style={styles.backText}>Back</Text>
         </Pressable>
       </PageContainer>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -638,6 +641,8 @@ export default function TopicVersionViewer() {
 
 const makeStyles = (c: Palette) => ({
   screen: { flex: 1 as const, backgroundColor: "transparent" },
+  scroll: { flex: 1 as const, backgroundColor: "transparent" },
+  body: { paddingBottom: spacing.xl },
   center: { flex: 1 as const, alignItems: "center" as const, justifyContent: "center" as const, padding: spacing.xl },
   headerRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, flexWrap: "wrap" as const, gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
@@ -647,9 +652,9 @@ const makeStyles = (c: Palette) => ({
   provChip: { color: c.textMuted, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   qualityRow: { marginHorizontal: spacing.md, marginTop: spacing.sm },
   sectionQualityNote: { color: c.error, fontSize: typography.sizeXs },
-  // Bounded (flex:1) so TopicRenderer's reader can size against it and scroll
-  // its own content — see the render-body comment above.
-  readerBody: { flex: 1 as const, marginTop: spacing.sm },
+  // The inline reader auto-heights to its content; this just spaces it below the
+  // actions and aligns it with the page gutter. No flex:1 — the ScrollView scrolls.
+  readerBody: { marginTop: spacing.sm, marginHorizontal: spacing.md },
   bodyText: { color: c.text, fontSize: typography.sizeMd, lineHeight: 22 as const },
   error: { color: c.error, fontSize: typography.sizeMd },
   backBtn: { alignSelf: "flex-start" as const, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
