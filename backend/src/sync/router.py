@@ -33,6 +33,13 @@ log = get_logger("sync")
 _MAX_CIPHERTEXT_BYTES = 20 * 1024 * 1024
 _MAX_CIPHERTEXT_B64_CHARS = ((_MAX_CIPHERTEXT_BYTES + 2) // 3) * 4
 
+# The other bytea fields (wrapped keys, nonces, salt) are small by
+# construction — an AES-GCM-wrapped key + nonce is tens of bytes. 4KB is a
+# generous cap that still bounds unbounded storage on `wrapped_lmk` /
+# `wrapped_dk` etc. from a malicious or buggy client.
+_MAX_SMALL_FIELD_BYTES = 4 * 1024
+_MAX_SMALL_FIELD_B64_CHARS = ((_MAX_SMALL_FIELD_BYTES + 2) // 3) * 4
+
 
 async def _account(conn: asyncpg.Connection, principal: Principal) -> Account:
     account = await accounts_repo.get_account(conn, idp_sub=principal.sub)
@@ -41,9 +48,9 @@ async def _account(conn: asyncpg.Connection, principal: Principal) -> Account:
     return account
 
 
-def _guard_ciphertext_size(raw_b64: str) -> None:
-    if len(raw_b64) > _MAX_CIPHERTEXT_B64_CHARS:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "ciphertext too large")
+def _guard_b64_size(raw_b64: str, *, max_b64_chars: int, field: str) -> None:
+    if len(raw_b64) > max_b64_chars:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, f"{field} too large")
 
 
 @router.get("/keyset", response_model=schemas.KeysetOut)
@@ -69,6 +76,12 @@ async def put_keyset(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.KeysetOut:
     account = await _account(conn, principal)
+    for field, raw in (
+        ("wrapped_lmk", body.wrapped_lmk),
+        ("lmk_nonce", body.lmk_nonce),
+        ("kek_salt", body.kek_salt),
+    ):
+        _guard_b64_size(raw, max_b64_chars=_MAX_SMALL_FIELD_B64_CHARS, field=field)
     try:
         wrapped_lmk, lmk_nonce, kek_salt = body.decoded()
     except (binascii.Error, ValueError) as e:
@@ -126,7 +139,13 @@ async def put_book(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.BookOut:
     account = await _account(conn, principal)
-    _guard_ciphertext_size(body.ciphertext)
+    _guard_b64_size(body.ciphertext, max_b64_chars=_MAX_CIPHERTEXT_B64_CHARS, field="ciphertext")
+    for field, raw in (
+        ("nonce", body.nonce),
+        ("wrapped_dk", body.wrapped_dk),
+        ("dk_nonce", body.dk_nonce),
+    ):
+        _guard_b64_size(raw, max_b64_chars=_MAX_SMALL_FIELD_B64_CHARS, field=field)
     try:
         ciphertext, nonce, wrapped_dk, dk_nonce = body.decoded()
     except (binascii.Error, ValueError) as e:
