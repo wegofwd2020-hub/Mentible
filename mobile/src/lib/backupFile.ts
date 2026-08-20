@@ -5,6 +5,7 @@
 
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
 import { downloadArtifact } from "@/storage/epubLibrary";
 import { fromBase64 } from "@/storage/pickBookFile";
@@ -14,11 +15,25 @@ import { fromBase64 } from "@/storage/pickBookFile";
 // already handles both). Slice to a fresh, zero-offset buffer first — a
 // Uint8Array's `.buffer` isn't guaranteed to start at byte 0 of its
 // underlying ArrayBuffer (see ExportBookJsonButton.tsx for the same guard).
+//
+// documentDirectory is app-private internal storage — invisible to the user
+// and unreachable from another device. On native, share the just-written
+// file via the OS share sheet so the user can actually save/send it (mirrors
+// nativeOpen's Sharing.isAvailableAsync + shareAsync pattern in
+// epubLibrary.ts). Unlike nativeOpen, don't throw when sharing is
+// unavailable — the backup is already safely on disk either way.
 export async function saveBackupFile(
   bytes: Uint8Array,
   filename: string,
 ): Promise<{ savedPath?: string }> {
-  return downloadArtifact(bytes.slice().buffer, filename, "application/zip");
+  const result = await downloadArtifact(bytes.slice().buffer, filename, "application/zip");
+  if (Platform.OS !== "web" && result.savedPath && (await Sharing.isAvailableAsync())) {
+    await Sharing.shareAsync(result.savedPath, {
+      mimeType: "application/zip",
+      dialogTitle: "Save your Mentible backup",
+    });
+  }
+  return result;
 }
 
 // Pick a backup file and return its raw bytes, or null if the user cancels.
