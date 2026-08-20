@@ -50,7 +50,7 @@ Recommended answers pre-filled; **confirm before executing.**
 - [ ] **DNS + Cloudflare `[external]`** — point `mentible.app` (apex; add `api.` `[split-only]`). CF zone, DNS records, Origin Cert SAN for any new hostname, SSL mode.
 - [~] **`mambakkam-net` repo `[mambakkam-net]`:**
   - [x] Host **nginx vhost** — **PR mambakkam-net#123 OPEN** (`ops/mentible-app-vhost`): adds `infra/nginx/mentible.app.conf` (host vhost, `/`→:8081, same-origin `/api/`→:8092), the container `server_name mentible.app` block in `nginx/nginx.conf` (root `/mentible-app`, content-hash-404 rule), and `provision.sh` installs both vhosts. **Merging deploys the CONTAINER block (safe/inert until DNS); the HOST vhost needs a manual VPS install** (`cp`→`sites-available` + symlink + `nginx -t` + `reload`, per the PR). PREREQ: DNS + Origin-Cert SAN for mentible.app.
-  - [ ] **Landing page `src/pages/mentible.astro`** — copy, **canonical URL, OG `url`/`image`, sitemap host**, "Download Android app" link
+  - [x] **Landing page `src/pages/mentible.astro`** — ✅ DONE + LIVE (mambakkam-net PR #124 merged 2026-08-20): app CTAs (APP_URL/WORK_URL) → https://mentible.app/ . Landing stays at mambakkam.net/mentible (marketing); APK/demo links unchanged.
   - [ ] Web publish destination + the `Deploy` workflow / new CF Pages project (per D3)
 - [ ] **VPS `.env.demo` `[external]`** (`178.105.160.62`, `/opt/mentible/`, root-owned) — set `CORS_ALLOW_ORIGINS=https://mentible.app` `[split-only]`. No other domain-tied keys; port binding unchanged.
 - [ ] **⭐ Supabase → Auth → URL Configuration `[external]`** *(the #1 silent break — do BEFORE anyone signs in on the new domain):*
@@ -88,7 +88,7 @@ Recommended answers pre-filled; **confirm before executing.**
 3. [ ] Add Supabase redirect + Google OAuth origins for the new domain (§2).
 4. [ ] Build + verify web on `mentible.app`; build + verify APK vc43 against the new API (§3).
 5. [ ] Flip the landing page + canonical to `mentible.app`.
-6. [ ] Add a **301** `mambakkam.net/mentible* → mentible.app` in mambakkam-net nginx — but **keep `mambakkam.net/mentible-api` proxying** for old APKs.
+6. [~] **301 HELD (user decision 2026-08-20):** the only meaningful redirect is `/app/mentible → mentible.app`, but that BREAKS the backup Export from the old site — so it's deferred until migrations are done. Landing already points NEW visitors at mentible.app; only direct bookmarks hit the old app (which works + has Export). `/mentible-api` stays proxying (old APKs) regardless. Add the `/app/mentible` 301 later.
 7. [ ] Update docs + the resume pin.
 
 ---
