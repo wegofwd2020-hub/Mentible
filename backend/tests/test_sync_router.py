@@ -87,6 +87,30 @@ def _book_body(seed: bytes = b"x") -> dict:
     }
 
 
+# ── (a0) first-time user: no pre-existing account row → enable-sync provisions it ──
+
+
+async def _account_exists(sub: str) -> bool:
+    conn = await asyncpg.connect(DSN)
+    try:
+        row = await conn.fetchrow("SELECT 1 FROM account WHERE idp_sub = $1", sub)
+        return row is not None
+    finally:
+        await conn.close()
+
+
+def test_enable_sync_provisions_account_for_first_time_user():
+    # Regression: a brand-new signed-in user has NO account row yet. enable-sync
+    # (PUT /keyset) must get_or_create it, not 404 ("Couldn't enable sync — 404").
+    sub = f"sk-{uuid.uuid4()}"
+    assert asyncio.run(_account_exists(sub)) is False  # no row before
+    with TestClient(app) as c:
+        _as(sub, "callmds@example.com")
+        r = c.put(f"{SYNC}/keyset", json=_keyset_body(b"firsttime"))
+        assert r.status_code == 200
+    assert asyncio.run(_account_exists(sub)) is True  # row now provisioned
+
+
 # ── (a) keyset conflict / force ─────────────────────────────────────────────
 
 

@@ -42,10 +42,13 @@ _MAX_SMALL_FIELD_B64_CHARS = ((_MAX_SMALL_FIELD_BYTES + 2) // 3) * 4
 
 
 async def _account(conn: asyncpg.Connection, principal: Principal) -> Account:
-    account = await accounts_repo.get_account(conn, idp_sub=principal.sub)
-    if account is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
-    return account
+    # get_or_CREATE: a first-time signed-in user has no account row yet — provisioning
+    # it here (idempotent on idp_sub) mirrors every other authenticated write path
+    # (generate/export/derivatives/trust). Using get_account+404 here regressed
+    # enable-sync for brand-new accounts ("Couldn't enable sync — 404").
+    return await accounts_repo.get_or_create_account(
+        conn, idp_sub=principal.sub, email=principal.email
+    )
 
 
 def _guard_b64_size(raw_b64: str, *, max_b64_chars: int, field: str) -> None:
