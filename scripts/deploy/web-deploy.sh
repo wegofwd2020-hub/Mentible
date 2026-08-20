@@ -41,7 +41,7 @@ for a in "${@:2}"; do [ "$a" = "--no-push" ] && NO_PUSH=1; done
 case "$TARGET" in
   demo)          BASEURL="/demos/mentible"; PUBDIR="demos/mentible"; VHOST="mambakkam.net"; DEMO_FLAG="1"; DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # read-only public preview
   app)           BASEURL="/app/mentible";   PUBDIR="app/mentible";   VHOST="mambakkam.net"; DEMO_FLAG="";  DEFAULT_API="https://mambakkam.net/mentible-api" ;;  # full app (generate/author/accounts)
-  mentible)      BASEURL="/";               PUBDIR="mentible-app";   VHOST="mentible.app";  DEMO_FLAG="";  DEFAULT_API="https://mentible.app/api" ;;             # full app at the mentible.app root (same-origin /api)
+  mentible)      BASEURL="";                PUBDIR="mentible-app";   VHOST="mentible.app";  DEMO_FLAG="";  DEFAULT_API="https://mentible.app/api" ;;             # full app at the mentible.app root — EMPTY baseUrl (NOT "/": Expo bakes registered assets as httpServerLocation "/assets/…", and "/"+"/assets"="//assets" → host "assets" → 404 → blank app; ""+"/assets"="/assets" is correct)
   mentible-demo) BASEURL="/demo";           PUBDIR="mentible-demo";  VHOST="mentible.app";  DEMO_FLAG="1"; DEFAULT_API="https://mentible.app/api" ;;             # read-only preview at mentible.app/demo
   *) echo "usage: $0 <demo|app|mentible|mentible-demo> [--no-push]"; exit 2 ;;
 esac
