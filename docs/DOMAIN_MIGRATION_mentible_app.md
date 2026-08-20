@@ -45,6 +45,8 @@ Recommended answers pre-filled; **confirm before executing.**
 
 ## 2. External / manual (NOT in this checkout)
 
+> **✅ WEB LIVE 2026-08-20 — `https://mentible.app/` serves the app (root, same-origin `/api`).** Done: DNS+CF (proxied A @/www → VPS), dedicated Origin Cert (SAN mentible.app), mambakkam-net PR #123 MERGED (container block), host vhost installed on VPS (`nginx -t`+reload), app published via `web-deploy.sh mentible` → `public/mentible-app/`. Verified: index 200, assets at `/_expo/`, `/api/v1/account` 401 (backend same-origin), missing-asset 404 (CDN-poison guard). **STILL PENDING before it's a full replacement: Supabase redirect allowlist (sign-in ⭐), APK vc43, landing/301, docs-sweep.**
+
 - [ ] **DNS + Cloudflare `[external]`** — point `mentible.app` (apex; add `api.` `[split-only]`). CF zone, DNS records, Origin Cert SAN for any new hostname, SSL mode.
 - [~] **`mambakkam-net` repo `[mambakkam-net]`:**
   - [x] Host **nginx vhost** — **PR mambakkam-net#123 OPEN** (`ops/mentible-app-vhost`): adds `infra/nginx/mentible.app.conf` (host vhost, `/`→:8081, same-origin `/api/`→:8092), the container `server_name mentible.app` block in `nginx/nginx.conf` (root `/mentible-app`, content-hash-404 rule), and `provision.sh` installs both vhosts. **Merging deploys the CONTAINER block (safe/inert until DNS); the HOST vhost needs a manual VPS install** (`cp`→`sites-available` + symlink + `nginx -t` + `reload`, per the PR). PREREQ: DNS + Origin-Cert SAN for mentible.app.
