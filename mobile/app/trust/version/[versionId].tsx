@@ -430,7 +430,10 @@ function TrustVersionInner() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
-      <PageContainer style={{ flex: 1 }}>
+      {/* No flex:1 here — this PageContainer is ScrollView *content*; flex:1 would
+          cap it to one viewport, killing page scroll and crushing the inline
+          draft preview (which auto-heights on its own). */}
+      <PageContainer>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>v{version.version_no}</Text>

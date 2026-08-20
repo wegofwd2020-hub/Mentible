@@ -49,86 +49,69 @@ export function QualityCard({ quality, isOwner, busy, onRunGrounding, origBusy =
         <Text style={styles.subNote}>Directional estimate — not a strict grade-level guarantee.</Text>
       </View>
 
-      <View style={styles.row}>
-        <Text style={styles.label}>Grounding</Text>
-        {grounding ? (
-          <>
-            <Text style={styles.value}>{`${grounding.supported}/${grounding.claims_total} claims supported`}</Text>
-            {grounding.partial || grounding.unsupported ? (
-              <Text style={styles.subNote}>
-                {`${grounding.partial} partial, ${grounding.unsupported} unsupported`}
-              </Text>
-            ) : null}
-            <Text style={styles.subNote}>{`checked ${new Date(grounding.checked_at).toLocaleString()}`}</Text>
-            {grounding.stale ? (
-              <>
-                <Text style={styles.staleNote}>inputs changed — re-run</Text>
-                {isOwner ? (
-                  <Button
-                    variant="ghost"
-                    label="Run grounding check"
-                    accessibilityLabel="Run grounding check"
-                    busy={busy}
-                    onPress={onRunGrounding}
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </>
-        ) : isOwner ? (
+      {/* Metric text on the left, the owner-only "Run …" action inline on the
+          right (compact) — not a full-width row of its own. */}
+      <View style={styles.metricRow}>
+        <View style={styles.metricMain}>
+          <Text style={styles.label}>Grounding</Text>
+          {grounding ? (
+            <>
+              <Text style={styles.value}>{`${grounding.supported}/${grounding.claims_total} claims supported`}</Text>
+              {grounding.partial || grounding.unsupported ? (
+                <Text style={styles.subNote}>
+                  {`${grounding.partial} partial, ${grounding.unsupported} unsupported`}
+                </Text>
+              ) : null}
+              <Text style={styles.subNote}>{`checked ${new Date(grounding.checked_at).toLocaleString()}`}</Text>
+              {grounding.stale ? <Text style={styles.staleNote}>inputs changed — re-run</Text> : null}
+            </>
+          ) : !isOwner ? (
+            <Text style={styles.subNote}>Not yet checked.</Text>
+          ) : null}
+        </View>
+        {isOwner && (!grounding || grounding.stale) ? (
           <Button
             variant="ghost"
             label="Run grounding check"
             accessibilityLabel="Run grounding check"
             busy={busy}
             onPress={onRunGrounding}
+            style={styles.runBtn}
           />
-        ) : (
-          <Text style={styles.subNote}>Not yet checked.</Text>
-        )}
+        ) : null}
       </View>
 
-      <View style={styles.row}>
-        <Text style={styles.label}>Originality</Text>
-        {originality ? (
-          <>
-            <Text style={styles.value}>{`${originality.summary.clean}/${originality.summary.total} sections original`}</Text>
-            {originality.summary.verbatim || originality.summary.paraphrase ? (
-              <Text style={styles.subNote}>
-                {`${originality.summary.verbatim} verbatim, ${originality.summary.paraphrase} close paraphrase`}
-              </Text>
-            ) : null}
-            <Text style={styles.subNote}>{`checked ${new Date(originality.checked_at).toLocaleString()}`}</Text>
+      <View style={styles.metricRow}>
+        <View style={styles.metricMain}>
+          <Text style={styles.label}>Originality</Text>
+          {originality ? (
+            <>
+              <Text style={styles.value}>{`${originality.summary.clean}/${originality.summary.total} sections original`}</Text>
+              {originality.summary.verbatim || originality.summary.paraphrase ? (
+                <Text style={styles.subNote}>
+                  {`${originality.summary.verbatim} verbatim, ${originality.summary.paraphrase} close paraphrase`}
+                </Text>
+              ) : null}
+              <Text style={styles.subNote}>{`checked ${new Date(originality.checked_at).toLocaleString()}`}</Text>
+              <Text style={styles.subNote}>Checks your draft against your cited sources only — not the web.</Text>
+              {originality.stale ? <Text style={styles.staleNote}>inputs changed — re-run</Text> : null}
+            </>
+          ) : isOwner ? (
             <Text style={styles.subNote}>Checks your draft against your cited sources only — not the web.</Text>
-            {originality.stale ? (
-              <>
-                <Text style={styles.staleNote}>inputs changed — re-run</Text>
-                {isOwner ? (
-                  <Button
-                    variant="ghost"
-                    label="Run originality check"
-                    accessibilityLabel="Run originality check"
-                    busy={origBusy}
-                    onPress={onRunOriginality}
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </>
-        ) : isOwner ? (
-          <>
-            <Text style={styles.subNote}>Checks your draft against your cited sources only — not the web.</Text>
-            <Button
-              variant="ghost"
-              label="Run originality check"
-              accessibilityLabel="Run originality check"
-              busy={origBusy}
-              onPress={onRunOriginality}
-            />
-          </>
-        ) : (
-          <Text style={styles.subNote}>Not yet checked.</Text>
-        )}
+          ) : (
+            <Text style={styles.subNote}>Not yet checked.</Text>
+          )}
+        </View>
+        {isOwner && (!originality || originality.stale) ? (
+          <Button
+            variant="ghost"
+            label="Run originality check"
+            accessibilityLabel="Run originality check"
+            busy={origBusy}
+            onPress={onRunOriginality}
+            style={styles.runBtn}
+          />
+        ) : null}
       </View>
     </Card>
   );
@@ -138,6 +121,10 @@ const makeStyles = (c: Palette) => ({
   card: { gap: spacing.sm },
   title: { color: c.text, fontSize: typography.sizeLg, fontWeight: "700" as const },
   row: { gap: 2, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: c.border },
+  // Grounding/Originality: text column + inline action button on the right.
+  metricRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: c.border },
+  metricMain: { flex: 1, gap: 2, minWidth: 0 },
+  runBtn: { alignSelf: "center" as const, flexShrink: 0 },
   label: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "700" as const, textTransform: "uppercase" as const },
   value: { color: c.text, fontSize: typography.sizeMd },
   subNote: { color: c.textMuted, fontSize: typography.sizeSm },

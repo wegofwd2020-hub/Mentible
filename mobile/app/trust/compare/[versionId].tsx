@@ -122,7 +122,9 @@ function TrustCompareInner() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
-      <PageContainer style={{ flex: 1 }}>
+      {/* No flex:1 — ScrollView content must size to itself, not the viewport,
+          or the page won't scroll. */}
+      <PageContainer>
         <Text style={styles.title}>
           v{a.version_no} · {versionTimestamp(a.created_at)} ↔ v{bVersion.version_no} · {versionTimestamp(bVersion.created_at)}
         </Text>
