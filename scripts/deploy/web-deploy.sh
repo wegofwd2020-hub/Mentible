@@ -104,6 +104,40 @@ grep -q "${BASEURL%/}/_expo/" "$WT/mobile/dist/index.html" \
 BUILT="$(find "$WT/mobile/dist" -type f | wc -l)"
 echo "  built $BUILT files from main@$MAIN_SHA"
 
+# Open Graph / Twitter meta so shared links (WhatsApp, Slack, iMessage…) show a
+# preview card. WhatsApp's crawler doesn't run JS, so the tags MUST be in the
+# STATIC index.html — Expo bakes none, so we inject them post-export, per-surface.
+# The og:image (mobile/public/og-image.jpg, 1200×630) + copy mirror the landing
+# page (mambakkam.net/mentible). Idempotent: skips if a build ever ships its own.
+SITE_URL="https://${VHOST}${BASEURL}"
+cp -f "$WT/mobile/public/og-image.jpg" "$WT/mobile/dist/og-image.jpg" 2>/dev/null || true
+OG_DESC="The content is the commodity — every model already has it. Mentible is the layer where you shape it: outline, scope, and generate a real book (EPUB3 / PDF) that is exactly what you decided it should be."
+python3 - "$WT/mobile/dist/index.html" "$SITE_URL" "$OG_DESC" <<'PYOG'
+import sys, html
+path, site, desc = sys.argv[1], sys.argv[2], sys.argv[3]
+doc = open(path, encoding="utf-8").read()
+if "og:image" in doc:
+    print("  OG meta already present — skipped"); raise SystemExit
+d = html.escape(desc, quote=True)
+tags = (
+    '<meta property="og:type" content="website"/>'
+    '<meta property="og:site_name" content="Mentible"/>'
+    '<meta property="og:title" content="Mentible — Author Yourself"/>'
+    f'<meta property="og:description" content="{d}"/>'
+    f'<meta property="og:url" content="{site}/"/>'
+    f'<meta property="og:image" content="{site}/og-image.jpg"/>'
+    '<meta property="og:image:width" content="1200"/>'
+    '<meta property="og:image:height" content="630"/>'
+    f'<meta name="description" content="{d}"/>'
+    '<meta name="twitter:card" content="summary_large_image"/>'
+    '<meta name="twitter:title" content="Mentible — Author Yourself"/>'
+    f'<meta name="twitter:description" content="{d}"/>'
+    f'<meta name="twitter:image" content="{site}/og-image.jpg"/>'
+)
+open(path, "w", encoding="utf-8").write(doc.replace("</head>", tags + "</head>", 1))
+print(f"  injected OG/Twitter meta ({site})")
+PYOG
+
 # Resolve the mambakkam-net checkout (fresh clone unless one is provided).
 if [ -n "${MAMBAKKAM_REPO:-}" ]; then
   MB="$MAMBAKKAM_REPO"
