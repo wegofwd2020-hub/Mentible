@@ -15,6 +15,14 @@ const mockEnableSync = jest.fn(async (_t: string) => "RECOVERY-KEY-ABCD-1234");
 const mockUnlockOnDevice = jest.fn(async (_t: string, _k: string) => {});
 const mockSyncNow = jest.fn(async (_t: string) => ({ pushed: 2, pulled: 1, deleted: 0, failed: [] as string[] }));
 const mockGetLastSyncedAt = jest.fn(async () => null as string | null);
+// This test predates the sync-status badge (Task 4) — a fresh, read-only
+// "up_to_date" reading is enough to keep it a no-op for these assertions.
+const mockSyncStatus = jest.fn(async (_t: string | null) => ({
+  state: "up_to_date" as const,
+  toPush: 0,
+  toPull: 0,
+  lastSyncedAt: null as string | null,
+}));
 
 jest.mock("@/sync/syncEngine", () => {
   const actual = jest.requireActual("@/sync/syncEngine");
@@ -23,6 +31,7 @@ jest.mock("@/sync/syncEngine", () => {
     enableSync: (t: string) => mockEnableSync(t),
     unlockOnDevice: (t: string, k: string) => mockUnlockOnDevice(t, k),
     syncNow: (t: string) => mockSyncNow(t),
+    syncStatus: (t: string | null) => mockSyncStatus(t),
     getLastSyncedAt: () => mockGetLastSyncedAt(),
     SyncLockedError: actual.SyncLockedError,
     SyncKeysetExistsError: actual.SyncKeysetExistsError,
@@ -50,6 +59,8 @@ beforeEach(() => {
   mockSyncNow.mockImplementation(async () => ({ pushed: 2, pulled: 1, deleted: 0, failed: [] }));
   mockGetLastSyncedAt.mockClear();
   mockGetLastSyncedAt.mockImplementation(async () => null);
+  mockSyncStatus.mockClear();
+  mockSyncStatus.mockImplementation(async () => ({ state: "up_to_date", toPush: 0, toPull: 0, lastSyncedAt: null }));
   mockAlertSpy.mockClear();
   mockCopyText.mockClear();
 });

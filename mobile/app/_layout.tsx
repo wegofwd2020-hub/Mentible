@@ -8,6 +8,7 @@ import { AuthProvider } from "@/auth/AuthProvider";
 import { AppBackground } from "@/components/AppBackground";
 import { StudioHeader } from "@/components/StudioHeader";
 import { DeviceReporter } from "@/device/DeviceReporter";
+import { SyncController } from "@/sync/autoSync";
 import { FirstRunWizard } from "@/onboarding/FirstRunWizard";
 import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
 import { useSeedStarterSources } from "@/hooks/useSeedStarterSources";
@@ -188,6 +189,10 @@ export default function RootLayout() {
         <FirstRunWizard />
         {/* Reports this install's device to the backend when signed in (admin view). */}
         <DeviceReporter />
+        {/* Auto-sync controller (ADR-014 increment 1b) — event-driven (sign-in /
+            foreground / local edit), no polling timer. Renders null; mounted
+            once here so no screen has to know about sync. */}
+        <SyncController />
       </AuthProvider>
     </ThemeProvider>
   );
