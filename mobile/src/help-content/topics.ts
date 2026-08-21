@@ -36,15 +36,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "An account is optional but recommended: it syncs your library and provider settings across your devices. You can sign up with an email and password, or continue with Google. You can always read the included books and use a BYOK key without an account.",
+        text: "An account is optional but recommended — it syncs your library and provider settings across your devices. There are two ways to create one: continue with Google, or sign up with an email and password (no Google account needed). You can always read the included books and use a BYOK key without any account.",
+      },
+      {
+        kind: "text",
+        text: "Option 1 — Continue with Google",
       },
       {
         kind: "steps",
         steps: [
-          "Open the sign-in screen (or the first-run wizard) and choose Create account.",
-          "Enter your email and a password (at least 6 characters), or tap Continue with Google.",
-          "If you signed up with email, check your inbox and tap the confirmation link, then sign in.",
-          "Once signed in, your library and provider settings sync automatically.",
+          "On the sign-in screen (or the first-run wizard), tap “Continue with Google”.",
+          "A Google window opens — choose your Google account and approve access.",
+          "You’re returned to Mentible, now signed in. Your library and provider settings then sync automatically.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Option 2 — Email & password (no Google account needed)",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "On the sign-in screen, choose “Create account”.",
+          "Enter your email address and a password (at least 6 characters), then tap “Create account”.",
+          "Open the confirmation email from Mentible and tap the link to verify (check your spam folder if it isn’t there).",
+          "Return to Mentible and “Sign in” with that email and password. Your library and settings then sync.",
         ],
       },
       { kind: "action", label: "Start the sign-up walkthrough", step: "signup" },
