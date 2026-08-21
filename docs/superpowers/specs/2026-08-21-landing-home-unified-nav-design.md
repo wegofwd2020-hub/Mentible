@@ -12,6 +12,7 @@ The app has **no front door**: `(tabs)/index.tsx` is a bare `<Redirect href="/li
 - **Visibility:** **everyone** sees Home (signed-in included); they navigate into Library/Studio/Projects from there.
 - **Platforms:** **web + native.** Web gets the 2-state top bar; native keeps bottom tabs and carries the marketing content as scroll sections inside Home.
 - **Design system:** reuse the app's theme tokens (`useThemedStyles`), Fraunces/Inter, `AccentText`, and primitives (`Card`, `Label`, `Chip`, `StudioHeader`). **No hardcoded OKLCH, no new fonts.** The landing inherits the active theme (see Theming).
+- **Default theme → `navy-trust`** (folded into this slice): the app defaults to the navy+gold Navy Trust palette so the landing matches the capture, and `navy-trust` joins the theme switcher (see Theming).
 - **Copy:** the corrected deck copy verbatim. **Honesty guardrails carried in (below).**
 
 ## Routing & entry
@@ -48,7 +49,14 @@ Implementation notes:
 
 ## Theming
 
-The landing uses `useThemedStyles(makeStyles)` and theme tokens (`background`, `surface`, `border`, `text`, `primary`, …) — it inherits the **active** palette (the app ships multiple; ThemeProvider). The captured navy+gold look corresponds to the **Navy Trust / Studio** identity. **Assumption:** the default theme is the navy+gold Studio palette; if the default is navy+*indigo* (`primary #6d5ae6`), the landing's accent follows that, not the captured gold. Making the captured navy+gold THE default is a separate one-line theme-default decision — flagged, not bundled here. The one deliberately fixed surface is `ApprovalCardExample`'s dark navy card (it mimics the product's real approval card), which pins its own navy/gold like the deck's featured card.
+The landing uses `useThemedStyles(makeStyles)` and theme tokens (`background`, `surface`, `border`, `text`, `primary`, …) — it inherits the **active** palette. **This slice makes the app default to the navy+gold identity** so the landing (and the whole app) matches the capture:
+
+- The **`navy-trust`** palette already exists (`navyTrustColors`, `THEME_META["navy-trust"]` = "Navy Trust", mode dark, gold `primary #D6A94B` — ADR-038) but is neither the default nor offered in the switcher.
+- **Default-swap:** `ThemeProvider` default `studio-light` → **`navy-trust`** (the `useState` initial, the context default value, and any fallback). This applies to first-run / unset users; a user's persisted theme choice still wins.
+- **Add `navy-trust` to `SWITCHABLE_THEMES`** so it appears in the Settings theme switcher (today it's defined but unreachable).
+- Because the default changes **app-wide**, a verification pass must confirm `navy-trust` renders cleanly across the main screens (contrast, chrome) — it hasn't been the default before.
+
+`ApprovalCardExample`'s dark navy card still pins its own navy/gold (it mimics the product's real approval card), independent of the active theme.
 
 ## Honesty guardrails (carried from the deck)
 
@@ -63,7 +71,7 @@ The landing uses `useThemedStyles(makeStyles)` and theme tokens (`background`, `
 
 ## Files
 
-- **Modify:** `app/(tabs)/index.tsx` (landing screen), `components/TopNavBar.tsx`, `components/SideNav.tsx`, `components/navItems.ts`, `constants/labels.ts`, `app/(tabs)/_layout.tsx` (register `index` as a visible tab if needed).
+- **Modify:** `app/(tabs)/index.tsx` (landing screen), `components/TopNavBar.tsx`, `components/SideNav.tsx`, `components/navItems.ts`, `constants/labels.ts`, `app/(tabs)/_layout.tsx` (register `index` as a visible tab if needed), `theme/ThemeProvider.tsx` (default → `navy-trust`), `constants/theme.ts` (`SWITCHABLE_THEMES` += `navy-trust`).
 - **Create:** `components/landing/{LandingHome,Hero,ApprovalCardExample,Phases,Formats,PilotCTA}.tsx`, `components/AccountMenu.tsx`.
 - **Help:** `help-content/features.ts` (+`landing-home` feature), `help-content/topics.ts` (topic with that `featureKey`) — same PR (coverage gate).
 
@@ -73,12 +81,13 @@ The landing uses `useThemedStyles(makeStyles)` and theme tokens (`background`, `
 - **Nav 2-state:** `TopNavBar`/`SideNav` render marketing links + Sign-in when `status="signed_out"`; app tabs + avatar when `"signed_in"`; demo set, no sign-in, when `"unavailable"`; Home tile present in all. Anchor-scroll helper guarded to web.
 - **AccountMenu:** lists Settings/Help/About/Sign out; Sign out calls `useAuth().signOut`.
 - **Guard test:** the app-shell test that broke before (mounting a component into a screen) — run the **full** `npx jest`, not a targeted subset (past lesson: reviewers swept only touched dirs).
+- **Theme default:** `ThemeProvider` initial/default `themeName === "navy-trust"` (new/unset user); a persisted choice still overrides. `SWITCHABLE_THEMES` includes `navy-trust`. **Device/web verify** (mobile:verify): `navy-trust` renders cleanly across Home + Library + Studio + Projects + Settings (contrast/chrome), since it's newly the default.
 - **Help coverage gate** green (`__tests__/help/coverage.test.ts`).
 
 ## Non-goals (this slice)
 
 - The four marketing subpages as real routes (deferred; links = anchors / work-with-me).
-- Any restyle beyond the landing + nav; no theme-default change (flagged separately).
+- Any restyle beyond the landing + nav (the only theme change is the default-swap to `navy-trust` + adding it to the switcher; individual palettes' values are untouched).
 - Invented pricing tiers, YouTube/newsletter/learning-module formats, case studies.
 - No backend changes.
 
