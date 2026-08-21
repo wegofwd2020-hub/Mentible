@@ -84,6 +84,39 @@ it("local-only book + a server-newer book → pending, toPush includes local-onl
   expect(result.toPull).toBe(1); // server-newer, not local, not in shadow → toPull
 });
 
+it("all books live-equal (nonempty shadow) → up_to_date, counts 0 — equalKeep must NOT count as pending", async () => {
+  await AsyncStorage.setItem("sbq_sync_shadow", JSON.stringify(["b1"]));
+  mSyncClient.listBooks.mockResolvedValue([
+    { bookId: "b1", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
+  ]);
+  mBookStore.loadBookIndex.mockResolvedValue([makeMeta({ id: "b1", updatedAt: "2026-01-01T00:00:00.000Z" })]);
+
+  const result = await syncStatus(TOKEN);
+
+  expect(result.state).toBe("up_to_date");
+  expect(result.toPush).toBe(0);
+  expect(result.toPull).toBe(0);
+});
+
+it("toPushDelete counts into toPush, toDeleteLocal counts into toPull", async () => {
+  // "gone" (in shadow, not local, server still live) → toPushDelete.
+  // "tomb" (local, server tombstone newer) → toDeleteLocal.
+  await AsyncStorage.setItem("sbq_sync_shadow", JSON.stringify(["gone"]));
+  mBookStore.loadBookIndex.mockResolvedValue([
+    makeMeta({ id: "tomb", updatedAt: "2026-01-01T00:00:00.000Z" }),
+  ]);
+  mSyncClient.listBooks.mockResolvedValue([
+    { bookId: "gone", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { bookId: "tomb", clientVersion: "2026-01-01T00:00:00.000Z", deleted: true, updatedAt: "2026-03-01T00:00:00.000Z" },
+  ]);
+
+  const result = await syncStatus(TOKEN);
+
+  expect(result.state).toBe("pending");
+  expect(result.toPush).toBe(1); // toPushDelete("gone")
+  expect(result.toPull).toBe(1); // toDeleteLocal("tomb")
+});
+
 it("listBooks throws → error, lastSyncedAt still attached", async () => {
   await AsyncStorage.setItem("sbq_sync_last_synced_at", "2026-06-01T00:00:00.000Z");
   mSyncClient.listBooks.mockRejectedValue(new Error("network blip"));

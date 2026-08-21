@@ -164,6 +164,16 @@ export interface ReconcilePlan {
   toDeleteLocal: string[];
   toPushDelete: string[];
   shadowDrop: string[];
+  // Live on both sides with equal timestamps (cmp === 0 in the local/server
+  // "both live" branch) — nothing to transfer, but the ORIGINAL syncNow still
+  // unconditionally `shadow.add(id)`'d in this case. Omitting these ids from
+  // every list (as an earlier version of this plan did) silently drops them
+  // from the shadow on an empty/lost-shadow resync; a later local delete of
+  // that book then reads as "peer added" (shadow.has(id) === false) and
+  // PULLS it back — resurrecting a book the user deleted. `equalKeep` is
+  // NOT a pending change (syncStatus must not count it) — it exists purely
+  // so `syncNow` can restore the shadow membership these ids always had.
+  equalKeep: string[];
 }
 
 export function planReconcile(
@@ -175,7 +185,7 @@ export function planReconcile(
   const localById = new Map(localIndex.map((m) => [m.id, m]));
   const allIds = new Set<string>([...serverById.keys(), ...localById.keys(), ...shadow]);
 
-  const plan: ReconcilePlan = { toPush: [], toPull: [], toDeleteLocal: [], toPushDelete: [], shadowDrop: [] };
+  const plan: ReconcilePlan = { toPush: [], toPull: [], toDeleteLocal: [], toPushDelete: [], shadowDrop: [], equalKeep: [] };
 
   for (const id of allIds) {
     const local = localById.get(id);
@@ -189,7 +199,7 @@ export function planReconcile(
       const cmp = isoCompare(local.updatedAt, server.clientVersion);
       if (cmp > 0) plan.toPush.push(id);
       else if (cmp < 0) plan.toPull.push(id);
-      // cmp === 0 → equal, nothing to transfer.
+      else plan.equalKeep.push(id); // cmp === 0 → equal, nothing to transfer, but still shadow-live
     } else if (local && server && server.deleted) {
       // Both present, but the server side is a tombstone. Compare against
       // the tombstone's REAL timestamp (server.updatedAt, bumped by
@@ -276,6 +286,11 @@ export async function syncNow(token: string): Promise<SyncResult> {
 
   const plan = planReconcile(localIndex, serverBooks, shadow);
   for (const id of plan.shadowDrop) shadow.delete(id);
+  // Live-equal ids transfer nothing, but the original syncNow still
+  // unconditionally shadow.add()'d them — restore that so an empty/lost
+  // shadow doesn't misclassify a later local delete as "peer added" and
+  // resurrect it. No I/O, no try/catch needed (Set.add can't throw).
+  for (const id of plan.equalKeep) shadow.add(id);
 
   for (const id of plan.toPush) {
     try {

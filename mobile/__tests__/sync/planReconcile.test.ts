@@ -18,12 +18,23 @@ it("local-only → toPush", () => {
   expect(planReconcile([L("a")], [], new Set()).toPush).toEqual(["a"]);
 });
 
-it("local newer than live server → toPush; server newer → toPull; equal → neither", () => {
+it("local newer than live server → toPush; server newer → toPull; equal → equalKeep only", () => {
   const newer = "2026-02-01T00:00:00.000Z", older = "2025-12-01T00:00:00.000Z";
   expect(planReconcile([L("a", newer)], [S("a")], new Set()).toPush).toEqual(["a"]);
   expect(planReconcile([L("a", older)], [S("a")], new Set()).toPull).toEqual(["a"]);
+
+  // cmp === 0 (live-both, equal timestamps): nothing to transfer, but the id
+  // must land in `equalKeep` and NOWHERE else — this is what lets syncNow
+  // restore the shadow membership these ids always had (the fix for the
+  // delete-resurrection regression: an id missing from every list meant
+  // syncNow never re-added it to the shadow on an empty/lost-shadow resync).
   const eq = planReconcile([L("a")], [S("a")], new Set());
-  expect(eq.toPush.concat(eq.toPull)).toEqual([]);
+  expect(eq.equalKeep).toEqual(["a"]);
+  expect(eq.toPush).toEqual([]);
+  expect(eq.toPull).toEqual([]);
+  expect(eq.toDeleteLocal).toEqual([]);
+  expect(eq.toPushDelete).toEqual([]);
+  expect(eq.shadowDrop).toEqual([]);
 });
 
 it("server tombstone newer-or-equal → toDeleteLocal; local edited after tombstone → toPush", () => {

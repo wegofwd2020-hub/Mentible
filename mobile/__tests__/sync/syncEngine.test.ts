@@ -319,6 +319,31 @@ describe("syncNow — reconciliation", () => {
     expect(mBookStore.deleteBook).not.toHaveBeenCalled();
   });
 
+  it("REGRESSION GUARD: a live-equal book with an EMPTY shadow still gets added to the shadow (prevents delete resurrection)", async () => {
+    // Reproduces the reviewer-found bug: the original syncNow's live-both
+    // branch unconditionally shadow.add()'d even when cmp===0 ("equal,
+    // nothing to transfer"). An id missing from every planReconcile list
+    // (as an earlier refactor draft had it) meant syncNow never restored
+    // that shadow membership — so with an empty/lost shadow, a book whose
+    // local.updatedAt === server.clientVersion would sync with NO shadow
+    // entry. A later local delete of that book would then hit the
+    // "!local && server && !server.deleted" branch with shadow.has(id) ===
+    // false → misclassified as "peer added" → PULLED back, resurrecting a
+    // book the user deleted. Asserting directly on what `saveShadow`
+    // persisted (not just the SyncResult counts) is the point of this test.
+    mSyncClient.listBooks.mockResolvedValue([
+      { bookId: "b8", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+    mBookStore.loadBookIndex.mockResolvedValue([makeMeta({ id: "b8", updatedAt: "2026-01-01T00:00:00.000Z" })]);
+    // Shadow starts empty — nothing pre-seeded into AsyncStorage (beforeEach
+    // already ran AsyncStorage.clear()), simulating a lost/never-built shadow.
+
+    await syncNow(TOKEN);
+
+    const shadowRaw = await AsyncStorage.getItem("sbq_sync_shadow");
+    expect(JSON.parse(shadowRaw ?? "[]")).toContain("b8");
+  });
+
   it("a single book's decrypt failure is caught and reported in `failed` — other books still sync", async () => {
     const goodBook = makeBook({ id: "good", updatedAt: "2026-06-01T00:00:00.000Z" });
     const badMeta = { bookId: "bad", clientVersion: "2026-06-01T00:00:00.000Z", deleted: false, updatedAt: "2026-06-01T00:00:00.000Z" };
