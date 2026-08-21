@@ -6,6 +6,11 @@
 // "prompt / chat / generate with AI".
 
 export const NAV = {
+  home: "Home",
+  howItWorks: "How it works",
+  formats: "Formats",
+  trust: "Trust",
+  pricing: "Pricing",
   library: "Library",
   // The authoring home (route is still `books`); "Studio" pairs with Library
   // and removes the old Books/Library ambiguity (both read as "shelves").
