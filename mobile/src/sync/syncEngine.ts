@@ -150,6 +150,82 @@ function isoCompare(a: string, b: string | null): number {
   return aMs < bMs ? -1 : aMs > bMs ? 1 : 0;
 }
 
+// The pure reconcile classification, lifted out of `syncNow`'s loop below so
+// it can be (a) unit-tested branch-by-branch without any I/O and (b) reused
+// read-only by `syncStatus` to answer "is there anything to sync" without
+// touching the shadow, the LMK, or any book content. Same last-write-wins
+// rule as before (see `syncNow`'s doc comment for the per-branch rationale):
+// a plain id union of local/server can't tell "never synced" apart from
+// "synced then locally deleted", which is exactly what `shadow` disambiguates.
+// No I/O, no mutation of `shadow` — callers apply `shadowDrop` themselves.
+export interface ReconcilePlan {
+  toPush: string[];
+  toPull: string[];
+  toDeleteLocal: string[];
+  toPushDelete: string[];
+  shadowDrop: string[];
+}
+
+export function planReconcile(
+  localIndex: { id: string; updatedAt: string }[],
+  serverManifest: { bookId: string; clientVersion: string; deleted: boolean; updatedAt: string | null }[],
+  shadow: Set<string>,
+): ReconcilePlan {
+  const serverById = new Map(serverManifest.map((b) => [b.bookId, b]));
+  const localById = new Map(localIndex.map((m) => [m.id, m]));
+  const allIds = new Set<string>([...serverById.keys(), ...localById.keys(), ...shadow]);
+
+  const plan: ReconcilePlan = { toPush: [], toPull: [], toDeleteLocal: [], toPushDelete: [], shadowDrop: [] };
+
+  for (const id of allIds) {
+    const local = localById.get(id);
+    const server = serverById.get(id);
+    if (local && !server) {
+      // Local present, nothing on the server — never synced.
+      plan.toPush.push(id);
+    } else if (local && server && !server.deleted) {
+      // Both present and live — LWW against the version the last pusher
+      // stamped (client_version), same as before this fix.
+      const cmp = isoCompare(local.updatedAt, server.clientVersion);
+      if (cmp > 0) plan.toPush.push(id);
+      else if (cmp < 0) plan.toPull.push(id);
+      // cmp === 0 → equal, nothing to transfer.
+    } else if (local && server && server.deleted) {
+      // Both present, but the server side is a tombstone. Compare against
+      // the tombstone's REAL timestamp (server.updatedAt, bumped by
+      // DELETE) — not client_version, which a tombstone never updates — so
+      // a live tombstone can't be mistaken for "equal, skip".
+      if (isoCompare(local.updatedAt, server.updatedAt) <= 0) {
+        // Delete wins (or it's a wash): the tombstone is at least as new as
+        // our local copy — apply it locally.
+        plan.toDeleteLocal.push(id);
+      } else {
+        // Local was edited after the tombstone — an intentional un-delete.
+        // Push it, reviving the server row.
+        plan.toPush.push(id);
+      }
+    } else if (!local && server && !server.deleted) {
+      if (shadow.has(id)) {
+        // We had this book, it's gone locally now, and the server still
+        // thinks it's live — WE deleted it. Push the tombstone (the
+        // previously-unused delete path).
+        plan.toPushDelete.push(id);
+      } else {
+        // Genuinely new to this device — a peer added it.
+        plan.toPull.push(id);
+      }
+    } else {
+      // (!local && server && server.deleted) || (!local && !server) —
+      // already gone on both sides, or only present in a stale shadow (e.g.
+      // the server row was purged out from under us) — nothing to do,
+      // just make sure the shadow agrees.
+      plan.shadowDrop.push(id);
+    }
+  }
+
+  return plan;
+}
+
 // Reconcile the local library with the server by last-write-wins, per book
 // id, using the persisted sync shadow (see `loadShadow`/`saveShadow` above)
 // to disambiguate "never synced" from "synced then locally deleted". Requires
@@ -169,9 +245,6 @@ export async function syncNow(token: string): Promise<SyncResult> {
     loadBookIndex(),
     loadShadow(),
   ]);
-  const serverById = new Map(serverBooks.map((b) => [b.bookId, b]));
-  const localById = new Map(localIndex.map((m) => [m.id, m]));
-  const allIds = new Set<string>([...serverById.keys(), ...localById.keys(), ...shadow]);
 
   let pushed = 0, pulled = 0, deleted = 0;
   const failed: string[] = [];
@@ -201,61 +274,39 @@ export async function syncNow(token: string): Promise<SyncResult> {
     pulled++;
   };
 
-  for (const id of allIds) {
-    const local = localById.get(id);
-    const server = serverById.get(id);
+  const plan = planReconcile(localIndex, serverBooks, shadow);
+  for (const id of plan.shadowDrop) shadow.delete(id);
+
+  for (const id of plan.toPush) {
     try {
-      if (local && !server) {
-        // Local present, nothing on the server — never synced.
-        await push(id);
-        shadow.add(id);
-      } else if (local && server && !server.deleted) {
-        // Both present and live — LWW against the version the last pusher
-        // stamped (client_version), same as before this fix.
-        const cmp = isoCompare(local.updatedAt, server.clientVersion);
-        if (cmp > 0) await push(id);
-        else if (cmp < 0) await pull(id);
-        // cmp === 0 → equal, nothing to transfer.
-        shadow.add(id);
-      } else if (local && server && server.deleted) {
-        // Both present, but the server side is a tombstone. Compare against
-        // the tombstone's REAL timestamp (server.updatedAt, bumped by
-        // DELETE) — not client_version, which a tombstone never updates —
-        // so a live tombstone can't be mistaken for "equal, skip".
-        if (isoCompare(local.updatedAt, server.updatedAt) <= 0) {
-          // Delete wins (or it's a wash): the tombstone is at least as new
-          // as our local copy — apply it locally.
-          await deleteLocalBook(id);
-          shadow.delete(id);
-          deleted++;
-        } else {
-          // Local was edited after the tombstone — an intentional
-          // un-delete. Push it, reviving the server row.
-          await push(id);
-          shadow.add(id);
-        }
-      } else if (!local && server && !server.deleted) {
-        if (shadow.has(id)) {
-          // We had this book, it's gone locally now, and the server still
-          // thinks it's live — WE deleted it. Push the tombstone (the
-          // previously-unused delete path).
-          await syncClient.deleteBook(token, id);
-          shadow.delete(id);
-          deleted++;
-        } else {
-          // Genuinely new to this device — a peer added it.
-          await pull(id);
-          shadow.add(id);
-        }
-      } else if (!local && server && server.deleted) {
-        // Already gone on both sides — nothing to do, just make sure the
-        // shadow agrees.
-        shadow.delete(id);
-      } else if (!local && !server) {
-        // Only present in a stale shadow (e.g. the server row was purged
-        // out from under us) — both sides agree it's gone.
-        shadow.delete(id);
-      }
+      await push(id);
+      shadow.add(id);
+    } catch {
+      failed.push(id);
+    }
+  }
+  for (const id of plan.toPull) {
+    try {
+      await pull(id);
+      shadow.add(id);
+    } catch {
+      failed.push(id);
+    }
+  }
+  for (const id of plan.toDeleteLocal) {
+    try {
+      await deleteLocalBook(id);
+      shadow.delete(id);
+      deleted++;
+    } catch {
+      failed.push(id);
+    }
+  }
+  for (const id of plan.toPushDelete) {
+    try {
+      await syncClient.deleteBook(token, id);
+      shadow.delete(id);
+      deleted++;
     } catch {
       failed.push(id);
     }
@@ -268,4 +319,41 @@ export async function syncNow(token: string): Promise<SyncResult> {
 
 export async function getLastSyncedAt(): Promise<string | null> {
   return AsyncStorage.getItem(LAST_SYNCED_KEY);
+}
+
+// A cheap, read-only sibling of `syncNow` for a status badge/UI: "is there
+// anything to sync" without doing any of the work. Reuses the same pure
+// `planReconcile` classifier against a `listBooks` manifest fetch, so its
+// notion of "pending" never drifts from what `syncNow` would actually do.
+// Zero-knowledge by construction: only `listBooks` (id/version/deleted
+// metadata) is fetched — never `getBook`, never a decrypt, never the shadow
+// or local storage mutated. `lastSyncedAt` is attached in every branch
+// (including `error`) so the UI can always show "last synced <time>" even
+// when the live check itself failed.
+export type SyncState = "up_to_date" | "pending" | "syncing" | "error" | "locked" | "signed_out";
+
+export interface SyncStatus {
+  state: SyncState;
+  toPush: number;
+  toPull: number;
+  lastSyncedAt: string | null;
+}
+
+export async function syncStatus(token: string | null): Promise<SyncStatus> {
+  const lastSyncedAt = await getLastSyncedAt();
+  if (!token) return { state: "signed_out", toPush: 0, toPull: 0, lastSyncedAt };
+  if (!(await isUnlocked())) return { state: "locked", toPush: 0, toPull: 0, lastSyncedAt };
+  try {
+    const [server, local, shadow] = await Promise.all([
+      syncClient.listBooks(token),
+      loadBookIndex(),
+      loadShadow(),
+    ]);
+    const plan = planReconcile(local, server, shadow);
+    const toPush = plan.toPush.length + plan.toPushDelete.length;
+    const toPull = plan.toPull.length + plan.toDeleteLocal.length;
+    return { state: toPush + toPull === 0 ? "up_to_date" : "pending", toPush, toPull, lastSyncedAt };
+  } catch {
+    return { state: "error", toPush: 0, toPull: 0, lastSyncedAt };
+  }
 }

@@ -11,6 +11,26 @@ import { putBookValue, getBookValue, delBookValue } from "@/storage/bookBlobStor
 const INDEX_KEY = "sbq_book_index";
 const bookKey = (id: string) => `sbq_book_${id}`;
 
+// In-memory change notification (pub/sub) for local book edits.
+const _listeners = new Set<() => void>();
+
+export function subscribeBookStore(listener: () => void): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
+}
+
+function _emit() {
+  for (const l of _listeners) {
+    try {
+      l();
+    } catch {
+      // A listener must not break a save operation.
+    }
+  }
+}
+
 function countUnits(toc: StructuredTOC): number {
   return toc.subjects.reduce((n, s) => n + s.units.length, 0);
 }
@@ -101,6 +121,7 @@ export async function saveBook(book: Book): Promise<void> {
     INDEX_KEY,
     JSON.stringify([toMeta(book), ...deduped]),
   );
+  _emit();
 }
 
 export async function loadBookIndex(): Promise<BookMeta[]> {
@@ -155,4 +176,5 @@ export async function deleteBook(id: string): Promise<void> {
   // images behind forever (spec §3 / GDPR wipe posture). Best-effort — the
   // function already swallows its own errors.
   await deleteBookMedia(id);
+  _emit();
 }
