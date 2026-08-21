@@ -16,6 +16,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 // drifts when the menu changes). Extra keys (shelves/books/posts) are harmless —
 // they only render if that route is put back into NAV_ORDER.
 const TAB_BLURBS: Record<string, string> = {
+  index: "Your home base — what Mentible does, how it works, and where to start.",
   library: "Your finished books — tap a cover to read.",
   projects: "Capture your expertise into a project — draft it, get it validated, then publish.",
   reviews: "Review and approve projects you've been invited to validate.",
