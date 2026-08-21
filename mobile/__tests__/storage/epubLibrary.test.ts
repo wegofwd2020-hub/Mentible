@@ -47,7 +47,7 @@ jest.mock("expo-file-system", () => {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
-import { deleteEpub, listEpubs, saveEpub } from "../../src/storage/epubLibrary";
+import { deleteEpub, listEpubs, saveEpub, subscribeEpubLibrary } from "../../src/storage/epubLibrary";
 
 beforeEach(() => {
   (AsyncStorage as unknown as { __reset: () => void }).__reset();
@@ -112,4 +112,32 @@ it("lists newest first and deletes by id", async () => {
   await deleteEpub("b");
   list = await listEpubs();
   expect(list.map((m) => m.id)).toEqual(["a"]);
+});
+
+describe("subscribeEpubLibrary", () => {
+  it("fires the listener on saveEpub and deleteEpub, and not after unsubscribe", async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeEpubLibrary(listener);
+
+    await saveEpub({ bookId: "b1", title: "Physics", bytes: bytesOf(1) });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    await deleteEpub("b1");
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    await saveEpub({ bookId: "b2", title: "Chemistry", bytes: bytesOf(1) });
+    expect(listener).toHaveBeenCalledTimes(2); // no further calls once unsubscribed
+  });
+
+  it("a throwing listener does not break saveEpub", async () => {
+    const throwing = jest.fn(() => {
+      throw new Error("listener boom");
+    });
+    subscribeEpubLibrary(throwing);
+
+    const meta = await saveEpub({ bookId: "b3", title: "Biology", bytes: bytesOf(1) });
+    expect(meta).toMatchObject({ id: "b3", title: "Biology" });
+    expect(throwing).toHaveBeenCalled();
+  });
 });

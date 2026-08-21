@@ -35,15 +35,43 @@ const MAX_INLINE_SVG = 600 * 1024;
 
 const isWeb = Platform.OS === "web";
 
+// In-memory change notification (pub/sub) for local EPUB library edits —
+// mirrors `subscribeBookStore` (bookStore.ts). Consumed by `autoSync`'s edit
+// trigger so a freshly-compiled or deleted EPUB eventually syncs, same as an
+// edited book does.
+const _listeners = new Set<() => void>();
+
+export function subscribeEpubLibrary(listener: () => void): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
+}
+
+function _emit(): void {
+  for (const l of _listeners) {
+    try {
+      l();
+    } catch {
+      // A listener must not break a save/delete operation.
+    }
+  }
+}
+
 // ── public API (delegates to the platform impl) ──────────────────────────────
-export function saveEpub(input: SaveEpubInput): Promise<EpubMeta> {
-  return isWeb ? webSave(input) : nativeSave(input);
+// Emit at the end of the exported fn (not per-branch) so web and native both
+// notify exactly once, from a single call site.
+export async function saveEpub(input: SaveEpubInput): Promise<EpubMeta> {
+  const meta = await (isWeb ? webSave(input) : nativeSave(input));
+  _emit();
+  return meta;
 }
 export function listEpubs(): Promise<EpubMeta[]> {
   return isWeb ? webList() : nativeList();
 }
-export function deleteEpub(id: string): Promise<void> {
-  return isWeb ? webDelete(id) : nativeDelete(id);
+export async function deleteEpub(id: string): Promise<void> {
+  await (isWeb ? webDelete(id) : nativeDelete(id));
+  _emit();
 }
 /** Open the EPUB: a browser download on web, a share sheet on native. */
 export function openEpub(id: string, title: string): Promise<void> {

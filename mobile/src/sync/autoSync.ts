@@ -32,6 +32,8 @@ import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { runSyncExclusive, syncStatus, isUnlocked } from "@/sync/syncEngine";
 import { subscribeBookStore } from "@/storage/bookStore";
+import { subscribeEpubLibrary } from "@/storage/epubLibrary";
+import { subscribeShelfStore } from "@/storage/shelfStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { IS_DEMO } from "@/constants/demo";
 import { setSyncStatus } from "@/sync/syncStatusStore";
@@ -152,17 +154,25 @@ export function useAutoSync(): void {
     });
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribeBookStore = subscribeBookStore(() => {
+    const onEdit = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
         requestSync("edit");
       }, DEBOUNCE_MS);
-    });
+    };
+    // Same debounced edit trigger, wired to all three local stores that
+    // `syncNow` now reconciles (books, EPUBs, shelves) — an edit to any of
+    // them should eventually push, same as a book edit always has.
+    const unsubscribeBookStore = subscribeBookStore(onEdit);
+    const unsubscribeEpubLibrary = subscribeEpubLibrary(onEdit);
+    const unsubscribeShelfStore = subscribeShelfStore(onEdit);
 
     return () => {
       appStateSub.remove();
       unsubscribeBookStore();
+      unsubscribeEpubLibrary();
+      unsubscribeShelfStore();
       if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, []);
