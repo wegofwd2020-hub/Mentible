@@ -132,3 +132,177 @@ export async function deleteBook(token: string, bookId: string): Promise<void> {
     throw new ApiError(res.status, body);
   }
 }
+
+// ── EPUBs (ADR-014 increment 2) ─────────────────────────────────────────────
+// The epub payload (potentially tens of MB) travels as a FRAMED octet-stream
+// body — this module does NOT frame/unframe it (see `epubFraming.ts`); it
+// only moves already-framed bytes across the wire. Only the small, fixed-size
+// crypto params travel as base64 headers (nonce / meta-nonce / wrapped key) —
+// `X-Client-Version` is the one exception: the backend reads it via
+// `request.headers.get(...)` as a plain string (NOT `_b64_header`, see
+// `router.py#put_epub`) and echoes it back unencoded in `get_epub`'s response
+// headers (`"X-Client-Version": e.client_version`, no `_b64e`) — so it must
+// travel as plaintext here too, unlike the other four headers.
+
+export interface EpubMetaRow {
+  epubId: string;
+  clientVersion: string;
+  deleted: boolean;
+  updatedAt: string | null;
+  byteSize: number;
+}
+
+interface EpubMetaWire {
+  epub_id: string;
+  client_version: string | null;
+  deleted: boolean;
+  updated_at: string | null;
+  byte_size: number;
+}
+function decodeEpubMeta(w: EpubMetaWire): EpubMetaRow {
+  return {
+    epubId: w.epub_id,
+    clientVersion: w.client_version ?? "",
+    deleted: w.deleted,
+    updatedAt: w.updated_at,
+    byteSize: w.byte_size,
+  };
+}
+
+export async function listEpubs(token: string): Promise<EpubMetaRow[]> {
+  const res = await authedFetch("/sync/epubs", token);
+  const rows = await jsonOrThrow<EpubMetaWire[]>(res);
+  return rows.map(decodeEpubMeta);
+}
+
+export interface EpubBlobHeaders {
+  nonce: Uint8Array;
+  metaNonce: Uint8Array;
+  wrappedDk: Uint8Array;
+  dkNonce: Uint8Array;
+  clientVersion: string;
+}
+
+function epubRequestHeaders(h: EpubBlobHeaders): Record<string, string> {
+  return {
+    "Content-Type": "application/octet-stream",
+    "X-Nonce": bytesToBase64(h.nonce),
+    "X-Meta-Nonce": bytesToBase64(h.metaNonce),
+    "X-Wrapped-Dk": bytesToBase64(h.wrappedDk),
+    "X-Dk-Nonce": bytesToBase64(h.dkNonce),
+    // Plaintext — see note above. NOT base64.
+    "X-Client-Version": h.clientVersion,
+  };
+}
+
+// `framedBody` is already-framed (meta-length-prefix + meta ciphertext + epub
+// ciphertext) — callers build it via `packEpubBody`. A 413 (single-file cap or
+// per-account soft cap, both raised in `put_epub`) surfaces as `ApiError` with
+// `status === 413` so the sync engine can route it to `skipped` rather than
+// retrying forever.
+export async function putEpub(
+  token: string,
+  epubId: string,
+  framedBody: Uint8Array,
+  h: EpubBlobHeaders,
+): Promise<void> {
+  const res = await authedFetch(`/sync/epubs/${encodeURIComponent(epubId)}`, token, {
+    method: "PUT",
+    headers: epubRequestHeaders(h),
+    body: framedBody,
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+}
+
+export async function getEpub(
+  token: string,
+  epubId: string,
+): Promise<{ framedBody: Uint8Array; headers: EpubBlobHeaders }> {
+  const res = await authedFetch(`/sync/epubs/${encodeURIComponent(epubId)}`, token);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  const buf = await res.arrayBuffer();
+  const nonce = res.headers.get("X-Nonce");
+  const metaNonce = res.headers.get("X-Meta-Nonce");
+  const wrappedDk = res.headers.get("X-Wrapped-Dk");
+  const dkNonce = res.headers.get("X-Dk-Nonce");
+  const clientVersion = res.headers.get("X-Client-Version");
+  if (nonce == null || metaNonce == null || wrappedDk == null || dkNonce == null || clientVersion == null) {
+    throw new ApiError(res.status, "missing crypto headers on epub response");
+  }
+  return {
+    framedBody: new Uint8Array(buf),
+    headers: {
+      nonce: base64ToBytes(nonce),
+      metaNonce: base64ToBytes(metaNonce),
+      wrappedDk: base64ToBytes(wrappedDk),
+      dkNonce: base64ToBytes(dkNonce),
+      clientVersion, // plaintext — see note above
+    },
+  };
+}
+
+export async function deleteEpub(token: string, epubId: string): Promise<void> {
+  const res = await authedFetch(`/sync/epubs/${encodeURIComponent(epubId)}`, token, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+}
+
+// ── Shelves (ADR-014 increment 2) ───────────────────────────────────────────
+// Same JSON+base64 shape as a book blob (single row per account, no id path
+// segment).
+
+export interface ShelvesBlob {
+  ciphertext: Uint8Array;
+  nonce: Uint8Array;
+  wrappedDk: Uint8Array;
+  dkNonce: Uint8Array;
+  clientVersion: string;
+}
+
+interface ShelvesWire {
+  ciphertext: string;
+  nonce: string;
+  wrapped_dk: string;
+  dk_nonce: string;
+  client_version: string;
+}
+function decodeShelves(w: ShelvesWire): ShelvesBlob {
+  return {
+    ciphertext: base64ToBytes(w.ciphertext),
+    nonce: base64ToBytes(w.nonce),
+    wrappedDk: base64ToBytes(w.wrapped_dk),
+    dkNonce: base64ToBytes(w.dk_nonce),
+    clientVersion: w.client_version,
+  };
+}
+
+// 404 (no shelves synced yet for this account) is a normal, expected outcome
+// here (unlike getKeyset/getBook, which let it surface as ApiError) — the
+// caller just wants "nothing yet" without a try/catch.
+export async function getShelves(token: string): Promise<ShelvesBlob | null> {
+  const res = await authedFetch("/sync/shelves", token);
+  if (res.status === 404) return null;
+  return decodeShelves(await jsonOrThrow<ShelvesWire>(res));
+}
+
+export async function putShelves(token: string, blob: ShelvesBlob): Promise<void> {
+  const res = await authedFetch("/sync/shelves", token, {
+    method: "PUT",
+    body: JSON.stringify({
+      ciphertext: bytesToBase64(blob.ciphertext),
+      nonce: bytesToBase64(blob.nonce),
+      wrapped_dk: bytesToBase64(blob.wrappedDk),
+      dk_nonce: bytesToBase64(blob.dkNonce),
+      client_version: blob.clientVersion,
+    }),
+  });
+  await jsonOrThrow<ShelvesWire>(res);
+}
