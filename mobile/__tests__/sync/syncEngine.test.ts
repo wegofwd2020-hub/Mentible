@@ -26,6 +26,7 @@ import {
   enableSync,
   unlockOnDevice,
   syncNow,
+  runSyncExclusive,
   SyncLockedError,
   SyncKeysetExistsError,
 } from "@/sync/syncEngine";
@@ -319,6 +320,31 @@ describe("syncNow — reconciliation", () => {
     expect(mBookStore.deleteBook).not.toHaveBeenCalled();
   });
 
+  it("REGRESSION GUARD: a live-equal book with an EMPTY shadow still gets added to the shadow (prevents delete resurrection)", async () => {
+    // Reproduces the reviewer-found bug: the original syncNow's live-both
+    // branch unconditionally shadow.add()'d even when cmp===0 ("equal,
+    // nothing to transfer"). An id missing from every planReconcile list
+    // (as an earlier refactor draft had it) meant syncNow never restored
+    // that shadow membership — so with an empty/lost shadow, a book whose
+    // local.updatedAt === server.clientVersion would sync with NO shadow
+    // entry. A later local delete of that book would then hit the
+    // "!local && server && !server.deleted" branch with shadow.has(id) ===
+    // false → misclassified as "peer added" → PULLED back, resurrecting a
+    // book the user deleted. Asserting directly on what `saveShadow`
+    // persisted (not just the SyncResult counts) is the point of this test.
+    mSyncClient.listBooks.mockResolvedValue([
+      { bookId: "b8", clientVersion: "2026-01-01T00:00:00.000Z", deleted: false, updatedAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+    mBookStore.loadBookIndex.mockResolvedValue([makeMeta({ id: "b8", updatedAt: "2026-01-01T00:00:00.000Z" })]);
+    // Shadow starts empty — nothing pre-seeded into AsyncStorage (beforeEach
+    // already ran AsyncStorage.clear()), simulating a lost/never-built shadow.
+
+    await syncNow(TOKEN);
+
+    const shadowRaw = await AsyncStorage.getItem("sbq_sync_shadow");
+    expect(JSON.parse(shadowRaw ?? "[]")).toContain("b8");
+  });
+
   it("a single book's decrypt failure is caught and reported in `failed` — other books still sync", async () => {
     const goodBook = makeBook({ id: "good", updatedAt: "2026-06-01T00:00:00.000Z" });
     const badMeta = { bookId: "bad", clientVersion: "2026-06-01T00:00:00.000Z", deleted: false, updatedAt: "2026-06-01T00:00:00.000Z" };
@@ -425,5 +451,83 @@ describe("syncNow — sync shadow (FIX 1: local delete resurrection / missed pee
     // The shadow should have forgotten "b1" now that both sides agree it's gone.
     const shadowAfter = await AsyncStorage.getItem("sbq_sync_shadow");
     expect(JSON.parse(shadowAfter ?? "[]")).not.toContain("b1");
+  });
+});
+
+// Drains microtask ticks (Promise.all/await hops inside syncNow) without
+// relying on fake timers — plain `await Promise.resolve()` chained enough
+// times to be safe regardless of how many awaits precede the point checked.
+async function flushMicrotasks(times = 8): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+}
+
+describe("runSyncExclusive — serializes ALL callers (manual + auto-sync)", () => {
+  it("a second call's syncNow work does not start until the first call's syncNow settles", async () => {
+    // `syncNow` itself is internal to syncEngine.ts (called by direct
+    // reference, not through the module's exports object), so it can't be
+    // jest.spyOn'd from outside. Instead we make one of the real `syncNow`'s
+    // own dependencies (`syncClient.listBooks`, awaited via `Promise.all`
+    // right after `loadLMK()`) controllable, and track how many overlapping
+    // `syncNow` runs are "inside" that call at once. If `runSyncExclusive`
+    // ever let two `syncNow` bodies run concurrently (i.e. routed around the
+    // mutex), `concurrent` would hit 2 and `callCount` would reach 2 BEFORE
+    // the first run is released below — this test fails exactly that way.
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    let callCount = 0;
+    let releaseFirst!: () => void;
+
+    mBookStore.loadBookIndex.mockResolvedValue([]);
+    mSyncClient.listBooks.mockImplementation(() => {
+      callCount++;
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      if (callCount === 1) {
+        return new Promise((resolve) => {
+          releaseFirst = () => {
+            concurrent--;
+            resolve([]);
+          };
+        });
+      }
+      concurrent--;
+      return Promise.resolve([]);
+    });
+
+    const p1 = runSyncExclusive(TOKEN);
+    // Let the first run reach (and block inside) listBooks.
+    await flushMicrotasks();
+    expect(callCount).toBe(1); // first run's syncNow has started
+
+    const p2 = runSyncExclusive(TOKEN);
+    // Flush several more microtask ticks — if the mutex were bypassed, the
+    // second run's syncNow (and thus a second listBooks call) would already
+    // have started here, while the first is still pending.
+    await flushMicrotasks();
+    expect(callCount).toBe(1); // still just the first — second is queued, not running
+
+    releaseFirst();
+    await p1;
+    await p2;
+
+    expect(callCount).toBe(2); // second run only starts after the first settles
+    expect(maxConcurrent).toBe(1); // never two syncNow bodies in flight at once
+  });
+
+  it("propagates the real SyncResult (and a rejection) to its own caller, without wedging the mutex", async () => {
+    mBookStore.loadBookIndex.mockResolvedValue([]);
+    mSyncClient.listBooks.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce([]);
+
+    const ok1 = await runSyncExclusive(TOKEN);
+    expect(ok1).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+
+    await expect(runSyncExclusive(TOKEN)).rejects.toThrow("boom");
+
+    // A failed run must not wedge the internal chain — a later call still runs.
+    const ok3 = await runSyncExclusive(TOKEN);
+    expect(ok3).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
   });
 });

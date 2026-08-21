@@ -10,22 +10,56 @@
 // token) — the caller (Settings) mounts this behind RequireSignIn + !IS_DEMO.
 
 import React, { useEffect, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Switch, Text, TextInput, View } from "react-native";
 import {
   isUnlocked,
   enableSync,
   unlockOnDevice,
-  syncNow,
+  runSyncExclusive,
+  syncStatus,
   getLastSyncedAt,
   SyncLockedError,
   SyncKeysetExistsError,
+  type SyncStatus,
 } from "@/sync/syncEngine";
+import { isAutoSyncEnabled, setAutoSyncEnabled } from "@/sync/autoSync";
+import { useSyncStatus, setSyncStatus } from "@/sync/syncStatusStore";
 import { copyText } from "@/lib/clipboard";
 import { Alert } from "@/lib/alert";
 import { Button, Label } from "@/components/ui";
 import { spacing, radius, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 import { useAuth } from "@/auth/AuthProvider";
+
+// Maps a live `SyncStatus` (from the auto-sync controller or a fresh
+// `syncStatus()` poll) to the one-line badge copy shown under "Last synced".
+// `signed_out` renders nothing here — this panel only mounts when signed in
+// (RequireSignIn + !IS_DEMO), so hitting it would mean the token just dropped
+// mid-session; better to show nothing than a stale/wrong line. `locked` is
+// defensive: the "unlocked" phase branch that renders this shouldn't be
+// reachable while the engine considers sync locked, but if the two ever
+// disagree we point at the same unlock affordance rather than showing a
+// confusing status.
+function syncStatusCopy(status: SyncStatus): string | null {
+  switch (status.state) {
+    case "up_to_date":
+      return "Up to date ✓";
+    case "pending": {
+      const n = status.toPush + status.toPull;
+      return `${n} change${n === 1 ? "" : "s"} to sync`;
+    }
+    case "syncing":
+      return "Syncing…";
+    case "error":
+      return "Couldn't sync — will retry";
+    case "locked":
+      return "Unlock this device to sync";
+    case "signed_out":
+      return null;
+    default:
+      return null;
+  }
+}
 
 // "checking" = resolving isUnlocked() on mount.
 // "locked" = no LMK cached on this device (never enabled here, or a new
@@ -44,6 +78,11 @@ export function LibrarySync(): React.JSX.Element | null {
   const [unlockKey, setUnlockKey] = useState("");
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  // Auto-sync opt-out toggle (default reflects `isAutoSyncEnabled()`'s own
+  // opt-out default of `true`) and the live status badge, sourced from the
+  // shared pub/sub store the auto-sync controller writes to.
+  const [autoSyncOn, setAutoSyncOn] = useState(true);
+  const status = useSyncStatus();
 
   useEffect(() => {
     let active = true;
@@ -62,12 +101,47 @@ export function LibrarySync(): React.JSX.Element | null {
     };
   }, []);
 
+  // Seed the toggle from persisted state once on mount.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const on = await isAutoSyncEnabled();
+      if (active) setAutoSyncOn(on);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Refresh the status badge as soon as the panel becomes usable — a cheap,
+  // read-only poll (see `syncStatus`'s own doc comment), never a full sync.
+  useEffect(() => {
+    if (phase !== "unlocked") return;
+    let active = true;
+    (async () => {
+      const fresh = await syncStatus(token);
+      if (active) setSyncStatus(fresh);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [phase, token]);
+
+  async function onToggleAutoSync(next: boolean) {
+    setAutoSyncOn(next);
+    await setAutoSyncEnabled(next);
+  }
+
   async function runSync() {
     if (!token) return;
     setBusy(true);
     try {
-      const r = await syncNow(token);
+      // Routed through the shared mutex (not `syncNow` directly) so a manual
+      // tap can never overlap an auto-sync run triggered by foreground/edit/
+      // token-refresh — see `runSyncExclusive`'s doc comment in syncEngine.
+      const r = await runSyncExclusive(token);
       setLastSyncedAt(await getLastSyncedAt());
+      setSyncStatus(await syncStatus(token));
       const extra = r.failed.length ? ` ${r.failed.length} book(s) couldn't sync.` : "";
       Alert.alert("Sync complete", `Pushed ${r.pushed}, pulled ${r.pulled}, removed ${r.deleted}.${extra}`);
     } catch (e) {
@@ -208,6 +282,22 @@ export function LibrarySync(): React.JSX.Element | null {
           <Text style={styles.note}>
             {lastSyncedAt ? `Last synced ${new Date(lastSyncedAt).toLocaleString()}` : "Not synced yet"}
           </Text>
+          {syncStatusCopy(status) && (
+            <View style={styles.statusRow}>
+              {status.state === "syncing" && (
+                <ActivityIndicator size="small" color={styles.statusText.color} />
+              )}
+              <Text style={styles.statusText}>{syncStatusCopy(status)}</Text>
+            </View>
+          )}
+          <View style={styles.toggleRow}>
+            <Label tone="muted">Auto-sync</Label>
+            <Switch
+              value={autoSyncOn}
+              onValueChange={onToggleAutoSync}
+              accessibilityLabel="Auto-sync"
+            />
+          </View>
           <Button
             variant="ghost"
             label="Sync now"
@@ -253,4 +343,11 @@ const makeStyles = (c: Palette) => ({
     color: c.text,
   },
   note: { color: c.textMuted, fontSize: typography.sizeXs, fontStyle: "italic" as const },
+  statusRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
+  statusText: { color: c.textMuted, fontSize: typography.sizeXs },
+  toggleRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+  },
 });
