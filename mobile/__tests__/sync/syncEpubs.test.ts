@@ -185,6 +185,38 @@ describe("syncEpubs — pull", () => {
   });
 });
 
+describe("syncEpubs — regression guards", () => {
+  it("REGRESSION GUARD: a live-equal epub with an EMPTY shadow still gets added to the shadow (prevents delete resurrection)", async () => {
+    // Epub analogue of syncEngine.test.ts's book REGRESSION GUARD: the
+    // live-both branch of `planReconcile` classifies a local/server pair with
+    // matching timestamps as `equalKeep` (nothing to push/pull), but
+    // `syncEpubs` must still `shadow.add()` it. Skipping that add (the bug
+    // this guards against) means a later run — with the same epub still
+    // live-equal but no shadow entry — would hit the "!local && server &&
+    // !server.deleted" branch on a subsequent local delete and misclassify
+    // it as "peer added", PULLING the epub back instead of pushing the
+    // tombstone. Asserting on what `saveEpubShadow` actually persisted (not
+    // just the EpubSyncResult counts) is the point of this test.
+    const compiledAt = "2026-01-01T00:00:00.000Z";
+    mSyncClient.listEpubs.mockResolvedValue([
+      { epubId: "e8", clientVersion: compiledAt, deleted: false, updatedAt: compiledAt, byteSize: 5 },
+    ]);
+    mEpubLibrary.listEpubs.mockResolvedValue([makeMeta({ id: "e8", compiledAt })]);
+    // Shadow starts empty — nothing pre-seeded into AsyncStorage (beforeEach
+    // already ran AsyncStorage.clear()), simulating a lost/never-built shadow.
+
+    const result = await syncEpubs(TOKEN, LMK);
+
+    expect(result.pushedEpubs).toBe(0);
+    expect(result.pulledEpubs).toBe(0);
+    expect(mSyncClient.putEpub).not.toHaveBeenCalled();
+    expect(mSyncClient.getEpub).not.toHaveBeenCalled();
+
+    const shadowRaw = await AsyncStorage.getItem("sbq_sync_epub_shadow");
+    expect(JSON.parse(shadowRaw ?? "[]")).toContain("e8");
+  });
+});
+
 describe("syncEpubs — delete", () => {
   it("a newer server tombstone deletes the epub locally", async () => {
     mSyncClient.listEpubs.mockResolvedValue([

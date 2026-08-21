@@ -99,15 +99,30 @@ it("enabled + unlocked: Sync now calls syncNow and Alerts the counts", async () 
   );
 });
 
-it("enabled + unlocked: a failed book is noted in the Alert", async () => {
+it("enabled + unlocked: a failed item is noted in the Alert", async () => {
   mockIsUnlocked.mockImplementation(async () => true);
-  mockSyncNow.mockImplementation(async () => ({ pushed: 1, pulled: 0, deleted: 0, failed: ["book-1"] }));
+  mockSyncNow.mockImplementation(async () => ({ pushed: 1, pulled: 0, deleted: 0, failed: ["book-1"], skipped: [] }));
   const { getByText } = render(<LibrarySync />);
   await waitFor(() => expect(getByText(/sync now/i)).toBeTruthy());
 
   fireEvent.press(getByText(/sync now/i));
   await waitFor(() =>
-    expect(mockAlertSpy).toHaveBeenCalledWith("Sync complete", expect.stringMatching(/1 book\(s\) couldn.t sync/i)),
+    expect(mockAlertSpy).toHaveBeenCalledWith("Sync complete", expect.stringMatching(/1 item\(s\) couldn.t sync/i)),
+  );
+});
+
+it("enabled + unlocked: skipped EPUBs (over the size/storage cap) are noted in the Alert", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  mockSyncNow.mockImplementation(async () => ({ pushed: 1, pulled: 0, deleted: 0, failed: [], skipped: ["epub-1", "epub-2"] }));
+  const { getByText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByText(/sync now/i)).toBeTruthy());
+
+  fireEvent.press(getByText(/sync now/i));
+  await waitFor(() =>
+    expect(mockAlertSpy).toHaveBeenCalledWith(
+      "Sync complete",
+      expect.stringMatching(/2 epub\(s\) too large or over your storage limit/i),
+    ),
   );
 });
 
