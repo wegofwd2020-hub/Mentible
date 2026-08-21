@@ -33,6 +33,27 @@ jest.mock("@/storage/bookStore", () => ({
   subscribeBookStore: (listener: () => void) => mockSubscribeBookStore(listener),
 }));
 
+// Same edit-trigger wiring as bookStore's subscribe, for the EPUB library and
+// shelfStore stores T5 folded into `syncNow` — the debounced edit trigger
+// must fire on any of the three, not just book edits.
+let mockEpubLibraryListener: (() => void) | null = null;
+const mockSubscribeEpubLibrary = jest.fn((listener: () => void) => {
+  mockEpubLibraryListener = listener;
+  return jest.fn();
+});
+jest.mock("@/storage/epubLibrary", () => ({
+  subscribeEpubLibrary: (listener: () => void) => mockSubscribeEpubLibrary(listener),
+}));
+
+let mockShelfStoreListener: (() => void) | null = null;
+const mockSubscribeShelfStore = jest.fn((listener: () => void) => {
+  mockShelfStoreListener = listener;
+  return jest.fn();
+});
+jest.mock("@/storage/shelfStore", () => ({
+  subscribeShelfStore: (listener: () => void) => mockSubscribeShelfStore(listener),
+}));
+
 let mockAuthValue: { status: string; accessToken: string | null } = {
   status: "signed_in",
   accessToken: "test-token",
@@ -128,6 +149,8 @@ beforeEach(async () => {
   mockAuthValue = { status: "signed_in", accessToken: "test-token" };
   mockDemoState.IS_DEMO = false;
   mockBookStoreListener = null;
+  mockEpubLibraryListener = null;
+  mockShelfStoreListener = null;
 
   mockSyncNow.mockResolvedValue({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
   mockSyncStatus.mockResolvedValue({ state: "up_to_date", toPush: 0, toPull: 0, lastSyncedAt: null });
@@ -206,6 +229,34 @@ describe("useAutoSync — edit trigger", () => {
       await flush();
     });
     expect(mockSyncNow).toHaveBeenCalledTimes(2); // one call for three rapid edits
+  });
+
+  it("also fires the debounced trigger for epubLibrary and shelfStore edits (T5)", async () => {
+    render(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1); // the mount trigger
+    expect(mockEpubLibraryListener).toBeTruthy();
+    expect(mockShelfStoreListener).toBeTruthy();
+
+    act(() => {
+      mockEpubLibraryListener?.();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_MS + 1);
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(2); // an epub edit alone triggers a sync
+
+    act(() => {
+      mockShelfStoreListener?.();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_MS + 1);
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(3); // a shelf edit alone triggers a sync
   });
 });
 
@@ -445,11 +496,21 @@ describe("useAutoSync — error handling", () => {
 });
 
 describe("useAutoSync — cleanup", () => {
-  it("removes the AppState listener and unsubscribes from bookStore on unmount", async () => {
+  it("removes the AppState listener and unsubscribes from bookStore, epubLibrary, and shelfStore on unmount", async () => {
     const bookStoreUnsub = jest.fn();
     mockSubscribeBookStore.mockImplementationOnce((listener: () => void) => {
       mockBookStoreListener = listener;
       return bookStoreUnsub;
+    });
+    const epubLibraryUnsub = jest.fn();
+    mockSubscribeEpubLibrary.mockImplementationOnce((listener: () => void) => {
+      mockEpubLibraryListener = listener;
+      return epubLibraryUnsub;
+    });
+    const shelfStoreUnsub = jest.fn();
+    mockSubscribeShelfStore.mockImplementationOnce((listener: () => void) => {
+      mockShelfStoreListener = listener;
+      return shelfStoreUnsub;
     });
     const appStateRemove = jest.fn();
     mockAddEventListener.mockImplementationOnce(() => ({ remove: appStateRemove }));
@@ -463,6 +524,8 @@ describe("useAutoSync — cleanup", () => {
 
     expect(appStateRemove).toHaveBeenCalledTimes(1);
     expect(bookStoreUnsub).toHaveBeenCalledTimes(1);
+    expect(epubLibraryUnsub).toHaveBeenCalledTimes(1);
+    expect(shelfStoreUnsub).toHaveBeenCalledTimes(1);
   });
 });
 

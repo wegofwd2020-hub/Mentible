@@ -473,7 +473,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Increment 1 syncs your authored books and is manual (tap \"Sync now\"). Your reader EPUBs and your API key are not part of sync yet — use Backup & Restore for those.",
+        text: "Sync now covers your authored books, your reader EPUBs, and your shelves — all end-to-end encrypted the same way. Your API key is not part of sync — use Backup & Restore for that.",
+      },
+      {
+        kind: "text",
+        text: "A very large EPUB may not sync if it's over the per-file size limit, or if it would put you over your account's sync storage limit. \"Sync now\" tells you if any EPUBs were skipped for that reason — free up space or shrink the file and sync again.",
       },
       {
         kind: "text",
@@ -482,6 +486,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "text",
         text: "Settings → Sync shows the status: \"Up to date\" when local matches the server, a count when there are changes to sync, \"Syncing…\" while it runs, or \"Couldn't sync — will retry\" on a temporary error. Turn off \"Auto-sync\" there if you'd rather sync only with the button.",
+      },
+      {
+        kind: "text",
+        text: "If two devices edit the same book, the most recently saved version wins when they sync (last-write-wins) — there's no merge or conflict prompt.",
       },
     ],
   },

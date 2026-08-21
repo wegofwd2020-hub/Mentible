@@ -47,7 +47,7 @@ jest.mock("expo-file-system", () => {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
-import { deleteEpub, listEpubs, saveEpub } from "../../src/storage/epubLibrary";
+import { deleteEpub, listEpubs, saveEpub, subscribeEpubLibrary } from "../../src/storage/epubLibrary";
 
 beforeEach(() => {
   (AsyncStorage as unknown as { __reset: () => void }).__reset();
@@ -112,4 +112,63 @@ it("lists newest first and deletes by id", async () => {
   await deleteEpub("b");
   list = await listEpubs();
   expect(list.map((m) => m.id)).toEqual(["a"]);
+});
+
+describe("compiledAt (ADR-014 increment 2 — preserved on a synced pull)", () => {
+  it("a locally-authored save (no compiledAt passed) still defaults to now()", async () => {
+    const before = Date.now();
+    const meta = await saveEpub({ bookId: "b1", title: "Physics", bytes: bytesOf(1) });
+    const after = Date.now();
+
+    expect(Date.parse(meta.compiledAt)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(meta.compiledAt)).toBeLessThanOrEqual(after);
+  });
+
+  it("a synced pull's ORIGINAL compiledAt is preserved verbatim, not overwritten with now()", async () => {
+    // The regression this guards against: syncEngine's syncEpubs pull path
+    // once called saveEpub without `compiledAt`, which meant every pulled
+    // epub silently got a fresh now() here instead of the original compile
+    // time — making it look locally-newer than the server on the very next
+    // reconcile and forcing a re-push of the whole (potentially tens-of-MB)
+    // file right back. `compiledAt` passed through here must win over
+    // whatever now() would have been.
+    const originalCompiledAt = "2020-01-01T00:00:00.000Z"; // deliberately far in the past
+    const meta = await saveEpub({
+      bookId: "b2",
+      title: "Pulled Book",
+      bytes: bytesOf(1),
+      compiledAt: originalCompiledAt,
+    });
+
+    expect(meta.compiledAt).toBe(originalCompiledAt);
+    expect((await listEpubs())[0].compiledAt).toBe(originalCompiledAt);
+  });
+});
+
+describe("subscribeEpubLibrary", () => {
+  it("fires the listener on saveEpub and deleteEpub, and not after unsubscribe", async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeEpubLibrary(listener);
+
+    await saveEpub({ bookId: "b1", title: "Physics", bytes: bytesOf(1) });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    await deleteEpub("b1");
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    await saveEpub({ bookId: "b2", title: "Chemistry", bytes: bytesOf(1) });
+    expect(listener).toHaveBeenCalledTimes(2); // no further calls once unsubscribed
+  });
+
+  it("a throwing listener does not break saveEpub", async () => {
+    const throwing = jest.fn(() => {
+      throw new Error("listener boom");
+    });
+    subscribeEpubLibrary(throwing);
+
+    const meta = await saveEpub({ bookId: "b3", title: "Biology", bytes: bytesOf(1) });
+    expect(meta).toMatchObject({ id: "b3", title: "Biology" });
+    expect(throwing).toHaveBeenCalled();
+  });
 });

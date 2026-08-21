@@ -99,6 +99,67 @@ class BookOut(BaseModel):
         )
 
 
+class EpubMetaOut(BaseModel):
+    """List-view row for `GET /sync/epubs` — metadata only, never the epub
+    bytes or the meta sidecar (keeps the manifest cheap and keeps a bulk
+    listing from becoming a bulk blob dump)."""
+
+    epub_id: str
+    client_version: str | None
+    deleted: bool
+    updated_at: datetime | None
+    byte_size: int
+
+    @classmethod
+    def from_repo(cls, m: Any) -> EpubMetaOut:
+        return cls(
+            epub_id=m.epub_id,
+            client_version=m.client_version,
+            deleted=m.deleted,
+            updated_at=m.updated_at,
+            byte_size=m.byte_size,
+        )
+
+
+class ShelvesIn(BaseModel):
+    """The caller's shelves ciphertext + wrapped per-shelves data key — opaque
+    to the server (zero-knowledge), same shape as `BookBlobIn`."""
+
+    ciphertext: str
+    nonce: str
+    wrapped_dk: str
+    dk_nonce: str
+    client_version: str
+
+    def decoded(self) -> tuple[bytes, bytes, bytes, bytes]:
+        return (
+            _b64d(self.ciphertext),
+            _b64d(self.nonce),
+            _b64d(self.wrapped_dk),
+            _b64d(self.dk_nonce),
+        )
+
+
+class ShelvesOut(BaseModel):
+    ciphertext: str
+    nonce: str
+    wrapped_dk: str
+    dk_nonce: str
+    client_version: str
+    updated_at: datetime | None
+
+    @classmethod
+    def from_repo(cls, s: Any) -> ShelvesOut:
+        return cls(
+            ciphertext=_b64e(s.ciphertext),
+            nonce=_b64e(s.nonce),
+            wrapped_dk=_b64e(s.wrapped_dk),
+            dk_nonce=_b64e(s.dk_nonce),
+            client_version=s.client_version,
+            updated_at=s.updated_at,
+        )
+
+
 class BookMetaOut(BaseModel):
     """List-view row — metadata only, never the ciphertext (keeps `GET
     /sync/books` cheap and keeps a bulk listing from becoming a bulk blob

@@ -15,12 +15,21 @@ jest.mock("@/sync/syncClient");
 jest.mock("@/crypto/envelope");
 jest.mock("@/storage/bookStore");
 jest.mock("@/sync/lmkStore");
+// This file is exclusively about the BOOK reconcile path — syncEpubs/
+// syncShelves (folded into syncNow, T5) get their own dedicated test files
+// (syncEpubs.test.ts, syncShelves.test.ts). Mocked here purely so `syncNow`
+// (which now always runs all three) has an empty/no-op epub+shelves world by
+// default and the book-only assertions below stay exactly as they were.
+jest.mock("@/storage/epubLibrary");
+jest.mock("@/storage/shelfStore");
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as syncClient from "@/sync/syncClient";
 import * as envelope from "@/crypto/envelope";
 import * as bookStore from "@/storage/bookStore";
 import * as lmkStore from "@/sync/lmkStore";
+import * as epubLibrary from "@/storage/epubLibrary";
+import * as shelfStore from "@/storage/shelfStore";
 import { ApiError } from "@/api/client";
 import {
   enableSync,
@@ -36,6 +45,8 @@ const mSyncClient = syncClient as jest.Mocked<typeof syncClient>;
 const mEnvelope = envelope as jest.Mocked<typeof envelope>;
 const mBookStore = bookStore as jest.Mocked<typeof bookStore>;
 const mLmkStore = lmkStore as jest.Mocked<typeof lmkStore>;
+const mEpubLibrary = epubLibrary as jest.Mocked<typeof epubLibrary>;
+const mShelfStore = shelfStore as jest.Mocked<typeof shelfStore>;
 
 const bytes = (n: number, seed = 1) => {
   const u = new Uint8Array(n);
@@ -112,6 +123,17 @@ beforeEach(async () => {
   mLmkStore.loadLMK.mockResolvedValue(LMK);
   mLmkStore.saveLMK.mockResolvedValue(undefined);
   mLmkStore.clearLMK.mockResolvedValue(undefined);
+
+  // Empty/no-op epub + shelves world by default (see the jest.mock note
+  // above) — every book-only test below exercises ONLY the book reconcile.
+  mEpubLibrary.listEpubs.mockResolvedValue([]);
+  mShelfStore.exportShelvesDoc.mockResolvedValue({
+    shelves: [],
+    assignments: {},
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+  mSyncClient.listEpubs.mockResolvedValue([]);
+  mSyncClient.getShelves.mockResolvedValue(null);
 });
 
 describe("enableSync", () => {
@@ -187,7 +209,7 @@ describe("syncNow — reconciliation", () => {
 
     const result = await syncNow(TOKEN);
 
-    expect(result).toEqual({ pushed: 1, pulled: 0, deleted: 0, failed: [] });
+    expect(result).toEqual({ pushed: 1, pulled: 0, deleted: 0, failed: [], skipped: [] });
     expect(mSyncClient.putBook).toHaveBeenCalledTimes(1);
     const [, id, blob] = mSyncClient.putBook.mock.calls[0];
     expect(id).toBe("b1");
@@ -218,7 +240,7 @@ describe("syncNow — reconciliation", () => {
 
     const result = await syncNow(TOKEN);
 
-    expect(result).toEqual({ pushed: 0, pulled: 1, deleted: 0, failed: [] });
+    expect(result).toEqual({ pushed: 0, pulled: 1, deleted: 0, failed: [], skipped: [] });
     expect(mSyncClient.getBook).toHaveBeenCalledWith(TOKEN, "b2");
     expect(mBookStore.saveBook).toHaveBeenCalledWith(remoteBook);
     expect(mSyncClient.putBook).not.toHaveBeenCalled();
@@ -249,7 +271,7 @@ describe("syncNow — reconciliation", () => {
 
     const result = await syncNow(TOKEN);
 
-    expect(result).toEqual({ pushed: 0, pulled: 0, deleted: 1, failed: [] });
+    expect(result).toEqual({ pushed: 0, pulled: 0, deleted: 1, failed: [], skipped: [] });
     expect(mBookStore.deleteBook).toHaveBeenCalledWith("b4");
     expect(mSyncClient.getBook).not.toHaveBeenCalled();
   });
@@ -314,7 +336,7 @@ describe("syncNow — reconciliation", () => {
 
     const result = await syncNow(TOKEN);
 
-    expect(result).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+    expect(result).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [], skipped: [] });
     expect(mSyncClient.putBook).not.toHaveBeenCalled();
     expect(mSyncClient.getBook).not.toHaveBeenCalled();
     expect(mBookStore.deleteBook).not.toHaveBeenCalled();
@@ -406,6 +428,54 @@ describe("syncNow — reconciliation", () => {
       const decoded = new TextDecoder().decode(blob.ciphertext);
       expect(decoded).not.toMatch(/SECRET TITLE (ONE|TWO)/);
     }
+  });
+});
+
+describe("syncNow — folds in syncEpubs + syncShelves (T5)", () => {
+  it("runs books, epubs, and shelves under one call, merging their push/pull counts into the returned SyncResult", async () => {
+    mSyncClient.listBooks.mockResolvedValue([]);
+    mBookStore.loadBookIndex.mockResolvedValue([]);
+
+    // One local-only epub to push.
+    mEpubLibrary.listEpubs.mockResolvedValue([
+      { id: "e1", title: "Epub One", sizeBytes: 3, compiledAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+    mEpubLibrary.getEpubBytes.mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
+    mSyncClient.listEpubs.mockResolvedValue([]);
+    mSyncClient.putEpub.mockResolvedValue(undefined);
+
+    // Shelves: local has real data, server has nothing yet → push.
+    mShelfStore.exportShelvesDoc.mockResolvedValue({
+      shelves: [{ id: "s1", name: "Shelf", createdAt: "2026-01-01T00:00:00.000Z", order: 0 }],
+      assignments: {},
+      updatedAt: "2026-02-01T00:00:00.000Z",
+    });
+    mSyncClient.getShelves.mockResolvedValue(null);
+    mSyncClient.putShelves.mockResolvedValue(undefined);
+
+    const result = await syncNow(TOKEN);
+
+    // 1 epub push + 1 shelves push, no book activity this run.
+    expect(result).toEqual({ pushed: 2, pulled: 0, deleted: 0, failed: [], skipped: [] });
+    expect(mSyncClient.putEpub).toHaveBeenCalledTimes(1);
+    expect(mSyncClient.putShelves).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 413 epub push surfaces in the top-level SyncResult.skipped, not failed, and does not abort the run", async () => {
+    mSyncClient.listBooks.mockResolvedValue([]);
+    mBookStore.loadBookIndex.mockResolvedValue([]);
+    mEpubLibrary.listEpubs.mockResolvedValue([
+      { id: "big", title: "Huge Book", sizeBytes: 3, compiledAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+    mEpubLibrary.getEpubBytes.mockResolvedValue(new Uint8Array([1]).buffer);
+    mSyncClient.listEpubs.mockResolvedValue([]);
+    mSyncClient.putEpub.mockRejectedValue(new ApiError(413, "epub too large"));
+
+    const result = await syncNow(TOKEN);
+
+    expect(result.skipped).toEqual(["big"]);
+    expect(result.failed).toEqual([]);
+    expect(result.pushed).toBe(0);
   });
 });
 
@@ -522,12 +592,12 @@ describe("runSyncExclusive — serializes ALL callers (manual + auto-sync)", () 
     mSyncClient.listBooks.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce([]);
 
     const ok1 = await runSyncExclusive(TOKEN);
-    expect(ok1).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+    expect(ok1).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [], skipped: [] });
 
     await expect(runSyncExclusive(TOKEN)).rejects.toThrow("boom");
 
     // A failed run must not wedge the internal chain — a later call still runs.
     const ok3 = await runSyncExclusive(TOKEN);
-    expect(ok3).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+    expect(ok3).toEqual({ pushed: 0, pulled: 0, deleted: 0, failed: [], skipped: [] });
   });
 });

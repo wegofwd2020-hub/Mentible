@@ -22,6 +22,10 @@ import * as syncClient from "@/sync/syncClient";
 import { ApiError } from "@/api/client";
 import { saveLMK, loadLMK } from "@/sync/lmkStore";
 import { loadBookIndex, loadBook, saveBook, deleteBook as deleteLocalBook } from "@/storage/bookStore";
+import * as epubLibrary from "@/storage/epubLibrary";
+import * as shelfStore from "@/storage/shelfStore";
+import type { Shelf } from "@/storage/shelfStore";
+import { packEpubBody, unpackEpubBody } from "@/sync/epubFraming";
 
 const LAST_SYNCED_KEY = "sbq_sync_last_synced_at"; // not a secret — plain AsyncStorage is fine
 
@@ -34,9 +38,14 @@ const LAST_SYNCED_KEY = "sbq_sync_last_synced_at"; // not a secret — plain Asy
 // the tombstone) — a plain local/server id union can't distinguish those two
 // and either resurrects a local delete or drops a peer's tombstone.
 const SHADOW_KEY = "sbq_sync_shadow";
+// Same shape and role as SHADOW_KEY, but for the EPUB library (ADR-014
+// increment 2) — a SEPARATE key so a book id and an epub id sharing the same
+// value (they're both `book.id`-keyed) can never cross-contaminate each
+// other's shadow membership.
+const EPUB_SHADOW_KEY = "sbq_sync_epub_shadow";
 
-async function loadShadow(): Promise<Set<string>> {
-  const raw = await AsyncStorage.getItem(SHADOW_KEY);
+async function loadShadow(key: string = SHADOW_KEY): Promise<Set<string>> {
+  const raw = await AsyncStorage.getItem(key);
   if (!raw) return new Set();
   try {
     return new Set(JSON.parse(raw) as string[]);
@@ -45,8 +54,16 @@ async function loadShadow(): Promise<Set<string>> {
   }
 }
 
-async function saveShadow(shadow: Set<string>): Promise<void> {
-  await AsyncStorage.setItem(SHADOW_KEY, JSON.stringify([...shadow]));
+async function saveShadow(shadow: Set<string>, key: string = SHADOW_KEY): Promise<void> {
+  await AsyncStorage.setItem(key, JSON.stringify([...shadow]));
+}
+
+function loadEpubShadow(): Promise<Set<string>> {
+  return loadShadow(EPUB_SHADOW_KEY);
+}
+
+function saveEpubShadow(shadow: Set<string>): Promise<void> {
+  return saveShadow(shadow, EPUB_SHADOW_KEY);
 }
 
 // Thrown by `syncNow` when no LMK is cached on this device (never synced yet,
@@ -75,6 +92,12 @@ export interface SyncResult {
   pulled: number;
   deleted: number;
   failed: string[];
+  // EPUB ids skipped this run because a 413 (single-file or per-account cap)
+  // rejected the push — deliberately NOT `failed` (a fixable-by-the-user cap,
+  // not a bug/network blip) and NOT added to the epub shadow (so a future
+  // sync, e.g. after the user frees space, retries the push rather than
+  // silently treating it as already-synced). Books never contribute here.
+  skipped: string[];
 }
 
 // Whether this device already has an LMK cached (i.e. can sync without a
@@ -236,6 +259,213 @@ export function planReconcile(
   return plan;
 }
 
+// ── EPUBs (ADR-014 increment 2) ─────────────────────────────────────────────
+// Same LWW reconcile as books (`planReconcile`, keyed by `compiledAt` instead
+// of `Book.updatedAt`), against its OWN shadow key (`EPUB_SHADOW_KEY`) so an
+// epub id and a book id sharing the same value can't cross-contaminate. Both
+// the epub bytes AND the small metadata blob (title/compiledAt/coverSvg) are
+// sealed independently under a fresh per-epub data key (`dk`), which is
+// itself wrapped under the device LMK — same "wrap a DK under the LMK"
+// envelope shape `syncNow` uses for books, just framed as an octet-stream
+// body (`packEpubBody`/`unpackEpubBody`, T3) instead of a JSON ciphertext
+// field, since an epub can be tens of MB.
+export interface EpubSyncResult {
+  pushedEpubs: number;
+  pulledEpubs: number;
+  deletedEpubs: number;
+  failed: string[];
+  // A 413 (single-file or per-account cap) during a push — see the
+  // `SyncResult.skipped` doc comment for why this is distinct from `failed`.
+  skipped: string[];
+}
+
+export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyncResult> {
+  const [localEpubs, serverEpubs, shadow] = await Promise.all([
+    epubLibrary.listEpubs(),
+    syncClient.listEpubs(token),
+    loadEpubShadow(),
+  ]);
+
+  const localIndex = localEpubs.map((m) => ({ id: m.id, updatedAt: m.compiledAt }));
+  const serverManifest = serverEpubs.map((e) => ({
+    bookId: e.epubId,
+    clientVersion: e.clientVersion,
+    deleted: e.deleted,
+    updatedAt: e.updatedAt,
+  }));
+  const plan = planReconcile(localIndex, serverManifest, shadow);
+
+  let pushedEpubs = 0, pulledEpubs = 0, deletedEpubs = 0;
+  const failed: string[] = [];
+  const skipped: string[] = [];
+
+  for (const id of plan.shadowDrop) shadow.delete(id);
+  for (const id of plan.equalKeep) shadow.add(id);
+
+  for (const id of plan.toPush) {
+    try {
+      const meta = localEpubs.find((m) => m.id === id);
+      if (!meta) throw new Error(`local epub ${id} vanished mid-sync`);
+      const raw = await epubLibrary.getEpubBytes(id);
+      if (!raw) throw new Error(`local epub ${id} bytes vanished mid-sync`);
+      const bytes = new Uint8Array(raw);
+
+      const dk = generateKey();
+      const epubCt = seal(dk, bytes);
+      const metaJson = JSON.stringify({ title: meta.title, compiledAt: meta.compiledAt, coverSvg: meta.coverSvg });
+      const metaCt = seal(dk, new TextEncoder().encode(metaJson));
+      const wrappedDk = seal(lmk, dk);
+
+      await syncClient.putEpub(token, id, packEpubBody(metaCt.ct, epubCt.ct), {
+        nonce: epubCt.nonce,
+        metaNonce: metaCt.nonce,
+        wrappedDk: wrappedDk.ct,
+        dkNonce: wrappedDk.nonce,
+        clientVersion: meta.compiledAt,
+      });
+      shadow.add(id);
+      pushedEpubs++;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 413) {
+        // Deliberately NOT shadow.add()'d — this device never actually
+        // synced it, so a future run (e.g. after the user frees space or the
+        // cap is raised) retries the push instead of treating it as done.
+        skipped.push(id);
+      } else {
+        failed.push(id);
+      }
+    }
+  }
+
+  for (const id of plan.toPull) {
+    try {
+      const { framedBody, headers } = await syncClient.getEpub(token, id);
+      const { metaCt, epubCt } = unpackEpubBody(framedBody);
+      const dk = open(lmk, headers.dkNonce, headers.wrappedDk);
+      const bytes = open(dk, headers.nonce, epubCt);
+      const meta = JSON.parse(
+        new TextDecoder().decode(open(dk, headers.metaNonce, metaCt)),
+      ) as { title: string; compiledAt: string; coverSvg?: string };
+      // `.slice()` (not `.buffer` directly) guarantees a real ArrayBuffer
+      // (not a SharedArrayBuffer-typed ArrayBufferLike) AND that it holds
+      // exactly `bytes`'s span, regardless of what the underlying allocation
+      // looked like.
+      const arrayBuffer = bytes.slice().buffer as ArrayBuffer;
+      // MUST pass compiledAt — `saveEpub` otherwise stamps `now()`, which
+      // would make this pulled epub look locally-newer than the server on
+      // the very next `planReconcile` and force an immediate re-push of the
+      // (potentially tens-of-MB) file right back, ping-ponging forever
+      // between any two devices that both have this epub.
+      await epubLibrary.saveEpub({
+        bookId: id,
+        title: meta.title,
+        bytes: arrayBuffer,
+        coverSvg: meta.coverSvg,
+        compiledAt: meta.compiledAt,
+      });
+      shadow.add(id);
+      pulledEpubs++;
+    } catch {
+      failed.push(id);
+    }
+  }
+
+  for (const id of plan.toDeleteLocal) {
+    try {
+      await epubLibrary.deleteEpub(id);
+      shadow.delete(id);
+      deletedEpubs++;
+    } catch {
+      failed.push(id);
+    }
+  }
+
+  for (const id of plan.toPushDelete) {
+    try {
+      await syncClient.deleteEpub(token, id);
+      shadow.delete(id);
+      deletedEpubs++;
+    } catch {
+      failed.push(id);
+    }
+  }
+
+  await saveEpubShadow(shadow);
+  return { pushedEpubs, pulledEpubs, deletedEpubs, failed, skipped };
+}
+
+// ── Shelves (ADR-014 increment 2) ───────────────────────────────────────────
+// A single-document LWW sync, same shape as a book but with no id path
+// segment (one shelves doc per account) — the whole `{shelves, assignments}`
+// state is one JSON blob, sealed under a fresh per-push data key wrapped by
+// the LMK, and compared by `shelfStore`'s own doc clock
+// (`exportShelvesDoc().updatedAt`) against the server's `client_version`.
+//
+// DELIBERATE DEVIATION from the brief's literal "server null → push"
+// wording: when nothing has ever been synced (`server === null`) AND this
+// device's doc is genuinely empty (no shelves, no assignments — e.g. a brand
+// new install that has never organized anything), pushing is skipped. There
+// is nothing to protect yet, and without this guard EVERY sync on a
+// never-shelved device would re-push an empty doc (since a fresh `getShelves`
+// keeps returning null until the first push lands), which is both wasted
+// bandwidth and needlessly noisy for a status/pending count. A device with
+// ANY real shelf/assignment state still pushes unconditionally when the
+// server has nothing, matching the brief.
+export interface ShelvesSyncResult {
+  pushed: number; // 0 or 1
+  pulled: number; // 0 or 1
+  failed: string[]; // ["shelves"] on any error this run, else []
+}
+
+async function pushShelvesDoc(
+  token: string,
+  lmk: Uint8Array,
+  local: { shelves: unknown; assignments: unknown; updatedAt: string },
+): Promise<void> {
+  const dk = generateKey();
+  const docJson = JSON.stringify({ shelves: local.shelves, assignments: local.assignments });
+  const docCt = seal(dk, new TextEncoder().encode(docJson));
+  const wrappedDk = seal(lmk, dk);
+  await syncClient.putShelves(token, {
+    ciphertext: docCt.ct,
+    nonce: docCt.nonce,
+    wrappedDk: wrappedDk.ct,
+    dkNonce: wrappedDk.nonce,
+    clientVersion: local.updatedAt,
+  });
+}
+
+export async function syncShelves(token: string, lmk: Uint8Array): Promise<ShelvesSyncResult> {
+  try {
+    const [local, server] = await Promise.all([shelfStore.exportShelvesDoc(), syncClient.getShelves(token)]);
+    const isEmpty = local.shelves.length === 0 && Object.keys(local.assignments).length === 0;
+
+    if (server === null) {
+      if (isEmpty) return { pushed: 0, pulled: 0, failed: [] };
+      await pushShelvesDoc(token, lmk, local);
+      return { pushed: 1, pulled: 0, failed: [] };
+    }
+
+    const cmp = isoCompare(local.updatedAt, server.clientVersion);
+    if (cmp > 0) {
+      await pushShelvesDoc(token, lmk, local);
+      return { pushed: 1, pulled: 0, failed: [] };
+    }
+    if (cmp < 0) {
+      const dk = open(lmk, server.dkNonce, server.wrappedDk);
+      const doc = JSON.parse(new TextDecoder().decode(open(dk, server.nonce, server.ciphertext))) as {
+        shelves: Shelf[];
+        assignments: Record<string, string>;
+      };
+      await shelfStore.importShelvesDoc({ shelves: doc.shelves, assignments: doc.assignments, updatedAt: server.clientVersion });
+      return { pushed: 0, pulled: 1, failed: [] };
+    }
+    return { pushed: 0, pulled: 0, failed: [] };
+  } catch {
+    return { pushed: 0, pulled: 0, failed: ["shelves"] };
+  }
+}
+
 // Reconcile the local library with the server by last-write-wins, per book
 // id, using the persisted sync shadow (see `loadShadow`/`saveShadow` above)
 // to disambiguate "never synced" from "synced then locally deleted". Requires
@@ -328,8 +558,24 @@ export async function syncNow(token: string): Promise<SyncResult> {
   }
 
   await saveShadow(shadow);
+
+  // EPUBs and shelves run AFTER the book reconcile above, still inside this
+  // function body — `runSyncExclusive` wraps the whole `syncNow` call, so
+  // folding them in here serializes them against every other caller for
+  // free; no second mutex needed. Their counts merge into the same
+  // pushed/pulled/deleted totals a caller already reads (books contribute no
+  // `skipped` — that field only ever holds epub ids rejected by a 413 cap).
+  const epubResult = await syncEpubs(token, lmk);
+  const shelvesResult = await syncShelves(token, lmk);
+
   await AsyncStorage.setItem(LAST_SYNCED_KEY, new Date().toISOString());
-  return { pushed, pulled, deleted, failed };
+  return {
+    pushed: pushed + epubResult.pushedEpubs + shelvesResult.pushed,
+    pulled: pulled + epubResult.pulledEpubs + shelvesResult.pulled,
+    deleted: deleted + epubResult.deletedEpubs,
+    failed: [...failed, ...epubResult.failed, ...shelvesResult.failed],
+    skipped: epubResult.skipped,
+  };
 }
 
 // Serializes ALL `syncNow` callers (the auto-sync controller AND the manual
@@ -370,19 +616,58 @@ export interface SyncStatus {
   lastSyncedAt: string | null;
 }
 
+// EPUBs fold into the same `toPush`/`toPull` counts via the same
+// `planReconcile` classifier `syncEpubs` uses (against `EPUB_SHADOW_KEY`), so
+// this never drifts from what a real `syncNow` would do. Shelves contribute
+// at most +1 either way — "does the local doc differ from the server's" —
+// using the SAME empty-doc guard as `syncShelves` (a never-touched shelves
+// doc against no server doc is "nothing to sync", not "+1 pending"), so the
+// pending count here can never disagree with what `syncNow` would actually
+// push. Only metadata crosses the wire (`listEpubs`, `getShelves` — the
+// latter a small single blob per account, cheap even though it's a full GET,
+// not a manifest) — no epub bytes, no book/epub content decrypt, nothing
+// mutated. This does NOT force a full sync.
 export async function syncStatus(token: string | null): Promise<SyncStatus> {
   const lastSyncedAt = await getLastSyncedAt();
   if (!token) return { state: "signed_out", toPush: 0, toPull: 0, lastSyncedAt };
   if (!(await isUnlocked())) return { state: "locked", toPush: 0, toPull: 0, lastSyncedAt };
   try {
-    const [server, local, shadow] = await Promise.all([
-      syncClient.listBooks(token),
-      loadBookIndex(),
-      loadShadow(),
-    ]);
+    const [server, local, shadow, localEpubs, serverEpubs, epubShadow, localShelves, serverShelves] =
+      await Promise.all([
+        syncClient.listBooks(token),
+        loadBookIndex(),
+        loadShadow(),
+        epubLibrary.listEpubs(),
+        syncClient.listEpubs(token),
+        loadEpubShadow(),
+        shelfStore.exportShelvesDoc(),
+        syncClient.getShelves(token),
+      ]);
+
     const plan = planReconcile(local, server, shadow);
-    const toPush = plan.toPush.length + plan.toPushDelete.length;
-    const toPull = plan.toPull.length + plan.toDeleteLocal.length;
+    let toPush = plan.toPush.length + plan.toPushDelete.length;
+    let toPull = plan.toPull.length + plan.toDeleteLocal.length;
+
+    const epubLocalIndex = localEpubs.map((m) => ({ id: m.id, updatedAt: m.compiledAt }));
+    const epubServerManifest = serverEpubs.map((e) => ({
+      bookId: e.epubId,
+      clientVersion: e.clientVersion,
+      deleted: e.deleted,
+      updatedAt: e.updatedAt,
+    }));
+    const epubPlan = planReconcile(epubLocalIndex, epubServerManifest, epubShadow);
+    toPush += epubPlan.toPush.length + epubPlan.toPushDelete.length;
+    toPull += epubPlan.toPull.length + epubPlan.toDeleteLocal.length;
+
+    const shelvesEmpty = localShelves.shelves.length === 0 && Object.keys(localShelves.assignments).length === 0;
+    if (serverShelves === null) {
+      if (!shelvesEmpty) toPush += 1;
+    } else {
+      const cmp = isoCompare(localShelves.updatedAt, serverShelves.clientVersion);
+      if (cmp > 0) toPush += 1;
+      else if (cmp < 0) toPull += 1;
+    }
+
     return { state: toPush + toPull === 0 ? "up_to_date" : "pending", toPush, toPull, lastSyncedAt };
   } catch {
     return { state: "error", toPush: 0, toPull: 0, lastSyncedAt };

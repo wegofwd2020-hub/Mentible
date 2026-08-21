@@ -142,7 +142,10 @@ export function LibrarySync(): React.JSX.Element | null {
       const r = await runSyncExclusive(token);
       setLastSyncedAt(await getLastSyncedAt());
       setSyncStatus(await syncStatus(token));
-      const extra = r.failed.length ? ` ${r.failed.length} book(s) couldn't sync.` : "";
+      const problems: string[] = [];
+      if (r.failed.length) problems.push(`${r.failed.length} item(s) couldn't sync`);
+      if (r.skipped?.length) problems.push(`${r.skipped.length} EPUB(s) too large or over your storage limit`);
+      const extra = problems.length ? ` ${problems.join("; ")}.` : "";
       Alert.alert("Sync complete", `Pushed ${r.pushed}, pulled ${r.pulled}, removed ${r.deleted}.${extra}`);
     } catch (e) {
       if (e instanceof SyncLockedError) {
