@@ -279,8 +279,10 @@ async def put_epub(
     if len(epub_ct) > _MAX_EPUB_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "epub too large")
 
-    existing = await repo.get_epub(conn, owner_account_id=account.id, epub_id=epub_id)
-    existing_bytes = existing.byte_size if existing is not None else 0
+    # Lightweight lookup: just the prior byte_size, never the multi-MB
+    # ciphertext/meta_ciphertext columns `get_epub` would pull back.
+    existing_size = await repo.get_epub_byte_size(conn, owner_account_id=account.id, epub_id=epub_id)
+    existing_bytes = existing_size if existing_size is not None else 0
     total = await repo.user_epub_total_bytes(conn, owner_account_id=account.id)
     if total - existing_bytes + len(epub_ct) > _SOFT_CAP_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "sync storage full")
@@ -316,19 +318,21 @@ async def get_epub(
     e = await repo.get_epub(conn, owner_account_id=account.id, epub_id=epub_id)
     if e is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "epub not found")
-    meta_ct = e.meta_ciphertext or b""
-    epub_ct = e.ciphertext or b""
+    # Crypto columns are NOT NULL (migration 0025) — always populated by
+    # `upsert_epub`, so no defensive fallback is needed here.
+    meta_ct = e.meta_ciphertext
+    epub_ct = e.ciphertext
     framed = len(meta_ct).to_bytes(4, "big") + meta_ct + epub_ct
     log.info("sync_epub_get", epub_id=epub_id, byte_size=e.byte_size)
     return Response(
         content=framed,
         media_type="application/octet-stream",
         headers={
-            "X-Nonce": _b64e(e.nonce or b""),
-            "X-Meta-Nonce": _b64e(e.meta_nonce or b""),
-            "X-Wrapped-Dk": _b64e(e.wrapped_dk or b""),
-            "X-Dk-Nonce": _b64e(e.dk_nonce or b""),
-            "X-Client-Version": e.client_version or "",
+            "X-Nonce": _b64e(e.nonce),
+            "X-Meta-Nonce": _b64e(e.meta_nonce),
+            "X-Wrapped-Dk": _b64e(e.wrapped_dk),
+            "X-Dk-Nonce": _b64e(e.dk_nonce),
+            "X-Client-Version": e.client_version,
         },
     )
 

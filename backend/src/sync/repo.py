@@ -383,6 +383,20 @@ async def tombstone_epub(conn: asyncpg.Connection, *, owner_account_id: Any, epu
     return result != "UPDATE 0"
 
 
+async def get_epub_byte_size(
+    conn: asyncpg.Connection, *, owner_account_id: Any, epub_id: str
+) -> int | None:
+    """Lightweight lookup for the cap check — just `byte_size`, never the
+    multi-MB `ciphertext`/`meta_ciphertext` columns `get_epub` would pull back.
+    Returns None when there is no such epub for this account (a fresh upload,
+    not a re-upload)."""
+    return await conn.fetchval(
+        "SELECT byte_size FROM synced_epub WHERE owner_account_id = $1 AND epub_id = $2",
+        owner_account_id,
+        epub_id,
+    )
+
+
 async def user_epub_total_bytes(conn: asyncpg.Connection, *, owner_account_id: Any) -> int:
     """Sum of `byte_size` across all non-deleted epubs for this account — the
     live figure the soft storage cap is checked against."""

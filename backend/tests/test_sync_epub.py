@@ -126,6 +126,40 @@ def test_get_epub_404_when_absent():
         assert c.get(f"{SYNC}/epubs/does-not-exist").status_code == 404
 
 
+def test_put_epub_malformed_frame_400():
+    """The leading uint32 `meta_len` claims more bytes than the body actually
+    has — must 400 "malformed framed body", not crash/500."""
+    sub = f"sk-{uuid.uuid4()}"
+    _account(sub)
+    bad_body = (9999).to_bytes(4, "big") + b"short"
+    with TestClient(app) as c:
+        _as(sub)
+        r = c.put(
+            f"{SYNC}/epubs/bad-frame",
+            content=bad_body,
+            headers={**_epub_headers(), "Content-Type": "application/octet-stream"},
+        )
+        assert r.status_code == 400
+        assert r.json()["detail"] == "malformed framed body"
+
+
+def test_put_then_get_epub_with_empty_meta_roundtrips():
+    """meta_len=0 (no meta ciphertext at all) must still round-trip
+    byte-for-byte — an epub with no meta sidecar is a valid frame."""
+    sub = f"sk-{uuid.uuid4()}"
+    _account(sub)
+    epub_ct = b"epub-only-no-meta" * 20
+    with TestClient(app) as c:
+        _as(sub)
+        put = _put_epub(c, "no-meta", b"", epub_ct, seed=b"nm")
+        assert put.status_code == 200
+
+        got = c.get(f"{SYNC}/epubs/no-meta")
+        assert got.status_code == 200
+        assert got.content == _frame(b"", epub_ct)
+        assert got.content[:4] == (0).to_bytes(4, "big")
+
+
 # ── (b) manifest is metadata-only ───────────────────────────────────────────
 
 

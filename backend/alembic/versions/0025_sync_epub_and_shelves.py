@@ -24,13 +24,13 @@ def upgrade() -> None:
         CREATE TABLE synced_epub (
             owner_account_id  uuid NOT NULL REFERENCES account(id) ON DELETE CASCADE,
             epub_id           text NOT NULL,
-            ciphertext        bytea,
-            nonce             bytea,
-            meta_ciphertext   bytea,
-            meta_nonce        bytea,
-            wrapped_dk        bytea,
-            dk_nonce          bytea,
-            client_version    text,
+            ciphertext        bytea NOT NULL,
+            nonce             bytea NOT NULL,
+            meta_ciphertext   bytea NOT NULL,
+            meta_nonce        bytea NOT NULL,
+            wrapped_dk        bytea NOT NULL,
+            dk_nonce          bytea NOT NULL,
+            client_version    text NOT NULL,
             byte_size         bigint NOT NULL DEFAULT 0,
             deleted           bool NOT NULL DEFAULT false,
             updated_at        timestamptz DEFAULT now(),
@@ -42,11 +42,11 @@ def upgrade() -> None:
         """
         CREATE TABLE synced_shelves (
             owner_account_id  uuid PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE,
-            ciphertext        bytea,
-            nonce             bytea,
-            wrapped_dk        bytea,
-            dk_nonce          bytea,
-            client_version    text,
+            ciphertext        bytea NOT NULL,
+            nonce             bytea NOT NULL,
+            wrapped_dk        bytea NOT NULL,
+            dk_nonce          bytea NOT NULL,
+            client_version    text NOT NULL,
             updated_at        timestamptz DEFAULT now()
         )
         """
