@@ -475,6 +475,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "text",
         text: "Increment 1 syncs your authored books and is manual (tap \"Sync now\"). Your reader EPUBs and your API key are not part of sync yet — use Backup & Restore for those.",
       },
+      {
+        kind: "text",
+        text: "Sync now runs automatically once it's enabled and unlocked on a device — when you sign in, when you reopen the app, and a few seconds after you edit a book. You can also still tap \"Sync now\" any time.",
+      },
+      {
+        kind: "text",
+        text: "Settings → Sync shows the status: \"Up to date\" when local matches the server, a count when there are changes to sync, \"Syncing…\" while it runs, or \"Couldn't sync — will retry\" on a temporary error. Turn off \"Auto-sync\" there if you'd rather sync only with the button.",
+      },
     ],
   },
   {
