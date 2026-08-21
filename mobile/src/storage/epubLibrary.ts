@@ -28,6 +28,15 @@ export interface SaveEpubInput {
   coverBytes?: ArrayBuffer; // optional raster cover thumbnail (from /export?format=cover)
   coverMime?: string; // MIME of coverBytes (defaults to image/png — compiled covers are PNG)
   coverSvg?: string; // optional vector cover (extracted from the EPUB on import)
+  // Preserve the ORIGINAL compile timestamp when re-materializing a synced
+  // pull (syncEngine.syncEpubs) — omitted (undefined) for a locally-authored
+  // save, which still defaults to now(). Passing the puller's own "now"
+  // instead of the server's clientVersion here is exactly the bug that made
+  // EPUB sync never converge (see syncEngine.ts's syncEpubs pull path): a
+  // pulled EPUB would look locally-newer than the server on the very next
+  // planReconcile, forcing an immediate multi-MB re-push, which the peer
+  // would then pull and re-push right back — forever.
+  compiledAt?: string;
 }
 
 // Don't inline a huge SVG into the (single-blob) index — guard against pathological covers.
@@ -181,13 +190,13 @@ interface WebRecord extends EpubMeta {
   blob: Blob;
 }
 
-async function webSave({ bookId, title, bytes, coverBytes, coverMime, coverSvg }: SaveEpubInput): Promise<EpubMeta> {
+async function webSave({ bookId, title, bytes, coverBytes, coverMime, coverSvg, compiledAt }: SaveEpubInput): Promise<EpubMeta> {
   const inlineSvg = coverSvg && coverSvg.length <= MAX_INLINE_SVG ? coverSvg : undefined;
   const meta: EpubMeta = {
     id: bookId,
     title,
     sizeBytes: bytes.byteLength,
-    compiledAt: new Date().toISOString(),
+    compiledAt: compiledAt ?? new Date().toISOString(),
     // A data: URL renders directly in <Image> and survives reloads (unlike an
     // object URL), so store the cover inline in the meta on web. Use the cover's
     // real MIME (third-party covers are often JPEG, not PNG).
@@ -270,7 +279,7 @@ export function toBase64(buf: ArrayBuffer): string {
   return out;
 }
 
-async function nativeSave({ bookId, title, bytes, coverBytes, coverSvg }: SaveEpubInput): Promise<EpubMeta> {
+async function nativeSave({ bookId, title, bytes, coverBytes, coverSvg, compiledAt }: SaveEpubInput): Promise<EpubMeta> {
   await ensureDir(epubDir());
   await FileSystem.writeAsStringAsync(epubPath(bookId), toBase64(bytes), {
     encoding: FileSystem.EncodingType.Base64,
@@ -288,7 +297,7 @@ async function nativeSave({ bookId, title, bytes, coverBytes, coverSvg }: SaveEp
     id: bookId,
     title,
     sizeBytes: bytes.byteLength,
-    compiledAt: new Date().toISOString(),
+    compiledAt: compiledAt ?? new Date().toISOString(),
     ...(coverUri ? { coverUri } : {}),
     ...(inlineSvg ? { coverSvg: inlineSvg } : {}),
   };

@@ -183,6 +183,37 @@ describe("syncEpubs — pull", () => {
     const savedBytes = mEpubLibrary.saveEpub.mock.calls[0][0].bytes;
     expect(new Uint8Array(savedBytes)).toEqual(epubBytes);
   });
+
+  it("CONVERGENCE GUARD: saveEpub is called with the SERVER's compiledAt (client_version), not a fresh now() — otherwise the pulled epub would look locally-newer and re-push forever", async () => {
+    // Regression: syncEpubs' pull path once called
+    // `saveEpub({ bookId, title, bytes, coverSvg })` WITHOUT `compiledAt` —
+    // `epubLibrary.saveEpub` then unconditionally stamps `now()`, which is
+    // always >= the server's compiledAt, so the very next `planReconcile`
+    // sees local > server and re-pushes the (potentially tens-of-MB) epub
+    // right back to the peer it was just pulled from — an infinite,
+    // multi-MB ping-pong. See the dedicated end-to-end convergence test in
+    // syncEpubs.convergence.test.ts for the full reconcile-level proof.
+    const compiledAt = "2026-03-05T00:00:00.000Z";
+    const epubBytes = new Uint8Array([1, 2, 3]);
+    const metaJson = JSON.stringify({ title: "Pulled Book", compiledAt });
+    const framedBody = packEpubBody(xorObfuscate(new TextEncoder().encode(metaJson)), xorObfuscate(epubBytes));
+
+    mSyncClient.listEpubs.mockResolvedValue([
+      { epubId: "e5", clientVersion: compiledAt, deleted: false, updatedAt: compiledAt, byteSize: 3 },
+    ]);
+    mEpubLibrary.listEpubs.mockResolvedValue([]);
+    mSyncClient.getEpub.mockResolvedValue({
+      framedBody,
+      headers: { nonce: bytes(12), metaNonce: bytes(12, 2), wrappedDk: bytes(48), dkNonce: bytes(12, 3), clientVersion: compiledAt },
+    });
+    mEpubLibrary.saveEpub.mockResolvedValue(makeMeta({ id: "e5", title: "Pulled Book", compiledAt }));
+
+    await syncEpubs(TOKEN, LMK);
+
+    expect(mEpubLibrary.saveEpub).toHaveBeenCalledWith(
+      expect.objectContaining({ bookId: "e5", compiledAt }), // exactly the server's client_version — NOT undefined, NOT a fresh timestamp
+    );
+  });
 });
 
 describe("syncEpubs — regression guards", () => {

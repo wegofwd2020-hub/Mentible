@@ -351,7 +351,18 @@ export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyn
       // exactly `bytes`'s span, regardless of what the underlying allocation
       // looked like.
       const arrayBuffer = bytes.slice().buffer as ArrayBuffer;
-      await epubLibrary.saveEpub({ bookId: id, title: meta.title, bytes: arrayBuffer, coverSvg: meta.coverSvg });
+      // MUST pass compiledAt — `saveEpub` otherwise stamps `now()`, which
+      // would make this pulled epub look locally-newer than the server on
+      // the very next `planReconcile` and force an immediate re-push of the
+      // (potentially tens-of-MB) file right back, ping-ponging forever
+      // between any two devices that both have this epub.
+      await epubLibrary.saveEpub({
+        bookId: id,
+        title: meta.title,
+        bytes: arrayBuffer,
+        coverSvg: meta.coverSvg,
+        compiledAt: meta.compiledAt,
+      });
       shadow.add(id);
       pulledEpubs++;
     } catch {

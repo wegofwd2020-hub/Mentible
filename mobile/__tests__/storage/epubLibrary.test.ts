@@ -114,6 +114,37 @@ it("lists newest first and deletes by id", async () => {
   expect(list.map((m) => m.id)).toEqual(["a"]);
 });
 
+describe("compiledAt (ADR-014 increment 2 — preserved on a synced pull)", () => {
+  it("a locally-authored save (no compiledAt passed) still defaults to now()", async () => {
+    const before = Date.now();
+    const meta = await saveEpub({ bookId: "b1", title: "Physics", bytes: bytesOf(1) });
+    const after = Date.now();
+
+    expect(Date.parse(meta.compiledAt)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(meta.compiledAt)).toBeLessThanOrEqual(after);
+  });
+
+  it("a synced pull's ORIGINAL compiledAt is preserved verbatim, not overwritten with now()", async () => {
+    // The regression this guards against: syncEngine's syncEpubs pull path
+    // once called saveEpub without `compiledAt`, which meant every pulled
+    // epub silently got a fresh now() here instead of the original compile
+    // time — making it look locally-newer than the server on the very next
+    // reconcile and forcing a re-push of the whole (potentially tens-of-MB)
+    // file right back. `compiledAt` passed through here must win over
+    // whatever now() would have been.
+    const originalCompiledAt = "2020-01-01T00:00:00.000Z"; // deliberately far in the past
+    const meta = await saveEpub({
+      bookId: "b2",
+      title: "Pulled Book",
+      bytes: bytesOf(1),
+      compiledAt: originalCompiledAt,
+    });
+
+    expect(meta.compiledAt).toBe(originalCompiledAt);
+    expect((await listEpubs())[0].compiledAt).toBe(originalCompiledAt);
+  });
+});
+
 describe("subscribeEpubLibrary", () => {
   it("fires the listener on saveEpub and deleteEpub, and not after unsubscribe", async () => {
     const listener = jest.fn();
