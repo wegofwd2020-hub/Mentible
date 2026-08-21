@@ -66,7 +66,13 @@ jest.mock("react-native", () => {
   return actual;
 });
 
-import { useAutoSync, AUTOSYNC_ENABLED_KEY, isAutoSyncEnabled, setAutoSyncEnabled } from "@/sync/autoSync";
+import {
+  useAutoSync,
+  AUTOSYNC_ENABLED_KEY,
+  isAutoSyncEnabled,
+  setAutoSyncEnabled,
+  __resetAutoSyncForTests,
+} from "@/sync/autoSync";
 import { getSyncStatus, setSyncStatus, useSyncStatus } from "@/sync/syncStatusStore";
 
 // Mirrors the constants in autoSync.ts (not exported — these are the test's
@@ -110,6 +116,10 @@ beforeEach(async () => {
   jest.setSystemTime(fakeNow);
   jest.clearAllMocks();
   await AsyncStorage.clear();
+  // autoSync.ts's lock/queue/throttle/authRef state is module-level (a
+  // singleton) — reset it explicitly so one test's run can't leave the lock
+  // held, `lastRunAt` set, or a stale token behind for the next test.
+  __resetAutoSyncForTests();
 
   mockAuthValue = { status: "signed_in", accessToken: "test-token" };
   mockDemoState.IS_DEMO = false;
@@ -223,6 +233,121 @@ describe("useAutoSync — single-flight", () => {
       await flush();
     });
     expect(mockSyncNow).toHaveBeenCalledTimes(2); // exactly one rerun after resolving
+  });
+});
+
+describe("useAutoSync — concurrent-trigger race", () => {
+  it("two triggers arriving in the same synchronous tick still call syncNow exactly once while the run is in flight", async () => {
+    // Repro of the reported TOCTOU: the sign-in effect and a cold-start
+    // AppState "active" event can fire back-to-back, both potentially
+    // observing `running === false` if the lock were only set after an
+    // `await`. Here we fire the second trigger synchronously, right after
+    // `render()` returns (i.e. before the first trigger's guard-check
+    // awaits have had any chance to resolve) — the synchronous
+    // check-and-set lock in `pump()` must still only start one `syncNow`.
+    let resolveFirst!: (v: { pushed: number; pulled: number; deleted: number; failed: string[] }) => void;
+    mockSyncNow.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    render(<Probe />); // synchronously fires the sign-in trigger via its effect
+    const handler = latestAppStateHandler(); // AppState listener registered during the same render
+    handler("active"); // arrives in the same tick, before any guard-await has settled
+
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1); // exactly one syncNow while in flight — no race duplicate
+
+    await act(async () => {
+      resolveFirst({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(2); // exactly one coalesced rerun (the "active" trigger)
+
+    // Settled — no further reruns from a request that no longer exists.
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useAutoSync — coalesced rerun re-guards freshly", () => {
+  it("a rerun triggered mid-run uses the CURRENT token, not the one captured when the run started", async () => {
+    let resolveFirst!: (v: { pushed: number; pulled: number; deleted: number; failed: string[] }) => void;
+    mockSyncNow.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    const { rerender } = render(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenNthCalledWith(1, "test-token");
+
+    // Token rotates (e.g. a refresh) while the first run is still pending —
+    // re-render so the controller's auth snapshot picks it up (its own
+    // sign-in effect also requests a sync on the token change).
+    mockAuthValue = { status: "signed_in", accessToken: "rotated-token" };
+    rerender(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+
+    // A foreground trigger arrives mid-run too — belt & suspenders on top of
+    // the rerender's own sign-in-triggered request.
+    const handler = latestAppStateHandler();
+    await act(async () => {
+      handler("active");
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1); // still just the in-flight first call
+
+    await act(async () => {
+      resolveFirst({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(2);
+    expect(mockSyncNow).toHaveBeenNthCalledWith(2, "rotated-token"); // fresh token, never the stale one
+  });
+
+  it("a rerun does NOT call syncNow if a guard flips false before the drain loop re-checks it", async () => {
+    let resolveFirst!: (v: { pushed: number; pulled: number; deleted: number; failed: string[] }) => void;
+    mockSyncNow.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    render(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1);
+
+    const handler = latestAppStateHandler();
+    await act(async () => {
+      handler("active"); // coalesces a rerun request
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1);
+
+    // The guard flips false before the drain loop gets to re-check it.
+    mockIsUnlocked.mockResolvedValue(false);
+
+    await act(async () => {
+      resolveFirst({ pushed: 0, pulled: 0, deleted: 0, failed: [] });
+      await flush();
+    });
+    expect(mockSyncNow).toHaveBeenCalledTimes(1); // rerun's guard check failed — no second call
   });
 });
 
