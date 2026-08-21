@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useThemedStyles } from "@/theme";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -45,7 +45,7 @@ export function AccountMenu(): React.JSX.Element {
                 if (it.signOut) {
                   void signOut();
                 } else if (it.href) {
-                  router.push(it.href as never);
+                  router.push(it.href as Href);
                 }
               }}
             >
