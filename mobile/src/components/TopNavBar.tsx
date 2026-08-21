@@ -1,20 +1,29 @@
 import React from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
-import { NAV_TABS, NAV_ORDER } from "./navItems";
+import { useAuth } from "@/auth/AuthProvider";
+import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
+import { navModel } from "./navState";
+import { AccountMenu } from "./AccountMenu";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
-// Mentible mark that jumps to Library (home). Replaces the default bottom tab bar
-// (passed to <Tabs tabBar={…}>); horizontally scrollable so items don't cramp a phone.
+// Mentible mark that jumps Home. Replaces the default bottom tab bar (passed to
+// <Tabs tabBar={…}>); horizontally scrollable so items don't cramp a phone.
+// Auth-state-aware (navModel, shared with SideNav): signed out shows marketing
+// links + Sign in, signed in shows the app tabs + AccountMenu.
 export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const router = useRouter();
+  const { status } = useAuth();
+  const nav = navModel(status);
   const routeByName = new Map(state.routes.map((r) => [r.name, r] as const));
   const activeName = state.routes[state.index]?.name;
 
@@ -30,55 +39,93 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
     if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
   };
 
+  const goToAnchor = (anchor: string) => {
+    if (Platform.OS === "web") {
+      document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      router.push("/");
+    }
+  };
+
   return (
     <View style={[styles.bar, { paddingTop: insets.top + spacing.xs }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      >
-        <Pressable
-          onPress={() => go("library")}
-          accessibilityRole="button"
-          accessibilityLabel="Mentible — go to Library (home)"
-          // Press feedback so a tap always registers, even when already on Library.
-          style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
+      <View style={styles.topRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.scroll}
+          contentContainerStyle={styles.row}
         >
-          <Image
-            source={require("../../assets/brand/mentible-icon-1024-redorange.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </Pressable>
+          <Pressable
+            onPress={() => go("index")}
+            accessibilityRole="button"
+            accessibilityLabel="Mentible — go to Home"
+            // Press feedback so a tap always registers, even when already on Home.
+            style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
+          >
+            <Image
+              source={require("../../assets/brand/mentible-icon-1024-redorange.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </Pressable>
 
-        {NAV_ORDER.map((name) => {
-          const cfg = NAV_TABS[name];
-          if (!cfg || !routeByName.has(name)) return null;
-          const focused = name === activeName;
-          return (
-            <Pressable
-              key={name}
-              onPress={() => go(name)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={cfg.label}
-              style={[styles.tile, focused && styles.tileActive]}
-            >
-              <Ionicons
-                name={focused ? cfg.active : cfg.inactive}
-                size={22}
-                color={focused ? theme.tileOnGlyph : theme.tileOffGlyph}
-              />
-              <Text
-                style={[styles.tileLabel, focused && styles.tileLabelActive]}
-                numberOfLines={1}
+          {nav.mode === "app" &&
+            NAV_ORDER.map((name) => {
+              const cfg = NAV_TABS[name];
+              if (!cfg || !routeByName.has(name)) return null;
+              const focused = name === activeName;
+              return (
+                <Pressable
+                  key={name}
+                  onPress={() => go(name)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: focused }}
+                  accessibilityLabel={cfg.label}
+                  style={[styles.tile, focused && styles.tileActive]}
+                >
+                  <Ionicons
+                    name={focused ? cfg.active : cfg.inactive}
+                    size={22}
+                    color={focused ? theme.tileOnGlyph : theme.tileOffGlyph}
+                  />
+                  <Text
+                    style={[styles.tileLabel, focused && styles.tileLabelActive]}
+                    numberOfLines={1}
+                  >
+                    {cfg.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+          {nav.mode === "marketing" &&
+            MARKETING_LINKS.map((link) => (
+              <Pressable
+                key={link.anchor}
+                onPress={() => goToAnchor(link.anchor)}
+                accessibilityRole="link"
+                accessibilityLabel={link.label}
+                style={styles.marketingLink}
               >
-                {cfg.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text style={styles.marketingLinkText} numberOfLines={1}>
+                  {link.label}
+                </Text>
+              </Pressable>
+            ))}
+        </ScrollView>
+        {nav.showSignIn && (
+          <Pressable
+            onPress={() => router.push("/sign-in")}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            style={styles.signInBtn}
+          >
+            <Text style={styles.signInText}>Sign in</Text>
+          </Pressable>
+        )}
+        {nav.showAccount && <AccountMenu />}
+      </View>
       <ChromeUsageMeter style={styles.meter} />
     </View>
   );
@@ -91,6 +138,13 @@ const makeStyles = (c: Palette) => ({
     borderBottomColor: c.border,
     borderBottomWidth: 1,
   },
+  // Horizontal row pairing the scrollable nav with the trailing Sign-in
+  // button / AccountMenu, so both share the top line (meter sits below).
+  topRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+  },
+  scroll: { flex: 1 },
   // flexGrow + center → centered when the row fits, scrollable when it overflows.
   row: {
     flexGrow: 1,
@@ -99,6 +153,27 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  marketingLink: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  marketingLinkText: {
+    color: c.text,
+    fontSize: typography.sizeMd,
+    fontWeight: "500" as const,
+  },
+  signInBtn: {
+    backgroundColor: c.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
+  },
+  signInText: {
+    color: c.primaryText,
+    fontSize: typography.sizeMd,
+    fontWeight: "600" as const,
   },
   logoBtn: {
     width: 64,

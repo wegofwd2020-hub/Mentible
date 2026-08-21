@@ -24,6 +24,14 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockUsagePush }),
 }));
 
+// This suite exercises app-mode chrome (existing row rendering + the usage
+// meter), unaffected by the marketing/app nav split — so pin auth to
+// signed_in (navModel → mode: "app") rather than re-testing that split here
+// (see navState.test.tsx for the marketing-vs-app branch itself).
+jest.mock("@/auth/AuthProvider", () => ({
+  useAuth: () => ({ status: "signed_in", session: null, signOut: jest.fn() }),
+}));
+
 import { SideNav } from "@/components/SideNav";
 
 const ENTITLED_STATUS = {
