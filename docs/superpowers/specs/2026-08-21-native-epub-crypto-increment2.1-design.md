@@ -1,6 +1,6 @@
 # Native AES-GCM for EPUB Sync — Increment 2.1 — Design Spec
 
-**Status:** Proposed · **Date:** 2026-08-21 · **Area:** `mobile/src/crypto/*`, `mobile/src/sync/*`, `mobile/src/storage/epubLibrary.ts`, `backend/src/sync/*`, `backend/alembic`, `mobile/app.json` (config plugin) · **Builds on:** Increment 2 (`2026-08-21-zk-epub-shelves-sync-increment2-design.md`). **Spike:** `reference_native_aes_gcm_spike` (device-verified, GO).
+**Status:** Proposed · **Date:** 2026-08-21 · **Area:** `mobile/src/crypto/*`, `mobile/src/sync/*`, `mobile/src/storage/epubLibrary.ts`, `mobile/src/components/LibrarySync.tsx`, `mobile/app/(tabs)/about.tsx`, `backend/src/sync/*`, `backend/alembic`, `mobile/app.json` (config plugin + build stamp) · **Builds on:** Increment 2 (`2026-08-21-zk-epub-shelves-sync-increment2-design.md`). **Spike:** `reference_native_aes_gcm_spike` (device-verified, GO).
 
 ## Why
 
@@ -69,6 +69,7 @@ export function openEpubBytesWeb(
 - **Push, web:** `dk = generateKey()`; `sealEpubBytesWeb(dk, getEpubBytes(id))` → `{nonce, tag, ct}`; same meta/wrap; `putEpub(id, ct, headers)`.
 - **Pull, native:** `getEpubToFile(id, tmpCtUri)` → headers; `dk = open(lmk, dkNonce, wrappedDk)`; `openEpubFileNative(dk, nonce, tag, tmpCtUri, tmpPlainUri)`; `{title, compiledAt} = decode(open(dk, metaNonce, metaCt))`; `saveEpubFileNative({ bookId:id, title, compiledAt, plaintextUri: tmpPlainUri })`; cleanup.
 - **Pull, web:** `getEpub(id)` → `{ct, headers}`; unwrap dk; `openEpubBytesWeb(dk, nonce, tag, ct)` → bytes; decode meta; `saveEpub({ bookId:id, title, compiledAt, bytes })`.
+- **413 handling → explicit skip records:** a cap 413 puts `{ id, title, sizeBytes, reason }` (`reason` from the backend's distinct `detail`: `too_large` | `storage_full`) into `skipped[]` — not a bare id — so the UI can name the book + limit (see UI section). Other failures stay in `failed[]`.
 - **`compiledAt` still threaded on pull** (the Inc-2 whole-branch fix — `saveEpub*` must not restamp `now()`, or LWW never converges).
 - `epubFraming.ts` and its `packEpubBody`/`unpackEpubBody` are **deleted** (no consumer remains).
 
@@ -93,7 +94,28 @@ Isolation stays app-level by `account_id`, ciphertext-only. `backend/src/sync/*`
 
 - Add deps: `react-native-aes-gcm-crypto`, `expo-build-properties`.
 - `app.json` plugins: `["expo-build-properties", { "android": { "minSdkVersion": 26 } }]`. Prebuild bakes minSdk 26 (removes the manual gradle.properties edit the spike used). iOS `deploymentTarget` unaffected (CryptoKit ≥ iOS 13, already met).
+- **Build stamp:** the build exports `EXPO_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)` (babel inlines it, like the API base); About reads `expo-constants` `expoConfig.version` + `versionCode` + this SHA (no new dep — `expo-constants` is already present).
 - **Infra unchanged from Inc-2's ask:** the raw ciphertext body (~30 MB, no base64 inflation, no framing) still exceeds nginx's 25 MB — the Inc-2 **PR #125 (25→60 MB)** raise still applies and is still required for large EPUBs.
+
+## UI — over-limit is explicit, per-artifact
+
+Inc-2 surfaced a cap hit (413 → `skipped[]`) with **item-neutral** copy ("N EPUBs couldn't sync"). Inc-2.1 makes it **explicit and actionable**, because the client already knows the local title + byte size of every EPUB it skipped:
+
+- The sync-status surface names **each** skipped EPUB by **title**, its **size**, the **reason**, and the **limit** — distinguishing the two cap kinds by the backend's distinct 413 `detail`:
+  - too-large (per-file): *"‘<Book Title>’ (34 MB) is over the 50 MB per-book sync limit and wasn't synced."*
+  - storage-full (per-user total): *"‘<Book Title>’ wasn't synced — you've used your 500 MB sync storage. Remove synced books to make room."*
+- The state persists in the status badge (not just a one-shot alert) so the user can see *which* books aren't syncing after dismissing it — a per-EPUB "not synced (too large)" marker in the Library tab is the durable form (v2.1 shows it in the status panel list; the Library-tab dot remains a later refinement).
+- `syncEpubs` therefore returns richer skip records — `{ id, title, sizeBytes, reason: "too_large" | "storage_full" }` — not bare ids, and `syncStatus`/`LibrarySync` render them.
+
+## Build provenance — the device-verify gate must prove build == commit
+
+The Inc-2.1 correctness gate is a device-verify, so it must be **impossible to test a stale build by mistake** (and the current About screen shows a hardcoded `"0.1.0 (MVP)"`, unrelated to the real version — no provenance at all). This increment adds a minimal, always-on build stamp:
+
+- **Bake `EXPO_PUBLIC_GIT_SHA`** (short SHA of the built commit) into the bundle at build time — exported in the build command / CI alongside `EXPO_PUBLIC_API_BASE_URL`, read via `process.env` (inlined by babel like the API base). Absent (dev) → `"dev"`.
+- **About screen** shows the real identity: `version` from `expo-constants` (`expoConfig.version` → `0.2.35`) + `versionCode` + the git SHA — replacing the hardcoded `"0.1.0 (MVP)"` string. Also `console.log("[BUILD] sha=… vc=… ver=…")` once at startup so a device-verify can read it from logcat.
+- **Device-verify assertion:** the verify step reads the running app's `[BUILD] sha=…` from logcat and asserts it equals the `git rev-parse --short HEAD` the APK was built from **before trusting any on-device result**. A mismatch fails the verify. This closes the "was the emulator even running the code I tested?" gap that this feedback surfaced.
+
+(This is scoped to a build stamp + About fix + a verify assertion — not a full telemetry system. It ships in this increment because Inc-2.1's whole correctness argument rests on a trustworthy device-verify.)
 
 ## Security / privacy (invariants preserved)
 
@@ -113,10 +135,11 @@ Isolation stays app-level by `account_id`, ciphertext-only. `backend/src/sync/*`
 
 - **Crypto seam (`epubCrypto`):** web `sealEpubBytesWeb`/`openEpubBytesWeb` round-trip (large `Uint8Array`) + tamper→throw; **interop** — a `@noble`-sealed `(nonce,tag,ct)` decrypts via the same split/join a native peer would use, and the wire pair a native peer produces (mocked hex iv/tag + ciphertext) opens under `@noble` (the spike proved the real native side; unit covers the glue). Native module is **mocked in jest** (no native in CI).
 - **Backend (`sync/` epub):** migration `0026` up + backfill (a seeded `@noble`-style row splits to `(ciphertext, tag)` with correct `byte_size`; a tombstone gets empty tag); `PUT` stores raw body + `tag`/`meta` headers byte-for-byte; `GET` echoes them; per-file 413; per-user soft-cap 413; **isolation** (account B can't read A's `synced_epub`); no ciphertext/tag/keys in logs.
-- **Client engine:** `syncEpubs` push/pull/delete via `planReconcile` on both platform branches (web branch fully testable in jest; native branch's file calls mocked); `compiledAt` convergence test retained (pulled EPUB's saved `compiledAt` == server `client_version` → next reconcile finds no push); 413 → `skipped`.
-- **★ Device-verify (the gate):** the **integrated** native path end-to-end on a real build — import a 30 MB EPUB, `sealEpubFileNative` → `putEpubFile` (streamed) → `getEpubToFile` → `openEpubFileNative` → `saveEpubFileNative`, then **open the pulled book** — and a **cross-device** push→pull between two signed-in devices/accounts. The spike proved the cipher in isolation (216/263 ms, interop OK); this proves the wiring + streaming transfer + real backend.
+- **Client engine:** `syncEpubs` push/pull/delete via `planReconcile` on both platform branches (web branch fully testable in jest; native branch's file calls mocked); `compiledAt` convergence test retained (pulled EPUB's saved `compiledAt` == server `client_version` → next reconcile finds no push); a cap 413 → a `skipped` record carrying `{ id, title, sizeBytes, reason }` (both `too_large` and `storage_full` cases), and `syncStatus`/`LibrarySync` render explicit per-title copy.
+- **Build provenance:** About renders the real `version`/`versionCode`/SHA (not the hardcoded string); `EXPO_PUBLIC_GIT_SHA` inlines (present → value, absent → `"dev"`); the `[BUILD]` startup log carries them.
+- **★ Device-verify (the gate):** **first assert build provenance** — the running app's `[BUILD] sha=…` (logcat) equals the built commit's `git rev-parse --short HEAD`; abort if mismatch. Then the **integrated** native path end-to-end on a real build — import a 30 MB EPUB, `sealEpubFileNative` → `putEpubFile` (streamed) → `getEpubToFile` → `openEpubFileNative` → `saveEpubFileNative`, then **open the pulled book** — and a **cross-device** push→pull between two signed-in devices/accounts. Also verify a >50 MB EPUB surfaces the explicit "over the 50 MB per-book limit" message (not a silent skip). The spike proved the cipher in isolation (216/263 ms, interop OK); this proves the wiring + streaming transfer + real backend + the trustworthy-build guarantee.
 - Full `npx jest` green (touches shared sync files).
 
 ## Rollout
 
-Order (each gate before the next): dep add + `expo-build-properties` prebuild → backend refresh (**migration 0026**, ROOT runbook) → nginx PR #125 (25→60 MB, ROOT) → web deploy both surfaces → **APK vc48**. Backend must lead the client (as in Inc-2) so the new headers/body shape are served before the new client sends them. First real use: a 30 MB EPUB imported on one device appears on another after auto-sync in well under a second of crypto, no jank.
+Order (each gate before the next): dep add + `expo-build-properties` prebuild → backend refresh (**migration 0026**, ROOT runbook) → nginx PR #125 (25→60 MB, ROOT) → web deploy both surfaces → **APK vc48** (built with `EXPO_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)` alongside the prod API base). Backend must lead the client (as in Inc-2) so the new headers/body shape are served before the new client sends them. First real use: a 30 MB EPUB imported on one device appears on another after auto-sync in well under a second of crypto, no jank — and a device-verify that first proves the running build's SHA matches the commit.
