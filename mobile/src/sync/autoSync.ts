@@ -1,8 +1,11 @@
 // Auto-sync controller (ADR-014 increment 1b). Wires the three event-driven
 // triggers — sign-in, app-foreground, and local edits — into the existing
-// `syncNow` (verbatim, no new merge/conflict logic here; LWW stays LWW)
-// behind a single guarded, single-flight runner. There is deliberately NO
-// polling timer: every run is caused by one of these three triggers.
+// `syncNow` (verbatim, no new merge/conflict logic here; LWW stays LWW),
+// called through `runSyncExclusive` so this controller's runs can never
+// overlap the manual "Sync now" button's (see syncEngine's doc comment on
+// that mutex), behind a single guarded, single-flight runner of its OWN. There
+// is deliberately NO polling timer: every run is caused by one of these three
+// triggers.
 //
 // Guard order (all must hold or the run is skipped, silently):
 //   toggle-on (AUTOSYNC_ENABLED_KEY, default true) AND !IS_DEMO AND
@@ -27,7 +30,7 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { syncNow, syncStatus, isUnlocked } from "@/sync/syncEngine";
+import { runSyncExclusive, syncStatus, isUnlocked } from "@/sync/syncEngine";
 import { subscribeBookStore } from "@/storage/bookStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { IS_DEMO } from "@/constants/demo";
@@ -98,10 +101,11 @@ async function pump(): Promise<void> {
       }
       if (!ok) continue; // loop re-checks `wanted` — a fresh trigger can still run once guards pass again
 
-      const token = authRef.current.accessToken as string; // re-read fresh every iteration
+      const token = authRef.current.accessToken; // re-read fresh every iteration
+      if (!token) continue; // a sign-out landed in the window between the guard check above and this read
       setSyncStatus({ state: "syncing" });
       try {
-        await syncNow(token);
+        await runSyncExclusive(token);
         const fresh = await syncStatus(token);
         setSyncStatus(fresh);
         lastRunAt = Date.now();

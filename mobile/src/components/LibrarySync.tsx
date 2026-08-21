@@ -15,7 +15,7 @@ import {
   isUnlocked,
   enableSync,
   unlockOnDevice,
-  syncNow,
+  runSyncExclusive,
   syncStatus,
   getLastSyncedAt,
   SyncLockedError,
@@ -136,7 +136,10 @@ export function LibrarySync(): React.JSX.Element | null {
     if (!token) return;
     setBusy(true);
     try {
-      const r = await syncNow(token);
+      // Routed through the shared mutex (not `syncNow` directly) so a manual
+      // tap can never overlap an auto-sync run triggered by foreground/edit/
+      // token-refresh — see `runSyncExclusive`'s doc comment in syncEngine.
+      const r = await runSyncExclusive(token);
       setLastSyncedAt(await getLastSyncedAt());
       setSyncStatus(await syncStatus(token));
       const extra = r.failed.length ? ` ${r.failed.length} book(s) couldn't sync.` : "";

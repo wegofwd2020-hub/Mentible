@@ -13,6 +13,10 @@ import { SyncKeysetExistsError } from "@/sync/syncEngine";
 const mockIsUnlocked = jest.fn(async () => false);
 const mockEnableSync = jest.fn(async (_t: string) => "RECOVERY-KEY-ABCD-1234");
 const mockUnlockOnDevice = jest.fn(async (_t: string, _k: string) => {});
+// LibrarySync now calls `runSyncExclusive` (the cross-caller mutex), not
+// `syncNow` directly — the mutex's own no-overlap behavior is proven in
+// syncEngine's runSyncExclusive test; this component test only needs the
+// mock to forward through and hand back a SyncResult for the Alert.
 const mockSyncNow = jest.fn(async (_t: string) => ({ pushed: 2, pulled: 1, deleted: 0, failed: [] as string[] }));
 const mockGetLastSyncedAt = jest.fn(async () => null as string | null);
 // This test predates the sync-status badge (Task 4) — a fresh, read-only
@@ -30,7 +34,7 @@ jest.mock("@/sync/syncEngine", () => {
     isUnlocked: () => mockIsUnlocked(),
     enableSync: (t: string) => mockEnableSync(t),
     unlockOnDevice: (t: string, k: string) => mockUnlockOnDevice(t, k),
-    syncNow: (t: string) => mockSyncNow(t),
+    runSyncExclusive: (t: string) => mockSyncNow(t),
     syncStatus: (t: string | null) => mockSyncStatus(t),
     getLastSyncedAt: () => mockGetLastSyncedAt(),
     SyncLockedError: actual.SyncLockedError,

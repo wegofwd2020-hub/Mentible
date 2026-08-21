@@ -15,7 +15,11 @@ const mockSyncNow = jest.fn();
 const mockSyncStatus = jest.fn();
 const mockIsUnlocked = jest.fn();
 jest.mock("@/sync/syncEngine", () => ({
-  syncNow: (...args: unknown[]) => mockSyncNow(...args),
+  // `autoSync.ts` calls `runSyncExclusive`, not `syncNow`, directly — but
+  // this file's tests are about the guard/trigger/single-flight wiring, not
+  // the cross-caller mutex (that's `runSyncExclusive.test.ts`'s job), so the
+  // mock forwards straight through with no serialization of its own.
+  runSyncExclusive: (...args: unknown[]) => mockSyncNow(...args),
   syncStatus: (...args: unknown[]) => mockSyncStatus(...args),
   isUnlocked: (...args: unknown[]) => mockIsUnlocked(...args),
 }));
@@ -386,6 +390,45 @@ describe("useAutoSync — guards", () => {
       await flush();
     });
     expect(mockSyncNow).not.toHaveBeenCalled();
+  });
+
+  it("a token nulled during the isUnlocked() await (after the !!token guard passed) skips the run — no syncNow, no throw", async () => {
+    // Repro of the LOW finding: `pump()` checks `!!authRef.current.accessToken`
+    // as part of the synchronous guard expression BEFORE `await isUnlocked()`
+    // is reached, then re-reads `authRef.current.accessToken` AFTER all guards
+    // resolve. A sign-out landing in that `isUnlocked()` await window nulls the
+    // token out from under it. Reproduced here by holding `isUnlocked()`
+    // pending, mutating `authRef` (via a rerender picking up a new `useAuth()`
+    // value) while it's still pending, then resolving it true.
+    let resolveUnlocked!: (v: boolean) => void;
+    mockIsUnlocked.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveUnlocked = resolve;
+        }),
+    );
+
+    const { rerender } = render(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+    expect(mockSyncNow).not.toHaveBeenCalled(); // still stuck awaiting isUnlocked()
+
+    // The token drops out from under the in-flight guard check — status stays
+    // "signed_in" (an actual sign-out would also flip status, but a null
+    // token alone is the precise window the guard-order fix targets).
+    mockAuthValue = { status: "signed_in", accessToken: null };
+    rerender(<Probe />);
+    await act(async () => {
+      await flush();
+    });
+
+    await act(async () => {
+      resolveUnlocked(true); // all other guards passed; isUnlocked() now resolves true too
+      await flush();
+    });
+
+    expect(mockSyncNow).not.toHaveBeenCalled(); // null-token guard skipped the run
   });
 });
 

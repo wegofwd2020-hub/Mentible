@@ -332,6 +332,22 @@ export async function syncNow(token: string): Promise<SyncResult> {
   return { pushed, pulled, deleted, failed };
 }
 
+// Serializes ALL `syncNow` callers (the auto-sync controller AND the manual
+// "Sync now" button) so two `syncNow` bodies never overlap, regardless of
+// which invoker started them. This matters because `syncNow` does a
+// non-atomic `loadShadow -> mutate -> saveShadow` read-modify-write — two
+// concurrent runs racing that can clobber each other's shadow writes and
+// resurrect a book the user deleted locally (see the FIX 1 shadow tests
+// above). A promise chain (not a boolean lock) is enough here because every
+// caller goes through this one function — unlike autoSync's `pump()`, there
+// is no "wanted" flag to coalesce; each call just waits its turn and runs.
+let _syncChain: Promise<unknown> = Promise.resolve();
+export function runSyncExclusive(token: string): Promise<SyncResult> {
+  const run = _syncChain.then(() => syncNow(token), () => syncNow(token));
+  _syncChain = run.then(() => undefined, () => undefined); // never reject the chain
+  return run; // the caller still sees syncNow's real result/rejection
+}
+
 export async function getLastSyncedAt(): Promise<string | null> {
   return AsyncStorage.getItem(LAST_SYNCED_KEY);
 }

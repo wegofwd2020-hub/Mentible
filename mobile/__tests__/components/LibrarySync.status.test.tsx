@@ -29,7 +29,7 @@ jest.mock("@/sync/syncEngine", () => {
     isUnlocked: () => mockIsUnlocked(),
     enableSync: (t: string) => mockEnableSync(t),
     unlockOnDevice: (t: string, k: string) => mockUnlockOnDevice(t, k),
-    syncNow: (t: string) => mockSyncNow(t),
+    runSyncExclusive: (t: string) => mockSyncNow(t),
     syncStatus: (t: string | null) => mockSyncStatusFn(t),
     getLastSyncedAt: () => mockGetLastSyncedAt(),
     SyncLockedError: actual.SyncLockedError,
