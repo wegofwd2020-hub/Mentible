@@ -1,6 +1,13 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
+// UserChip reads useSafeAreaInsets (to clear the top nav); wire the library's own
+// jest mock so the hook doesn't throw outside a <SafeAreaProvider>.
+jest.mock("react-native-safe-area-context", () => {
+  const mock = require("react-native-safe-area-context/jest/mock");
+  return mock.default ?? mock;
+});
+
 let mockAuth: { status: string; session: unknown } = { status: "signed_in", session: null };
 jest.mock("../../src/auth/AuthProvider", () => ({
   useAuth: () => mockAuth,
@@ -9,6 +16,13 @@ jest.mock("../../src/auth/AuthProvider", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+}));
+
+// UserChip now renders the plan/usage pill (ChromeUsageMeter) under the avatar;
+// default it to "no managed status" so the meter renders null in these tests.
+let mockManagedStatus: { status: unknown; loading: boolean } = { status: null, loading: false };
+jest.mock("../../src/hooks/useManagedStatus", () => ({
+  useManagedStatus: () => mockManagedStatus,
 }));
 
 import { UserChip } from "../../src/components/UserChip";
@@ -28,24 +42,23 @@ describe("UserChip", () => {
     expect(toJSON()).toBeNull();
   });
 
-  it("shows a Sign in affordance when signed out and routes to sign-in", () => {
+  it("renders nothing when signed out (the nav's own Sign-in button covers that)", () => {
     mockAuth = { status: "signed_out", session: null };
-    render(<UserChip />);
-    fireEvent.press(screen.getByText("Sign in"));
-    expect(mockPush).toHaveBeenCalledWith("/sign-in");
+    const { toJSON } = render(<UserChip />);
+    expect(toJSON()).toBeNull();
   });
 
-  it("shows the Google full name when signed in and opens Account on tap", () => {
+  it("shows the avatar labelled with the name and opens Account on tap", () => {
     signedIn({ full_name: "Ada Lovelace", avatar_url: "https://x/p.png" });
     render(<UserChip />);
-    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Account: Ada Lovelace"));
     expect(mockPush).toHaveBeenCalledWith("/account");
   });
 
-  it("falls back to initials when no photo, and to email when no name", () => {
-    signedIn({}); // no full_name, no avatar
+  it("falls back to initials when no photo, labelling the avatar with the email", () => {
+    signedIn({}); // no full_name, no avatar → name falls back to email
     render(<UserChip />);
-    expect(screen.getByText("ada@x.com")).toBeTruthy(); // name falls back to email
+    expect(screen.getByLabelText("Account: ada@x.com")).toBeTruthy();
+    expect(screen.getByText("A")).toBeTruthy(); // initials of "ada@x.com"
   });
 });

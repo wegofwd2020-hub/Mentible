@@ -10,7 +10,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { useAuth } from "@/auth/AuthProvider";
 import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
 import { navModel, goToAnchor } from "./navState";
-import { AccountMenu } from "./AccountMenu";
+import { UserChip } from "./UserChip";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // A persistent left sidebar version of TopNavBar for wide screens (isDesktop):
@@ -71,6 +71,13 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
         <Text style={styles.brandText}>Mentible</Text>
       </Pressable>
 
+      {nav.showAccount && (
+        <View style={styles.accountBlock}>
+          <UserChip />
+          <ChromeUsageMeter style={styles.meterRight} />
+        </View>
+      )}
+
       {nav.mode === "app" && NAV_ORDER.map(renderRow)}
 
       {/* loading: brand row (above) + Home only — no flash of the full
@@ -102,8 +109,6 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
       )}
 
       <View style={styles.spacer} />
-      {nav.showAccount && <AccountMenu />}
-      <ChromeUsageMeter style={styles.meter} />
     </View>
   );
 }
@@ -129,7 +134,6 @@ const makeStyles = (c: Palette) => ({
   // Pushes the account menu / sign-in area to the trailing (bottom) edge of
   // the column when there's room, mirroring TopNavBar's trailing-edge layout.
   spacer: { flex: 1 },
-  // Absent when the meter is hidden (BYOK/anonymous) — no layout to preserve
-  // then. Sits below the nav list when present.
-  meter: { marginTop: spacing.sm, marginHorizontal: spacing.sm },
+  accountBlock: { alignItems: "flex-end" as const, gap: spacing.xs, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  meterRight: { alignSelf: "flex-end" as const },
 });

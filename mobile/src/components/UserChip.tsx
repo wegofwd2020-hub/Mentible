@@ -1,12 +1,11 @@
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
-import { useTheme, useThemedStyles } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
-const AVATAR = 56;
+const AVATAR = 44;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -16,37 +15,17 @@ function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-// A small profile badge for the top-right of the Library: the signed-in user's
-// Google photo with their full name underneath (both come from the Supabase
-// session's user_metadata, populated from Google on OAuth). Self-positioning
-// (absolute, top-right) and self-gating: hidden when auth is unavailable
-// (demo/unconfigured), a "Sign in" affordance when signed out, the profile when
-// signed in. Tapping opens Account (or sign-in).
-export function UserChip() {
+// The signed-in profile avatar, placed by the nav chrome (TopNavBar top-right /
+// SideNav top) with the plan/usage pill rendered directly beneath it by the host.
+// The Google photo (or initials fallback) comes from the Supabase session's
+// user_metadata. Renders null unless signed in — the nav's own "Sign in" button
+// covers the signed-out case. Tapping opens the Account screen.
+export function UserChip(): React.JSX.Element | null {
   const router = useRouter();
   const { status, session } = useAuth();
-  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
 
-  if (status === "unavailable") return null;
-
-  if (status !== "signed_in") {
-    return (
-      <Pressable
-        style={styles.wrap}
-        onPress={() => router.push("/sign-in")}
-        accessibilityRole="button"
-        accessibilityLabel="Sign in"
-      >
-        <View style={styles.placeholder}>
-          <Ionicons name="person-circle-outline" size={52} color={theme.textSecondary} />
-        </View>
-        <Text style={styles.name} numberOfLines={1}>
-          Sign in
-        </Text>
-      </Pressable>
-    );
-  }
+  if (status !== "signed_in") return null;
 
   const meta = (session?.user?.user_metadata ?? {}) as Record<string, unknown>;
   const photo =
@@ -63,7 +42,6 @@ export function UserChip() {
 
   return (
     <Pressable
-      style={styles.wrap}
       onPress={() => router.push("/account")}
       accessibilityRole="button"
       accessibilityLabel={`Account${fullName ? `: ${fullName}` : ""}`}
@@ -75,24 +53,11 @@ export function UserChip() {
           <Text style={styles.fallbackText}>{initials(fullName)}</Text>
         </View>
       )}
-      {fullName ? (
-        <Text style={styles.name} numberOfLines={1}>
-          {fullName}
-        </Text>
-      ) : null}
     </Pressable>
   );
 }
 
 const makeStyles = (c: Palette) => ({
-  wrap: {
-    position: "absolute" as const,
-    top: spacing.sm,
-    right: spacing.md,
-    alignItems: "center" as const,
-    maxWidth: 110,
-    zIndex: 10,
-  },
   avatar: {
     width: AVATAR,
     height: AVATAR,
@@ -111,12 +76,4 @@ const makeStyles = (c: Palette) => ({
     borderColor: c.border,
   },
   fallbackText: { color: c.text, fontWeight: "700" as const, fontSize: typography.sizeSm },
-  placeholder: { width: AVATAR, height: AVATAR, alignItems: "center" as const, justifyContent: "center" as const },
-  name: {
-    marginTop: 2,
-    fontSize: typography.sizeXs,
-    color: c.textSecondary,
-    maxWidth: 110,
-    textAlign: "center" as const,
-  },
 });

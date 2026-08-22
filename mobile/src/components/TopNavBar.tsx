@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import { useAuth } from "@/auth/AuthProvider";
 import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
 import { navModel, goToAnchor } from "./navState";
-import { AccountMenu } from "./AccountMenu";
+import { UserChip } from "./UserChip";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
@@ -124,9 +124,10 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
             <Text style={styles.signInText}>Sign in</Text>
           </Pressable>
         )}
-        {nav.showAccount && <AccountMenu />}
+        {nav.showAccount && <View style={styles.account}><UserChip /></View>}
       </View>
-      <ChromeUsageMeter style={styles.meter} />
+      {/* Plan / usage under the avatar (managed users only; null otherwise). */}
+      <ChromeUsageMeter style={styles.meterRight} />
     </View>
   );
 }
@@ -225,11 +226,8 @@ const makeStyles = (c: Palette) => ({
     color: c.tileOffGlyph,
   },
   tileLabelActive: { color: c.tileOnGlyph },
-  // Absent when the meter is hidden (BYOK/anonymous) — no layout to preserve
-  // then. Centered under the scrollable nav row when present.
-  meter: {
-    alignSelf: "center" as const,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
+  account: { marginRight: spacing.sm, alignSelf: "center" as const },
+  // Usage pill, right-aligned so it reads as belonging under the avatar. Absent
+  // (renders null) for BYOK/anonymous.
+  meterRight: { alignSelf: "flex-end" as const, marginRight: spacing.sm, marginBottom: spacing.xs },
 });
