@@ -19,12 +19,15 @@ import io
 import json
 import os
 import uuid
+from pathlib import Path
 
 import asyncpg
 import pytest
 import structlog
+from alembic.config import Config
 from fastapi.testclient import TestClient
 
+from alembic import command
 from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
@@ -35,6 +38,25 @@ DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set")
 
 SYNC = "/api/v1/sync"
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _schema_at_head() -> None:
+    """This module's queries assume `synced_epub.tag` (migration 0026)
+    exists. That currently ALSO holds as a side effect of
+    `test_migration_0026.py` applying 0026 during its own test and this file
+    collecting alphabetically after it — but that's a fragile coupling: a
+    bare `pytest tests/test_sync_epub.py` against a fresh 0025 database, or
+    any test-order randomization (pytest-randomly / xdist), would break it.
+    Make the dependency explicit and self-sufficient: run `alembic upgrade
+    head` here too, idempotently, before any test in this module executes."""
+    if not DSN:
+        return
+    cfg = Config(str(_BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
+    command.upgrade(cfg, "head")
 
 
 def _as(sub: str, email: str | None = None) -> None:

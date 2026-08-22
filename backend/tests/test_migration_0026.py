@@ -188,3 +188,68 @@ def test_0026_splits_tag_and_preserves_meta():
             await conn.close()
 
     assert asyncio.run(_tag_is_not_nullable())
+
+
+def test_0026_downgrade_restores_ciphertext_and_byte_size():
+    """`downgrade()` is the inverse of `upgrade()`'s split: re-append `tag`
+    onto `ciphertext` and restore `byte_size`, then drop the column. Exercises
+    the actual `downgrade()` SQL end-to-end (upgrade → downgrade round-trip)
+    — a broken byte_size/ciphertext expression there would otherwise ship
+    undetected, since the forward-migration test never calls `downgrade`."""
+    cfg = _alembic_config()
+
+    # Start from a clean 0025 state, same re-runnable dance as the forward test.
+    if asyncio.run(_has_tag_column()):
+        command.downgrade(cfg, "0025")
+    assert _current_revision() == "0025"
+
+    owner_id = asyncio.run(_make_account())
+
+    # Inc-2-shaped row: ciphertext = ct‖tag(16), byte_size = len(ct‖tag).
+    ct = bytes(range(30, 30 + 24))
+    tag = bytes([0xBB]) * 16
+    ct_plus_tag = ct + tag
+    asyncio.run(
+        _seed(
+            owner_account_id=owner_id,
+            epub_id="round-trip-1",
+            ciphertext=ct_plus_tag,
+            byte_size=len(ct_plus_tag),
+            deleted=False,
+            meta_ciphertext=b"META-RT",
+        )
+    )
+
+    command.upgrade(cfg, "0026")
+    assert _current_revision() == "0026"
+    split = asyncio.run(_fetch_row(owner_account_id=owner_id, epub_id="round-trip-1"))
+    assert split["tag"] == tag
+    assert split["ciphertext"] == ct
+    assert split["byte_size"] == len(ct)
+
+    command.downgrade(cfg, "0025")
+    assert _current_revision() == "0025"
+    assert not asyncio.run(_has_tag_column())
+
+    async def _fetch_downgraded() -> asyncpg.Record:
+        conn = await asyncpg.connect(DSN)
+        try:
+            row = await conn.fetchrow(
+                "SELECT ciphertext, byte_size FROM synced_epub "
+                "WHERE owner_account_id = $1 AND epub_id = $2",
+                owner_id,
+                "round-trip-1",
+            )
+            assert row is not None
+            return row
+        finally:
+            await conn.close()
+
+    restored = asyncio.run(_fetch_downgraded())
+    assert restored["ciphertext"] == ct_plus_tag
+    assert restored["byte_size"] == len(ct_plus_tag)
+
+    # Leave the DB at head for every other DB-backed test module.
+    command.upgrade(cfg, "0026")
+    assert _current_revision() == "0026"
+    assert asyncio.run(_has_tag_column())

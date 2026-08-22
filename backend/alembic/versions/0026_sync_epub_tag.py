@@ -23,6 +23,18 @@ def upgrade() -> None:
     #    byte_size (used for the per-user cap) becomes the ciphertext length.
     # Postgres has no bytea `left()`/`right()` overload (those are text-only) —
     # use `substring(bytea FROM .. FOR ..)`, which bytea does support.
+    #
+    # The `length(ciphertext) >= 16` guard assumes every non-deleted Inc-2 row
+    # is a real @noble ct‖tag(16) blob, so it's always >= 16 bytes (a 0-byte
+    # ciphertext only occurs on a tombstone, which is `deleted = true` and
+    # skipped here). A non-deleted row somehow shorter than 16 bytes (not
+    # producible by the real client) would fall through this UPDATE untouched
+    # and then get `tag = ''` from the fallback step below — landing with an
+    # un-shrunk `ciphertext`/`byte_size` and an empty tag, which is NOT a
+    # correct split. No such row is expected in practice; a stricter version
+    # of this migration could instead assert `count(*) = 0` for that case
+    # before proceeding, but that's deliberately left as a manual safety net
+    # rather than a hard guard here.
     op.execute(
         """
         UPDATE synced_epub
