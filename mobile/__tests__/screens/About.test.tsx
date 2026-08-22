@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { BRAND_CONTACT, BRAND_NAME } from "@/constants/brand";
 import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
+import { buildLabel } from "@/lib/buildInfo";
 
 import AboutScreen from "../../app/(tabs)/about";
 
@@ -61,5 +62,11 @@ describe("AboutScreen", () => {
     // The trust engine + the grounding LLM SDK are both credited.
     expect(screen.getByText("wegofwd-llm")).toBeTruthy();
     expect(screen.getByText("anthropic (SDK)")).toBeTruthy();
+  });
+
+  it("shows the real build-provenance label, not the hardcoded MVP string", () => {
+    render(<AboutScreen />);
+    expect(screen.queryByText("0.1.0 (MVP)")).toBeNull();
+    expect(screen.getByText(buildLabel())).toBeTruthy();
   });
 });

@@ -15,6 +15,7 @@ import { useSeedStarterSources } from "@/hooks/useSeedStarterSources";
 import { FONT_ASSETS } from "@/constants/fonts";
 import { applyGlobalFont } from "@/lib/applyGlobalFont";
 import { registerWebFonts } from "@/lib/webFonts";
+import { buildInfo } from "@/lib/buildInfo";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
 import { studioLightColors, THEME_META } from "@/constants/theme";
 import { ThemeProvider, useThemeControls } from "@/theme";
@@ -33,6 +34,12 @@ function ThemedStatusBar() {
 applyGlobalFont();
 // Register the canonical @font-face families + Inter default (web-only; no-op on native).
 registerWebFonts();
+
+// Build-provenance stamp — logged once at module init so a device-verify can
+// confirm the running app == the built commit from `adb logcat` / browser console.
+// Plain metadata only (sha/versionCode/version) — never secrets.
+const BUILD = buildInfo();
+console.log(`[BUILD] sha=${BUILD.sha} vc=${BUILD.versionCode} ver=${BUILD.version}`);
 
 // React Navigation's OWN default theme (separate from our `@/theme` ThemeProvider)
 // paints `colors.background` (`rgb(242, 242, 242)`, React Navigation's stock light

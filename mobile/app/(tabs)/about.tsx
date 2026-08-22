@@ -6,6 +6,7 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 import { Card, Label } from "@/components/ui";
 import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
+import { buildLabel } from "@/lib/buildInfo";
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
@@ -35,7 +36,7 @@ export default function AboutScreen() {
         <Card style={styles.cardInner}>
           <Row label="App" value={BRAND_NAME} styles={styles} />
           <Row label="Tagline" value={BRAND_TAGLINE} styles={styles} />
-          <Row label="Version" value="0.1.0 (MVP)" styles={styles} />
+          <Row label="Version" value={buildLabel()} styles={styles} />
           <Row label="Default model" value="claude-sonnet-4-6" styles={styles} />
         </Card>
       </View>
