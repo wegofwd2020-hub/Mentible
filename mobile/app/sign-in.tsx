@@ -14,7 +14,7 @@ export default function SignInScreen() {
   const styles = useThemedStyles(makeStyles);
   const { status } = useAuth();
 
-  if (status === "signed_in") return <Redirect href="/library" />;
+  if (status === "signed_in") return <Redirect href="/" />;
   if (status === "unavailable") {
     return (
       <PageContainer>
@@ -30,7 +30,7 @@ export default function SignInScreen() {
   return (
     <PageContainer>
       <HelpButton topic="getting-started-account" label="About accounts" />
-      <AuthForm onAuthenticated={() => router.replace("/library")} />
+      <AuthForm onAuthenticated={() => router.replace("/")} />
     </PageContainer>
   );
 }
