@@ -354,6 +354,17 @@ function EpubLibrary() {
     />
   );
 
+  // Studio (authoring) is hidden from the nav (navItems.ts) — this is the
+  // persistent path to it, so authors can always reach their books.
+  const studioButton = (
+    <Button
+      variant="ghost"
+      label={NAV.studio}
+      onPress={() => router.push("/books")}
+      accessibilityLabel={`Go to ${NAV.studio}`}
+    />
+  );
+
   if (items.length === 0) {
     return (
       <View style={styles.empty}>
@@ -361,7 +372,7 @@ function EpubLibrary() {
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
-          Finish a book in the {NAV.studio} tab and tap “Save to Library”, or import an EPUB
+          Finish a book in {NAV.studio} and tap “Save to Library”, or import an EPUB
           you already have.
         </Text>
         {importButton}
@@ -388,6 +399,7 @@ function EpubLibrary() {
         <View>
           <SharedWithYou token={accessToken} />
           <View style={styles.header}>
+            {studioButton}
             {importButton}
             {newShelfButton}
             {error && <Text style={styles.errorText}>{error}</Text>}
