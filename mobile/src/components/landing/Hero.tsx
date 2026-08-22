@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Pressable, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { AccentText } from "@/components/AccentText";
+import { goToAnchor } from "@/components/navState";
 import { useThemedStyles } from "@/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
@@ -36,7 +37,7 @@ export function Hero(): React.JSX.Element {
         <Pressable
           accessibilityRole="button"
           style={s.ctaGhost}
-          onPress={() => router.push("/work-with-me")}
+          onPress={() => goToAnchor("how-it-works", router)}
         >
           <Text style={s.ctaGhostText}>See how it works</Text>
         </Pressable>
