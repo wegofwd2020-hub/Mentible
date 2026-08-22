@@ -19,10 +19,10 @@ export const NAV_TABS: Record<string, { label: string; active: IconName; inactiv
 };
 
 // Visual order. Shelves, Studio (books) and Publish (posts) are intentionally
-// HIDDEN from the nav (routes stay registered + reachable by link). Studio is
-// reached from the Library screen's "Studio" button (both empty + populated
-// states) so authors can still get to their books. Projects/Reviews need a
-// backend account (ADR-037) and are omitted from the demo (read-only preview).
+// HIDDEN from the nav (routes stay registered + reachable by link). The primary
+// create entry is now the Library "Start Creating" button → Projects (ADR-037);
+// Studio (books) has no nav/Library entry and is reached only by direct link.
+// Projects/Reviews need a backend account and are omitted from the demo.
 export const NAV_ORDER: string[] = [
   "index",
   "library",

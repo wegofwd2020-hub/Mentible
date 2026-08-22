@@ -18,7 +18,6 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
-import { NAV } from "@/constants/labels";
 import { useThemedStyles } from "@/theme";
 import { Button } from "@/components/ui";
 import { IS_DEMO } from "@/constants/demo";
@@ -356,12 +355,13 @@ function EpubLibrary() {
 
   // Studio (authoring) is hidden from the nav (navItems.ts) — this is the
   // persistent path to it, so authors can always reach their books.
-  const studioButton = (
+  // The create entry point from the Library — starts an SME project (ADR-037).
+  const createButton = (
     <Button
       variant="ghost"
-      label={NAV.studio}
-      onPress={() => router.push("/books")}
-      accessibilityLabel={`Go to ${NAV.studio}`}
+      label="Start Creating"
+      onPress={() => router.push("/projects")}
+      accessibilityLabel="Start creating — go to Projects"
     />
   );
 
@@ -372,16 +372,16 @@ function EpubLibrary() {
         <Text style={styles.emptyIcon}>📚</Text>
         <Text style={styles.emptyTitle}>Your Library is empty</Text>
         <Text style={styles.emptyBody}>
-          Finish a book in {NAV.studio} and tap “Save to Library”, or import an EPUB
-          you already have.
+          Start a project to create your first book, or import an EPUB you already
+          have.
         </Text>
         {importButton}
         {error && <Text style={styles.errorText}>{error}</Text>}
         <Button
           variant="primary"
-          label={`Go to ${NAV.studio} →`}
-          onPress={() => router.push("/books")}
-          accessibilityLabel={`Go to ${NAV.studio}`}
+          label="Start Creating →"
+          onPress={() => router.push("/projects")}
+          accessibilityLabel="Start creating — go to Projects"
         />
       </View>
     );
@@ -399,7 +399,7 @@ function EpubLibrary() {
         <View>
           <SharedWithYou token={accessToken} />
           <View style={styles.header}>
-            {studioButton}
+            {createButton}
             {importButton}
             {newShelfButton}
             {error && <Text style={styles.errorText}>{error}</Text>}
