@@ -22,6 +22,16 @@ jest.mock("@/sync/lmkStore");
 // default and the book-only assertions below stay exactly as they were.
 jest.mock("@/storage/epubLibrary");
 jest.mock("@/storage/shelfStore");
+// syncEpubs' native push/pull branch (the DEFAULT under jest-expo's
+// Platform.OS === "ios") routes through these two — mocked here purely so
+// the epub-folded-into-syncNow tests below (which don't care about the real
+// file crypto) have something to configure per-test.
+jest.mock("@/crypto/epubFileCrypto");
+jest.mock("expo-file-system", () => ({
+  __esModule: true,
+  cacheDirectory: "file:///cache/",
+  deleteAsync: jest.fn(() => Promise.resolve()),
+}));
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as syncClient from "@/sync/syncClient";
@@ -29,6 +39,7 @@ import * as envelope from "@/crypto/envelope";
 import * as bookStore from "@/storage/bookStore";
 import * as lmkStore from "@/sync/lmkStore";
 import * as epubLibrary from "@/storage/epubLibrary";
+import * as epubFileCrypto from "@/crypto/epubFileCrypto";
 import * as shelfStore from "@/storage/shelfStore";
 import { ApiError } from "@/api/client";
 import {
@@ -46,6 +57,7 @@ const mEnvelope = envelope as jest.Mocked<typeof envelope>;
 const mBookStore = bookStore as jest.Mocked<typeof bookStore>;
 const mLmkStore = lmkStore as jest.Mocked<typeof lmkStore>;
 const mEpubLibrary = epubLibrary as jest.Mocked<typeof epubLibrary>;
+const mEpubFileCrypto = epubFileCrypto as jest.Mocked<typeof epubFileCrypto>;
 const mShelfStore = shelfStore as jest.Mocked<typeof shelfStore>;
 
 const bytes = (n: number, seed = 1) => {
@@ -436,13 +448,17 @@ describe("syncNow — folds in syncEpubs + syncShelves (T5)", () => {
     mSyncClient.listBooks.mockResolvedValue([]);
     mBookStore.loadBookIndex.mockResolvedValue([]);
 
-    // One local-only epub to push.
+    // One local-only epub to push. Native is the DEFAULT jest-expo platform
+    // (Platform.OS === "ios"), so this routes through
+    // sealEpubFileNative/putEpubFile, not the web sealEpubBytesWeb/putEpub
+    // pair — see syncEpubs.test.ts for the platform-branch-specific coverage.
     mEpubLibrary.listEpubs.mockResolvedValue([
       { id: "e1", title: "Epub One", sizeBytes: 3, compiledAt: "2026-01-01T00:00:00.000Z" },
     ]);
-    mEpubLibrary.getEpubBytes.mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
+    mEpubLibrary.getEpubFileUri.mockReturnValue("file:///docs/epubs/e1.epub");
+    mEpubFileCrypto.sealEpubFileNative.mockResolvedValue({ nonce: bytes(12, 11), tag: bytes(16, 12) });
     mSyncClient.listEpubs.mockResolvedValue([]);
-    mSyncClient.putEpub.mockResolvedValue(undefined);
+    mSyncClient.putEpubFile.mockResolvedValue(undefined);
 
     // Shelves: local has real data, server has nothing yet → push.
     mShelfStore.exportShelvesDoc.mockResolvedValue({
@@ -457,23 +473,24 @@ describe("syncNow — folds in syncEpubs + syncShelves (T5)", () => {
 
     // 1 epub push + 1 shelves push, no book activity this run.
     expect(result).toEqual({ pushed: 2, pulled: 0, deleted: 0, failed: [], skipped: [] });
-    expect(mSyncClient.putEpub).toHaveBeenCalledTimes(1);
+    expect(mSyncClient.putEpubFile).toHaveBeenCalledTimes(1);
     expect(mSyncClient.putShelves).toHaveBeenCalledTimes(1);
   });
 
-  it("a 413 epub push surfaces in the top-level SyncResult.skipped, not failed, and does not abort the run", async () => {
+  it("a 413 epub push surfaces in the top-level SyncResult.skipped as a rich record, not failed, and does not abort the run", async () => {
     mSyncClient.listBooks.mockResolvedValue([]);
     mBookStore.loadBookIndex.mockResolvedValue([]);
     mEpubLibrary.listEpubs.mockResolvedValue([
       { id: "big", title: "Huge Book", sizeBytes: 3, compiledAt: "2026-01-01T00:00:00.000Z" },
     ]);
-    mEpubLibrary.getEpubBytes.mockResolvedValue(new Uint8Array([1]).buffer);
+    mEpubLibrary.getEpubFileUri.mockReturnValue("file:///docs/epubs/big.epub");
+    mEpubFileCrypto.sealEpubFileNative.mockResolvedValue({ nonce: bytes(12, 11), tag: bytes(16, 12) });
     mSyncClient.listEpubs.mockResolvedValue([]);
-    mSyncClient.putEpub.mockRejectedValue(new ApiError(413, "epub too large"));
+    mSyncClient.putEpubFile.mockRejectedValue(new ApiError(413, "epub too large"));
 
     const result = await syncNow(TOKEN);
 
-    expect(result.skipped).toEqual(["big"]);
+    expect(result.skipped).toEqual([{ id: "big", title: "Huge Book", sizeBytes: 3, reason: "too_large" }]);
     expect(result.failed).toEqual([]);
     expect(result.pushed).toBe(0);
   });
