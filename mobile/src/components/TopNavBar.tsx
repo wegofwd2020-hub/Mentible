@@ -16,7 +16,7 @@ import { ChromeUsageMeter } from "./ChromeUsageMeter";
 // Mentible mark that jumps Home. Replaces the default bottom tab bar (passed to
 // <Tabs tabBar={…}>); horizontally scrollable so items don't cramp a phone.
 // Auth-state-aware (navModel, shared with SideNav): signed out shows marketing
-// links + Sign in, signed in shows the app tabs + AccountMenu, loading shows
+// links + Sign in, signed in shows the app tabs + the profile avatar, loading shows
 // only Home (no flash of the wrong set while auth resolves).
 export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -140,7 +140,7 @@ const makeStyles = (c: Palette) => ({
     borderBottomWidth: 1,
   },
   // Horizontal row pairing the scrollable nav with the trailing Sign-in
-  // button / AccountMenu, so both share the top line (meter sits below).
+  // profile avatar / Sign-in, and the usage pill sits below.
   topRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,

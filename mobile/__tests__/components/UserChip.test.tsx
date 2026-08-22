@@ -1,13 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
-// UserChip reads useSafeAreaInsets (to clear the top nav); wire the library's own
-// jest mock so the hook doesn't throw outside a <SafeAreaProvider>.
-jest.mock("react-native-safe-area-context", () => {
-  const mock = require("react-native-safe-area-context/jest/mock");
-  return mock.default ?? mock;
-});
-
 let mockAuth: { status: string; session: unknown } = { status: "signed_in", session: null };
 jest.mock("../../src/auth/AuthProvider", () => ({
   useAuth: () => mockAuth,
@@ -16,13 +9,6 @@ jest.mock("../../src/auth/AuthProvider", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
-}));
-
-// UserChip now renders the plan/usage pill (ChromeUsageMeter) under the avatar;
-// default it to "no managed status" so the meter renders null in these tests.
-let mockManagedStatus: { status: unknown; loading: boolean } = { status: null, loading: false };
-jest.mock("../../src/hooks/useManagedStatus", () => ({
-  useManagedStatus: () => mockManagedStatus,
 }));
 
 import { UserChip } from "../../src/components/UserChip";

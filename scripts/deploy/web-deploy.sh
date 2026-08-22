@@ -111,7 +111,7 @@ echo "  built $BUILT files from main@$MAIN_SHA"
 # page (mambakkam.net/mentible). Idempotent: skips if a build ever ships its own.
 SITE_URL="https://${VHOST}${BASEURL}"
 cp -f "$WT/mobile/public/og-image.jpg" "$WT/mobile/dist/og-image.jpg" 2>/dev/null || true
-OG_DESC="The content is the commodity — every model already has it. Mentible is the layer where you shape it: outline, scope, and generate a real book (EPUB3 / PDF) that is exactly what you decided it should be."
+OG_DESC="Expert-validated books, guides, and social content — drafted by AI from your own sources, every claim cited back to one, then reviewed and signed off by a named expert."
 python3 - "$WT/mobile/dist/index.html" "$SITE_URL" "$OG_DESC" <<'PYOG'
 import sys, html
 path, site, desc = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -122,7 +122,7 @@ d = html.escape(desc, quote=True)
 tags = (
     '<meta property="og:type" content="website"/>'
     '<meta property="og:site_name" content="Mentible"/>'
-    '<meta property="og:title" content="Mentible — Author Yourself"/>'
+    '<meta property="og:title" content="Mentible — Turn expertise into trusted knowledge"/>'
     f'<meta property="og:description" content="{d}"/>'
     f'<meta property="og:url" content="{site}/"/>'
     f'<meta property="og:image" content="{site}/og-image.jpg"/>'
@@ -130,7 +130,7 @@ tags = (
     '<meta property="og:image:height" content="630"/>'
     f'<meta name="description" content="{d}"/>'
     '<meta name="twitter:card" content="summary_large_image"/>'
-    '<meta name="twitter:title" content="Mentible — Author Yourself"/>'
+    '<meta name="twitter:title" content="Mentible — Turn expertise into trusted knowledge"/>'
     f'<meta name="twitter:description" content="{d}"/>'
     f'<meta name="twitter:image" content="{site}/og-image.jpg"/>'
 )

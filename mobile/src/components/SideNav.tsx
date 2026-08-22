@@ -18,7 +18,7 @@ import { ChromeUsageMeter } from "./ChromeUsageMeter";
 // every tab is visible at once. Passed to <Tabs tabBar={…}> with
 // tabBarPosition:"left", which shifts the scene to the right.
 // Auth-state-aware (navModel, shared with TopNavBar): signed out shows
-// marketing links + Sign in, signed in shows the app tabs + AccountMenu,
+// marketing links + Sign in, signed in shows the app tabs + the profile avatar,
 // loading shows only Home (no flash of the wrong set while auth resolves).
 export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();

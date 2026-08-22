@@ -4,7 +4,7 @@ import type { AuthStatus } from "@/auth/AuthProvider";
 
 // Shared auth → nav-bar branch logic, so TopNavBar and SideNav can't drift out
 // of sync. signed_out gets the marketing rail (links + Sign in); signed_in
-// gets the app tabs + AccountMenu; unavailable (demo) gets the app tabs with
+// gets the app tabs + the profile avatar; unavailable (demo) gets the app tabs with
 // neither Sign in nor the account menu; loading gets its OWN distinct shape —
 // logo + Home only, so a signed-out visitor never sees a flash of the full
 // app-tab set (Library/Studio/Projects/Reviews/Publish) before auth resolves.
