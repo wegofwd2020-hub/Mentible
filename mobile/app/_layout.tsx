@@ -10,6 +10,7 @@ import { StudioHeader } from "@/components/StudioHeader";
 import { DeviceReporter } from "@/device/DeviceReporter";
 import { SyncController } from "@/sync/autoSync";
 import { FirstRunWizard } from "@/onboarding/FirstRunWizard";
+import { UserChip } from "@/components/UserChip";
 import { useSeedDefaultLibrary } from "@/hooks/useSeedDefaultLibrary";
 import { useSeedStarterSources } from "@/hooks/useSeedStarterSources";
 import { FONT_ASSETS } from "@/constants/fonts";
@@ -183,6 +184,10 @@ export default function RootLayout() {
             </Stack>
           </NavThemeProvider>
         </AppBackground>
+        {/* Global top-right profile cluster: the signed-in user's avatar with the
+            plan/usage pill under it, on every page (self-gating; "Sign in" when
+            signed out, hidden in demo/unconfigured builds). */}
+        <UserChip />
         {/* First-run onboarding (sign up → add a key → reading tour). The wizard
             self-manages which steps apply per build (demo / unconfigured auth), so
             no environment gate is needed here. */}
