@@ -24,6 +24,16 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockUsagePush }),
 }));
 
+// Most of this suite exercises app-mode chrome (existing row rendering + the
+// usage meter), unaffected by the marketing/app nav split — so `mockAuthStatus`
+// defaults to signed_in (navModel → mode: "app"). The "auth-aware chrome"
+// describe block below flips it to cover the marketing/loading branches at
+// the render level (navState.test.tsx covers navModel() itself, unit-only).
+let mockAuthStatus: string = "signed_in";
+jest.mock("@/auth/AuthProvider", () => ({
+  useAuth: () => ({ status: mockAuthStatus, session: null, signOut: jest.fn() }),
+}));
+
 import { SideNav } from "@/components/SideNav";
 
 const ENTITLED_STATUS = {
@@ -48,9 +58,39 @@ function makeProps(activeIndex = 0) {
     navigation: { navigate, emit },
   } as any;
 }
+function makePropsWithIndex(activeIndex = 0) {
+  const names = ["index", "library", "shelves", "books", "projects", "reviews", "posts", "settings", "help", "about"];
+  return {
+    state: { index: activeIndex, routes: names.map((name, i) => ({ key: `${name}-${i}`, name })) },
+    navigation: { navigate, emit },
+  } as any;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockStatus = null;
+  mockAuthStatus = "signed_in";
+});
+
+describe("auth-aware chrome", () => {
+  it("signed_out: renders marketing links + Sign in, not the app-only tabs", () => {
+    mockAuthStatus = "signed_out";
+    render(<SideNav {...makeProps(0)} />);
+    expect(screen.getByLabelText("How it works")).toBeTruthy();
+    expect(screen.getByLabelText("Formats")).toBeTruthy();
+    expect(screen.getByLabelText("Sign in")).toBeTruthy();
+    expect(screen.queryByLabelText("Library")).toBeNull();
+  });
+
+  it("loading: renders only Home — no flash of the app-tab set, no marketing, no Sign-in", () => {
+    mockAuthStatus = "loading";
+    render(<SideNav {...makePropsWithIndex(0)} />);
+    expect(screen.getByLabelText("Home")).toBeTruthy();
+    expect(screen.queryByLabelText("Library")).toBeNull();
+    expect(screen.queryByLabelText("Projects")).toBeNull();
+    expect(screen.queryByLabelText("How it works")).toBeNull();
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+  });
 });
 
 it("renders a row for every non-demo destination", () => {

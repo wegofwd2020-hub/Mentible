@@ -1,7 +1,6 @@
-import { Redirect } from "expo-router";
+import { LandingHome } from "@/components/landing/LandingHome";
 
-// The launch/landing route. Per product decision the app opens on the Library,
-// so "/" redirects there. This screen renders nothing visible.
+// The app's front door. Everyone lands here; nav goes on to Library/Studio/etc.
 export default function Index() {
-  return <Redirect href="/library" />;
+  return <LandingHome />;
 }

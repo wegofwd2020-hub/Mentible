@@ -14,12 +14,12 @@ function Probe() {
   return <Text testID="name">{themeName}</Text>;
 }
 
-it("defaults to studio-light before any stored value loads", async () => {
+it("defaults to navy-trust before any stored value loads", async () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
-  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("studio-light"));
+  await waitFor(() => expect(screen.getByTestId("name").props.children).toBe("navy-trust"));
 });
 
-it("switcher lists the four Studio themes, all real", () => {
-  expect(SWITCHABLE_THEMES).toEqual(["studio-dark", "studio-light", "studio-green", "studio-crimson"]);
+it("switcher lists Navy Trust + the four Studio themes, all real", () => {
+  expect(SWITCHABLE_THEMES).toEqual(["navy-trust", "studio-dark", "studio-light", "studio-green", "studio-crimson"]);
   for (const n of SWITCHABLE_THEMES) expect(themes[n]).toBeDefined();
 });

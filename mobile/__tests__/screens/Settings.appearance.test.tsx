@@ -23,14 +23,14 @@ function flatColor(style: unknown): string | undefined {
 
 beforeEach(() => jest.clearAllMocks());
 
-it("shows a tile for only the two switchable Studio themes and applies one on tap", async () => {
+it("shows a tile for Navy Trust + the switchable Studio themes and applies one on tap", async () => {
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
-  // switcher is trimmed to the two Studio themes (P0 studio re-skin)
-  for (const label of ["Studio", "Studio Light"]) {
+  // switcher = Navy Trust (default) + the Studio themes (P0 studio re-skin)
+  for (const label of ["Navy Trust", "Studio", "Studio Light"]) {
     expect(await screen.findByLabelText(new RegExp(`^Theme: ${label}( \\(selected\\))?$`))).toBeTruthy();
   }
   // old exotic palettes stay defined but are no longer offered in the switcher
-  for (const label of ["Manuscript", "Reading", "Gilded Noir", "Forest & Moss", "Navy Trust"]) {
+  for (const label of ["Manuscript", "Reading", "Gilded Noir", "Forest & Moss"]) {
     expect(screen.queryByLabelText(new RegExp(`^Theme: ${label}`))).toBeNull();
   }
   fireEvent.press(screen.getByLabelText(/^Theme: Studio Light( \(selected\))?$/));
@@ -38,7 +38,7 @@ it("shows a tile for only the two switchable Studio themes and applies one on ta
 });
 
 it("colours each tile's caption from that tile's OWN palette, not the active theme", async () => {
-  // Active theme = studio-light (default). The dark tile (Studio) must
+  // Active theme = navy-trust (default). The dark tile (Studio) must
   // render its caption in its own textSecondary, else the label collapses to
   // near-invisible on the dark tile background.
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);

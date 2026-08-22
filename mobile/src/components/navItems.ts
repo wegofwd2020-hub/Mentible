@@ -6,6 +6,7 @@ export type IconName = keyof typeof Ionicons.glyphMap;
 
 // route name → label + active/inactive icon (shared by TopNavBar + SideNav).
 export const NAV_TABS: Record<string, { label: string; active: IconName; inactive: IconName }> = {
+  index: { label: NAV.home, active: "home", inactive: "home-outline" },
   library: { label: NAV.library, active: "library", inactive: "library-outline" },
   shelves: { label: NAV.shelves, active: "albums", inactive: "albums-outline" },
   books: { label: NAV.studio, active: "create", inactive: "create-outline" },
@@ -23,9 +24,18 @@ export const NAV_TABS: Record<string, { label: string; active: IconName; inactiv
 // omitted from the demo build alongside Projects/Reviews/Publish (posts), which
 // need a backend account (ADR-037); the demo is a read-only preview.
 export const NAV_ORDER: string[] = [
+  "index",
   "library",
   ...(IS_DEMO ? [] : ["books", "projects", "reviews", "posts"]),
   "settings",
   "help",
   "about",
+];
+
+// Marketing-link anchors (signed-out top bar) → sections on the Home surface.
+export const MARKETING_LINKS: { label: string; anchor: string }[] = [
+  { label: NAV.howItWorks, anchor: "how-it-works" },
+  { label: NAV.formats, anchor: "formats" },
+  { label: NAV.trust, anchor: "trust" },
+  { label: NAV.pricing, anchor: "pricing" },
 ];

@@ -16,6 +16,7 @@ export const HELP_TREE: HelpTreeNode[] = [
     id: "getting-started",
     title: "Getting started",
     children: [
+      { id: "leaf-home-and-nav", title: "Home & navigation", topicId: "home-and-nav" },
       { id: "leaf-welcome", title: "Welcome & setup steps", topicId: "getting-started" },
       { id: "leaf-account", title: "Create your account & sign in", topicId: "getting-started-account" },
       { id: "leaf-provider-keys", title: "Choose a provider & get an API key", topicId: "provider-keys" },

@@ -3,6 +3,33 @@ import { providerKeyDefs } from "./providerDefs";
 
 export const HELP_TOPICS: HelpTopic[] = [
   {
+    id: "home-and-nav",
+    title: "Home & navigation",
+    featureKey: "landing-home",
+    keywords: [
+      "home", "landing", "navigation", "nav", "top bar", "sign in", "menu",
+      "capture", "create", "validate", "share", "front door", "start",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Home is Mentible's front door. It explains what the app does — an expert-validation studio that moves work through Capture → Create → Validate → Share — shows the formats you can produce, and points you to where to start, whether that's reading a book already in your Library or starting a new project.",
+      },
+      {
+        kind: "text",
+        text: "Before you sign in, the top bar shows marketing links plus a Sign in button. Once you're signed in, those links are replaced by your app tabs — Library, Studio, Projects, Reviews, and Publish — alongside an account menu (Settings, Help, About, Sign out).",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "From Home, tap Sign in to create an account or log in.",
+          "Once signed in, use the top bar's tabs to get to your Library, Studio, Projects, Reviews, or Publish.",
+          "Open the account menu for Settings, Help, About, or to sign out.",
+        ],
+      },
+    ],
+  },
+  {
     id: "getting-started",
     title: "Getting started",
     keywords: ["start", "begin", "first", "setup", "onboard", "books", "library"],
