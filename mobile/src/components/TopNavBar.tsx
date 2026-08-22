@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,7 +8,7 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import { useAuth } from "@/auth/AuthProvider";
 import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
-import { navModel } from "./navState";
+import { navModel, goToAnchor } from "./navState";
 import { AccountMenu } from "./AccountMenu";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
@@ -16,7 +16,8 @@ import { ChromeUsageMeter } from "./ChromeUsageMeter";
 // Mentible mark that jumps Home. Replaces the default bottom tab bar (passed to
 // <Tabs tabBar={…}>); horizontally scrollable so items don't cramp a phone.
 // Auth-state-aware (navModel, shared with SideNav): signed out shows marketing
-// links + Sign in, signed in shows the app tabs + AccountMenu.
+// links + Sign in, signed in shows the app tabs + AccountMenu, loading shows
+// only Home (no flash of the wrong set while auth resolves).
 export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -39,12 +40,34 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
     if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
   };
 
-  const goToAnchor = (anchor: string) => {
-    if (Platform.OS === "web") {
-      document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
-    } else {
-      router.push("/");
-    }
+  // Shared tile renderer so the "app" (full NAV_ORDER) and "loading" (Home-only)
+  // branches don't duplicate the Pressable/Ionicons/Text markup.
+  const renderTile = (name: string) => {
+    const cfg = NAV_TABS[name];
+    if (!cfg || !routeByName.has(name)) return null;
+    const focused = name === activeName;
+    return (
+      <Pressable
+        key={name}
+        onPress={() => go(name)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        accessibilityLabel={cfg.label}
+        style={[styles.tile, focused && styles.tileActive]}
+      >
+        <Ionicons
+          name={focused ? cfg.active : cfg.inactive}
+          size={22}
+          color={focused ? theme.tileOnGlyph : theme.tileOffGlyph}
+        />
+        <Text
+          style={[styles.tileLabel, focused && styles.tileLabelActive]}
+          numberOfLines={1}
+        >
+          {cfg.label}
+        </Text>
+      </Pressable>
+    );
   };
 
   return (
@@ -70,40 +93,17 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
             />
           </Pressable>
 
-          {nav.mode === "app" &&
-            NAV_ORDER.map((name) => {
-              const cfg = NAV_TABS[name];
-              if (!cfg || !routeByName.has(name)) return null;
-              const focused = name === activeName;
-              return (
-                <Pressable
-                  key={name}
-                  onPress={() => go(name)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: focused }}
-                  accessibilityLabel={cfg.label}
-                  style={[styles.tile, focused && styles.tileActive]}
-                >
-                  <Ionicons
-                    name={focused ? cfg.active : cfg.inactive}
-                    size={22}
-                    color={focused ? theme.tileOnGlyph : theme.tileOffGlyph}
-                  />
-                  <Text
-                    style={[styles.tileLabel, focused && styles.tileLabelActive]}
-                    numberOfLines={1}
-                  >
-                    {cfg.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {nav.mode === "app" && NAV_ORDER.map(renderTile)}
+
+          {/* loading: logo (above) + Home only — no flash of the full app-tab
+              set, no marketing links, no Sign-in, while auth resolves. */}
+          {nav.mode === "loading" && renderTile("index")}
 
           {nav.mode === "marketing" &&
             MARKETING_LINKS.map((link) => (
               <Pressable
                 key={link.anchor}
-                onPress={() => goToAnchor(link.anchor)}
+                onPress={() => goToAnchor(link.anchor, router)}
                 accessibilityRole="link"
                 accessibilityLabel={link.label}
                 style={styles.marketingLink}

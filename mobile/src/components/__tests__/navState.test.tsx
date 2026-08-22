@@ -9,6 +9,6 @@ test("app nav + account when signed in", () => {
 test("demo (unavailable): app nav, no sign-in, no account", () => {
   expect(navModel("unavailable")).toEqual({ mode: "app", showSignIn: false, showAccount: false });
 });
-test("loading: app nav, no sign-in, no account (Home only until resolved)", () => {
-  expect(navModel("loading")).toEqual({ mode: "app", showSignIn: false, showAccount: false });
+test("loading: distinct mode (Home only), no sign-in, no account — no flash of the app-tab set", () => {
+  expect(navModel("loading")).toEqual({ mode: "loading", showSignIn: false, showAccount: false });
 });
