@@ -24,7 +24,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
   const [themeName, setThemeName] = useState<ThemeName>("navy-trust");
 
   // Apply the persisted choice once resolved. No render gate — a one-frame
-  // Studio default before the stored value lands is acceptable.
+  // navy-trust default before the stored value lands is acceptable.
   useEffect(() => {
     let alive = true;
     void loadThemeName().then((n) => {

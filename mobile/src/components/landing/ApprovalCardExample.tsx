@@ -11,6 +11,7 @@ const NAVY = "#0e1421";
 const INK = "#f4f2ea";
 const GOLD = "#d6a94b";
 const MUTED = "#93a0b4";
+const DIVIDER = "#22293b";
 
 const ROWS: Array<[string, string, string]> = [
   ["PROVENANCE", "Recorded by the expert — not operator-on-behalf", "expert_self"],
@@ -84,9 +85,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#22293b",
+    borderTopColor: DIVIDER,
     borderBottomWidth: 1,
-    borderBottomColor: "#22293b",
+    borderBottomColor: DIVIDER,
   },
   row: {
     flexDirection: "row",
