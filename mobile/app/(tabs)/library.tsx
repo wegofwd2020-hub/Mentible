@@ -11,7 +11,6 @@ import { pickEpubFile } from "@/storage/pickBookFile";
 import { importEpub } from "@/openshelves/importEpub";
 import { BookCover } from "@/components/BookCover";
 import { BookMetadataModal } from "@/components/BookMetadataModal";
-import { UserChip } from "@/components/UserChip";
 import { SharedWithYou } from "@/components/SharedWithYou";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -99,12 +98,11 @@ function DemoLibrary() {
 // Demo builds swap in DemoLibrary so the tab shows the seeded books for reading.
 export default function LibraryScreen() {
   const styles = useThemedStyles(makeStyles);
-  // The profile chip floats top-right over whichever shelf renders; it self-gates
-  // (hidden in demo/unconfigured, "Sign in" when signed out, photo+name when in).
+  // The profile avatar lives in the nav chrome (TopNavBar/SideNav), not here — the
+  // Library content carries no account UI.
   return (
     <View style={styles.screen}>
       {IS_DEMO ? <DemoLibrary /> : <EpubLibrary />}
-      <UserChip />
     </View>
   );
 }
