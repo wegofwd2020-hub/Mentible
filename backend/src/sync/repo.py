@@ -250,6 +250,7 @@ class SyncedEpub:
     meta_nonce: bytes
     wrapped_dk: bytes
     dk_nonce: bytes
+    tag: bytes
     client_version: str
     byte_size: int
     deleted: bool
@@ -267,7 +268,7 @@ class EpubMeta:
 
 _EPUB_COLS = (
     "owner_account_id, epub_id, ciphertext, nonce, meta_ciphertext, meta_nonce, "
-    "wrapped_dk, dk_nonce, client_version, byte_size, deleted, updated_at"
+    "wrapped_dk, dk_nonce, tag, client_version, byte_size, deleted, updated_at"
 )
 _EPUB_META_COLS = "epub_id, client_version, deleted, updated_at, byte_size"
 
@@ -282,6 +283,7 @@ def _epub(r: asyncpg.Record) -> SyncedEpub:
         meta_nonce=r["meta_nonce"],
         wrapped_dk=r["wrapped_dk"],
         dk_nonce=r["dk_nonce"],
+        tag=r["tag"],
         client_version=r["client_version"],
         byte_size=r["byte_size"],
         deleted=r["deleted"],
@@ -332,17 +334,23 @@ async def upsert_epub(
     meta_nonce: bytes,
     wrapped_dk: bytes,
     dk_nonce: bytes,
+    tag: bytes,
     client_version: str,
     byte_size: int,
 ) -> SyncedEpub:
     """Insert/overwrite one epub's ciphertext + meta sidecar. A re-PUT of a
-    previously tombstoned epub_id revives it (`deleted` reset to false)."""
+    previously tombstoned epub_id revives it (`deleted` reset to false).
+
+    `tag` has no default (correctness over convenience, Inc 2.1): the GCM tag
+    is no longer appended to `ciphertext` on the wire (it travels as its own
+    `X-Tag` header — see `router.py`), so every caller must supply it
+    explicitly rather than risk silently persisting a zero-length tag."""
     row = await conn.fetchrow(
         f"""
         INSERT INTO synced_epub
             (owner_account_id, epub_id, ciphertext, nonce, meta_ciphertext, meta_nonce,
-             wrapped_dk, dk_nonce, client_version, byte_size, deleted, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, now())
+             wrapped_dk, dk_nonce, tag, client_version, byte_size, deleted, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, now())
         ON CONFLICT (owner_account_id, epub_id) DO UPDATE
             SET ciphertext = EXCLUDED.ciphertext,
                 nonce = EXCLUDED.nonce,
@@ -350,6 +358,7 @@ async def upsert_epub(
                 meta_nonce = EXCLUDED.meta_nonce,
                 wrapped_dk = EXCLUDED.wrapped_dk,
                 dk_nonce = EXCLUDED.dk_nonce,
+                tag = EXCLUDED.tag,
                 client_version = EXCLUDED.client_version,
                 byte_size = EXCLUDED.byte_size,
                 deleted = false,
@@ -364,6 +373,7 @@ async def upsert_epub(
         meta_nonce,
         wrapped_dk,
         dk_nonce,
+        tag,
         client_version,
         byte_size,
     )
