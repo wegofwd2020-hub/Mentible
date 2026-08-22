@@ -64,10 +64,13 @@ jest.mock("expo-file-system", () => {
 
 // `@/crypto/epubFileCrypto` wraps `react-native-aes-gcm-crypto` (globally
 // stubbed as a bare jest.fn() in jest.setup.js, with no real file-crypto
-// behavior) — mock it here with a trivial-but-real file-to-file transform
-// (byte-flip, same discipline as `xorObfuscate` below) operating directly on
-// the in-memory `expo-file-system` mock's file map, so `openEpubFileNative`
-// actually produces a plaintext file for `saveEpubFileNative` (real code) to
+// behavior) — mock it here as a fixed-output stub: `openEpubFileNative`
+// writes a constant placeholder string to `outUri` in the in-memory
+// `expo-file-system` mock's file map, regardless of input. It does not
+// perform any real (or reversible) transform of the ciphertext — that's fine
+// because this test only verifies `compiledAt` threading through the sync
+// engine, not the crypto payload itself, so `openEpubFileNative` just needs
+// to produce *some* file at `outUri` for `saveEpubFileNative` (real code) to
 // adopt.
 jest.mock("@/crypto/epubFileCrypto", () => ({
   __esModule: true,

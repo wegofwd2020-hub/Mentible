@@ -303,7 +303,16 @@ export async function getEpubToFile(
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, "");
-  return { headers: decodeEpubHeaders({ get: (name: string) => res.headers[name] ?? null }, res.status) };
+  // `res.headers` here is a PLAIN JS OBJECT (not a Fetch `Headers`), so lookups
+  // are exact-case. Under HTTP/2 (mandatory lowercase header names) or a
+  // normalizing proxy (e.g. Cloudflare fronting mentible.app/mambakkam.net in
+  // prod), OkHttp hands back lowercase keys (`x-nonce`, not `X-Nonce`) — an
+  // exact-case lookup would come back `undefined` and `decodeEpubHeaders`
+  // would throw, failing every native EPUB pull. Normalize to lowercase to
+  // mirror Fetch's case-insensitive `Headers.get` semantics.
+  const lower: Record<string, string> = {};
+  for (const k in res.headers) lower[k.toLowerCase()] = res.headers[k];
+  return { headers: decodeEpubHeaders({ get: (name: string) => lower[name.toLowerCase()] ?? null }, res.status) };
 }
 
 export async function deleteEpub(token: string, epubId: string): Promise<void> {

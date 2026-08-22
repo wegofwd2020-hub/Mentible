@@ -222,6 +222,35 @@ describe("syncClient — epubs (native streamed transports)", () => {
     expect(result.headers.clientVersion).toBe("v1");
   });
 
+  it("getEpubToFile decodes headers when FileSystem.downloadAsync returns lowercase header names (HTTP/2 / normalizing proxy)", async () => {
+    // `res.headers` from `FileSystem.downloadAsync` is a plain JS object with
+    // exact wire-cased keys — unlike Fetch's `Headers.get`, it is NOT
+    // case-insensitive. Under HTTP/2 (mandatory lowercase header names) or a
+    // normalizing proxy (e.g. Cloudflare fronting mentible.app in prod),
+    // OkHttp hands back lowercase keys. This must decode identically to the
+    // capitalized-key case above.
+    const lowerHeaderMap: Record<string, string> = {
+      "x-nonce": bytesToBase64(h.nonce),
+      "x-tag": bytesToBase64(h.tag),
+      "x-meta": bytesToBase64(h.metaCt),
+      "x-meta-nonce": bytesToBase64(h.metaNonce),
+      "x-wrapped-dk": bytesToBase64(h.wrappedDk),
+      "x-dk-nonce": bytesToBase64(h.dkNonce),
+      "x-client-version": h.clientVersion,
+    };
+    mockDownloadAsync.mockResolvedValueOnce({ status: 200, headers: lowerHeaderMap });
+
+    const result = await syncClient.getEpubToFile("tok-123", "e1", "file:///tmp/e1.dl");
+
+    expect(result.headers.nonce).toEqual(h.nonce);
+    expect(result.headers.tag).toEqual(h.tag);
+    expect(result.headers.metaCt).toEqual(h.metaCt);
+    expect(result.headers.metaNonce).toEqual(h.metaNonce);
+    expect(result.headers.wrappedDk).toEqual(h.wrappedDk);
+    expect(result.headers.dkNonce).toEqual(h.dkNonce);
+    expect(result.headers.clientVersion).toBe("v1");
+  });
+
   it("getEpubToFile throws ApiError on a non-2xx download status", async () => {
     mockDownloadAsync.mockResolvedValueOnce({ status: 404, headers: {} });
     await expect(syncClient.getEpubToFile("tok-123", "e1", "file:///tmp/e1.dl")).rejects.toMatchObject({

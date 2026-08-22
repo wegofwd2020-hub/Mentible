@@ -357,10 +357,10 @@ export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyn
       failed.push(id);
       continue;
     }
-    const dk = generateKey();
-    const metaCt = seal(dk, metaBytes(meta));
-    const wrappedDk = seal(lmk, dk);
     try {
+      const dk = generateKey();
+      const metaCt = seal(dk, metaBytes(meta));
+      const wrappedDk = seal(lmk, dk);
       if (isWeb) {
         const raw = await epubLibrary.getEpubBytes(id);
         if (!raw) throw new Error(`local epub ${id} bytes vanished mid-sync`);
