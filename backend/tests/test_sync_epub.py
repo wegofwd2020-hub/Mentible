@@ -1,10 +1,12 @@
-"""HTTP-level tests for `synced_epub` (ADR-014 increment 2) — mirrors
-`test_sync_router.py`'s TestClient + `require_active_user` override + DSN-skip
-pattern.
+"""HTTP-level tests for `synced_epub` (ADR-014 increment 2; wire un-framed in
+Increment 2.1) — mirrors `test_sync_router.py`'s TestClient +
+`require_active_user` override + DSN-skip pattern.
 
-The epub payload is a FRAMED octet-stream body (4-byte big-endian meta_len +
-meta_ciphertext + epub_ciphertext), never JSON — so these tests build/parse
-the frame directly instead of using `TestClient(..., json=...)`.
+The epub payload is a RAW ciphertext-only octet-stream body (Inc 2.1 — the
+native file cipher returns the GCM tag separately from the ciphertext, so
+there is no framing to build/parse). The tag and the (small) meta sidecar
+travel as base64 headers (`X-Tag` / `X-Meta`) alongside the other small,
+fixed-size crypto params.
 
 Skipped without DATABASE_URL, like every other DB-backed test module here.
 """
@@ -67,13 +69,16 @@ def _b64(b: bytes) -> str:
     return base64.b64encode(b).decode("ascii")
 
 
-def _frame(meta_ct: bytes, epub_ct: bytes) -> bytes:
-    return len(meta_ct).to_bytes(4, "big") + meta_ct + epub_ct
+def _tag_for(seed: bytes) -> bytes:
+    """A deterministic, exactly-16-byte stand-in for a real GCM tag."""
+    return (seed + b"-tag").ljust(16, b"0")[:16]
 
 
-def _epub_headers(seed: bytes = b"x", client_version: str = "v1") -> dict:
+def _epub_headers(seed: bytes = b"x", client_version: str = "v1", meta_ct: bytes = b"meta") -> dict:
     return {
         "X-Nonce": _b64(seed + b"-nonce"),
+        "X-Tag": _b64(_tag_for(seed)),
+        "X-Meta": _b64(meta_ct),
         "X-Meta-Nonce": _b64(seed + b"-meta-nonce"),
         "X-Wrapped-Dk": _b64(seed + b"-wrapped-dk"),
         "X-Dk-Nonce": _b64(seed + b"-dk-nonce"),
@@ -84,15 +89,18 @@ def _epub_headers(seed: bytes = b"x", client_version: str = "v1") -> dict:
 def _put_epub(c: TestClient, epub_id: str, meta_ct: bytes, epub_ct: bytes, **hdr_kwargs):
     return c.put(
         f"{SYNC}/epubs/{epub_id}",
-        content=_frame(meta_ct, epub_ct),
-        headers={**_epub_headers(**hdr_kwargs), "Content-Type": "application/octet-stream"},
+        content=epub_ct,
+        headers={
+            **_epub_headers(meta_ct=meta_ct, **hdr_kwargs),
+            "Content-Type": "application/octet-stream",
+        },
     )
 
 
-# ── (a) round-trip: PUT (framed) → GET returns the framed body byte-for-byte ─
+# ── (a) round-trip: PUT (ciphertext-only) → GET returns it byte-for-byte ───
 
 
-def test_put_then_get_epub_roundtrips_framed_body_byte_for_byte():
+def test_put_then_get_epub_ciphertext_only_roundtrips_tag_and_meta():
     sub = f"sk-{uuid.uuid4()}"
     _account(sub)
     meta_ct = b"cover-svg-and-title-ciphertext" * 5
@@ -109,7 +117,9 @@ def test_put_then_get_epub_roundtrips_framed_body_byte_for_byte():
 
         got = c.get(f"{SYNC}/epubs/book-1")
         assert got.status_code == 200
-        assert got.content == _frame(meta_ct, epub_ct)
+        assert got.content == epub_ct  # body is ciphertext-only, byte-for-byte
+        assert base64.b64decode(got.headers["x-tag"]) == _tag_for(b"rt")
+        assert base64.b64decode(got.headers["x-meta"]) == meta_ct
         assert got.headers["x-nonce"] == _b64(b"rt-nonce")
         assert got.headers["x-meta-nonce"] == _b64(b"rt-meta-nonce")
         assert got.headers["x-wrapped-dk"] == _b64(b"rt-wrapped-dk")
@@ -126,26 +136,9 @@ def test_get_epub_404_when_absent():
         assert c.get(f"{SYNC}/epubs/does-not-exist").status_code == 404
 
 
-def test_put_epub_malformed_frame_400():
-    """The leading uint32 `meta_len` claims more bytes than the body actually
-    has — must 400 "malformed framed body", not crash/500."""
-    sub = f"sk-{uuid.uuid4()}"
-    _account(sub)
-    bad_body = (9999).to_bytes(4, "big") + b"short"
-    with TestClient(app) as c:
-        _as(sub)
-        r = c.put(
-            f"{SYNC}/epubs/bad-frame",
-            content=bad_body,
-            headers={**_epub_headers(), "Content-Type": "application/octet-stream"},
-        )
-        assert r.status_code == 400
-        assert r.json()["detail"] == "malformed framed body"
-
-
 def test_put_then_get_epub_with_empty_meta_roundtrips():
-    """meta_len=0 (no meta ciphertext at all) must still round-trip
-    byte-for-byte — an epub with no meta sidecar is a valid frame."""
+    """An epub with no meta sidecar (`X-Meta` decodes to b\"\") is a valid
+    push — must still round-trip byte-for-byte."""
     sub = f"sk-{uuid.uuid4()}"
     _account(sub)
     epub_ct = b"epub-only-no-meta" * 20
@@ -156,8 +149,8 @@ def test_put_then_get_epub_with_empty_meta_roundtrips():
 
         got = c.get(f"{SYNC}/epubs/no-meta")
         assert got.status_code == 200
-        assert got.content == _frame(b"", epub_ct)
-        assert got.content[:4] == (0).to_bytes(4, "big")
+        assert got.content == epub_ct
+        assert base64.b64decode(got.headers["x-meta"]) == b""
 
 
 # ── (b) manifest is metadata-only ───────────────────────────────────────────
@@ -255,6 +248,37 @@ def test_put_epub_re_put_excludes_its_own_prior_size_from_the_cap(monkeypatch):
         assert r2.status_code == 200
 
 
+def test_get_epub_409_when_backfilled_meta_too_large_for_header():
+    """A pre-2.1 backfilled row whose `meta_ciphertext` still carries a
+    coverSvg (too big for the X-Meta header) must 409, not blow the header
+    budget or crash — the client is expected to re-push under 2.1."""
+    sub = f"sk-{uuid.uuid4()}"
+    _account(sub)
+    with TestClient(app) as c:
+        _as(sub)
+        assert _put_epub(c, "big-meta", b"m", b"epub" * 10).status_code == 200
+
+    async def _bloat_meta() -> None:
+        conn = await asyncpg.connect(DSN)
+        try:
+            oversized = b"x" * (sync_router._MAX_SMALL_FIELD_BYTES + 1)
+            await conn.execute(
+                "UPDATE synced_epub SET meta_ciphertext = $1 "
+                "WHERE epub_id = 'big-meta'",
+                oversized,
+            )
+        finally:
+            await conn.close()
+
+    asyncio.run(_bloat_meta())
+
+    with TestClient(app) as c:
+        _as(sub)
+        r = c.get(f"{SYNC}/epubs/big-meta")
+        assert r.status_code == 409
+        assert r.json()["detail"] == "epub meta too large — re-sync required"
+
+
 # ── (e) isolation ────────────────────────────────────────────────────────────
 
 
@@ -305,14 +329,14 @@ def test_no_epub_bytes_or_key_material_in_logs(capsys):
     _account(sub)
     meta_ct = b"LOG-PROBE-META-CIPHERTEXT" * 3
     epub_ct = b"LOG-PROBE-EPUB-CIPHERTEXT" * 20
-    headers = _epub_headers(seed=b"log-probe-secret")
+    headers = _epub_headers(seed=b"log-probe-secret", meta_ct=meta_ct)
 
     buffer = _capture_log_output()
     with TestClient(app) as c:
         _as(sub)
         r = c.put(
             f"{SYNC}/epubs/log-probe",
-            content=_frame(meta_ct, epub_ct),
+            content=epub_ct,
             headers={**headers, "Content-Type": "application/octet-stream"},
         )
         assert r.status_code == 200
@@ -326,6 +350,8 @@ def test_no_epub_bytes_or_key_material_in_logs(capsys):
         meta_ct.decode("latin-1"),
         epub_ct.decode("latin-1"),
         headers["X-Nonce"],
+        headers["X-Tag"],
+        headers["X-Meta"],
         headers["X-Meta-Nonce"],
         headers["X-Wrapped-Dk"],
         headers["X-Dk-Nonce"],

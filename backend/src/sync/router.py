@@ -68,12 +68,28 @@ def _guard_b64_size(raw_b64: str, *, max_b64_chars: int, field: str) -> None:
 
 def _b64_header(request: Request, name: str) -> bytes:
     """Decode one of the small fixed-size crypto-param headers on the epub
-    routes (nonce / meta-nonce / wrapped key). These never carry the large
-    payloads (epub bytes, meta ciphertext) — those travel in the framed
-    octet-stream body, never a header (nginx's ~8KB header buffer)."""
+    routes (nonce / meta-nonce / wrapped key / tag). These are tiny by
+    construction (an AES-GCM nonce/tag or a wrapped key is tens of bytes), so
+    no separate size guard is needed before decoding. The (much larger) epub
+    payload never travels as a header — it is the raw request/response body."""
     raw = request.headers.get(name)
     if raw is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"missing header {name}")
+    try:
+        return base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError) as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid base64") from e
+
+
+def _b64_header_capped(request: Request, name: str, *, max_b64_chars: int) -> bytes:
+    """Like `_b64_header`, but for a header whose value is small in the
+    common case yet not fixed-size by construction (the meta sidecar) — guard
+    the base64 length before decoding so an oversize value 413s cheaply
+    instead of ever landing in an unbounded header/column."""
+    raw = request.headers.get(name)
+    if raw is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"missing header {name}")
+    _guard_b64_size(raw, max_b64_chars=max_b64_chars, field=name)
     try:
         return base64.b64decode(raw, validate=True)
     except (binascii.Error, ValueError) as e:
@@ -225,12 +241,13 @@ async def delete_book(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ── synced_epub (ADR-014 increment 2) ───────────────────────────────────────
+# ── synced_epub (ADR-014 increment 2, un-framed on the wire — Inc 2.1) ──────
 #
-# The epub payload (potentially tens of MB) and its meta sidecar (title,
-# cover SVG, up to ~600KB) travel together as a single FRAMED octet-stream
-# body — never as headers, never as base64 JSON. Only the small, fixed-size
-# crypto params (nonces, wrapped key) are base64 headers.
+# The epub payload (potentially tens of MB) travels as a RAW ciphertext-only
+# octet-stream body — no framing. The native file cipher (Inc 2.1) returns
+# the GCM tag separately from the ciphertext, so the tag and the (small,
+# ~600KB-max) meta sidecar both travel as base64 headers alongside the other
+# small, fixed-size crypto params (nonces, wrapped key) — never in the body.
 
 
 @router.get(
@@ -259,19 +276,14 @@ async def put_epub(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.EpubMetaOut:
     account = await _account(conn, principal)
-    body = await request.body()
-    if len(body) < 4:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "malformed framed body")
-    meta_len = int.from_bytes(body[:4], "big")
-    if 4 + meta_len > len(body):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "malformed framed body")
-    meta_ct = body[4 : 4 + meta_len]
-    epub_ct = body[4 + meta_len :]
+    epub_ct = await request.body()  # raw ciphertext — no framing (Inc 2.1)
 
     nonce = _b64_header(request, "X-Nonce")
-    meta_nonce = _b64_header(request, "X-Meta-Nonce")
+    tag = _b64_header(request, "X-Tag")
     wrapped_dk = _b64_header(request, "X-Wrapped-Dk")
     dk_nonce = _b64_header(request, "X-Dk-Nonce")
+    meta_ct = _b64_header_capped(request, "X-Meta", max_b64_chars=_MAX_SMALL_FIELD_B64_CHARS)
+    meta_nonce = _b64_header(request, "X-Meta-Nonce")
     client_version = request.headers.get("X-Client-Version")
     if client_version is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "missing header X-Client-Version")
@@ -297,6 +309,7 @@ async def put_epub(
         meta_nonce=meta_nonce,
         wrapped_dk=wrapped_dk,
         dk_nonce=dk_nonce,
+        tag=tag,
         client_version=client_version,
         byte_size=len(epub_ct),
     )
@@ -318,20 +331,24 @@ async def get_epub(
     e = await repo.get_epub(conn, owner_account_id=account.id, epub_id=epub_id)
     if e is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "epub not found")
-    # Crypto columns are NOT NULL (migration 0025) — always populated by
+    if len(e.meta_ciphertext) > _MAX_SMALL_FIELD_BYTES:
+        # A pre-2.1 backfilled row whose meta still carries a coverSvg (up to
+        # ~600KB) — too big for the X-Meta header. Signal "re-push under 2.1"
+        # rather than fail opaquely; a fresh Inc-2.1 push writes a tiny meta.
+        raise HTTPException(status.HTTP_409_CONFLICT, "epub meta too large — re-sync required")
+    # Crypto columns are NOT NULL (migrations 0025/0026) — always populated by
     # `upsert_epub`, so no defensive fallback is needed here.
-    meta_ct = e.meta_ciphertext
-    epub_ct = e.ciphertext
-    framed = len(meta_ct).to_bytes(4, "big") + meta_ct + epub_ct
     log.info("sync_epub_get", epub_id=epub_id, byte_size=e.byte_size)
     return Response(
-        content=framed,
+        content=e.ciphertext,
         media_type="application/octet-stream",
         headers={
             "X-Nonce": _b64e(e.nonce),
-            "X-Meta-Nonce": _b64e(e.meta_nonce),
+            "X-Tag": _b64e(e.tag),
             "X-Wrapped-Dk": _b64e(e.wrapped_dk),
             "X-Dk-Nonce": _b64e(e.dk_nonce),
+            "X-Meta": _b64e(e.meta_ciphertext),
+            "X-Meta-Nonce": _b64e(e.meta_nonce),
             "X-Client-Version": e.client_version,
         },
     )
