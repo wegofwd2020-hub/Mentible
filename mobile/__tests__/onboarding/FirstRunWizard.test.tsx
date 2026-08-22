@@ -18,8 +18,12 @@ jest.mock("../../src/auth/AuthProvider", () => ({
 }));
 
 const mockPush = jest.fn();
+// The wizard hides on the landing Home ("/"); default the tests to an in-app
+// route so the behavior tests exercise the steps. The landing-gate test flips it.
+let mockPathname = "/library";
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
+  usePathname: () => mockPathname,
 }));
 
 jest.mock("../../src/secure/keyStore", () => ({
@@ -55,9 +59,22 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
   mockAuthStatus = "signed_in";
+  mockPathname = "/library";
 });
 
 describe("FirstRunWizard", () => {
+  it("does not overlay the landing Home ('/') even when a step is pending", async () => {
+    mockPathname = "/";
+    await applyStepStatuses({ signup: "done" }); // the key step would otherwise show
+    render(<FirstRunWizard />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // Wizard is suppressed on the marketing landing — no step surfaces.
+    expect(screen.queryByText("Add an LLM key")).toBeNull();
+    expect(screen.queryByText("Meet your tabs")).toBeNull();
+  });
+
   it("starts on the Add-a-key step for a signed-in user, Continue locked until a key exists", async () => {
     // Pre-seed signup as done (a signed-in user has it auto-skipped anyway — that
     // mechanism is covered by the signed-out→signed-in test below) so the wizard

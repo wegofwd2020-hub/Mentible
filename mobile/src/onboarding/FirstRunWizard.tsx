@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
+import { usePathname } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { IS_DEMO } from "@/constants/demo";
 import { spacing } from "@/constants/theme";
@@ -32,6 +33,11 @@ const STEP_COMPONENTS: Record<StepId, React.ComponentType<WizardStepProps>> = {
 
 export function FirstRunWizard() {
   const { status } = useAuth();
+  const pathname = usePathname();
+  // The landing Home ("/") is the marketing front door — it has its own Sign in
+  // and "Book a conversation" CTAs. Don't overlay the first-run wizard there; it
+  // resumes on any other route (Library/Studio/…) where the pending step applies.
+  const onLanding = pathname === "/";
   const [state, setState] = useState<FirstRunState | null>(null);
 
   // Load persisted progress once, and stay subscribed so re-arming a step from
@@ -77,7 +83,7 @@ export function FirstRunWizard() {
     return step;
   }, [state, status]);
 
-  if (!state || !visibleStep) return null;
+  if (!state || !visibleStep || onLanding) return null;
 
   const StepComponent = STEP_COMPONENTS[visibleStep];
   const advance = (next: "done" | "skipped") => {
