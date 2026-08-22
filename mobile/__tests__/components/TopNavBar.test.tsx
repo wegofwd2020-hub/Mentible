@@ -25,12 +25,14 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-// This suite exercises app-mode chrome (existing tile rendering + the usage
-// meter), unaffected by the marketing/app nav split — so pin auth to
-// signed_in (navModel → mode: "app") rather than re-testing that split here
-// (see navState.test.tsx for the marketing-vs-app branch itself).
+// Most of this suite exercises app-mode chrome (existing tile rendering + the
+// usage meter), unaffected by the marketing/app nav split — so `mockAuthStatus`
+// defaults to signed_in (navModel → mode: "app"). The "auth-aware chrome"
+// describe block below flips it to cover the marketing/loading branches at
+// the render level (navState.test.tsx covers navModel() itself, unit-only).
+let mockAuthStatus: string = "signed_in";
 jest.mock("@/auth/AuthProvider", () => ({
-  useAuth: () => ({ status: "signed_in", session: null, signOut: jest.fn() }),
+  useAuth: () => ({ status: mockAuthStatus, session: null, signOut: jest.fn() }),
 }));
 
 import { TopNavBar } from "@/components/TopNavBar";
@@ -56,9 +58,42 @@ function makeProps(activeIndex = 0) {
   } as any;
 }
 
+// Same shape as makeProps, but the route list also includes "index" (Home) —
+// makeProps omits it because none of the app-mode tests below need it, but
+// the loading-mode render (Home-only tile) does.
+function makePropsWithIndex(activeIndex = 0) {
+  const names = ["index", "library", "shelves", "books", "projects", "reviews", "posts", "settings", "help", "about"];
+  return {
+    state: { index: activeIndex, routes: names.map((name, i) => ({ key: `${name}-${i}`, name })) },
+    navigation: { navigate: jest.fn(), emit: jest.fn(() => ({ defaultPrevented: false })) },
+  } as any;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockStatus = null;
+  mockAuthStatus = "signed_in";
+});
+
+describe("auth-aware chrome", () => {
+  it("signed_out: renders marketing links + Sign in, not the app-only tabs", () => {
+    mockAuthStatus = "signed_out";
+    render(<TopNavBar {...makeProps(0)} />);
+    expect(screen.getByLabelText("How it works")).toBeTruthy();
+    expect(screen.getByLabelText("Formats")).toBeTruthy();
+    expect(screen.getByLabelText("Sign in")).toBeTruthy();
+    expect(screen.queryByLabelText("Library")).toBeNull();
+  });
+
+  it("loading: renders only Home — no flash of the app-tab set, no marketing, no Sign-in", () => {
+    mockAuthStatus = "loading";
+    render(<TopNavBar {...makePropsWithIndex(0)} />);
+    expect(screen.getByLabelText("Home")).toBeTruthy();
+    expect(screen.queryByLabelText("Library")).toBeNull();
+    expect(screen.queryByLabelText("Projects")).toBeNull();
+    expect(screen.queryByLabelText("How it works")).toBeNull();
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+  });
 });
 
 it("uses medium (500) weight on the tile label, not the retired 600", () => {
