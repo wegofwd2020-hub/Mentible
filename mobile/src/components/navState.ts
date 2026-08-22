@@ -44,7 +44,9 @@ export function goToAnchor(anchor: string, router: ReturnType<typeof useRouter>)
   }
   if (sc && sc !== document.body) {
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
-    sc.scrollTo({ top, behavior: "smooth" });
+    // `scrollTo({behavior:"smooth"})` is a no-op on the react-native-web ScrollView
+    // element — set scrollTop directly so the jump actually happens.
+    sc.scrollTop = top;
   } else {
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
