@@ -21,6 +21,7 @@ import {
   SyncLockedError,
   SyncKeysetExistsError,
   type SyncStatus,
+  type EpubSkip,
 } from "@/sync/syncEngine";
 import { isAutoSyncEnabled, setAutoSyncEnabled } from "@/sync/autoSync";
 import { useSyncStatus, setSyncStatus } from "@/sync/syncStatusStore";
@@ -40,6 +41,16 @@ import { useAuth } from "@/auth/AuthProvider";
 // reachable while the engine considers sync locked, but if the two ever
 // disagree we point at the same unlock affordance rather than showing a
 // confusing status.
+// One explicit line per skipped EPUB, naming the book so the user knows
+// exactly which title to deal with rather than a bare item count (the old
+// `${n} EPUB(s) too large or over your storage limit` copy this replaces).
+function skipLine(s: EpubSkip): string {
+  const mb = Math.round(s.sizeBytes / (1024 * 1024));
+  return s.reason === "too_large"
+    ? `‘${s.title}’ (${mb} MB) is over the 50 MB per-book sync limit and wasn’t synced.`
+    : `‘${s.title}’ wasn’t synced — you’ve used your 500 MB sync storage. Remove synced books to make room.`;
+}
+
 function syncStatusCopy(status: SyncStatus): string | null {
   switch (status.state) {
     case "up_to_date":
@@ -143,9 +154,9 @@ export function LibrarySync(): React.JSX.Element | null {
       setLastSyncedAt(await getLastSyncedAt());
       setSyncStatus(await syncStatus(token));
       const problems: string[] = [];
-      if (r.failed.length) problems.push(`${r.failed.length} item(s) couldn't sync`);
-      if (r.skipped?.length) problems.push(`${r.skipped.length} EPUB(s) too large or over your storage limit`);
-      const extra = problems.length ? ` ${problems.join("; ")}.` : "";
+      if (r.failed.length) problems.push(`${r.failed.length} item(s) couldn't sync.`);
+      if (r.skipped?.length) problems.push(...r.skipped.map(skipLine));
+      const extra = problems.length ? ` ${problems.join(" ")}` : "";
       Alert.alert("Sync complete", `Pushed ${r.pushed}, pulled ${r.pulled}, removed ${r.deleted}.${extra}`);
     } catch (e) {
       if (e instanceof SyncLockedError) {

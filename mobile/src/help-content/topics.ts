@@ -504,7 +504,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "A very large EPUB may not sync if it's over the per-file size limit, or if it would put you over your account's sync storage limit. \"Sync now\" tells you if any EPUBs were skipped for that reason — free up space or shrink the file and sync again.",
+        text: "A very large EPUB (over 50 MB) may not sync, and neither will one that would put you over your account's 500 MB sync storage limit. \"Sync now\" names which book(s) were skipped and why — free up space or remove synced books, then sync again.",
       },
       {
         kind: "text",

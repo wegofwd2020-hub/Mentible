@@ -111,9 +111,15 @@ it("enabled + unlocked: a failed item is noted in the Alert", async () => {
   );
 });
 
-it("enabled + unlocked: skipped EPUBs (over the size/storage cap) are noted in the Alert", async () => {
+it("enabled + unlocked: a too_large skip renders explicit per-book copy in the Alert", async () => {
   mockIsUnlocked.mockImplementation(async () => true);
-  mockSyncNow.mockImplementation(async () => ({ pushed: 1, pulled: 0, deleted: 0, failed: [], skipped: ["epub-1", "epub-2"] }));
+  mockSyncNow.mockImplementation(async () => ({
+    pushed: 1,
+    pulled: 0,
+    deleted: 0,
+    failed: [],
+    skipped: [{ id: "epub-1", title: "Deep Work", sizeBytes: 34 * 1024 * 1024, reason: "too_large" as const }],
+  }));
   const { getByText } = render(<LibrarySync />);
   await waitFor(() => expect(getByText(/sync now/i)).toBeTruthy());
 
@@ -121,7 +127,32 @@ it("enabled + unlocked: skipped EPUBs (over the size/storage cap) are noted in t
   await waitFor(() =>
     expect(mockAlertSpy).toHaveBeenCalledWith(
       "Sync complete",
-      expect.stringMatching(/2 epub\(s\) too large or over your storage limit/i),
+      expect.stringContaining(
+        "‘Deep Work’ (34 MB) is over the 50 MB per-book sync limit and wasn’t synced.",
+      ),
+    ),
+  );
+});
+
+it("enabled + unlocked: a storage_full skip renders explicit per-book copy in the Alert", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  mockSyncNow.mockImplementation(async () => ({
+    pushed: 1,
+    pulled: 0,
+    deleted: 0,
+    failed: [],
+    skipped: [{ id: "epub-2", title: "Atomic Habits", sizeBytes: 12 * 1024 * 1024, reason: "storage_full" as const }],
+  }));
+  const { getByText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByText(/sync now/i)).toBeTruthy());
+
+  fireEvent.press(getByText(/sync now/i));
+  await waitFor(() =>
+    expect(mockAlertSpy).toHaveBeenCalledWith(
+      "Sync complete",
+      expect.stringContaining(
+        "‘Atomic Habits’ wasn’t synced — you’ve used your 500 MB sync storage. Remove synced books to make room.",
+      ),
     ),
   );
 });
