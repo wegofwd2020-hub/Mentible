@@ -71,13 +71,6 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
         <Text style={styles.brandText}>Mentible</Text>
       </Pressable>
 
-      {nav.showAccount && (
-        <View style={styles.accountBlock}>
-          <UserChip />
-          <ChromeUsageMeter style={styles.meterRight} />
-        </View>
-      )}
-
       {nav.mode === "app" && NAV_ORDER.map(renderRow)}
 
       {/* loading: brand row (above) + Home only — no flash of the full
@@ -109,6 +102,15 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
       )}
 
       <View style={styles.spacer} />
+
+      {/* Account lives at the bottom of the rail (conventional sidebar footer),
+          separated from the Mentible brand at the top. */}
+      {nav.showAccount && (
+        <View style={styles.accountBlock}>
+          <UserChip />
+          <ChromeUsageMeter style={styles.meterRight} />
+        </View>
+      )}
     </View>
   );
 }
