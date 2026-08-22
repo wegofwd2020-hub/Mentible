@@ -5,7 +5,8 @@
 // bytes (Uint8Array) so the rest of the sync engine never touches base64.
 // `syncEngine.ts` is not a React component, so the caller passes the session
 // token in explicitly rather than this module reading a hook.
-import { authedFetch, ApiError } from "@/api/client";
+import * as FileSystem from "expo-file-system";
+import { authedFetch, ApiError, resolveBaseUrl } from "@/api/client";
 import { bytesToBase64, base64ToBytes } from "@/crypto/b64";
 
 // ── Wire shapes (decoded — byte fields are Uint8Array, everything else as-is) ─
@@ -133,16 +134,18 @@ export async function deleteBook(token: string, bookId: string): Promise<void> {
   }
 }
 
-// ── EPUBs (ADR-014 increment 2) ─────────────────────────────────────────────
-// The epub payload (potentially tens of MB) travels as a FRAMED octet-stream
-// body — this module does NOT frame/unframe it (see `epubFraming.ts`); it
-// only moves already-framed bytes across the wire. Only the small, fixed-size
-// crypto params travel as base64 headers (nonce / meta-nonce / wrapped key) —
-// `X-Client-Version` is the one exception: the backend reads it via
-// `request.headers.get(...)` as a plain string (NOT `_b64_header`, see
-// `router.py#put_epub`) and echoes it back unencoded in `get_epub`'s response
-// headers (`"X-Client-Version": e.client_version`, no `_b64e`) — so it must
-// travel as plaintext here too, unlike the other four headers.
+// ── EPUBs (ADR-014 increment 2.1) ───────────────────────────────────────────
+// The epub payload (potentially tens of MB) travels as a CIPHERTEXT-ONLY
+// octet-stream body — no framing. The GCM tag and the (tiny) encrypted meta
+// blob (title + compiledAt) ride as base64 headers alongside the other
+// fixed-size crypto params (nonce / meta-nonce / wrapped key). Web moves the
+// ciphertext through JS (`putEpub`/`getEpub`); native streams it file-to-file
+// via `expo-file-system` (`putEpubFile`/`getEpubToFile`) so a ~30MB EPUB never
+// buffers in the JS heap. `X-Client-Version` is the one plaintext header — the
+// backend reads it via `request.headers.get(...)` as a plain string (NOT
+// `_b64_header`, see `router.py#put_epub`) and echoes it back unencoded in
+// `get_epub`'s response headers (`"X-Client-Version": e.client_version`, no
+// `_b64e`) — so it must travel as plaintext here too, unlike the other six.
 
 export interface EpubMetaRow {
   epubId: string;
@@ -177,6 +180,8 @@ export async function listEpubs(token: string): Promise<EpubMetaRow[]> {
 
 export interface EpubBlobHeaders {
   nonce: Uint8Array;
+  tag: Uint8Array;
+  metaCt: Uint8Array;
   metaNonce: Uint8Array;
   wrappedDk: Uint8Array;
   dkNonce: Uint8Array;
@@ -187,6 +192,8 @@ function epubRequestHeaders(h: EpubBlobHeaders): Record<string, string> {
   return {
     "Content-Type": "application/octet-stream",
     "X-Nonce": bytesToBase64(h.nonce),
+    "X-Tag": bytesToBase64(h.tag),
+    "X-Meta": bytesToBase64(h.metaCt),
     "X-Meta-Nonce": bytesToBase64(h.metaNonce),
     "X-Wrapped-Dk": bytesToBase64(h.wrappedDk),
     "X-Dk-Nonce": bytesToBase64(h.dkNonce),
@@ -195,21 +202,51 @@ function epubRequestHeaders(h: EpubBlobHeaders): Record<string, string> {
   };
 }
 
-// `framedBody` is already-framed (meta-length-prefix + meta ciphertext + epub
-// ciphertext) — callers build it via `packEpubBody`. A 413 (single-file cap or
+// Reads the seven crypto/version headers off a Fetch `Headers`-like object
+// (both `authedFetch`'s real `Response.headers` and `FileSystem.downloadAsync`'s
+// plain header map satisfy `{ get(name): string | null }` — see the two call
+// sites below). Throws `ApiError` if any required header is missing so a
+// caller never silently proceeds with a partial/undecodable blob.
+function decodeEpubHeaders(headers: { get(name: string): string | null | undefined }, status: number): EpubBlobHeaders {
+  const nonce = headers.get("X-Nonce");
+  const tag = headers.get("X-Tag");
+  const metaCt = headers.get("X-Meta");
+  const metaNonce = headers.get("X-Meta-Nonce");
+  const wrappedDk = headers.get("X-Wrapped-Dk");
+  const dkNonce = headers.get("X-Dk-Nonce");
+  const clientVersion = headers.get("X-Client-Version");
+  if (
+    nonce == null || tag == null || metaCt == null || metaNonce == null ||
+    wrappedDk == null || dkNonce == null || clientVersion == null
+  ) {
+    throw new ApiError(status, "missing crypto headers on epub response");
+  }
+  return {
+    nonce: base64ToBytes(nonce),
+    tag: base64ToBytes(tag),
+    metaCt: base64ToBytes(metaCt),
+    metaNonce: base64ToBytes(metaNonce),
+    wrappedDk: base64ToBytes(wrappedDk),
+    dkNonce: base64ToBytes(dkNonce),
+    clientVersion, // plaintext — see note above
+  };
+}
+
+// `ct` is ciphertext-only (no framing) — the GCM tag and the (tiny) encrypted
+// meta blob ride as headers (`X-Tag` / `X-Meta`). A 413 (single-file cap or
 // per-account soft cap, both raised in `put_epub`) surfaces as `ApiError` with
 // `status === 413` so the sync engine can route it to `skipped` rather than
 // retrying forever.
 export async function putEpub(
   token: string,
   epubId: string,
-  framedBody: Uint8Array,
+  ct: Uint8Array,
   h: EpubBlobHeaders,
 ): Promise<void> {
   const res = await authedFetch(`/sync/epubs/${encodeURIComponent(epubId)}`, token, {
     method: "PUT",
     headers: epubRequestHeaders(h),
-    body: framedBody,
+    body: ct,
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -220,31 +257,53 @@ export async function putEpub(
 export async function getEpub(
   token: string,
   epubId: string,
-): Promise<{ framedBody: Uint8Array; headers: EpubBlobHeaders }> {
+): Promise<{ ct: Uint8Array; headers: EpubBlobHeaders }> {
   const res = await authedFetch(`/sync/epubs/${encodeURIComponent(epubId)}`, token);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new ApiError(res.status, body);
   }
   const buf = await res.arrayBuffer();
-  const nonce = res.headers.get("X-Nonce");
-  const metaNonce = res.headers.get("X-Meta-Nonce");
-  const wrappedDk = res.headers.get("X-Wrapped-Dk");
-  const dkNonce = res.headers.get("X-Dk-Nonce");
-  const clientVersion = res.headers.get("X-Client-Version");
-  if (nonce == null || metaNonce == null || wrappedDk == null || dkNonce == null || clientVersion == null) {
-    throw new ApiError(res.status, "missing crypto headers on epub response");
-  }
-  return {
-    framedBody: new Uint8Array(buf),
-    headers: {
-      nonce: base64ToBytes(nonce),
-      metaNonce: base64ToBytes(metaNonce),
-      wrappedDk: base64ToBytes(wrappedDk),
-      dkNonce: base64ToBytes(dkNonce),
-      clientVersion, // plaintext — see note above
-    },
-  };
+  return { ct: new Uint8Array(buf), headers: decodeEpubHeaders(res.headers, res.status) };
+}
+
+// ── Native streamed transports (ADR-014 Inc 2.1) ────────────────────────────
+// A ~30MB EPUB must never buffer in the JS heap — these move the ciphertext
+// file-to-file via `expo-file-system`'s native upload/download, bypassing
+// `authedFetch` entirely. Because they bypass it, they must replicate its
+// base URL + `Authorization: Bearer` header construction exactly (via
+// `resolveBaseUrl`, the same helper `authedFetch` is built on) — see
+// `@/api/client`. Only ever invoked from the native branch of the sync
+// engine; harmless to bundle on web since they're simply never called there.
+
+function epubUrl(epubId: string): string {
+  return `${resolveBaseUrl()}/api/v1/sync/epubs/${encodeURIComponent(epubId)}`;
+}
+
+export async function putEpubFile(
+  token: string,
+  epubId: string,
+  ctFileUri: string,
+  h: EpubBlobHeaders,
+): Promise<void> {
+  const res = await FileSystem.uploadAsync(epubUrl(epubId), ctFileUri, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: { Authorization: `Bearer ${token}`, ...epubRequestHeaders(h) },
+  });
+  if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, res.body ?? "");
+}
+
+export async function getEpubToFile(
+  token: string,
+  epubId: string,
+  destUri: string,
+): Promise<{ headers: EpubBlobHeaders }> {
+  const res = await FileSystem.downloadAsync(epubUrl(epubId), destUri, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, "");
+  return { headers: decodeEpubHeaders({ get: (name: string) => res.headers[name] ?? null }, res.status) };
 }
 
 export async function deleteEpub(token: string, epubId: string): Promise<void> {
