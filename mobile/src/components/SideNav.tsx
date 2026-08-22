@@ -134,6 +134,6 @@ const makeStyles = (c: Palette) => ({
   // Pushes the account menu / sign-in area to the trailing (bottom) edge of
   // the column when there's room, mirroring TopNavBar's trailing-edge layout.
   spacer: { flex: 1 },
-  accountBlock: { alignItems: "flex-end" as const, gap: spacing.xs, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
-  meterRight: { alignSelf: "flex-end" as const },
+  accountBlock: { alignItems: "flex-start" as const, gap: spacing.xs, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  meterRight: { alignSelf: "flex-start" as const },
 });
