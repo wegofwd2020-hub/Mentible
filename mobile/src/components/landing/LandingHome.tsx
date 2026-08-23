@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ScrollView, View } from "react-native";
 import { Hero } from "./Hero";
 import { ApprovalCardExample } from "./ApprovalCardExample";
 import { Phases } from "./Phases";
 import { Formats } from "./Formats";
 import { PilotCTA } from "./PilotCTA";
+import { setAnchorScroller, getSectionOffset } from "./landingScroll";
 import { useThemedStyles } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { spacing, type Palette } from "@/constants/theme";
@@ -12,8 +13,20 @@ import { spacing, type Palette } from "@/constants/theme";
 export function LandingHome(): React.JSX.Element {
   const s = useThemedStyles(make);
   const { isDesktop } = useResponsive();
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Let the nav's marketing links (goToAnchor) scroll this single-page landing to
+  // a section on native — sections report their offsets via `sectionAnchor`'s
+  // onLayout. Web keeps its own scrollIntoView path.
+  useEffect(() => {
+    setAnchorScroller((anchor) =>
+      scrollRef.current?.scrollTo({ y: getSectionOffset(anchor), animated: true }),
+    );
+    return () => setAnchorScroller(null);
+  }, []);
+
   return (
-    <ScrollView style={s.page} contentContainerStyle={s.inner}>
+    <ScrollView ref={scrollRef} style={s.page} contentContainerStyle={s.inner}>
       <View style={s.content}>
         {isDesktop ? (
           // Wide screens: the hero and the approval-record card sit side by side,
