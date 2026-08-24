@@ -263,7 +263,9 @@ def test_suggest_toc_pro_bypasses_gen_cap(monkeypatch):
 _BOOK = _json.dumps({"title": "T", "toc": {"subjects": []}})
 
 
-async def _fake_compile(raw: bytes, *, fmt: str = "epub", diagrams: bool = False) -> ExportResult:
+async def _fake_compile(
+    raw: bytes, *, fmt: str = "epub", diagrams: bool = False, profile: str = "default"
+) -> ExportResult:
     return ExportResult(data=b"fake-bytes", title="T", warnings=[])
 
 

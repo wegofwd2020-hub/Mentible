@@ -63,7 +63,7 @@ class _Pool:
 
 
 def _fake_compile(data=b"PK-epub"):
-    async def fake(raw, *, fmt="epub", diagrams=False):
+    async def fake(raw, *, fmt="epub", diagrams=False, profile="default"):
         return ExportResult(data=data, title="Physics & Friends", warnings=[])
 
     return fake
