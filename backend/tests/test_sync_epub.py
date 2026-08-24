@@ -179,7 +179,13 @@ def test_list_epubs_is_metadata_only():
         assert row["epub_id"] == "m1"
         assert row["byte_size"] == len(epub_ct)
         assert row["deleted"] is False
-        assert set(row.keys()) == {"epub_id", "client_version", "deleted", "updated_at", "byte_size"}
+        assert set(row.keys()) == {
+            "epub_id",
+            "client_version",
+            "deleted",
+            "updated_at",
+            "byte_size",
+        }
 
 
 # ── (c) DELETE tombstones: deleted=true, byte_size=0 ────────────────────────

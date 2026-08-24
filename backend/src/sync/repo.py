@@ -422,7 +422,9 @@ class SyncedShelves:
     updated_at: datetime | None
 
 
-_SHELVES_COLS = "owner_account_id, ciphertext, nonce, wrapped_dk, dk_nonce, client_version, updated_at"
+_SHELVES_COLS = (
+    "owner_account_id, ciphertext, nonce, wrapped_dk, dk_nonce, client_version, updated_at"
+)
 
 
 def _shelves(r: asyncpg.Record) -> SyncedShelves:
