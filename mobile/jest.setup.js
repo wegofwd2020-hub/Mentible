@@ -41,3 +41,15 @@ if (typeof globalThis.TextEncoder === "undefined") {
   globalThis.TextEncoder = TextEncoder;
   globalThis.TextDecoder = TextDecoder;
 }
+
+// react-native-aes-gcm-crypto (Inc 2.1 native EPUB crypto, ADR-014) has no
+// native module registered under jest (no native runtime) — its default
+// export is the raw NativeModules.AesGcmCrypto binding, which is undefined
+// here. Any suite that imports epubFileCrypto (or a later integration test)
+// would otherwise crash at require() time. Mock it as the ES module shape
+// the glue code imports: `import AesGcmCrypto from "react-native-aes-gcm-crypto"`
+// then `AesGcmCrypto.encryptFile(...)` / `.decryptFile(...)`.
+jest.mock("react-native-aes-gcm-crypto", () => ({
+  __esModule: true,
+  default: { encryptFile: jest.fn(), decryptFile: jest.fn() },
+}));

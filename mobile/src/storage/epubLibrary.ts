@@ -316,6 +316,54 @@ async function nativeDelete(id: string): Promise<void> {
   await writeIndex((await readIndex()).filter((m) => m.id !== id));
 }
 
+// ── native-only streamed accessors (Inc 2.1) ─────────────────────────────────
+// Used by the sync engine's file-based decrypt/encrypt path so a multi-MB
+// EPUB's plaintext bytes never cross the JS bridge as a base64 string — the
+// crypto layer decrypts straight to a temp file, and this just adopts (moves)
+// that file into the library + updates the index.
+
+/** The on-disk path for a library EPUB. Native-only — throws on web. */
+export function getEpubFileUri(id: string): string {
+  if (isWeb) throw new Error("getEpubFileUri is native-only");
+  return epubPath(id);
+}
+
+// Adopts an already-decrypted plaintext file into the library by MOVING it
+// (no bytes read into JS), then writes an index entry using the CALLER'S
+// `compiledAt` — never `new Date().toISOString()`. Stamping "now" here is
+// the exact bug that made EPUB sync never converge (see the SaveEpubInput
+// `compiledAt` doc comment above and syncEpubs.convergence.test.ts): a
+// pulled EPUB would look locally-newer than the server on the very next
+// reconcile and get re-pushed (and re-pulled, and re-pushed...) forever.
+export async function saveEpubFileNative({
+  bookId,
+  title,
+  compiledAt,
+  plaintextUri,
+}: {
+  bookId: string;
+  title: string;
+  compiledAt: string;
+  plaintextUri: string;
+}): Promise<EpubMeta> {
+  if (isWeb) throw new Error("saveEpubFileNative is native-only");
+  await ensureDir(epubDir());
+  const dest = epubPath(bookId);
+  await FileSystem.deleteAsync(dest, { idempotent: true });
+  await FileSystem.moveAsync({ from: plaintextUri, to: dest }); // no bytes in JS
+  const info = await FileSystem.getInfoAsync(dest);
+  const meta: EpubMeta = {
+    id: bookId,
+    title,
+    sizeBytes: info.exists && "size" in info ? (info.size as number) : 0,
+    compiledAt,
+  };
+  const index = (await readIndex()).filter((m) => m.id !== bookId);
+  await writeIndex([meta, ...index]);
+  _emit();
+  return meta;
+}
+
 async function nativeOpen(id: string): Promise<void> {
   // Share the EPUB to an external reader (or Files) via the OS share sheet.
   const path = epubPath(id);

@@ -36,7 +36,16 @@
         }
       ],
       "./plugins/withReleaseSigning.js",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "./plugins/withLargeHeap.js"
     ],
     "scheme": "mentible",
     "experiments": {

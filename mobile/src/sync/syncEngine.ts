@@ -6,6 +6,8 @@
 // book storage (`storage/bookStore.ts`) together. The LMK is decrypted only
 // in memory here (and inside `envelope.ts`) — it is never logged, and the
 // only place it is persisted is `lmkStore`'s device-local secure cache.
+import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Book } from "@/types/book";
 import {
@@ -18,6 +20,8 @@ import {
   encryptBook,
   decryptBook,
 } from "@/crypto/envelope";
+import { sealEpubBytesWeb, openEpubBytesWeb } from "@/crypto/epubCrypto";
+import { sealEpubFileNative, openEpubFileNative } from "@/crypto/epubFileCrypto";
 import * as syncClient from "@/sync/syncClient";
 import { ApiError } from "@/api/client";
 import { saveLMK, loadLMK } from "@/sync/lmkStore";
@@ -25,7 +29,6 @@ import { loadBookIndex, loadBook, saveBook, deleteBook as deleteLocalBook } from
 import * as epubLibrary from "@/storage/epubLibrary";
 import * as shelfStore from "@/storage/shelfStore";
 import type { Shelf } from "@/storage/shelfStore";
-import { packEpubBody, unpackEpubBody } from "@/sync/epubFraming";
 
 const LAST_SYNCED_KEY = "sbq_sync_last_synced_at"; // not a secret — plain AsyncStorage is fine
 
@@ -92,12 +95,14 @@ export interface SyncResult {
   pulled: number;
   deleted: number;
   failed: string[];
-  // EPUB ids skipped this run because a 413 (single-file or per-account cap)
+  // EPUBs skipped this run because a 413 (single-file or per-account cap)
   // rejected the push — deliberately NOT `failed` (a fixable-by-the-user cap,
   // not a bug/network blip) and NOT added to the epub shadow (so a future
   // sync, e.g. after the user frees space, retries the push rather than
   // silently treating it as already-synced). Books never contribute here.
-  skipped: string[];
+  // Richer than a bare id (was `string[]`) so the UI can say WHICH book, how
+  // big, and why — see `EpubSkip` below.
+  skipped: EpubSkip[];
 }
 
 // Whether this device already has an LMK cached (i.e. can sync without a
@@ -259,16 +264,38 @@ export function planReconcile(
   return plan;
 }
 
-// ── EPUBs (ADR-014 increment 2) ─────────────────────────────────────────────
+// ── EPUBs (ADR-014 increment 2 / 2.1) ───────────────────────────────────────
 // Same LWW reconcile as books (`planReconcile`, keyed by `compiledAt` instead
 // of `Book.updatedAt`), against its OWN shadow key (`EPUB_SHADOW_KEY`) so an
 // epub id and a book id sharing the same value can't cross-contaminate. Both
-// the epub bytes AND the small metadata blob (title/compiledAt/coverSvg) are
-// sealed independently under a fresh per-epub data key (`dk`), which is
-// itself wrapped under the device LMK — same "wrap a DK under the LMK"
-// envelope shape `syncNow` uses for books, just framed as an octet-stream
-// body (`packEpubBody`/`unpackEpubBody`, T3) instead of a JSON ciphertext
-// field, since an epub can be tens of MB.
+// the epub bytes AND the small metadata blob (title/compiledAt) are sealed
+// independently under a fresh per-epub data key (`dk`), which is itself
+// wrapped under the device LMK — same "wrap a DK under the LMK" envelope
+// shape `syncNow` uses for books.
+//
+// Platform-branched transport (Inc 2.1): a multi-MB epub must never buffer
+// as a JS string/ArrayBuffer on native (Hermes has no JIT — @noble alone is
+// too slow, and a base64 round-trip risks an OOM on a large device library),
+// so native seals/opens the epub FILE-TO-FILE (`epubFileCrypto`'s
+// `sealEpubFileNative`/`openEpubFileNative`, backed by
+// `react-native-aes-gcm-crypto`) and streams the ciphertext straight to/from
+// disk via `syncClient.putEpubFile`/`getEpubToFile` — the plaintext epub
+// bytes never cross the JS bridge. Web has no such constraint and keeps the
+// original in-memory `@noble` path (`epubCrypto`'s
+// `sealEpubBytesWeb`/`openEpubBytesWeb` + `syncClient.putEpub`/`getEpub`).
+// Both halves produce/consume the SAME wire shape — a (nonce, tag,
+// ciphertext-without-tag) triple plus a small encrypted meta blob riding as
+// headers (`EpubBlobHeaders`) — so an epub sealed on one platform opens on
+// the other. The old body-framing module (a length-prefixed meta+epub octet
+// stream) is gone: the meta ciphertext now rides as the `X-Meta`/`X-Meta-Nonce`
+// headers alongside `X-Tag`, and the body is ciphertext-only.
+export type EpubSkip = {
+  id: string;
+  title: string;
+  sizeBytes: number;
+  reason: "too_large" | "storage_full";
+};
+
 export interface EpubSyncResult {
   pushedEpubs: number;
   pulledEpubs: number;
@@ -276,7 +303,19 @@ export interface EpubSyncResult {
   failed: string[];
   // A 413 (single-file or per-account cap) during a push — see the
   // `SyncResult.skipped` doc comment for why this is distinct from `failed`.
-  skipped: string[];
+  skipped: EpubSkip[];
+}
+
+// The 413 detail lives in `ApiError.body` — FastAPI serializes an
+// `HTTPException(413, detail=...)` as the raw JSON body `{"detail": "..."}`,
+// and `syncClient`'s HTTP layer stashes that raw text on `ApiError.body`
+// (NOT `.message`, which is always the generic `"API error 413"`). The
+// backend raises exactly two distinct 413 details — `"epub too large"` (a
+// single file over the per-file cap) and `"sync storage full"` (the
+// per-account cap) — so a case-insensitive match on "storage" is enough to
+// tell them apart without brittle exact-string coupling.
+function skipReason(e: ApiError): "too_large" | "storage_full" {
+  return /storage/i.test(e.body) ? "storage_full" : "too_large";
 }
 
 export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyncResult> {
@@ -297,32 +336,61 @@ export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyn
 
   let pushedEpubs = 0, pulledEpubs = 0, deletedEpubs = 0;
   const failed: string[] = [];
-  const skipped: string[] = [];
+  const skipped: EpubSkip[] = [];
 
   for (const id of plan.shadowDrop) shadow.delete(id);
   for (const id of plan.equalKeep) shadow.add(id);
 
+  const isWeb = Platform.OS === "web";
+  // A per-run temp file name scoped by (kind, id) — cleaned up in `finally`
+  // below regardless of success/failure. `cacheDirectory` (not
+  // `documentDirectory`) because these are transient scratch files, not
+  // library content.
+  const tmp = (id: string, kind: string) => `${FileSystem.cacheDirectory}sync-${kind}-${id}.bin`;
+  const metaBytes = (m: { title: string; compiledAt: string }) =>
+    new TextEncoder().encode(JSON.stringify({ title: m.title, compiledAt: m.compiledAt }));
+
+  // ── push one epub ──
   for (const id of plan.toPush) {
+    const meta = localEpubs.find((m) => m.id === id);
+    if (!meta) {
+      failed.push(id);
+      continue;
+    }
     try {
-      const meta = localEpubs.find((m) => m.id === id);
-      if (!meta) throw new Error(`local epub ${id} vanished mid-sync`);
-      const raw = await epubLibrary.getEpubBytes(id);
-      if (!raw) throw new Error(`local epub ${id} bytes vanished mid-sync`);
-      const bytes = new Uint8Array(raw);
-
       const dk = generateKey();
-      const epubCt = seal(dk, bytes);
-      const metaJson = JSON.stringify({ title: meta.title, compiledAt: meta.compiledAt, coverSvg: meta.coverSvg });
-      const metaCt = seal(dk, new TextEncoder().encode(metaJson));
+      const metaCt = seal(dk, metaBytes(meta));
       const wrappedDk = seal(lmk, dk);
-
-      await syncClient.putEpub(token, id, packEpubBody(metaCt.ct, epubCt.ct), {
-        nonce: epubCt.nonce,
-        metaNonce: metaCt.nonce,
-        wrappedDk: wrappedDk.ct,
-        dkNonce: wrappedDk.nonce,
-        clientVersion: meta.compiledAt,
-      });
+      if (isWeb) {
+        const raw = await epubLibrary.getEpubBytes(id);
+        if (!raw) throw new Error(`local epub ${id} bytes vanished mid-sync`);
+        const sealed = sealEpubBytesWeb(dk, new Uint8Array(raw));
+        await syncClient.putEpub(token, id, sealed.ct, {
+          nonce: sealed.nonce,
+          tag: sealed.tag,
+          metaCt: metaCt.ct,
+          metaNonce: metaCt.nonce,
+          wrappedDk: wrappedDk.ct,
+          dkNonce: wrappedDk.nonce,
+          clientVersion: meta.compiledAt,
+        });
+      } else {
+        const ctUri = tmp(id, "ct");
+        try {
+          const sealed = await sealEpubFileNative(dk, epubLibrary.getEpubFileUri(id), ctUri);
+          await syncClient.putEpubFile(token, id, ctUri, {
+            nonce: sealed.nonce,
+            tag: sealed.tag,
+            metaCt: metaCt.ct,
+            metaNonce: metaCt.nonce,
+            wrappedDk: wrappedDk.ct,
+            dkNonce: wrappedDk.nonce,
+            clientVersion: meta.compiledAt,
+          });
+        } finally {
+          await FileSystem.deleteAsync(ctUri, { idempotent: true }).catch(() => {});
+        }
+      }
       shadow.add(id);
       pushedEpubs++;
     } catch (e) {
@@ -330,39 +398,66 @@ export async function syncEpubs(token: string, lmk: Uint8Array): Promise<EpubSyn
         // Deliberately NOT shadow.add()'d — this device never actually
         // synced it, so a future run (e.g. after the user frees space or the
         // cap is raised) retries the push instead of treating it as done.
-        skipped.push(id);
+        skipped.push({ id, title: meta.title, sizeBytes: meta.sizeBytes, reason: skipReason(e) });
       } else {
         failed.push(id);
       }
     }
   }
 
+  // ── pull one epub ──
   for (const id of plan.toPull) {
     try {
-      const { framedBody, headers } = await syncClient.getEpub(token, id);
-      const { metaCt, epubCt } = unpackEpubBody(framedBody);
-      const dk = open(lmk, headers.dkNonce, headers.wrappedDk);
-      const bytes = open(dk, headers.nonce, epubCt);
-      const meta = JSON.parse(
-        new TextDecoder().decode(open(dk, headers.metaNonce, metaCt)),
-      ) as { title: string; compiledAt: string; coverSvg?: string };
-      // `.slice()` (not `.buffer` directly) guarantees a real ArrayBuffer
-      // (not a SharedArrayBuffer-typed ArrayBufferLike) AND that it holds
-      // exactly `bytes`'s span, regardless of what the underlying allocation
-      // looked like.
-      const arrayBuffer = bytes.slice().buffer as ArrayBuffer;
-      // MUST pass compiledAt — `saveEpub` otherwise stamps `now()`, which
-      // would make this pulled epub look locally-newer than the server on
-      // the very next `planReconcile` and force an immediate re-push of the
-      // (potentially tens-of-MB) file right back, ping-ponging forever
-      // between any two devices that both have this epub.
-      await epubLibrary.saveEpub({
-        bookId: id,
-        title: meta.title,
-        bytes: arrayBuffer,
-        coverSvg: meta.coverSvg,
-        compiledAt: meta.compiledAt,
-      });
+      if (isWeb) {
+        const { ct, headers } = await syncClient.getEpub(token, id);
+        const dk = open(lmk, headers.dkNonce, headers.wrappedDk);
+        const bytes = openEpubBytesWeb(dk, headers.nonce, headers.tag, ct);
+        const meta = JSON.parse(
+          new TextDecoder().decode(open(dk, headers.metaNonce, headers.metaCt)),
+        ) as { title: string; compiledAt: string };
+        // `.slice()` (not `.buffer` directly) guarantees a real ArrayBuffer
+        // (not a SharedArrayBuffer-typed ArrayBufferLike) AND that it holds
+        // exactly `bytes`'s span, regardless of what the underlying
+        // allocation looked like.
+        const arrayBuffer = bytes.slice().buffer as ArrayBuffer;
+        // MUST pass compiledAt — `saveEpub` otherwise stamps `now()`, which
+        // would make this pulled epub look locally-newer than the server on
+        // the very next `planReconcile` and force an immediate re-push of
+        // the (potentially tens-of-MB) file right back, ping-ponging
+        // forever between any two devices that both have this epub.
+        await epubLibrary.saveEpub({
+          bookId: id,
+          title: meta.title,
+          bytes: arrayBuffer,
+          compiledAt: meta.compiledAt,
+        });
+      } else {
+        const ctUri = tmp(id, "ct");
+        const plainUri = tmp(id, "plain");
+        try {
+          const { headers } = await syncClient.getEpubToFile(token, id, ctUri);
+          const dk = open(lmk, headers.dkNonce, headers.wrappedDk);
+          await openEpubFileNative(dk, headers.nonce, headers.tag, ctUri, plainUri);
+          const meta = JSON.parse(
+            new TextDecoder().decode(open(dk, headers.metaNonce, headers.metaCt)),
+          ) as { title: string; compiledAt: string };
+          // Same convergence rationale as the web branch above — thread the
+          // server's compiledAt through `saveEpubFileNative`, never `now()`.
+          await epubLibrary.saveEpubFileNative({
+            bookId: id,
+            title: meta.title,
+            compiledAt: meta.compiledAt,
+            plaintextUri: plainUri,
+          });
+        } finally {
+          await FileSystem.deleteAsync(ctUri, { idempotent: true }).catch(() => {});
+          // `plainUri` is MOVED into the library by `saveEpubFileNative` on
+          // success (no bytes re-read into JS) — this delete is purely
+          // defensive cleanup for the failure path, where it's still sitting
+          // in the cache dir.
+          await FileSystem.deleteAsync(plainUri, { idempotent: true }).catch(() => {});
+        }
+      }
       shadow.add(id);
       pulledEpubs++;
     } catch {

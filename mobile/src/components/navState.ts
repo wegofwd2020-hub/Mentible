@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import type { useRouter } from "expo-router";
 import type { AuthStatus } from "@/auth/AuthProvider";
+import { scrollToAnchor } from "./landing/landingScroll";
 
 // Shared auth → nav-bar branch logic, so TopNavBar and SideNav can't drift out
 // of sync. signed_out gets the marketing rail (links + Sign in); signed_in
@@ -26,7 +27,11 @@ export function navModel(status: AuthStatus): NavModel {
 // scroll to, so land on Home instead.
 export function goToAnchor(anchor: string, router: ReturnType<typeof useRouter>): void {
   if (Platform.OS !== "web") {
-    router.push("/");
+    // Native has no DOM anchors — scroll the single-page LandingHome to the
+    // section (it registers a scroller + section offsets; see landingScroll.ts).
+    // Was `router.push("/")`, a no-op on Home → the marketing links did nothing
+    // on a native tablet (reported 2026-08-23).
+    scrollToAnchor(anchor);
     return;
   }
   if (typeof document === "undefined") return;
