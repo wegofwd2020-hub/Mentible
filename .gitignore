@@ -103,3 +103,6 @@ mobile/credentials/
 *.keystore
 verify-shots/
 .playwright-mcp/
+
+# git worktrees scratch dir — local only
+.worktrees/
