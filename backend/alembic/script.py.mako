@@ -20,6 +20,12 @@ depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # RLS: any new public table MUST have Row-Level Security enabled (Supabase exposes
+    # public tables via PostgREST + the public anon key). env.py enables RLS on all
+    # public tables after every migration automatically, so you normally need do
+    # nothing — but you MAY be explicit for a new table:
+    #     op.execute('alter table public.<new_table> enable row level security;')
+    # NEVER add a permissive `using(true)` policy or `force row level security`.
     ${upgrades if upgrades else "pass"}
 
 
