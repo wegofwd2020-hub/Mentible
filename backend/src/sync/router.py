@@ -293,7 +293,9 @@ async def put_epub(
 
     # Lightweight lookup: just the prior byte_size, never the multi-MB
     # ciphertext/meta_ciphertext columns `get_epub` would pull back.
-    existing_size = await repo.get_epub_byte_size(conn, owner_account_id=account.id, epub_id=epub_id)
+    existing_size = await repo.get_epub_byte_size(
+        conn, owner_account_id=account.id, epub_id=epub_id
+    )
     existing_bytes = existing_size if existing_size is not None else 0
     total = await repo.user_epub_total_bytes(conn, owner_account_id=account.id)
     if total - existing_bytes + len(epub_ct) > _SOFT_CAP_BYTES:
