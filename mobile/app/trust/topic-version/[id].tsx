@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { getTopicVersion, runTopicGroundingCheck, runTopicOriginalityCheck, type TopicVersionDetailView, type TopicVersionSummaryView } from "@/api/trustClient";
@@ -447,27 +447,54 @@ function TopicVersionViewerInner() {
             {reviseGen ? <GenerateProgressBar phase={reviseGen.phase} elapsedMs={reviseElapsed} /> : null}
           </Card>
         ) : null}
-        {!editing && askName ? (
-          <Card style={styles.editRow}>
-            <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
-            <TextInput
-              style={styles.input}
-              value={expertName}
-              onChangeText={setExpertName}
-              accessibilityLabel="Expert name"
-              placeholder="Expert's name"
-              autoCapitalize="words"
-            />
-            <Button
-              variant="primary"
-              label="Record approval"
-              accessibilityLabel="Record approval"
-              busy={apBusy}
-              disabled={!expertName.trim()}
-              onPress={submitOwnerApprove}
-            />
-          </Card>
-        ) : null}
+        {/* Owner approval names the expert (operator-recorded provenance). Centered
+            MODAL, not an inline block below the rendered topic — otherwise it lands
+            far below the fold with no cursor (the "Approve does nothing / name field
+            way below the text" report). Mirrors trust/version/[versionId].tsx. */}
+        <Modal
+          visible={!editing && askName}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            if (!apBusy) setAskName(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Record expert approval</Text>
+              <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
+              <TextInput
+                style={styles.input}
+                value={expertName}
+                onChangeText={setExpertName}
+                accessibilityLabel="Expert name"
+                placeholder="Expert&apos;s name"
+                placeholderTextColor={theme.textMuted}
+                autoCapitalize="words"
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={submitOwnerApprove}
+              />
+              <View style={styles.modalActions}>
+                <Button
+                  variant="ghost"
+                  label="Cancel"
+                  accessibilityLabel="Cancel approval"
+                  disabled={apBusy}
+                  onPress={() => setAskName(false)}
+                />
+                <Button
+                  variant="primary"
+                  label="Record approval"
+                  accessibilityLabel="Record approval"
+                  busy={apBusy}
+                  disabled={!expertName.trim()}
+                  onPress={submitOwnerApprove}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
         {editing ? (
           <>
             {draft.map((s, i) => (
@@ -662,6 +689,12 @@ const makeStyles = (c: Palette) => ({
   actionsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: spacing.sm, padding: spacing.md, paddingTop: 0 },
   editRow: { gap: spacing.sm, marginHorizontal: spacing.md },
   input: { color: c.text, fontSize: typography.sizeMd, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
+  // Owner "record expert approval" modal (replaces the old inline block that landed
+  // below the rendered topic, off-screen).
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center" as const, alignItems: "center" as const, padding: spacing.md },
+  modalCard: { width: "100%" as const, maxWidth: 440, backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
+  modalTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
+  modalActions: { flexDirection: "row" as const, justifyContent: "flex-end" as const, alignItems: "center" as const, gap: spacing.sm, marginTop: spacing.xs },
   bodyInput: { minHeight: 80 as const, textAlignVertical: "top" as const },
   notesBlock: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm },
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
