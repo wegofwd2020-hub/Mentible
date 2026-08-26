@@ -37,3 +37,9 @@ def test_groq_default_model_is_a_live_groq_model(monkeypatch):
     # llama-3.3-70b-versatile was removed by Groq (404); the app default overrides
     # the stale registry default with a live model.
     assert Settings().groq_default_model == "qwen/qwen3.8-27b"
+
+
+def test_groq_max_output_tokens_leaves_free_tier_headroom(monkeypatch):
+    # Below the free-tier TPM (~8000) so output + prompt fits (avoids 413).
+    cap = Settings().groq_max_output_tokens
+    assert 0 < cap < 8000
