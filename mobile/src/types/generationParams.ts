@@ -37,6 +37,6 @@ export const DEFAULT_GENERATION_PARAMS: GenerationParams = {
   language: "en",
   format: "lesson",
   diagramRegister: "balanced",
-  provider: "anthropic",
+  provider: "groq",
   model: null,
 };

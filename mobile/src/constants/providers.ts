@@ -59,6 +59,10 @@ export const PROVIDERS: ProviderInfo[] = [
   },
 ];
 
+// Default provider for the BYOK KEY-ENTRY forms (Settings + first-run wizard) —
+// Anthropic (Claude) is the provider a user most likely brings a key for. This is
+// distinct from the GENERATION default (Groq/Llama, free & keyless), which lives in
+// DEFAULT_GENERATION_PARAMS.provider — a keyless managed tester needs no key at all.
 export const DEFAULT_PROVIDER_ID = "anthropic";
 
 export function providerInfo(id: string): ProviderInfo {

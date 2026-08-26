@@ -65,12 +65,12 @@ describe("buildGenerateRequest", () => {
     expect(r.model).toBe("gpt-4o-mini");
   });
 
-  it("defaults provider_id to anthropic if the stored template predates the field", () => {
+  it("defaults provider_id to groq (the testing-phase default) if the stored template predates the field", () => {
     // An older Book.generationParams may lack `provider`; the builder still pins.
     const legacy = { ...PARAMS } as GenerationParams;
     // @ts-expect-error simulate a pre-Phase-3 stored param object
     delete legacy.provider;
     const r = buildGenerateRequest({ topic: "T", apiKey: "k", params: legacy });
-    expect(r.provider_id).toBe("anthropic");
+    expect(r.provider_id).toBe("groq");
   });
 });

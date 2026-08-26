@@ -5,6 +5,7 @@ export const FEATURES = [
   { key: "generation", label: "Generating a book" },
   { key: "reading", label: "Reading a book" },
   { key: "provider-keys", label: "Provider API keys (BYOK)" },
+  { key: "ai-model", label: "Which AI writes your book (default & BYOK)" },
   { key: "diagrams", label: "Diagrams" },
   { key: "export", label: "Export (EPUB3 / PDF)" },
   { key: "sharing", label: "Draft sharing" },

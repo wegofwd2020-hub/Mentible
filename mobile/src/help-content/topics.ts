@@ -143,6 +143,35 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "ai-model",
+    title: "Which AI writes your book",
+    featureKey: "ai-model",
+    keywords: [
+      "model", "ai", "llm", "provider", "default", "groq", "llama", "claude",
+      "anthropic", "free", "byok", "key", "quality", "switch", "change",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "By default Mentible writes with a free, fast model (Llama 3.3, via Groq) — no API key needed. It's great for drafting; output is draft-grade, which is why you review and (for validated work) approve it before it counts.",
+      },
+      {
+        kind: "text",
+        text: "Prefer the highest quality? If you know your way around AI tools, connect your own Anthropic (Claude) key — or another provider — in Settings, and pick it as the model for a book. Then you're billed by that provider directly (bring-your-own-key), and your key stays on your device.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Start a book — it uses the free default automatically.",
+          "To upgrade quality, open Settings and add your own provider key (e.g. Anthropic / Claude).",
+          "In the book's generation settings, choose that provider as the model.",
+          "New books remember your choice; you can override it per book.",
+        ],
+      },
+      { kind: "link", label: "Open Settings →", href: "/settings" },
+    ],
+  },
+  {
     id: "reading-a-book",
     title: "Open a book & get around",
     featureKey: "reading",

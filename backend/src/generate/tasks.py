@@ -341,6 +341,10 @@ async def run_generation(
         resolved_model = model
         if provider_id == "anthropic" and not resolved_model:
             resolved_model = settings.anthropic_default_model
+        elif provider_id == "groq" and not resolved_model:
+            # The wegofwd-llm registry's Groq default (llama-3.3-70b-versatile) was
+            # removed by Groq (verified 404). Override app-side to a live model.
+            resolved_model = settings.groq_default_model
         provider = build_provider(provider_id, api_key=api_key, model=resolved_model)
         req = LLMRequest(prompt=prompt, max_tokens=max_tokens, response_format="json")
         # Sync loop in a thread so we don't block the event loop.
