@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repo root = parent of the backend/ directory; used to locate the sibling Node
@@ -106,7 +106,12 @@ class Settings(BaseSettings):
     # ToS clears (ADR-005 O4 — all four cleared) AND a key is set here. ⚠ Gemini: use a PAID
     # key only — the free tier trains on / human-reviews data (O4), incompatible with managed.
     managed_openai_api_key: str | None = Field(default=None)
-    managed_groq_api_key: str | None = Field(default=None)
+    # Accepts the standard MANAGED_GROQ_API_KEY, or MENTIBLE_GROQ_KEY as a
+    # convenience alias (the name used in the local dev .env).
+    managed_groq_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("managed_groq_api_key", "MENTIBLE_GROQ_KEY"),
+    )
     managed_gemini_api_key: str | None = Field(default=None)
     # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
     # backstop that bounds OUR spend even on an unlimited plan or the staff override, against

@@ -76,8 +76,11 @@ class GenerateRequest(BaseModel):
     # an ineligible/anonymous caller is rejected by the router (not "no auth").
     api_key: str | None = Field(default=None, min_length=20, max_length=512)
 
-    # Which LLM to generate with (BYOK). Defaults to Anthropic so existing
-    # clients are unaffected. Must be a known provider (see the registry).
+    # Which LLM to generate with. The backend default stays Anthropic for
+    # backward compatibility (a keyless/unpinned direct caller is unaffected);
+    # the TESTING-PHASE "Groq default" is driven by the mobile client, which
+    # always sends provider_id explicitly (see buildGenerateRequest). Must be a
+    # known provider (see the registry).
     provider_id: str = "anthropic"
 
     # Optional model override — defaults to the provider's registry default
