@@ -187,6 +187,13 @@ class Settings(BaseSettings):
     # Qwen produces clean JSON in json_object mode; gpt-oss reasoning models do
     # not. Tunable via env without a package release.
     groq_default_model: str = Field(default="qwen/qwen3.8-27b")
+    # Per-request output-token cap for Groq. The free tier's tokens-per-minute
+    # limit (~8000, input+output) equals the model's output ceiling, so an
+    # 8000-output request + any prompt is rejected 413. Our lesson prompt is
+    # ~2000 tokens, so cap output at 5000 (2000 + 5000 < 8000, with margin).
+    # Raise (or set 0 to disable) on a paid Groq Dev tier with a higher TPM.
+    # Whole-book gen still throttles per-minute on the free tier regardless.
+    groq_max_output_tokens: int = Field(default=5000, ge=0)
 
     # ── Audio narration derivative TTS (P1-5 P4) ──────────────────────────────
     # The LLM seam is chat-completions only (no TTS field on Capabilities), so

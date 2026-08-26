@@ -346,6 +346,13 @@ async def run_generation(
             # removed by Groq (verified 404). Override app-side to a live model.
             resolved_model = settings.groq_default_model
         provider = build_provider(provider_id, api_key=api_key, model=resolved_model)
+        # Groq free tier caps tokens-per-minute (input+output) per request. The
+        # provider clamps output to the registry ceiling (8000) — which equals the
+        # free-tier TPM, leaving no room for the prompt → HTTP 413. Cap output lower
+        # (settings.groq_max_output_tokens) so input+output fits. Tunable via env;
+        # raise/remove it on a paid Groq tier with a higher TPM.
+        if provider_id == "groq" and settings.groq_max_output_tokens > 0:
+            max_tokens = min(max_tokens, settings.groq_max_output_tokens)
         req = LLMRequest(prompt=prompt, max_tokens=max_tokens, response_format="json")
         # Sync loop in a thread so we don't block the event loop.
         result = await asyncio.to_thread(
