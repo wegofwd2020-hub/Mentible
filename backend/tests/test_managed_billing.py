@@ -52,6 +52,11 @@ def _isolate_db_state():
 
 
 def test_get_managed_key_returns_configured(monkeypatch):
+    # Hermetic: clear the other managed keys so a local .env (which may set e.g.
+    # GROQ_KEY) can't leak a second managed provider into managed_provider_ids().
+    monkeypatch.setattr(settings, "managed_groq_api_key", None)
+    monkeypatch.setattr(settings, "managed_openai_api_key", None)
+    monkeypatch.setattr(settings, "managed_gemini_api_key", None)
     monkeypatch.setattr(settings, "managed_anthropic_api_key", _MANAGED_KEY)
     assert vault.get_managed_key("anthropic") == _MANAGED_KEY
     # Phase 1 is Anthropic-only — other providers aren't offered managed yet.

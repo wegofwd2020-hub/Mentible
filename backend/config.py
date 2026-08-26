@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     # convenience alias (the name used in the local dev .env).
     managed_groq_api_key: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("managed_groq_api_key", "MENTIBLE_GROQ_KEY"),
+        validation_alias=AliasChoices("managed_groq_api_key", "MENTIBLE_GROQ_KEY", "GROQ_KEY"),
     )
     managed_gemini_api_key: str | None = Field(default=None)
     # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
@@ -182,6 +182,11 @@ class Settings(BaseSettings):
 
     # ── Anthropic / model ─────────────────────────────────────────────────────
     anthropic_default_model: str = Field(default="claude-sonnet-4-6")
+    # App-level Groq default model (overrides the wegofwd-llm registry default,
+    # whose llama-3.3-70b-versatile was removed by Groq — verified 404 live).
+    # Qwen produces clean JSON in json_object mode; gpt-oss reasoning models do
+    # not. Tunable via env without a package release.
+    groq_default_model: str = Field(default="qwen/qwen3.8-27b")
 
     # ── Audio narration derivative TTS (P1-5 P4) ──────────────────────────────
     # The LLM seam is chat-completions only (no TTS field on Capabilities), so
