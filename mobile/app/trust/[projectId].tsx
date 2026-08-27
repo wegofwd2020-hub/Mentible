@@ -10,7 +10,7 @@ import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError, exportBook } from "@/api/client";
 import { copyText } from "@/lib/clipboard";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/draftExport";
-import { artifactToBook } from "@/lib/artifactToBook";
+import { artifactToBook, provenanceFromMeta } from "@/lib/artifactToBook";
 import { topicsToBook } from "@/lib/topicsToBook";
 import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
@@ -1877,12 +1877,23 @@ function TrustProjectDetailInner() {
     })();
   };
 
-  const onAddToLibrary = (versionId: string, title: string, _format: string) => {
+  const onAddToLibrary = (versionId: string, _title: string, format: string) => {
     setPubBusy(`${versionId}:lib`);
     void (async () => {
       try {
         const v = await loadVersionContent(versionId);
-        const book = artifactToBook(v.content?.sections ?? [], title, inputs, rightsMetadata(project.project));
+        // Title = the project/work name (e.g. "Tholkapiam"), NOT the format label.
+        // The format ("Long-form essay") becomes metadata; the real model comes
+        // from the version's generation_meta (else it shows the default provider).
+        const formatLabel = DRAFT_FORMATS.find((f) => f.format === format)?.label ?? format;
+        const meta = { ...rightsMetadata(project.project), format: formatLabel };
+        const book = artifactToBook(
+          v.content?.sections ?? [],
+          project.project.title,
+          inputs,
+          meta,
+          provenanceFromMeta(v.generation_meta),
+        );
         await saveBook(book); // Studio copy (kept)
         const { artifact: bytes } = await trackedExport(book, "epub", { diagrams: true });
         let coverBytes: ArrayBuffer | undefined;
@@ -1921,14 +1932,22 @@ function TrustProjectDetailInner() {
     router.push("/usage");
   };
 
-  const onDownloadAsset = (versionId: string, title: string, fmt: "epub" | "pdf" | "docx") => {
+  const onDownloadAsset = (versionId: string, _title: string, fmt: "epub" | "pdf" | "docx") => {
     setPubBusy(`${versionId}:${fmt}`);
     void (async () => {
       try {
         const v = await loadVersionContent(versionId);
-        const book = artifactToBook(v.content?.sections ?? [], title, inputs, rightsMetadata(project.project));
+        // Same fix as onAddToLibrary: the downloaded asset's title + filename use
+        // the project/work name, not the format label; carry the real model.
+        const book = artifactToBook(
+          v.content?.sections ?? [],
+          project.project.title,
+          inputs,
+          rightsMetadata(project.project),
+          provenanceFromMeta(v.generation_meta),
+        );
         const res = await trackedExport(book, fmt, { diagrams: true });
-        await downloadArtifact(res.artifact, `${slug(title)}.${fmt}`, EXPORT_MIME[fmt]);
+        await downloadArtifact(res.artifact, `${slug(project.project.title)}.${fmt}`, EXPORT_MIME[fmt]);
       } catch (e) {
         onDownloadError(e);
       } finally {

@@ -235,6 +235,11 @@ export interface BookMetadata {
   // App-only: distinct from `subjects`/dc:subject and NOT yet emitted to EPUB
   // (compiler/src/types.ts intentionally not synced for this field yet).
   tags?: string[];
+  // Publication format label for a trust-published asset (e.g. "Long-form essay").
+  // App-only, shown in the Library book-metadata window. Distinct from the book
+  // TITLE (which is the project/work name) — the format was previously (wrongly)
+  // used as the title.
+  format?: string;
   rights?: string;
   date?: string;
   identifier?: string; // ISBN/UUID; defaults to book id

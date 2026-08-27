@@ -71,6 +71,13 @@ describe("deriveRows", () => {
     expect(deriveRows(book, { title: "x" }).pages).toBe("No limit");
   });
 
+  it("surfaces the publication format from metadata (trust-published asset)", () => {
+    const book = { ...FULL_BOOK, metadata: { ...FULL_BOOK.metadata, format: "Long-form essay" } };
+    expect(deriveRows(book, { title: "x" }).format).toBe("Long-form essay");
+    // and absent when not set
+    expect(deriveRows(FULL_BOOK, { title: "x" }).format).toBeUndefined();
+  });
+
   it("shows the provider's default model when no model is pinned and no provenance exists", () => {
     const book: Book = {
       ...FULL_BOOK,

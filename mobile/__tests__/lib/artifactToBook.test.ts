@@ -1,4 +1,4 @@
-import { artifactToBook } from "@/lib/artifactToBook";
+import { artifactToBook, provenanceFromMeta } from "@/lib/artifactToBook";
 
 const inputs = [
   { id: "i1", kind: "transcript", title: "Interview 07-20", content: "…", source_ref: null, created_at: null },
@@ -44,4 +44,26 @@ it("threads an optional metadata param onto the returned Book unchanged", () => 
 it("leaves metadata undefined when none is passed (default export behavior unchanged)", () => {
   const book = artifactToBook([{ heading: "H", body: "B", source_ids: [] }], "Title", []);
   expect(book.metadata).toBeUndefined();
+});
+
+it("stamps the real model onto the topic provenance when passed (fixes 'default model')", () => {
+  const prov = provenanceFromMeta({ kind: "draft", model: "claude-opus-4-8", provider_id: "anthropic" });
+  const book = artifactToBook([{ heading: "H", body: "B", source_ids: [] }], "Tholkapiam", [], undefined, prov);
+  const topic = Object.values(book.content ?? {})[0];
+  expect(topic.provenance).toEqual({ provider: "anthropic", model: "claude-opus-4-8" });
+  expect(book.title).toBe("Tholkapiam"); // title is the project name, not a format label
+});
+
+describe("provenanceFromMeta", () => {
+  it("maps generation_meta {provider_id, model} to Provenance", () => {
+    expect(provenanceFromMeta({ model: "claude-opus-4-8", provider_id: "anthropic" })).toEqual({
+      provider: "anthropic",
+      model: "claude-opus-4-8",
+    });
+  });
+  it("returns undefined for null / missing model or provider", () => {
+    expect(provenanceFromMeta(null)).toBeUndefined();
+    expect(provenanceFromMeta({ provider_id: "anthropic" })).toBeUndefined();
+    expect(provenanceFromMeta({ model: "x" })).toBeUndefined();
+  });
 });
