@@ -43,6 +43,7 @@ export interface BookMetadataRows {
   reviewedOn: string;
   description?: string;
   tags?: string;
+  format?: string;
 }
 
 function cap(s: string | undefined | null): string {
@@ -93,6 +94,7 @@ export function deriveRows(book: Book | null, fallback: BookMetaFallback): BookM
     reviewedBy: meta?.reviewedBy ?? NOT_REVIEWED,
     reviewedOn: meta?.reviewedOn ? formatDate(meta.reviewedOn) : DASH,
     description: meta?.description || undefined,
+    format: meta?.format || undefined,
     tags: meta?.tags && meta.tags.length > 0 ? meta.tags.join(", ") : undefined,
   };
 }
@@ -174,6 +176,7 @@ export function BookMetadataModal({
         ) : (
           <ScrollView style={styles.rows} contentContainerStyle={styles.rowsContent}>
             <Row styles={styles} label="Date Released" value={rows.released} />
+            {rows.format ? <Row styles={styles} label="Format" value={rows.format} /> : null}
             <Row styles={styles} label="Model Used" value={rows.model} />
             <Row styles={styles} label="Level" value={rows.level} />
             <Row styles={styles} label="Depth" value={rows.depth} />
