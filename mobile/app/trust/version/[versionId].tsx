@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { useAuth } from "@/auth/AuthProvider";
 import { addFeedback, getVersion, runGroundingCheck, runOriginalityCheck, type VersionDetailView } from "@/api/trustClient";
@@ -52,8 +52,6 @@ function TrustVersionInner() {
   const [reviseGen, setReviseGen] = useState<GenProgress | null>(null);
   const reviseElapsed = useElapsedMs(reviseGen?.startedAt ?? null);
   const [apBusy, setApBusy] = useState(false);
-  const [askName, setAskName] = useState(false);
-  const [expertName, setExpertName] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [openCommentIndex, setOpenCommentIndex] = useState<number | null>(null);
@@ -280,38 +278,24 @@ function TrustVersionInner() {
     }
   };
 
-  // Reviewers self-approve in one tap (expert_self). An owner records on a named
-  // expert's behalf (operator) — tapping Approve reveals a name field first.
-  const runApprove = (opts?: { expertName: string }) => {
+  // SME model: the owner IS the validating expert. Owner and reviewer both
+  // approve in ONE TAP as themselves (expert_self, own identity) — no name
+  // prompt, no confirmation dialog. The Approve↔Withdraw toggle flipping is the
+  // feedback; only a FAILURE interrupts with an alert.
+  const runApprove = () => {
     setApBusy(true);
     void (async () => {
       try {
-        const ap = opts ? await approve(String(versionId), opts) : await approve(String(versionId));
-        setAskName(false);
-        setExpertName("");
+        await approve(String(versionId));
         // Approval is committed; a failed header refresh must not read as a
         // failed approval, so the reload is best-effort.
         await reloadVersion().catch(() => {});
-        Alert.alert(
-          "Approved",
-          ap.recorded_via === "expert_self" ? "Recorded as expert-validated." : `Recorded as validated by ${ap.expert_name}.`,
-        );
       } catch (e) {
         Alert.alert("Couldn't approve", e instanceof ApiError ? e.userMessage() : "Please try again.");
       } finally {
         setApBusy(false);
       }
     })();
-  };
-
-  const onApprove = () => {
-    if (isOwner) { setAskName(true); return; }
-    runApprove();
-  };
-
-  const submitOwnerApprove = () => {
-    const name = expertName.trim();
-    if (name) runApprove({ expertName: name });
   };
 
   const onUnapprove = () => {
@@ -450,7 +434,8 @@ function TrustVersionInner() {
             </View>
           ) : null}
         </View>
-        <QualityCard quality={version.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} origBusy={orBusy} onRunOriginality={onRunOriginality} />
+        {/* Actions FIRST so they're immediately visible — the Quality card used to
+            push them below the fold (needed a scroll to reveal). */}
         {!editing ? (
           <View style={styles.actionsRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Copy draft" style={styles.editBtn} onPress={onCopy}>
@@ -476,63 +461,14 @@ function TrustVersionInner() {
                   <Text style={styles.unapproveText}>{apBusy ? "…" : "Unapprove"}</Text>
                 </Pressable>
               ) : (
-                <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={onApprove}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Approve version ${version.version_no}`} disabled={apBusy} style={styles.approveBtn} onPress={runApprove}>
                   <Text style={styles.approveText}>{apBusy ? "…" : "Approve"}</Text>
                 </Pressable>
               )
             ) : null}
           </View>
         ) : null}
-        {/* Owner approval names the expert (operator-recorded provenance). Shown as
-            a centered MODAL — not an inline block — so it can never render below
-            the fold with no feedback (the "Approve does nothing" report, 2026-08-23):
-            an owner's Approve is meant to reveal this name field first. */}
-        <Modal
-          visible={!editing && askName}
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            if (!apBusy) setAskName(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Record expert approval</Text>
-              <Text style={styles.bodyText}>Record this version as validated by an expert. Enter their name — it&apos;s logged as operator-recorded by you.</Text>
-              <TextInput
-                style={styles.input}
-                value={expertName}
-                onChangeText={setExpertName}
-                accessibilityLabel="Expert name"
-                placeholder="Expert&apos;s name"
-                autoCapitalize="words"
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={submitOwnerApprove}
-              />
-              <View style={styles.modalActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel approval"
-                  style={styles.editBtn}
-                  disabled={apBusy}
-                  onPress={() => setAskName(false)}
-                >
-                  <Text style={styles.editBtnText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Record approval"
-                  style={[styles.saveBtnInline, !expertName.trim() ? styles.disabledBtn : null]}
-                  disabled={apBusy || !expertName.trim()}
-                  onPress={submitOwnerApprove}
-                >
-                  <Text style={styles.saveBtnText}>{apBusy ? "Recording…" : "Record approval"}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        <QualityCard quality={version.quality} isOwner={isOwner} busy={grBusy} onRunGrounding={onRunGrounding} origBusy={orBusy} onRunOriginality={onRunOriginality} />
         {!editing && regen ? (
           <View style={styles.editRow}>
             <Text style={styles.bodyText}>Revise — describe the change; this creates a new version.</Text>
@@ -845,11 +781,6 @@ const makeStyles = (c: Palette) => ({
   saveBtnText: { color: c.primaryText, fontSize: typography.sizeMd },
   disabledBtn: { opacity: 0.5 },
   // Owner "record expert approval" modal (replaces the old off-screen inline block).
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center" as const, alignItems: "center" as const, padding: spacing.md },
-  modalCard: { width: "100%" as const, maxWidth: 440, backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-  modalTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
-  modalActions: { flexDirection: "row" as const, justifyContent: "flex-end" as const, alignItems: "center" as const, gap: spacing.sm, marginTop: spacing.xs },
-  saveBtnInline: { backgroundColor: c.primary, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   notesBlock: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   notesTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
   notesEmpty: { color: c.textMuted, fontSize: typography.sizeSm },

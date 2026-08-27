@@ -1,11 +1,10 @@
-// Approve flow (tablet bug 2026-08-23): an OWNER's "Approve" reveals an expert-name
-// field (operator-recorded provenance) that used to render below the fold with no
-// feedback → "Approve does nothing". It now opens as a centered MODAL. A REVIEWER
-// still self-approves in one tap.
+// Approve flow — SME model: the owner IS the validating expert, so owner AND
+// reviewer both approve in ONE TAP as themselves (expert_self). No name modal,
+// no confirmation dialog.
 let mockRole = "owner";
-const mockApprove = jest.fn(async (_id: string, opts?: { expertName: string }) => ({
-  recorded_via: opts ? "operator" : "expert_self",
-  expert_name: opts?.expertName ?? null,
+const mockApprove = jest.fn(async (_id: string) => ({
+  recorded_via: "expert_self",
+  expert_name: "owner@x.z",
 }));
 
 jest.mock("expo-router", () => ({
@@ -41,25 +40,15 @@ beforeEach(() => {
   mockRole = "owner";
 });
 
-it("owner: Approve opens the expert-name modal (not a silent no-op), then records with the name", async () => {
+it("owner: Approve records in one tap as themselves — no name modal", async () => {
   render(<TrustVersion />);
   await waitFor(() => expect(screen.getByText("H")).toBeTruthy());
 
-  // Modal not shown, nothing approved yet.
-  expect(screen.queryByLabelText("Expert name")).toBeNull();
-
   fireEvent.press(screen.getByLabelText("Approve version 2"));
 
-  // The name field is now visible (the modal opened) — no approval sent yet.
-  expect(await screen.findByLabelText("Expert name")).toBeTruthy();
-  expect(mockApprove).not.toHaveBeenCalled();
-
-  fireEvent.changeText(screen.getByLabelText("Expert name"), "Dr. R. Patel");
-  fireEvent.press(screen.getByLabelText("Record approval"));
-
-  await waitFor(() =>
-    expect(mockApprove).toHaveBeenCalledWith("v1", { expertName: "Dr. R. Patel" }),
-  );
+  // one tap → approve called with NO opts (expert_self, own identity); no modal
+  await waitFor(() => expect(mockApprove).toHaveBeenCalledWith("v1"));
+  expect(screen.queryByLabelText("Expert name")).toBeNull();
 });
 
 it("reviewer: Approve records in one tap (no modal)", async () => {

@@ -1,15 +1,13 @@
-// Approve flow on the per-topic viewer (the /trust/topic-version/[id] route — the
-// screen the "Per Topic" tab actually opens). Same fix as trust/version/[versionId]:
-// an owner's Approve opens a centered MODAL for the expert name instead of an inline
-// block that rendered below the whole topic (off-screen, no cursor). A reviewer
-// self-approves in one tap.
+// Approve flow on the per-topic viewer (/trust/topic-version/[id]). SME model:
+// the owner IS the validating expert, so owner AND reviewer both approve in ONE
+// TAP as themselves (expert_self) — no name modal, no confirmation dialog.
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
 let mockRole = "owner";
-const mockApproveTopic = jest.fn(async (_id: string, opts?: { expertName: string }) => ({
-  recorded_via: opts ? "operator" : "expert_self",
-  expert_name: opts?.expertName ?? null,
+const mockApproveTopic = jest.fn(async (_id: string) => ({
+  recorded_via: "expert_self",
+  expert_name: "owner@x.z",
 }));
 
 jest.mock("expo-router", () => ({
@@ -48,20 +46,16 @@ beforeEach(() => {
   mockRole = "owner";
 });
 
-it("owner: Approve opens the expert-name modal, then records with the name", async () => {
+it("owner: Approve records in one tap as themselves — no name modal", async () => {
   render(<TopicVersionViewer />);
   await waitFor(() => expect(screen.getByLabelText("Approve version 1")).toBeTruthy());
 
-  expect(screen.queryByLabelText("Expert name")).toBeNull();
   fireEvent.press(screen.getByLabelText("Approve version 1"));
 
-  expect(await screen.findByLabelText("Expert name")).toBeTruthy();
-  expect(mockApproveTopic).not.toHaveBeenCalled();
-
-  fireEvent.changeText(screen.getByLabelText("Expert name"), "Dr. Patel");
-  fireEvent.press(screen.getByLabelText("Record approval"));
-
-  await waitFor(() => expect(mockApproveTopic).toHaveBeenCalledWith("tv1", { expertName: "Dr. Patel" }));
+  // one tap → approveTopic called with NO opts (expert_self, own identity)
+  await waitFor(() => expect(mockApproveTopic).toHaveBeenCalledWith("tv1"));
+  // no expert-name modal is ever shown
+  expect(screen.queryByLabelText("Expert name")).toBeNull();
 });
 
 it("reviewer: Approve records in one tap (no modal)", async () => {
