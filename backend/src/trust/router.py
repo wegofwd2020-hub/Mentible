@@ -83,6 +83,23 @@ async def _require_role(
     return role
 
 
+def _resolve_approver(
+    role: str, account: Account, principal: Principal, body: schemas.ApprovalIn
+) -> tuple[str, str | None, str | None, str]:
+    """Who is credited for an approval + how it's recorded (ADR-037 recorded_via).
+
+    SME model: the OWNER is the validating expert. Owner and reviewer both
+    validate as THEMSELVES → `expert_self` with their own identity (one-tap, no
+    name prompt). The `operator` path (owner records on a *named external
+    expert's* behalf) stays available but dormant — it fires only when an owner
+    explicitly supplies `expert_name`; there is no mobile UI for it today.
+    Returns (expert_name, expert_email, expert_role, recorded_via).
+    """
+    if role == "reviewer" or not body.expert_name:
+        return (account.email or principal.sub, account.email, body.expert_role, "expert_self")
+    return (body.expert_name, body.expert_email, body.expert_role, "operator")
+
+
 async def _enforce_generation_cap(
     conn: asyncpg.Connection, account: Account, principal: Principal
 ) -> None:
@@ -1531,21 +1548,9 @@ async def record_version_approval(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
     role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
-    if role == "reviewer":
-        recorded_via = "expert_self"
-        expert_name = account.email or principal.sub
-        expert_email = account.email
-        expert_role = body.expert_role
-    else:  # owner records on a named expert's behalf
-        recorded_via = "operator"
-        if not body.expert_name:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "expert_name is required when an owner records an approval",
-            )
-        expert_name = body.expert_name
-        expert_email = body.expert_email
-        expert_role = body.expert_role
+    expert_name, expert_email, expert_role, recorded_via = _resolve_approver(
+        role, account, principal, body
+    )
     ap = await approval_repo.record_approval(
         conn,
         version_id=version_id,
@@ -1580,8 +1585,9 @@ async def withdraw_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
-    recorded_via = "expert_self" if role == "reviewer" else "operator"
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
+    # SME model: owner + reviewer both withdraw as themselves → expert_self.
+    recorded_via = "expert_self"
     ap = await approval_repo.withdraw_approval(
         conn,
         version_id=version_id,
@@ -1617,21 +1623,9 @@ async def record_topic_version_approval(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
     role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
-    if role == "reviewer":
-        recorded_via = "expert_self"
-        expert_name = account.email or principal.sub
-        expert_email = account.email
-        expert_role = body.expert_role
-    else:  # owner records on a named expert's behalf
-        recorded_via = "operator"
-        if not body.expert_name:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "expert_name is required when an owner records an approval",
-            )
-        expert_name = body.expert_name
-        expert_email = body.expert_email
-        expert_role = body.expert_role
+    expert_name, expert_email, expert_role, recorded_via = _resolve_approver(
+        role, account, principal, body
+    )
     ap = await topic_approval_repo.record_topic_approval(
         conn,
         topic_version_id=topic_version_id,
@@ -1671,8 +1665,9 @@ async def withdraw_topic_version_approval(
     if project_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topic version not found")
     account = await _account(conn, principal)
-    role = await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
-    recorded_via = "expert_self" if role == "reviewer" else "operator"
+    await _require_role(conn, account, project_id, allow=("owner", "reviewer"))
+    # SME model: owner + reviewer both withdraw as themselves → expert_self.
+    recorded_via = "expert_self"
     ap = await topic_approval_repo.withdraw_topic_approval(
         conn,
         topic_version_id=topic_version_id,

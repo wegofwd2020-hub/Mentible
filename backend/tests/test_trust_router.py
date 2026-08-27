@@ -162,7 +162,10 @@ def test_reviewer_approval_is_expert_self():
         assert detail["artifacts"][0]["versions"][0]["is_validated"] is True
 
 
-def test_owner_approval_requires_expert_name():
+def test_owner_approves_as_self_or_names_external_expert():
+    # SME model: the owner IS the validating expert. A one-tap approve (no
+    # expert_name) records expert_self with the owner's own identity. Supplying an
+    # expert_name still records the dormant operator attribution (no UI today).
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
@@ -174,16 +177,19 @@ def test_owner_approval_requires_expert_name():
         vid = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions", json={"content": {}}).json()[
             "id"
         ]
-        # owner records on an expert's behalf: missing expert_name → 422
-        r = c.post(
+        # one-tap owner approve (no expert_name) → expert_self, owner's own identity
+        ap = c.post(
             f"/api/v1/trust/versions/{vid}/approvals", json={"approved_at": "2026-07-27T00:00:00Z"}
         )
-        assert r.status_code == 422
-        ap = c.post(
+        assert ap.status_code == 200
+        body = ap.json()
+        assert body["recorded_via"] == "expert_self" and body["expert_name"] == f"{owner}@x.z"
+        # explicit expert_name still records the dormant operator attribution
+        ap2 = c.post(
             f"/api/v1/trust/versions/{vid}/approvals",
             json={"approved_at": "2026-07-27T00:00:00Z", "expert_name": "Dr X"},
         ).json()
-        assert ap["recorded_via"] == "operator" and ap["expert_name"] == "Dr X"
+        assert ap2["recorded_via"] == "operator" and ap2["expert_name"] == "Dr X"
 
 
 def test_approval_unknown_version_404():
@@ -1176,22 +1182,26 @@ def test_reviewer_topic_approval_is_expert_self():
         assert ap["topic_version_id"] == tvid
 
 
-def test_owner_topic_approval_requires_expert_name():
+def test_owner_topic_approves_as_self_or_names_external_expert():
+    # SME model (topic version): one-tap owner approve → expert_self with the
+    # owner's identity; explicit expert_name → dormant operator attribution.
     with TestClient(app) as c:
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
         pid, _iid = _project_with_toc_topic(c)
         tvid = _topic_version_id(c, pid)
-        r = c.post(
+        ap = c.post(
             f"/api/v1/trust/topic-versions/{tvid}/approvals",
             json={"approved_at": "2026-08-08T00:00:00Z"},
         )
-        assert r.status_code == 422
-        ap = c.post(
+        assert ap.status_code == 200
+        body = ap.json()
+        assert body["recorded_via"] == "expert_self" and body["expert_name"] == f"{owner}@x.z"
+        ap2 = c.post(
             f"/api/v1/trust/topic-versions/{tvid}/approvals",
             json={"approved_at": "2026-08-08T00:00:00Z", "expert_name": "Dr X"},
         ).json()
-        assert ap["recorded_via"] == "operator" and ap["expert_name"] == "Dr X"
+        assert ap2["recorded_via"] == "operator" and ap2["expert_name"] == "Dr X"
 
 
 def test_topic_approval_unknown_topic_version_404():
