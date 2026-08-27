@@ -62,6 +62,24 @@ validate `LessonOutput`. Scratchpad scripts: `groq_smoke.py` (single lesson), `g
 - **Residual (not fixed, inherent to the free tier):** a **whole book** = many topics in a short
   window → cumulative 429. Free-tier managed Groq ≈ **one short generation per minute**.
 
+### Measured free-tier limits (live `x-ratelimit-*` headers, 2026-08-27)
+
+Read directly from the Groq API response headers for the free-tier key on
+`qwen/qwen3.8-27b` (service tier `on_demand`):
+
+| Limit | Value | Counts | Refresh (continuous leaky bucket) |
+|---|---|---|---|
+| **Tokens** | **8,000 / minute (TPM)** | input **+** output | ~133 tokens/sec → full within a minute (`reset-tokens: 105ms` to top up 14 spent) |
+| **Requests** | **1,000 / day (RPD)** | per request, any size | ~1 every 86 s (86,400 ÷ 1,000; `reset-requests: 1m26.4s`) |
+
+- **Binding constraint = TPM, not RPD.** One lesson ≈ ~2,000 input + up to ~5,000 output ≈ **7,000
+  tokens** — nearly the whole 8,000/min budget → **~1 topic/minute**; a multi-topic book fans out
+  faster and later topics 429 until the bucket refills. RPD (1,000/day) is nowhere near binding.
+- **Refresh is continuous** (token/leaky bucket), NOT a fixed daily/minute reset.
+- **Per-model + per-org, and Groq can change them** — the `x-ratelimit-*` response headers are the
+  source of truth, never a doc. Different Groq models report different numbers.
+- **Dev tier lifts TPM massively** → whole-book fan-out stops throttling (see §6).
+
 ## 4. The two keys (an operational note)
 
 The local `.env` briefly held two different Groq keys — `GROQ_KEY` (a **higher-TPM org**, which is
