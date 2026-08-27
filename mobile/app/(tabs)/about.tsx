@@ -7,6 +7,15 @@ import { useThemedStyles } from "@/theme";
 import { Card, Label } from "@/components/ui";
 import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
 import { buildLabel } from "@/lib/buildInfo";
+import { providerInfo } from "@/constants/providers";
+import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
+
+// The default GENERATION engine, human-readable. Provider is sourced from the
+// seam (follows automatically if the default provider changes); the model name
+// is the only literal (backend groq_default_model — one-line update if it moves).
+// NOT hardcoded to a single model like the old "claude-sonnet-4-6" which silently
+// drifted when the default changed.
+const DEFAULT_MODEL_LABEL = `Qwen 3.8 · ${providerInfo(DEFAULT_GENERATION_PARAMS.provider).label} — or your own key`;
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
@@ -26,9 +35,10 @@ export default function AboutScreen() {
       </View>
 
       <Text style={styles.blurb}>
-        {BRAND_NAME} is a purpose-built learning client for self-learners. Describe
-        what you want to learn, set the scope, and get a rendered lesson — not a
-        chat reply. Bring your own Anthropic key; your content stays yours.
+        {BRAND_NAME} turns your expertise into expert-validated, traceable
+        knowledge — capture your sources, draft with AI, validate it, and share.
+        Start free with a built-in model, or bring your own key (Claude and
+        others). Your content stays yours.
       </Text>
 
       <View style={styles.section}>
@@ -37,7 +47,7 @@ export default function AboutScreen() {
           <Row label="App" value={BRAND_NAME} styles={styles} />
           <Row label="Tagline" value={BRAND_TAGLINE} styles={styles} />
           <Row label="Version" value={buildLabel()} styles={styles} />
-          <Row label="Default model" value="claude-sonnet-4-6" styles={styles} />
+          <Row label="Default model" value={DEFAULT_MODEL_LABEL} styles={styles} />
         </Card>
       </View>
 

@@ -69,4 +69,18 @@ describe("AboutScreen", () => {
     expect(screen.queryByText("0.1.0 (MVP)")).toBeNull();
     expect(screen.getByText(buildLabel())).toBeTruthy();
   });
+
+  it("shows the current default engine, not the stale hardcoded claude-sonnet-4-6", () => {
+    render(<AboutScreen />);
+    expect(screen.queryByText("claude-sonnet-4-6")).toBeNull();
+    // Reflects the free managed default + BYOK, sourced from the seam.
+    expect(screen.getByText(/Groq.*or your own key/i)).toBeTruthy();
+  });
+
+  it("uses the SME/managed framing in the blurb, not the old self-learner/Anthropic-key copy", () => {
+    render(<AboutScreen />);
+    expect(screen.queryByText(/purpose-built learning client for self-learners/i)).toBeNull();
+    expect(screen.queryByText(/Bring your own Anthropic key/i)).toBeNull();
+    expect(screen.getByText(/expert-validated, traceable\s+knowledge/i)).toBeTruthy();
+  });
 });
