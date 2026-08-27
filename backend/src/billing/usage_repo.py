@@ -35,6 +35,22 @@ class TotalUsage:
     accounts: int
 
 
+@dataclass(frozen=True)
+class AccountUsage:
+    """One account's managed-usage rollup over a window (admin per-user dashboard).
+    Counts + cost + provenance metadata only — never any generated content."""
+
+    account_id: UUID
+    idp_sub: str | None
+    email: str | None
+    input_tokens: int
+    output_tokens: int
+    cost_micros: int
+    events: int
+    providers: list[str]
+    last_used: datetime | None
+
+
 async def record_usage(
     conn: asyncpg.Connection,
     *,
@@ -104,3 +120,41 @@ async def total_usage(conn: asyncpg.Connection, *, since: datetime) -> TotalUsag
         events=int(row["events"]),
         accounts=int(row["accounts"]),
     )
+
+
+async def usage_by_account(conn: asyncpg.Connection, *, since: datetime) -> list[AccountUsage]:
+    """Per-account managed-usage rollup from `since` to now, biggest first (admin
+    per-user dashboard). LEFT JOIN so usage survives even if the account row was
+    later deleted (idp_sub/email then null). Metadata only — no content."""
+    rows = await conn.fetch(
+        """
+        SELECT ue.account_id,
+               a.idp_sub, a.email,
+               COALESCE(sum(ue.input_tokens), 0)  AS input_tokens,
+               COALESCE(sum(ue.output_tokens), 0) AS output_tokens,
+               COALESCE(sum(ue.cost_micros), 0)   AS cost_micros,
+               count(*)                           AS events,
+               array_agg(DISTINCT ue.provider)    AS providers,
+               max(ue.ts)                         AS last_used
+          FROM usage_event ue
+          LEFT JOIN account a ON a.id = ue.account_id
+         WHERE ue.ts >= $1
+         GROUP BY ue.account_id, a.idp_sub, a.email
+         ORDER BY sum(ue.input_tokens) + sum(ue.output_tokens) DESC
+        """,
+        since,
+    )
+    return [
+        AccountUsage(
+            account_id=r["account_id"],
+            idp_sub=r["idp_sub"],
+            email=r["email"],
+            input_tokens=int(r["input_tokens"]),
+            output_tokens=int(r["output_tokens"]),
+            cost_micros=int(r["cost_micros"]),
+            events=int(r["events"]),
+            providers=sorted(p for p in (r["providers"] or []) if p),
+            last_used=r["last_used"],
+        )
+        for r in rows
+    ]

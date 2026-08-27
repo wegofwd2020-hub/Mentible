@@ -62,6 +62,16 @@ export default function AdminScreen() {
         {total} registered {total === 1 ? "account" : "accounts"}
       </Text>
 
+      <Pressable
+        style={styles.linkRow}
+        onPress={() => router.push("/admin/usage")}
+        accessibilityRole="button"
+        accessibilityLabel="View token usage by user"
+      >
+        <Text style={styles.linkText}>Token usage by user</Text>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
       {loading && users.length === 0 ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
@@ -124,4 +134,16 @@ const makeStyles = (c: Palette) => ({
   },
   chevron: { color: c.textMuted, fontSize: typography.sizeXl },
   error: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.md },
+  linkRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    backgroundColor: c.surface,
+    borderColor: c.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  linkText: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
 });
