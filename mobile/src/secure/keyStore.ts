@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { providerInfo } from "@/constants/providers";
+import { PROVIDERS, providerInfo } from "@/constants/providers";
 
 // Per-provider BYOK keys (Phase 3b). Anthropic keeps the original storage key so
 // existing installs need no migration; other providers are namespaced. The
@@ -38,6 +38,23 @@ export async function loadApiKey(provider = "anthropic"): Promise<string | null>
   const key = storageKey(provider);
   if (isNative) return SecureStore.getItemAsync(key);
   return webStore.load(key);
+}
+
+// Provider ids that currently have a BYOK key saved on THIS device — the
+// device-local half of the "your providers / access" card. Checks each provider
+// in the registry (keys are stored per provider, no index), tolerating a failed
+// read (locked keychain / private-mode web) by treating that provider as unsaved.
+export async function savedProviders(): Promise<string[]> {
+  const results = await Promise.all(
+    PROVIDERS.map(async (p) => {
+      try {
+        return (await loadApiKey(p.id)) ? p.id : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.filter((id): id is string => id !== null);
 }
 
 export async function deleteApiKey(provider = "anthropic"): Promise<void> {

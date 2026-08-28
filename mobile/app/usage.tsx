@@ -8,6 +8,8 @@ import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { ManagedPlanCard } from "@/components/ManagedPlanCard";
 import { PageContainer } from "@/components/PageContainer";
 import { PlanLimitsCard } from "@/components/PlanLimitsCard";
+import { ProvidersAccessCard } from "@/components/ProvidersAccessCard";
+import { savedProviders } from "@/secure/keyStore";
 import { clearUsage, listUsage, summarizeUsage, type UsageSummary } from "@/storage/usageStore";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
@@ -26,9 +28,11 @@ export default function UsageScreen() {
   const { plan, loading: planLoading } = useBillingPlan();
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [managed, setManaged] = useState<ManagedStatus | null>(null);
+  const [savedProvs, setSavedProvs] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setSummary(summarizeUsage(await listUsage()));
+    setSavedProvs(await savedProviders());
     // Managed status is server-sourced and only for signed-in users; failures fall
     // back to hiding the card (the device-local BYOK ledger always shows).
     if (accessToken) {
@@ -79,6 +83,14 @@ export default function UsageScreen() {
         {/* Server-sourced managed-plan meter (signed-in users). The device-local BYOK
             ledger below is unaffected. */}
         {managed && <ManagedPlanCard status={managed} />}
+
+        {/* Which LLMs the user has, and how (managed plan vs device-local BYOK key) —
+            the self-service "your providers / access" overview. */}
+        <ProvidersAccessCard
+          managedProviders={managed?.managed_providers ?? []}
+          savedProviders={savedProvs}
+          byModel={summary?.byModel ?? []}
+        />
 
         {/* BYOK honesty banner — observed, not billed. */}
         <View style={styles.disclaimer}>

@@ -28,6 +28,11 @@ export interface ManagedStatus {
   // The plan's cost allowance in micro-USD; null ⇒ no plan, 0 ⇒ unlimited.
   allowance_micros: number | null;
   window_start: string;
+  // Provider ids this account can generate on managed right now (server truth,
+  // from the same gate the generate path uses). BYOK-only providers are absent;
+  // the client adds saved BYOK keys from device storage. Optional for back-compat
+  // with an older backend that predates the field.
+  managed_providers?: string[];
 }
 
 /** The signed-in user's managed-billing status (entitlement + server-side usage). */

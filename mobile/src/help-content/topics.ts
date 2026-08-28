@@ -395,6 +395,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
+        text: "The Usage screen shows a \"Your providers\" card: for each AI provider we offer, whether it's available on your managed plan (\"Managed\"), whether you've added your own key for it on this device (\"Your key\"), or neither (\"Not set up\") — plus how many generations you've run on it from this device. Managed access is server-tracked and the same across your devices; a BYOK key and its usage are stored only on the device you added them to, so that count is per-device and never your provider's real invoice.",
+      },
+      {
+        kind: "text",
         text: "Subscriptions renew automatically. Cancel any time in Google Play (Play Store → Payments & subscriptions), not in Mentible. Cancelling leaves your books and your Library untouched; managed generation falls back to your own key.",
       },
       {

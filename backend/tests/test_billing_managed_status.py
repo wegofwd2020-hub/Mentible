@@ -131,6 +131,68 @@ async def test_active_entitlement_shows_plan_and_allowance(client, as_user, monk
     assert body["usage"]["cost_micros"] == 1_000_000
 
 
+def _clear_managed_keys(monkeypatch):
+    from backend.config import settings
+
+    for field in (
+        "managed_anthropic_api_key",
+        "managed_openai_api_key",
+        "managed_groq_api_key",
+        "managed_gemini_api_key",
+    ):
+        monkeypatch.setattr(settings, field, None)
+
+
+@pytest.mark.asyncio
+async def test_managed_providers_intersects_plan_with_configured_keys(client, as_user, monkeypatch):
+    """`managed_providers` = the plan's providers ∩ the providers we actually offer
+    managed (a configured key). managed_unlimited covers {anthropic, openai, groq},
+    but with only the Groq key configured, only groq is generatable → only groq shows."""
+    from datetime import UTC, datetime, timedelta
+
+    from backend.config import settings
+    from backend.main import app
+
+    _patch_account(monkeypatch)
+    _patch_usage(monkeypatch, 0)
+    _clear_managed_keys(monkeypatch)
+    monkeypatch.setattr(settings, "managed_groq_api_key", "gsk_test")
+    now = datetime.now(UTC)
+
+    async def _ent(conn, **kw):
+        return Entitlement(
+            plan_id="managed_unlimited",
+            status="active",
+            period_start=now - timedelta(days=1),
+            period_end=now + timedelta(days=29),
+        )
+
+    monkeypatch.setattr(entitlement_repo, "get_entitlement", _ent)
+    app.state.db = _FakePool()
+
+    body = (await client.get(MANAGED_STATUS)).json()
+    assert body["managed_providers"] == ["groq"]  # anthropic is in the plan but has no key
+
+
+@pytest.mark.asyncio
+async def test_managed_providers_empty_when_no_keys_configured(client, as_user, monkeypatch):
+    """No configured managed keys ⇒ nothing is offered managed, whatever the plan."""
+    from backend.main import app
+
+    _patch_account(monkeypatch)
+    _patch_usage(monkeypatch, 0)
+    _clear_managed_keys(monkeypatch)
+
+    async def _no_ent(conn, **kw):
+        return None
+
+    monkeypatch.setattr(entitlement_repo, "get_entitlement", _no_ent)
+    app.state.db = _FakePool()
+
+    body = (await client.get(MANAGED_STATUS)).json()
+    assert body["managed_providers"] == []
+
+
 @pytest.mark.asyncio
 async def test_past_due_status_surfaces(client, as_user, monkeypatch):
     from datetime import UTC, datetime, timedelta
