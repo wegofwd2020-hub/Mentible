@@ -1,5 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
+import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
+
+// Trust generation follows the default engine (managed Groq), not a hardcoded
+// "anthropic" — prod carries only a managed Groq key.
+const GEN_PROVIDER = DEFAULT_GENERATION_PARAMS.provider;
 
 jest.mock("@/api/trustClient", () => ({
   getProject: jest.fn(),
@@ -44,7 +49,7 @@ describe("useTrustProject().generateTopic (async submit+poll)", () => {
     expect(tc.generateTopic).toHaveBeenCalledWith(
       "p1",
       "t1",
-      { api_key: "sk-ant-x", provider_id: "anthropic", guidance: "tighten the intro" },
+      { api_key: "sk-ant-x", provider_id: GEN_PROVIDER, guidance: "tighten the intro" },
       "tok",
     );
   });
@@ -58,7 +63,7 @@ describe("useTrustProject().generateTopic (async submit+poll)", () => {
     const call = (tc.generateTopic as jest.Mock).mock.calls[0];
     const body = call[2] as { guidance?: string };
     expect(body.guidance).toBeUndefined();
-    expect(body).toMatchObject({ api_key: "sk-ant-x", provider_id: "anthropic" });
+    expect(body).toMatchObject({ api_key: "sk-ant-x", provider_id: GEN_PROVIDER });
   });
 
   it("polls the shared jobs endpoint and, on done, resolves with the version shape and refreshes the project", async () => {
