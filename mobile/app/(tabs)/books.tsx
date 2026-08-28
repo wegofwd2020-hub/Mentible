@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from "
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteBook, hasRenderableLesson, loadBook, loadBookIndex } from "@/storage/bookStore";
+import { importBookToProject } from "@/lib/importBookToProject";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
 import { reconcileGeneratingExports, loadPublishedMap } from "@/lib/trackedExport";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
@@ -64,6 +65,7 @@ function BookDetail({
   onOpen,
   onGenerate,
   onDelete,
+  onToProject,
   commentCount,
   onFeedback,
 }: {
@@ -71,6 +73,7 @@ function BookDetail({
   onOpen: (id: string) => void;
   onGenerate: (id: string) => void;
   onDelete: (id: string) => void;
+  onToProject: (id: string) => void;
   commentCount: number;
   onFeedback: () => void;
 }) {
@@ -185,6 +188,7 @@ function BookDetail({
       <View style={styles.actions}>
         <Button variant="ghost" label="Open" onPress={() => onOpen(book.id)} />
         <Button variant="ghost" label="Generate" onPress={() => onGenerate(book.id)} />
+        <Button variant="ghost" label="To Project" onPress={() => onToProject(book.id)} />
         <Pressable
           style={styles.actionDelete}
           onPress={() => onDelete(book.id)}
@@ -255,6 +259,48 @@ function BooksScreenInner() {
 
   const openBook = useCallback((id: string) => router.push(`/book/saved/${id}`), [router]);
   const generateBook = useCallback((id: string) => router.push(`/book/generate/${id}`), [router]);
+
+  // One-time self-serve migration: convert a Studio book → a trust Project. Runs
+  // on-device against the trust API (no backend change); non-destructive.
+  const toProject = useCallback(
+    (id: string) => {
+      if (!accessToken) {
+        Alert.alert("Sign in required", "Sign in to convert a book to a Project.");
+        return;
+      }
+      Alert.alert(
+        "Convert to Project?",
+        "Creates a new Project from this book's outline and drafts — your Studio book stays put. " +
+          "The drafts start UNGROUNDED (no sources/citations); add your sources and validate them " +
+          "afterwards. Images and quizzes don't carry over.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Convert",
+            onPress: () => {
+              void (async () => {
+                try {
+                  const book = await loadBook(id);
+                  if (!book) throw new Error("Couldn’t load this book on this device.");
+                  const res = await importBookToProject(book, accessToken);
+                  Alert.alert(
+                    "Imported to Projects",
+                    `${res.topicsImported} topic${res.topicsImported === 1 ? "" : "s"} imported as drafts` +
+                      (res.topicsSkipped ? `, ${res.topicsSkipped} outline-only skipped` : "") +
+                      ". Add sources, then validate.",
+                    [{ text: "Open Project", onPress: () => router.push(`/trust/${res.projectId}`) }],
+                  );
+                } catch (e) {
+                  Alert.alert("Couldn’t convert", e instanceof Error ? e.message : "Please try again.");
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [accessToken, router],
+  );
   const openFeedback = useCallback(async (id: string) => {
     const book = await loadBook(id);
     if (!book) {
@@ -333,6 +379,7 @@ function BooksScreenInner() {
             onOpen={openBook}
             onGenerate={generateBook}
             onDelete={handleDelete}
+            onToProject={toProject}
           />
         </View>
         {feedbackModal}
