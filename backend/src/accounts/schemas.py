@@ -191,6 +191,12 @@ class ManagedStatusView(BaseModel):
     usage: ManagedUsageView
     allowance_micros: int | None
     window_start: datetime
+    # The provider ids this account can generate on managed RIGHT NOW (its plan's
+    # providers, or the staff-allowlist set, intersected with the providers we
+    # actually offer managed) — powers the self-service "your providers / access"
+    # card. BYOK-only providers are absent here; the client adds saved BYOK keys
+    # from device-local storage (ADR-001 — we never see those server-side).
+    managed_providers: list[str] = []
 
 
 class PlanCapsView(BaseModel):

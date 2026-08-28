@@ -34,6 +34,8 @@ from backend.src.accounts.schemas import (
 )
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, quota, revenuecat, usage_repo
+from backend.src.billing.access import resolve_managed_access
+from backend.src.billing.vault import managed_provider_ids
 from backend.src.db.deps import get_conn
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
@@ -81,6 +83,19 @@ async def get_my_managed_status(
         ent_view = None
 
     usage = await usage_repo.period_usage(conn, account_id=account.id, since=window_start)
+
+    # Which providers this account can generate on managed right now — reuse the
+    # SAME gate the generate path uses (`resolve_managed_access`), per configured
+    # managed provider, so the card can never disagree with what actually works.
+    managed_providers = [
+        pid
+        for pid in sorted(managed_provider_ids())
+        if await resolve_managed_access(
+            conn, account_id=account.id, provider_id=pid, principal=principal
+        )
+        is not None
+    ]
+
     return ManagedStatusView(
         entitlement=ent_view,
         usage=ManagedUsageView(
@@ -91,6 +106,7 @@ async def get_my_managed_status(
         ),
         allowance_micros=allowance,
         window_start=window_start,
+        managed_providers=managed_providers,
     )
 
 
