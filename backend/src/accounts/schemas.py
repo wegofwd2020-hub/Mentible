@@ -157,6 +157,31 @@ class BillingUsageSummaryView(BaseModel):
     accounts: int
 
 
+class AdminUsageRow(BaseModel):
+    """One account's managed-usage rollup (super-admin per-user dashboard). Identity
+    reference + counts/cost only — never the internal UUID, never content (ADR-020)."""
+
+    sub: str | None
+    email: str | None
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cost_micros: int
+    events: int
+    providers: list[str]
+    last_used: datetime | None
+
+
+class AdminUsageByUser(BaseModel):
+    """Per-user managed token usage over a window, biggest first, plus grand totals."""
+
+    window_days: int
+    rows: list[AdminUsageRow]
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost_micros: int
+
+
 class ManagedStatusView(BaseModel):
     """The account-facing managed-billing status the client meter renders (Phase 5):
     the entitlement (null ⇒ no managed plan / BYOK), the window's usage, and the plan

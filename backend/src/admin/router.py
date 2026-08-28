@@ -21,6 +21,8 @@ from backend.src.accounts.schemas import (
     AdminAuditEntryView,
     AdminAuditList,
     AdminDeviceView,
+    AdminUsageByUser,
+    AdminUsageRow,
     AdminUserDetail,
     AdminUserList,
     AdminUserRow,
@@ -284,6 +286,41 @@ async def billing_usage_summary(
         cost_micros=total.cost_micros,
         events=total.events,
         accounts=total.accounts,
+    )
+
+
+@router.get("/usage/by-user", response_model=AdminUsageByUser)
+async def usage_by_user(
+    days: int = Query(default=30, ge=1, le=366),
+    _admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> AdminUsageByUser:
+    """Per-user managed token usage over the last `days`, biggest first (super-admin
+    dashboard). Read-only; metadata only — token counts + cost, never content, never
+    the internal account UUID. NOTE: only the MANAGED path is metered — BYOK
+    generations record nothing (ADR-001), so they never appear here."""
+    since = datetime.now(UTC) - timedelta(days=days)
+    accounts = await usage_repo.usage_by_account(conn, since=since)
+    rows = [
+        AdminUsageRow(
+            sub=a.idp_sub,
+            email=a.email,
+            input_tokens=a.input_tokens,
+            output_tokens=a.output_tokens,
+            total_tokens=a.input_tokens + a.output_tokens,
+            cost_micros=a.cost_micros,
+            events=a.events,
+            providers=a.providers,
+            last_used=a.last_used,
+        )
+        for a in accounts
+    ]
+    return AdminUsageByUser(
+        window_days=days,
+        rows=rows,
+        total_input_tokens=sum(r.input_tokens for r in rows),
+        total_output_tokens=sum(r.output_tokens for r in rows),
+        total_cost_micros=sum(r.cost_micros for r in rows),
     )
 
 

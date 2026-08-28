@@ -34,6 +34,28 @@ export interface AdminUserList {
   offset: number;
 }
 
+// Per-user managed token usage (super-admin dashboard). MANAGED path only —
+// BYOK generations record nothing (ADR-001), so they never appear here.
+export interface AdminUsageRow {
+  sub: string | null;
+  email: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cost_micros: number;
+  events: number;
+  providers: string[];
+  last_used: string | null;
+}
+
+export interface AdminUsageByUser {
+  window_days: number;
+  rows: AdminUsageRow[];
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_micros: number;
+}
+
 async function adminFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/admin${path}`, {
     ...options,
@@ -60,6 +82,10 @@ export async function listUsers(
   if (opts?.offset != null) params.set("offset", String(opts.offset));
   const qs = params.toString();
   return (await adminFetch<AdminUserList>(`/users${qs ? `?${qs}` : ""}`, token)) as AdminUserList;
+}
+
+export async function getUsageByUser(token: string, days = 30): Promise<AdminUsageByUser> {
+  return (await adminFetch<AdminUsageByUser>(`/usage/by-user?days=${days}`, token)) as AdminUsageByUser;
 }
 
 export async function getUser(token: string, sub: string): Promise<AdminUserDetail> {

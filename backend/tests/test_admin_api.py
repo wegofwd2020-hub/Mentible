@@ -230,3 +230,58 @@ def test_billing_usage_summary(admin_client):
     assert body["window_days"] == 30
     assert set(body) == {"window_days", "cost_micros", "events", "accounts"}
     assert body["cost_micros"] >= 0 and body["accounts"] >= 0
+
+
+async def _seed_usage(sub, provider, model, itok, otok, cost):
+    # Direct connection (not the app pool — that's bound to the app's event loop).
+    import uuid
+
+    import asyncpg
+
+    conn = await asyncpg.connect(DSN)
+    try:
+        acct_id = await conn.fetchval("SELECT id FROM account WHERE idp_sub = $1", sub)
+        await conn.execute(
+            "INSERT INTO usage_event (account_id, provider, model, input_tokens, "
+            "output_tokens, cost_micros, job_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            acct_id,
+            provider,
+            model,
+            itok,
+            otok,
+            cost,
+            uuid.uuid4(),
+        )
+    finally:
+        await conn.close()
+
+
+def test_usage_by_user_rolls_up_the_target(admin_client):
+    import asyncio
+
+    asyncio.run(_seed_usage(TARGET, "groq", "qwen/qwen3.8-27b", 2000, 5000, 0))
+    asyncio.run(_seed_usage(TARGET, "anthropic", "claude-sonnet-4-6", 1000, 3000, 12345))
+
+    r = admin_client.get(f"{ADMIN}/usage/by-user?days=30")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["window_days"] == 30
+    assert body["total_input_tokens"] >= 3000 and body["total_output_tokens"] >= 8000
+    row = next(x for x in body["rows"] if x["sub"] == TARGET)
+    # metadata only — never the internal account UUID
+    assert set(row) == {
+        "sub",
+        "email",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "cost_micros",
+        "events",
+        "providers",
+        "last_used",
+    }
+    assert row["email"] == "target@x.com"
+    assert row["input_tokens"] == 3000 and row["output_tokens"] == 8000
+    assert row["total_tokens"] == 11000
+    assert row["cost_micros"] == 12345 and row["events"] == 2
+    assert row["providers"] == ["anthropic", "groq"]  # sorted, deduped
