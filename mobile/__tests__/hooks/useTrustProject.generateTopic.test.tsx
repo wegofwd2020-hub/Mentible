@@ -2,8 +2,9 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 
-// Trust generation follows the default engine (managed Groq), not a hardcoded
-// "anthropic" — prod carries only a managed Groq key.
+// Trust generation honors the user's SELECTED engine (Settings default params),
+// not a hardcoded provider — so it defaults to the built-in engine but follows a
+// user who picked Claude + saved a key.
 const GEN_PROVIDER = DEFAULT_GENERATION_PARAMS.provider;
 
 jest.mock("@/api/trustClient", () => ({
@@ -16,8 +17,10 @@ jest.mock("@/api/trustClient", () => ({
 jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ accessToken: "tok", status: "signed_in" }) }));
 jest.mock("@/secure/keyStore", () => ({ loadApiKey: jest.fn().mockResolvedValue("sk-ant-x") }));
 jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: { is_pro: false }, loading: false }) }));
+jest.mock("@/storage/settingsStore", () => ({ loadDefaultParams: jest.fn() }));
 
 import * as tc from "@/api/trustClient";
+import { loadDefaultParams } from "@/storage/settingsStore";
 
 function mockJobDone(view: object) {
   const fn = jest.fn().mockResolvedValue({
@@ -32,12 +35,30 @@ function mockJobDone(view: object) {
 describe("useTrustProject().generateTopic (async submit+poll)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: the user hasn't changed the engine → the built-in default provider.
+    (loadDefaultParams as jest.Mock).mockResolvedValue({ ...DEFAULT_GENERATION_PARAMS });
     (tc.getProject as jest.Mock).mockResolvedValue({ project: { id: "p1", title: "P" }, my_role: "owner", artifacts: [] });
     (tc.generateTopic as jest.Mock).mockResolvedValue({ job_id: "job-1", status: "queued" });
     mockJobDone({
       status: "done",
       result: { version_id: "tv1", topic_id: "t1", version_no: 1 },
     });
+  });
+
+  it("honors the user's selected provider (e.g. Claude) over the default engine", async () => {
+    // User picked Anthropic in Settings → trust gen must use their choice + key,
+    // not a hardcoded provider (the #495 regression: Claude selection ignored).
+    (loadDefaultParams as jest.Mock).mockResolvedValue({
+      ...DEFAULT_GENERATION_PARAMS,
+      provider: "anthropic",
+    });
+    const { result } = renderHook(() => useTrustProject("p1"));
+    await waitFor(() => expect(tc.getProject).toHaveBeenCalledTimes(1));
+
+    await result.current.generateTopic("t1");
+
+    const body = (tc.generateTopic as jest.Mock).mock.calls[0][2] as { provider_id: string };
+    expect(body.provider_id).toBe("anthropic");
   });
 
   it("passes guidance through to the submit call when given", async () => {
