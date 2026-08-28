@@ -2155,6 +2155,14 @@ function TrustProjectDetailInner() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
+        <Pressable
+          style={styles.homeLink}
+          onPress={() => router.push("/")}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Home"
+        >
+          <Text style={styles.homeLinkText}>‹ Home</Text>
+        </Pressable>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
         {step ? (
@@ -2302,6 +2310,8 @@ const makeStyles = (c: Palette) => ({
   // Fraunces bakes the weight into the family name, so no fontWeight here (a
   // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
+  homeLink: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs, marginBottom: spacing.xs },
+  homeLinkText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
   // The adaptive "what to do next" banner — self-retires once nextStep()
