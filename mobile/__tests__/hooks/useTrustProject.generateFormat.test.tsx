@@ -1,5 +1,10 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
 import { useTrustProject } from "@/hooks/useTrustProject";
+import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
+
+// Trust generation follows the default engine (managed Groq), not a hardcoded
+// "anthropic" — prod carries only a managed Groq key.
+const GEN_PROVIDER = DEFAULT_GENERATION_PARAMS.provider;
 
 jest.mock("@/api/trustClient", () => ({
   getProject: jest.fn(),
@@ -53,7 +58,7 @@ describe("useTrustProject().generateFormat", () => {
     );
     expect(tc.generateVersion).toHaveBeenCalledWith(
       "art1",
-      expect.objectContaining({ provider_id: "anthropic" }),
+      expect.objectContaining({ provider_id: GEN_PROVIDER }),
       "tok",
     );
     const [url, init] = mockFetch.mock.calls[0];

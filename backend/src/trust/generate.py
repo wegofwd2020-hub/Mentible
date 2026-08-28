@@ -16,9 +16,22 @@ from wegofwd_llm.conformance import ConformanceResult, generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.registry import build_provider
 
+from backend.config import settings
 from backend.src.generate.anthropic_caller import parse_json_response
 
 from .draft_prompt import build_draft_prompt
+
+
+def cap_max_tokens(provider_id: str, max_tokens: int) -> int:
+    """Groq's free tier caps tokens-per-minute (input+output); keep OUTPUT under it
+    so input+output fits — otherwise an 8000-output request + the prompt is rejected
+    413. Mirrors generate.tasks.run_generation's cap. No-op for other providers;
+    env-tunable via GROQ_MAX_OUTPUT_TOKENS (0 disables). Shared by every trust
+    generation path (draft / topic / grounding / originality)."""
+    if provider_id == "groq" and settings.groq_max_output_tokens > 0:
+        return min(max_tokens, settings.groq_max_output_tokens)
+    return max_tokens
+
 
 _MAX_REPAIRS = 2
 # A whole-book draft is several sections of real prose — 4096 truncated multi-
@@ -60,7 +73,9 @@ def generate_draft(
     `_record_trust_usage`. Access the drafted `_DraftOutput` via `.parsed`."""
     prompt = build_draft_prompt(sources, artifact_format, topic, audience, goal, guidance)
     provider = build_provider(provider_id, api_key=api_key, model=model)
-    req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
+    req = LLMRequest(
+        prompt=prompt, max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS), response_format="json"
+    )
 
     def _validate(text: str) -> _DraftOutput:
         return _coerce_draft(parse_json_response(text))

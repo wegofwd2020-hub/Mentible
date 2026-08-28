@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from .generate import LLMRequest, build_provider, generate_validated, parse_json_response
+from .generate import (
+    LLMRequest,
+    build_provider,
+    cap_max_tokens,
+    generate_validated,
+    parse_json_response,
+)
 
 _MAX_TOKENS = 8192
 _MAX_REPAIRS = 2
@@ -89,7 +95,7 @@ def generate_originality(
             provider = build_provider(provider_id, api_key=api_key, model=model)
             req = LLMRequest(
                 prompt=build_originality_prompt(heading, body, cited),
-                max_tokens=_MAX_TOKENS,
+                max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS),
                 response_format="json",
             )
 

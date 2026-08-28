@@ -3,8 +3,9 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from backend.config import settings
 from backend.src.trust.draft_prompt import build_draft_prompt
-from backend.src.trust.generate import _coerce_draft, _DraftOutput, generate_draft
+from backend.src.trust.generate import _coerce_draft, _DraftOutput, cap_max_tokens, generate_draft
 from backend.src.trust.schemas import DraftGenerateIn
 from backend.tests.helpers import fake_provider
 
@@ -88,6 +89,20 @@ def test_request_validation():
     DraftGenerateIn(api_key="sk-ant-" + "x" * 20)  # ok, BYOK
     with pytest.raises(Exception):  # noqa: B017 — any validation error is acceptable here
         DraftGenerateIn(provider_id="bogus")
+
+
+def test_cap_max_tokens_clamps_groq_but_not_others(monkeypatch):
+    # Groq's free tier caps tokens-per-minute (input+output); the output must stay
+    # under it so input+output fits — otherwise the request is rejected 413.
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
+    assert cap_max_tokens("groq", 16384) == 5000  # clamped down
+    assert cap_max_tokens("groq", 4000) == 4000  # already under the cap — untouched
+    assert cap_max_tokens("anthropic", 16384) == 16384  # other providers uncapped
+
+
+def test_cap_max_tokens_disabled_when_zero(monkeypatch):
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 0)
+    assert cap_max_tokens("groq", 16384) == 16384  # 0 disables the cap
 
 
 def test_prompt_linkedin_uses_linkedin_rules():

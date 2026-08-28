@@ -17,6 +17,7 @@ from wegofwd_llm.registry import build_provider
 
 from backend.src.generate.anthropic_caller import parse_json_response
 
+from .generate import cap_max_tokens
 from .topic_prompt import build_topic_prompt
 
 _MAX_REPAIRS = 2
@@ -58,7 +59,9 @@ def generate_topic_draft(
     `.parsed`."""
     prompt = build_topic_prompt(sources, topic_title, subtopics, audience, goal)
     provider = build_provider(provider_id, api_key=api_key, model=model)
-    req = LLMRequest(prompt=prompt, max_tokens=_MAX_TOKENS, response_format="json")
+    req = LLMRequest(
+        prompt=prompt, max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS), response_format="json"
+    )
 
     def _validate(text: str) -> _TopicDraft:
         return _coerce_topic_draft(parse_json_response(text))
