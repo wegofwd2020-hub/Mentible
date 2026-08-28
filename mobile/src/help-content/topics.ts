@@ -172,6 +172,34 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "convert-to-project",
+    title: "Convert a Studio book to a Project",
+    featureKey: "convert-to-project",
+    keywords: [
+      "convert", "migrate", "import", "studio", "project", "book", "trust",
+      "validate", "sources", "grounded",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "Have a book in Studio you want to validate as a Project? On the book (Books tab → the book’s panel → “To Project”, or the saved-book screen → “Convert to Project”), Mentible creates a new Project from the book’s outline, and turns each generated topic into a draft. Your Studio book stays exactly where it is — this copies, it doesn’t move.",
+      },
+      {
+        kind: "text",
+        text: "The catch: Studio books have no sources, so the imported drafts start ungrounded and unvalidated. After converting, add your sources to the Project, then validate each topic (as the owner you approve in one tap). Images and quizzes don’t carry over; headings, prose, diagrams and math do.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the book and choose “Convert to Project” (or “To Project” on the Books panel).",
+          "Confirm — a new Project is created with the book’s outline and drafts.",
+          "Open the Project, add your sources under Capture.",
+          "Validate each topic (add citations / regenerate grounded if you want, then approve).",
+        ],
+      },
+    ],
+  },
+  {
     id: "reading-a-book",
     title: "Open a book & get around",
     featureKey: "reading",

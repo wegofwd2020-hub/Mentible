@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { loadBook } from "@/storage/bookStore";
+import { importBookToProject } from "@/lib/importBookToProject";
+import { Alert } from "@/lib/alert";
 import { BookEditor } from "@/components/BookEditor";
 import { TopicReadList } from "@/components/TopicReadList";
 import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
@@ -40,6 +42,42 @@ function SavedBookScreenInner() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+
+  // One-time self-serve migration: convert this Studio book → a trust Project
+  // (on-device, no backend change; non-destructive). See lib/importBookToProject.
+  const convertToProject = useCallback(
+    (b: Book, token: string) => {
+      Alert.alert(
+        "Convert to Project?",
+        "Creates a new Project from this book’s outline and drafts — your book stays here. " +
+          "The drafts start UNGROUNDED (no sources/citations); add your sources and validate them " +
+          "afterwards. Images and quizzes don’t carry over.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Convert",
+            onPress: () => {
+              void (async () => {
+                try {
+                  const res = await importBookToProject(b, token);
+                  Alert.alert(
+                    "Imported to Projects",
+                    `${res.topicsImported} topic${res.topicsImported === 1 ? "" : "s"} imported as drafts` +
+                      (res.topicsSkipped ? `, ${res.topicsSkipped} outline-only skipped` : "") +
+                      ". Add sources, then validate.",
+                    [{ text: "Open Project", onPress: () => router.push(`/trust/${res.projectId}`) }],
+                  );
+                } catch (e) {
+                  Alert.alert("Couldn’t convert", e instanceof Error ? e.message : "Please try again.");
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [router],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -162,6 +200,19 @@ function SavedBookScreenInner() {
               token={accessToken}
               onClose={() => setShareOpen(false)}
             />
+
+            <Pressable
+              style={styles.generateBtn}
+              onPress={() => convertToProject(book, accessToken)}
+              accessibilityRole="button"
+              accessibilityLabel="Convert this book to a Project"
+            >
+              <Text style={styles.generateBtnText}>Convert to Project</Text>
+            </Pressable>
+            <Text style={styles.generateHint}>
+              Creates a new Project from this book’s outline + drafts (your book
+              stays here). Drafts start ungrounded — add sources and validate after.
+            </Text>
           </>
         ) : null}
 
