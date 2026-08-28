@@ -6,13 +6,23 @@ import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
 import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
 import { loadApiKey } from "@/secure/keyStore";
+import { loadDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 import type { DraftFormat } from "@/constants/draftFormats";
 
-// Trust content generation follows the same default engine as book/lesson gen —
-// managed Groq (free), NOT Anthropic. (Prod carries only a managed Groq key, so
-// the old hardcoded "anthropic" failed for managed testers with no BYOK key.)
-const GEN_PROVIDER = DEFAULT_GENERATION_PARAMS.provider;
+// Trust content generation honors the user's SELECTED engine (Settings → default
+// generation params), exactly like book/lesson gen honors a book's pinned
+// provider — not a hardcoded provider. So a user who set Claude + saved an
+// Anthropic key generates on their own key (no managed TPM wall); a user who left
+// the default (managed Groq, free) and saved no key generates keyless on the
+// managed plan. Falls back to the built-in default if the setting can't be read.
+async function resolveGenProvider(): Promise<string> {
+  try {
+    return (await loadDefaultParams()).provider;
+  } catch {
+    return DEFAULT_GENERATION_PARAMS.provider;
+  }
+}
 
 export function useTrustProject(projectId: string) {
   const { accessToken, status } = useAuth();
@@ -95,19 +105,21 @@ export function useTrustProject(projectId: string) {
   const { run: runGenerateVersionJob } = useGenerateVersionJob();
 
   const generateVersion = useCallback(async (artifactId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }) => {
-    const key = await loadApiKey(GEN_PROVIDER);
+    const provider = await resolveGenProvider();
+    const key = await loadApiKey(provider);
     if (!key && knownNotPro) throw new Error("No API key saved. Add a key in Settings (or use your managed plan) to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
-    const v = await runGenerateVersionJob({ artifactId, apiKey: key ?? undefined, providerId: GEN_PROVIDER, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
+    const v = await runGenerateVersionJob({ artifactId, apiKey: key ?? undefined, providerId: provider, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh(); return v;
   }, [accessToken, knownNotPro, refresh, runGenerateVersionJob]);
 
   const generateFormat = useCallback(async (fmt: DraftFormat, opts?: { onPhase?: (p: "queued" | "running") => void }) => {
-    const key = await loadApiKey(GEN_PROVIDER);
+    const provider = await resolveGenProvider();
+    const key = await loadApiKey(provider);
     if (!key && knownNotPro) throw new Error("No API key saved. Add a key in Settings (or use your managed plan) to generate a draft.");
     if (!accessToken) throw new Error("Not signed in");
     const a = await createArtifact(projectId, { role: fmt.role, format: fmt.format, title: fmt.label }, accessToken);
-    const v = await runGenerateVersionJob({ artifactId: a.id, apiKey: key ?? undefined, providerId: GEN_PROVIDER, accessToken, onPhase: opts?.onPhase });
+    const v = await runGenerateVersionJob({ artifactId: a.id, apiKey: key ?? undefined, providerId: provider, accessToken, onPhase: opts?.onPhase });
     await refresh();
     return v;
   }, [accessToken, knownNotPro, projectId, refresh, runGenerateVersionJob]);
@@ -120,10 +132,11 @@ export function useTrustProject(projectId: string) {
   const { run: runSuggestTocJob } = useSuggestTocJob();
 
   const suggestToc = useCallback(async (opts?: { onPhase?: (p: "queued" | "running") => void }): Promise<StructuredTocView> => {
-    const key = await loadApiKey(GEN_PROVIDER);
+    const provider = await resolveGenProvider();
+    const key = await loadApiKey(provider);
     if (!key && knownNotPro) throw new Error("No API key saved. Add a key in Settings (or use your managed plan) to suggest an outline.");
     if (!accessToken) throw new Error("Not signed in");
-    return runSuggestTocJob({ projectId, apiKey: key ?? undefined, providerId: GEN_PROVIDER, accessToken, onPhase: opts?.onPhase });
+    return runSuggestTocJob({ projectId, apiKey: key ?? undefined, providerId: provider, accessToken, onPhase: opts?.onPhase });
   }, [accessToken, knownNotPro, projectId, runSuggestTocJob]);
 
   const saveToc = useCallback(async (toc: StructuredTocView) => {
@@ -170,10 +183,11 @@ export function useTrustProject(projectId: string) {
   const { run: runTopicGenJob } = useGenerateTopicJob();
 
   const generateTopic = useCallback(async (topicId: string, opts?: { guidance?: string; onPhase?: (p: "queued" | "running") => void }): Promise<TopicVersionCreatedView> => {
-    const key = await loadApiKey(GEN_PROVIDER);
+    const provider = await resolveGenProvider();
+    const key = await loadApiKey(provider);
     if (!key && knownNotPro) throw new Error("No API key saved. Add a key in Settings (or use your managed plan) to generate.");
     if (!accessToken) throw new Error("Not signed in");
-    const result = await runTopicGenJob({ projectId, topicId, apiKey: key ?? undefined, providerId: GEN_PROVIDER, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
+    const result = await runTopicGenJob({ projectId, topicId, apiKey: key ?? undefined, providerId: provider, accessToken, guidance: opts?.guidance, onPhase: opts?.onPhase });
     await refresh();
     return { id: result.version_id, topic_id: result.topic_id, version_no: result.version_no, created_at: null };
   }, [accessToken, knownNotPro, projectId, refresh, runTopicGenJob]);
