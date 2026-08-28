@@ -1,7 +1,8 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import TrustProjectDetail from "@/../app/trust/[projectId]";
-jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn() }), useFocusEffect: (cb: () => void) => cb() }));
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useLocalSearchParams: () => ({ projectId: "p1" }), useRouter: () => ({ back: jest.fn(), push: mockPush }), useFocusEffect: (cb: () => void) => cb() }));
 jest.mock("@/hooks/useTrustProject", () => ({ useTrustProject: jest.fn() }));
 jest.mock("@/hooks/useBillingPlan", () => ({ useBillingPlan: () => ({ plan: null, loading: false }) }));
 jest.mock("@/lib/alert", () => ({ Alert: { alert: (_t: string, _m: string, btns?: { style?: string; onPress?: () => void }[]) => { btns?.find((b) => b.style !== "cancel")?.onPress?.(); } } }));
@@ -35,6 +36,12 @@ it("owner sees the generate picker on Drafts when there are no artifacts yet", a
   expect(screen.getByText("LinkedIn post")).toBeTruthy();
   // No sources on this fixture, so the picker is disabled with its hint.
   expect(screen.getByText(/add a source first/i)).toBeTruthy();
+});
+it("has a Home link that navigates back to the app home from any phase", async () => {
+  (useTrustProject as jest.Mock).mockReturnValue(proj("owner"));
+  render(<TrustProjectDetail />);
+  fireEvent.press(await screen.findByLabelText("Back to Home"));
+  expect(mockPush).toHaveBeenCalledWith("/");
 });
 it("shows the recorded_via chip on a validated version (Feedback)", async () => {
   (useTrustProject as jest.Mock).mockReturnValue(proj("reviewer", true, "expert_self"));
