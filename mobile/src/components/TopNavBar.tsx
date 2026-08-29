@@ -229,5 +229,5 @@ const makeStyles = (c: Palette) => ({
   account: { marginRight: spacing.sm, alignSelf: "center" as const },
   // Usage pill, right-aligned so it reads as belonging under the avatar. Absent
   // (renders null) for BYOK/anonymous.
-  meterRight: { alignSelf: "flex-end" as const, marginRight: spacing.sm, marginBottom: spacing.xs },
+  meterRight: { alignSelf: "flex-start" as const, marginLeft: spacing.sm, marginBottom: spacing.xs },
 });
