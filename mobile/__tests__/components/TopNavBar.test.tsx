@@ -2,6 +2,19 @@ import React from "react";
 import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
+// Control the viewport width so the responsive marketing nav (stacks < 480px) is
+// deterministic. Mock the leaf module `useWindowDimensions` re-exports from, since
+// spying the destructured barrel import doesn't intercept. `mockWidth` (mock-prefixed
+// so jest allows the factory to close over it) is the live value.
+let mockWidth = 900;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: mockWidth, height: 800, scale: 1, fontScale: 1 }),
+}));
+function setWidth(width: number) {
+  mockWidth = width;
+}
+
 // TopNavBar (like SideNav) reads useSafeAreaInsets. No test in this repo
 // renders such a component outside expo-router's own SafeAreaProvider
 // wrapper, so it needs the library's own jest mock wired in explicitly, or
@@ -85,6 +98,34 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockStatus = null;
   mockAuthStatus = "signed_in";
+  setWidth(900); // wide by default → single-row nav; responsive tests override
+});
+
+describe("responsive marketing nav", () => {
+  it("stacks into two rows on a narrow phone (< 480px)", () => {
+    setWidth(360);
+    mockAuthStatus = "signed_out";
+    render(<TopNavBar {...makeProps(0)} />);
+    expect(screen.getByTestId("nav-marketing-stacked")).toBeTruthy();
+    // all links + the CTA are still present, just on the second row
+    expect(screen.getByLabelText("Sign in")).toBeTruthy();
+    expect(screen.getByText("Formats")).toBeTruthy();
+  });
+
+  it("keeps a single row on a wide screen", () => {
+    setWidth(900);
+    mockAuthStatus = "signed_out";
+    render(<TopNavBar {...makeProps(0)} />);
+    expect(screen.queryByTestId("nav-marketing-stacked")).toBeNull();
+    expect(screen.getByText("Formats")).toBeTruthy();
+  });
+
+  it("never stacks the signed-in app nav (only marketing)", () => {
+    setWidth(360);
+    mockAuthStatus = "signed_in";
+    render(<TopNavBar {...makeProps(0)} />);
+    expect(screen.queryByTestId("nav-marketing-stacked")).toBeNull();
+  });
 });
 
 describe("auth-aware chrome", () => {

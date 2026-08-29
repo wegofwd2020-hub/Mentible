@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,11 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
   const nav = navModel(status);
   const routeByName = new Map(state.routes.map((r) => [r.name, r] as const));
   const activeName = state.routes[state.index]?.name;
+  const { width } = useWindowDimensions();
+  // On a narrow phone the marketing links + Sign-in cram onto one row (they need
+  // ~480px). Below that, stack into two rows — logo + Sign-in on top, links below
+  // — so nothing overlaps and every link is reachable without a squeeze.
+  const stackMarketing = nav.mode === "marketing" && width < 480;
 
   const go = (name: string) => {
     const route = routeByName.get(name);
@@ -70,6 +75,67 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
     );
   };
 
+  const logoBtn = (
+    <Pressable
+      onPress={() => go("index")}
+      accessibilityRole="button"
+      accessibilityLabel="Mentible — go to Home"
+      // Press feedback so a tap always registers, even when already on Home.
+      style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
+    >
+      <Image
+        source={require("../../assets/brand/mentible-icon-1024-redorange.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+    </Pressable>
+  );
+
+  const signInBtn = nav.showSignIn ? (
+    <Pressable
+      onPress={() => router.push("/sign-in")}
+      accessibilityRole="button"
+      accessibilityLabel="Sign in"
+      style={styles.signInBtn}
+    >
+      <Text style={styles.signInText}>Sign in</Text>
+    </Pressable>
+  ) : null;
+
+  const marketingLinkEls = MARKETING_LINKS.map((link) => (
+    <Pressable
+      key={link.anchor}
+      onPress={() => goToAnchor(link.anchor, router)}
+      accessibilityRole="link"
+      accessibilityLabel={link.label}
+      style={styles.marketingLink}
+    >
+      <Text style={styles.marketingLinkText} numberOfLines={1}>
+        {link.label}
+      </Text>
+    </Pressable>
+  ));
+
+  // Narrow phone, marketing: two rows — logo + Sign-in on top, links below — so the
+  // CTA stays prominent and nothing crams/overlaps.
+  if (stackMarketing) {
+    return (
+      <View style={[styles.bar, { paddingTop: insets.top + spacing.xs }]}>
+        <View style={styles.stackTopRow} testID="nav-marketing-stacked">
+          {logoBtn}
+          {signInBtn}
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.stackLinksRow}
+        >
+          {marketingLinkEls}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.bar, { paddingTop: insets.top + spacing.xs }]}>
       <View style={styles.topRow}>
@@ -79,51 +145,14 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
           style={styles.scroll}
           contentContainerStyle={styles.row}
         >
-          <Pressable
-            onPress={() => go("index")}
-            accessibilityRole="button"
-            accessibilityLabel="Mentible — go to Home"
-            // Press feedback so a tap always registers, even when already on Home.
-            style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
-          >
-            <Image
-              source={require("../../assets/brand/mentible-icon-1024-redorange.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Pressable>
-
+          {logoBtn}
           {nav.mode === "app" && NAV_ORDER.map(renderTile)}
-
           {/* loading: logo (above) + Home only — no flash of the full app-tab
               set, no marketing links, no Sign-in, while auth resolves. */}
           {nav.mode === "loading" && renderTile("index")}
-
-          {nav.mode === "marketing" &&
-            MARKETING_LINKS.map((link) => (
-              <Pressable
-                key={link.anchor}
-                onPress={() => goToAnchor(link.anchor, router)}
-                accessibilityRole="link"
-                accessibilityLabel={link.label}
-                style={styles.marketingLink}
-              >
-                <Text style={styles.marketingLinkText} numberOfLines={1}>
-                  {link.label}
-                </Text>
-              </Pressable>
-            ))}
+          {nav.mode === "marketing" && marketingLinkEls}
         </ScrollView>
-        {nav.showSignIn && (
-          <Pressable
-            onPress={() => router.push("/sign-in")}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-            style={styles.signInBtn}
-          >
-            <Text style={styles.signInText}>Sign in</Text>
-          </Pressable>
-        )}
+        {signInBtn}
         {nav.showAccount && <View style={styles.account}><UserChip /></View>}
       </View>
       {/* Engine + usage chip — only in the signed-in app, never on the marketing/
@@ -145,6 +174,20 @@ const makeStyles = (c: Palette) => ({
   topRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
+  },
+  // Narrow-phone marketing: row 1 (logo + Sign-in) and row 2 (links).
+  stackTopRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    paddingHorizontal: spacing.sm,
+  },
+  stackLinksRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   // minWidth:0 lets the flex child shrink below its content width; marginRight keeps
   // a clear gap so the scrollable marketing links never butt up against (and appear
