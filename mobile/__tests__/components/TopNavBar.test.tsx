@@ -122,13 +122,19 @@ describe("in-shell engine + usage chip", () => {
     expect(screen.getByText(/Pro ·/)).toBeTruthy(); // managed allowance pill
   });
 
-  it("still shows the engine chip for a BYOK/anonymous user (always-on)", () => {
-    mockStatus = null;
+  it("shows the engine chip for a signed-in BYOK user (no managed plan)", () => {
+    mockStatus = null; // signed_in (default) + no entitlement = BYOK app user
     render(<TopNavBar {...makeProps(0)} />);
-    // Always visible now — the whole point of Part B — with a device token count.
     expect(screen.getByLabelText(/open usage/)).toBeTruthy();
     expect(screen.getByText(/tok$/)).toBeTruthy();
     expect(screen.getByText("Projects")).toBeTruthy(); // rest of chrome intact
+  });
+
+  it("hides the engine chip on the marketing (signed-out) home", () => {
+    mockAuthStatus = "signed_out"; // marketing mode — a visitor, not a generating user
+    mockStatus = null;
+    render(<TopNavBar {...makeProps(0)} />);
+    expect(screen.queryByLabelText(/open usage/)).toBeNull();
   });
 
   it("tapping the engine chip navigates to /usage", () => {

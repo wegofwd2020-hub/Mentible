@@ -126,8 +126,9 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
         )}
         {nav.showAccount && <View style={styles.account}><UserChip /></View>}
       </View>
-      {/* Plan / usage under the avatar (managed users only; null otherwise). */}
-      <ChromeUsageMeter style={styles.meterRight} />
+      {/* Engine + usage chip — only in the signed-in app, never on the marketing/
+          loading home (a visitor who isn't generating shouldn't see engine internals). */}
+      {nav.mode === "app" && <ChromeUsageMeter style={styles.meterRight} />}
     </View>
   );
 }
@@ -145,7 +146,10 @@ const makeStyles = (c: Palette) => ({
     flexDirection: "row" as const,
     alignItems: "center" as const,
   },
-  scroll: { flex: 1 },
+  // minWidth:0 lets the flex child shrink below its content width; marginRight keeps
+  // a clear gap so the scrollable marketing links never butt up against (and appear
+  // to sit under) the trailing Sign-in button on a narrow phone.
+  scroll: { flex: 1, minWidth: 0, marginRight: spacing.sm },
   // flexGrow + center → centered when the row fits, scrollable when it overflows.
   row: {
     flexGrow: 1,
@@ -170,6 +174,7 @@ const makeStyles = (c: Palette) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginRight: spacing.sm,
+    flexShrink: 0, // never shrink the button — the scrollable nav yields space instead
   },
   signInText: {
     color: c.primaryText,
