@@ -2,10 +2,17 @@ import json
 
 import pytest
 from pydantic import ValidationError
+from wegofwd_llm.errors import LLMError, LLMRateLimitError, LLMResponseError, LLMSchemaError
 
 from backend.config import settings
 from backend.src.trust.draft_prompt import build_draft_prompt
-from backend.src.trust.generate import _coerce_draft, _DraftOutput, cap_max_tokens, generate_draft
+from backend.src.trust.generate import (
+    _coerce_draft,
+    _DraftOutput,
+    cap_max_tokens,
+    generate_draft,
+    token_limit_message,
+)
 from backend.src.trust.schemas import DraftGenerateIn
 from backend.tests.helpers import fake_provider
 
@@ -91,18 +98,83 @@ def test_request_validation():
         DraftGenerateIn(provider_id="bogus")
 
 
+def test_token_limit_message_groq_413_names_engine_and_fix():
+    msg = token_limit_message("groq", LLMResponseError("groq returned HTTP 413"))
+    assert msg is not None
+    assert "Groq" in msg
+    assert "8,000" in msg  # the free-tier limit is stated
+    assert "Settings" in msg and "Engine" in msg  # points at the fix
+
+
+def test_token_limit_message_groq_rate_limit():
+    msg = token_limit_message("groq", LLMRateLimitError("groq rate limited"))
+    assert msg is not None
+    assert "per-minute" in msg
+    assert "Engine" in msg
+
+
+def test_token_limit_message_none_for_unrelated_errors():
+    # A generic LLM error / schema failure is NOT a token limit → caller keeps its
+    # own message.
+    assert token_limit_message("groq", LLMError("boom")) is None
+    assert token_limit_message("groq", LLMSchemaError("bad json")) is None
+    assert token_limit_message("anthropic", LLMResponseError("500 upstream")) is None
+
+
+def test_token_limit_message_non_groq_rate_limit_is_generic_but_named():
+    msg = token_limit_message("anthropic", LLMRateLimitError("429"))
+    assert msg is not None and "Claude" in msg  # named, but no free-tier Groq copy
+    # a 413 on a paid provider falls through to the caller's generic message
+    assert token_limit_message("anthropic", LLMResponseError("HTTP 413")) is None
+
+
 def test_cap_max_tokens_clamps_groq_but_not_others(monkeypatch):
     # Groq's free tier caps tokens-per-minute (input+output); the output must stay
     # under it so input+output fits — otherwise the request is rejected 413.
     monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
-    assert cap_max_tokens("groq", 16384) == 5000  # clamped down
+    monkeypatch.setattr(settings, "groq_tpm_limit", 8000)
+    assert cap_max_tokens("groq", 16384) == 5000  # flat cap, no prompt given
     assert cap_max_tokens("groq", 4000) == 4000  # already under the cap — untouched
     assert cap_max_tokens("anthropic", 16384) == 16384  # other providers uncapped
 
 
 def test_cap_max_tokens_disabled_when_zero(monkeypatch):
     monkeypatch.setattr(settings, "groq_max_output_tokens", 0)
-    assert cap_max_tokens("groq", 16384) == 16384  # 0 disables the cap
+    monkeypatch.setattr(settings, "groq_tpm_limit", 0)
+    assert cap_max_tokens("groq", 16384) == 16384  # both stages disabled
+
+
+def test_cap_max_tokens_shrinks_output_for_a_large_prompt(monkeypatch):
+    # The bug this fixes: a large-source topic (~3600 input tokens) + a flat 5000
+    # output cap = 8600 > 8000 TPM → 413. The input-aware shrink drops the output
+    # request so input+output fits the budget.
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
+    monkeypatch.setattr(settings, "groq_tpm_limit", 8000)
+    big_prompt = "x" * 14000  # ~5600 est input tokens (14000 / 2.5)
+    capped = cap_max_tokens("groq", 16384, prompt=big_prompt)
+    assert capped < 5000  # shrunk below the flat cap
+    assert 4000 + capped < 8000  # input + output fits the TPM budget (with margin)
+
+
+def test_cap_max_tokens_small_prompt_keeps_flat_cap(monkeypatch):
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
+    monkeypatch.setattr(settings, "groq_tpm_limit", 8000)
+    # A tiny prompt leaves plenty of budget → the flat 5000 cap still binds.
+    assert cap_max_tokens("groq", 16384, prompt="short") == 5000
+
+
+def test_cap_max_tokens_tpm_shrink_disabled_when_zero(monkeypatch):
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
+    monkeypatch.setattr(settings, "groq_tpm_limit", 0)  # disable input-aware shrink
+    assert cap_max_tokens("groq", 16384, prompt="x" * 14000) == 5000  # only flat cap
+
+
+def test_cap_max_tokens_never_returns_below_floor(monkeypatch):
+    # An input so large it eats the whole budget still returns a small positive
+    # floor (the request will 413 anyway — genuinely too big for the free tier).
+    monkeypatch.setattr(settings, "groq_max_output_tokens", 5000)
+    monkeypatch.setattr(settings, "groq_tpm_limit", 8000)
+    assert cap_max_tokens("groq", 16384, prompt="x" * 40000) >= 256
 
 
 def test_prompt_linkedin_uses_linkedin_rules():

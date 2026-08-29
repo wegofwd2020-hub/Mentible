@@ -93,9 +93,10 @@ def generate_grounding(*, sections, sources, provider_id, api_key, model) -> tup
         else:
             cited = [(id_to_label[sid], _source_content(sources, sid)) for sid in live_ids]
             provider = build_provider(provider_id, api_key=api_key, model=model)
+            gp = build_grounding_prompt(sec.get("heading") or "", body, cited)
             req = LLMRequest(
-                prompt=build_grounding_prompt(sec.get("heading") or "", body, cited),
-                max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS),
+                prompt=gp,
+                max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS, prompt=gp),
                 response_format="json",
             )
 

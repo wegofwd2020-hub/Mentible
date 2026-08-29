@@ -93,9 +93,10 @@ def generate_originality(
         else:
             cited = [(id_to_label[sid], _source_content(sources, sid)) for sid in live_ids]
             provider = build_provider(provider_id, api_key=api_key, model=model)
+            op = build_originality_prompt(heading, body, cited)
             req = LLMRequest(
-                prompt=build_originality_prompt(heading, body, cited),
-                max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS),
+                prompt=op,
+                max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS, prompt=op),
                 response_format="json",
             )
 

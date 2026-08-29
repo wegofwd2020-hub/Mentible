@@ -55,7 +55,7 @@ from . import (
     topic_repo,
 )
 from .access import project_id_for_artifact, project_id_for_version
-from .generate import draft_output_to_sections, generate_draft
+from .generate import draft_output_to_sections, generate_draft, token_limit_message
 from .generate_topic import generate_topic_draft
 from .grounding import generate_grounding
 from .originality import generate_originality
@@ -247,18 +247,26 @@ async def _run(
                     error="The API key was rejected by the provider. Check it in Settings.",
                 )
                 return
-            except LLMRateLimitError:
+            except LLMRateLimitError as e:
                 log.warning("topic_generation_failed", job_id=str(job_id), reason="rate_limit")
                 await _write_status(
                     r,
                     job_id,
                     "failed",
-                    error="The provider is rate-limiting requests. Try again shortly.",
+                    error=(
+                        token_limit_message(provider_id, e)
+                        or "The provider is rate-limiting requests. Try again shortly."
+                    ),
                 )
                 return
-            except LLMError:
+            except LLMError as e:
                 log.warning("topic_generation_failed", job_id=str(job_id), reason="llm_error")
-                await _write_status(r, job_id, "failed", error="topic generation failed")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error=token_limit_message(provider_id, e) or "topic generation failed",
+                )
                 return
             except Exception:
                 # Defense in depth: never let a raw error escape with key material.
@@ -482,18 +490,26 @@ async def _run_version(
                     error="The API key was rejected by the provider. Check it in Settings.",
                 )
                 return
-            except LLMRateLimitError:
+            except LLMRateLimitError as e:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="rate_limit")
                 await _write_status(
                     r,
                     job_id,
                     "failed",
-                    error="The provider is rate-limiting requests. Try again shortly.",
+                    error=(
+                        token_limit_message(provider_id, e)
+                        or "The provider is rate-limiting requests. Try again shortly."
+                    ),
                 )
                 return
-            except LLMError:
+            except LLMError as e:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="llm_error")
-                await _write_status(r, job_id, "failed", error="draft generation failed")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error=token_limit_message(provider_id, e) or "draft generation failed",
+                )
                 return
             except Exception:
                 # Defense in depth: never let a raw error escape with key material.
@@ -694,18 +710,26 @@ async def _run_suggest(
                 error="The API key was rejected by the provider. Check it in Settings.",
             )
             return
-        except LLMRateLimitError:
+        except LLMRateLimitError as e:
             log.warning("toc_suggest_failed", job_id=str(job_id), reason="rate_limit")
             await _write_status(
                 r,
                 job_id,
                 "failed",
-                error="The provider is rate-limiting requests. Try again shortly.",
+                error=(
+                    token_limit_message(provider_id, e)
+                    or "The provider is rate-limiting requests. Try again shortly."
+                ),
             )
             return
-        except LLMError:
+        except LLMError as e:
             log.warning("toc_suggest_failed", job_id=str(job_id), reason="llm_error")
-            await _write_status(r, job_id, "failed", error="couldn't suggest an outline")
+            await _write_status(
+                r,
+                job_id,
+                "failed",
+                error=token_limit_message(provider_id, e) or "couldn't suggest an outline",
+            )
             return
         except Exception:
             # Defense in depth: never let a raw error escape with key material.
@@ -1155,18 +1179,26 @@ async def _run_grounding_check(
                     error="The API key was rejected by the provider. Check it in Settings.",
                 )
                 return
-            except LLMRateLimitError:
+            except LLMRateLimitError as e:
                 log.warning("grounding_check_failed", job_id=str(job_id), reason="rate_limit")
                 await _write_status(
                     r,
                     job_id,
                     "failed",
-                    error="The provider is rate-limiting requests. Try again shortly.",
+                    error=(
+                        token_limit_message(provider_id, e)
+                        or "The provider is rate-limiting requests. Try again shortly."
+                    ),
                 )
                 return
-            except LLMError:
+            except LLMError as e:
                 log.warning("grounding_check_failed", job_id=str(job_id), reason="llm_error")
-                await _write_status(r, job_id, "failed", error="grounding check failed")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error=token_limit_message(provider_id, e) or "grounding check failed",
+                )
                 return
             except Exception:
                 # Defense in depth: never let a raw error escape with key material.
@@ -1360,18 +1392,26 @@ async def _run_originality_check(
                     error="The API key was rejected by the provider. Check it in Settings.",
                 )
                 return
-            except LLMRateLimitError:
+            except LLMRateLimitError as e:
                 log.warning("originality_check_failed", job_id=str(job_id), reason="rate_limit")
                 await _write_status(
                     r,
                     job_id,
                     "failed",
-                    error="The provider is rate-limiting requests. Try again shortly.",
+                    error=(
+                        token_limit_message(provider_id, e)
+                        or "The provider is rate-limiting requests. Try again shortly."
+                    ),
                 )
                 return
-            except LLMError:
+            except LLMError as e:
                 log.warning("originality_check_failed", job_id=str(job_id), reason="llm_error")
-                await _write_status(r, job_id, "failed", error="originality check failed")
+                await _write_status(
+                    r,
+                    job_id,
+                    "failed",
+                    error=token_limit_message(provider_id, e) or "originality check failed",
+                )
                 return
             except Exception:
                 log.warning("originality_check_failed", job_id=str(job_id), reason="unexpected")
