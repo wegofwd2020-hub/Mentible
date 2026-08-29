@@ -194,6 +194,13 @@ class Settings(BaseSettings):
     # Raise (or set 0 to disable) on a paid Groq Dev tier with a higher TPM.
     # Whole-book gen still throttles per-minute on the free tier regardless.
     groq_max_output_tokens: int = Field(default=5000, ge=0)
+    # Groq free-tier tokens-per-minute ceiling (input + output COMBINED). A flat
+    # output cap isn't enough: a large-source topic (e.g. ~3600 input tokens) plus
+    # a 5000 output request still exceeds 8000 and is rejected 413. So we also
+    # shrink the OUTPUT request to fit `tpm_limit - estimated_input - margin`
+    # (see trust.generate.cap_max_tokens). Set 0 to disable the input-aware
+    # shrink; raise it on a paid Dev tier (much higher TPM) so full-size outputs fit.
+    groq_tpm_limit: int = Field(default=8000, ge=0)
 
     # ── Audio narration derivative TTS (P1-5 P4) ──────────────────────────────
     # The LLM seam is chat-completions only (no TTS field on Capabilities), so

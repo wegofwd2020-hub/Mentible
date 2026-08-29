@@ -60,7 +60,9 @@ def generate_topic_draft(
     prompt = build_topic_prompt(sources, topic_title, subtopics, audience, goal)
     provider = build_provider(provider_id, api_key=api_key, model=model)
     req = LLMRequest(
-        prompt=prompt, max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS), response_format="json"
+        prompt=prompt,
+        max_tokens=cap_max_tokens(provider_id, _MAX_TOKENS, prompt=prompt),
+        response_format="json",
     )
 
     def _validate(text: str) -> _TopicDraft:
