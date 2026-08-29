@@ -336,28 +336,40 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     auxBack.push({ id: "glossary", href: "glossary.xhtml", title: "Glossary", xhtml: glossaryDoc(glossary, lang, profile) });
 
   const zip = new JSZip();
+  // Stamp every entry with a STABLE date so the same book always compiles to the
+  // exact same bytes (the determinism guarantee `epub.test.ts` asserts). Without
+  // it JSZip defaults each entry's date to `new Date()`, so two builds a moment
+  // apart differ whenever they straddle a DOS-time (2-second) boundary — the CI
+  // flake. Use the book's own updatedAt; fall back to a fixed epoch if absent.
+  const zipDate = (() => {
+    const d = book.updatedAt ? new Date(book.updatedAt) : null;
+    return d && !Number.isNaN(d.getTime()) ? d : new Date("2000-01-01T00:00:00Z");
+  })();
+  const put = (name: string, data: string | Uint8Array, opts?: JSZip.JSZipFileOptions) =>
+    zip.file(name, data, { date: zipDate, ...opts });
+
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
-  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
-  zip.file("META-INF/container.xml", CONTAINER_XML);
-  zip.file("OEBPS/content.opf", buildOpf(book, chapters, images, audios, auxFront, auxBack, profile));
+  put("mimetype", "application/epub+zip", { compression: "STORE" });
+  put("META-INF/container.xml", CONTAINER_XML);
+  put("OEBPS/content.opf", buildOpf(book, chapters, images, audios, auxFront, auxBack, profile));
   // EPUB2 (D3, docs/superpowers/specs/2026-08-18-epub2-export-profile-design.md):
   // NCX is the PRIMARY nav for epub2 — no nav.xhtml at all (its manifest item
   // is dropped in buildOpf below). default/kdp keep the EPUB3 nav.xhtml.
-  if (profile !== "epub2") zip.file("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
+  if (profile !== "epub2") put("OEBPS/nav.xhtml", buildNav(navSubjects, lang, auxFront, auxBack));
   // EPUB2 NCX navigation — emitted for every profile (older/"traditional"
   // readers require it and render blank pages without it; epub2 relies on it
   // as the ONLY nav).
-  zip.file("OEBPS/toc.ncx", buildNcx(book, chapters));
-  zip.file("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
-  zip.file("OEBPS/cover.xhtml", coverXhtml);
-  if (coverSvg !== undefined) zip.file("OEBPS/cover.svg", coverSvg);
-  if (coverJpeg !== undefined) zip.file("OEBPS/cover.jpg", coverJpeg);
-  zip.file("OEBPS/title.xhtml", titleXhtml);
-  zip.file("OEBPS/colophon.xhtml", colophonXhtml);
-  for (const d of [...auxFront, ...auxBack]) zip.file(`OEBPS/${d.href}`, d.xhtml);
-  for (const ch of chapters) zip.file(`OEBPS/${ch.href}`, ch.xhtml);
-  for (const img of images) zip.file(`OEBPS/${img.href}`, img.bytes);
-  for (const aud of audios) zip.file(`OEBPS/${aud.href}`, aud.bytes);
+  put("OEBPS/toc.ncx", buildNcx(book, chapters));
+  put("OEBPS/css/style.css", profile === "kdp" ? KDP_STYLESHEET : STYLESHEET);
+  put("OEBPS/cover.xhtml", coverXhtml);
+  if (coverSvg !== undefined) put("OEBPS/cover.svg", coverSvg);
+  if (coverJpeg !== undefined) put("OEBPS/cover.jpg", coverJpeg);
+  put("OEBPS/title.xhtml", titleXhtml);
+  put("OEBPS/colophon.xhtml", colophonXhtml);
+  for (const d of [...auxFront, ...auxBack]) put(`OEBPS/${d.href}`, d.xhtml);
+  for (const ch of chapters) put(`OEBPS/${ch.href}`, ch.xhtml);
+  for (const img of images) put(`OEBPS/${img.href}`, img.bytes);
+  for (const aud of audios) put(`OEBPS/${aud.href}`, aud.bytes);
 
   return zip.generateAsync({ type: "uint8array", mimeType: "application/epub+zip" });
 }
