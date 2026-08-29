@@ -23,6 +23,18 @@ jest.mock("@/hooks/useManagedStatus", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+  // The engine chip refreshes on focus; a no-op keeps render deterministic (the
+  // engine label / token count stay at their initial blank/zero, which these
+  // chrome tests don't assert on).
+  useFocusEffect: () => {},
+}));
+// The always-on engine chip reads these; mock them so no real AsyncStorage is hit.
+jest.mock("@/storage/settingsStore", () => ({
+  loadDefaultParams: jest.fn().mockResolvedValue({ provider: "groq" }),
+}));
+jest.mock("@/storage/usageStore", () => ({
+  listUsage: jest.fn().mockResolvedValue([]),
+  summarizeUsage: () => ({ totalInputTokens: 0, totalOutputTokens: 0 }),
 }));
 
 // Most of this suite exercises app-mode chrome (existing tile rendering + the
@@ -102,26 +114,27 @@ it("uses medium (500) weight on the tile label, not the retired 600", () => {
   expect(StyleSheet.flatten(label.props.style).fontWeight).toBe("500");
 });
 
-describe("in-shell usage meter", () => {
-  it("shows the usage meter pill for an entitled managed status", () => {
+describe("in-shell engine + usage chip", () => {
+  it("shows the managed $ meter for an entitled managed status", () => {
     mockStatus = ENTITLED_STATUS;
     render(<TopNavBar {...makeProps(0)} />);
-    expect(screen.getByLabelText("Usage — open details")).toBeTruthy();
-    expect(screen.getByText(/Pro ·/)).toBeTruthy();
+    expect(screen.getByLabelText(/open usage/)).toBeTruthy(); // the engine chip
+    expect(screen.getByText(/Pro ·/)).toBeTruthy(); // managed allowance pill
   });
 
-  it("shows no meter when status is null (BYOK/anonymous chrome unchanged)", () => {
+  it("still shows the engine chip for a BYOK/anonymous user (always-on)", () => {
     mockStatus = null;
     render(<TopNavBar {...makeProps(0)} />);
-    expect(screen.queryByLabelText("Usage — open details")).toBeNull();
-    // The rest of the chrome still renders normally.
-    expect(screen.getByText("Projects")).toBeTruthy();
+    // Always visible now — the whole point of Part B — with a device token count.
+    expect(screen.getByLabelText(/open usage/)).toBeTruthy();
+    expect(screen.getByText(/tok$/)).toBeTruthy();
+    expect(screen.getByText("Projects")).toBeTruthy(); // rest of chrome intact
   });
 
-  it("tapping the meter navigates to /usage", () => {
+  it("tapping the engine chip navigates to /usage", () => {
     mockStatus = ENTITLED_STATUS;
     render(<TopNavBar {...makeProps(0)} />);
-    fireEvent.press(screen.getByLabelText("Usage — open details"));
+    fireEvent.press(screen.getByLabelText(/open usage/));
     expect(mockPush).toHaveBeenCalledWith("/usage");
   });
 });
