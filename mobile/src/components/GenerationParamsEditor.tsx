@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { HelpHint } from "@/help";
+import { Dropdown } from "@/components/Dropdown";
 import { LevelPicker } from "@/components/LevelPicker";
 import { DEPTHS } from "@/constants/depths";
 import { PROVIDERS, providerInfo } from "@/constants/providers";
@@ -60,26 +61,16 @@ export function GenerationParamsEditor({
       <Text style={styles.paramHint}>
         Which AI writes the book — pinned for every topic. Needs that provider&apos;s key in Settings.
       </Text>
-      <View style={styles.chipRow}>
-        {PROVIDERS.map((p) => {
-          const selected = p.id === value.provider;
-          return (
-            <Pressable
-              key={p.id}
-              onPress={() => set({ provider: p.id, model: null })}
-              style={[styles.chip, selected && styles.chipSelected]}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={`${p.label}${p.tier === "experimental" ? " — experimental" : ""}`}
-            >
-              <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{p.label}</Text>
-              <Text style={[styles.chipDesc, selected && styles.chipDescSelected]}>
-                {p.tier === "authoring" ? "Authoring-grade" : "Experimental"}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Dropdown
+        accessibilityLabel="Generation engine (AI provider)"
+        value={value.provider}
+        onChange={(id) => set({ provider: id, model: null })}
+        options={PROVIDERS.map((p) => ({
+          value: p.id,
+          label: p.label,
+          description: p.tier === "authoring" ? "Authoring-grade" : "Experimental",
+        }))}
+      />
       {providerInfo(value.provider).note ? (
         <Text style={styles.paramHint}>{providerInfo(value.provider).note}</Text>
       ) : null}
