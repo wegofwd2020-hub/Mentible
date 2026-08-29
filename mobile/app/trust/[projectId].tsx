@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { EngineBadge } from "@/components/EngineBadge";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { PhaseNav } from "@/components/PhaseNav";
@@ -2155,14 +2156,20 @@ function TrustProjectDetailInner() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
-        <Pressable
-          style={styles.homeLink}
-          onPress={() => router.push("/")}
-          accessibilityRole="button"
-          accessibilityLabel="Back to Home"
-        >
-          <Text style={styles.homeLinkText}>‹ Home</Text>
-        </Pressable>
+        {/* Header row: Home link + the always-on engine/token chip. This screen is a
+            pushed route OUTSIDE the tab chrome, so the nav's chip isn't here — but this
+            is exactly where the user generates, so surface it inline. */}
+        <View style={styles.projectHeaderRow}>
+          <Pressable
+            style={styles.homeLink}
+            onPress={() => router.push("/")}
+            accessibilityRole="button"
+            accessibilityLabel="Back to Home"
+          >
+            <Text style={styles.homeLinkText}>‹ Home</Text>
+          </Pressable>
+          <EngineBadge />
+        </View>
         <Text style={styles.title}>{project.project.title}</Text>
         {project.project.topic ? <Text style={styles.topic}>{project.project.topic}</Text> : null}
         {step ? (
@@ -2310,7 +2317,14 @@ const makeStyles = (c: Palette) => ({
   // Fraunces bakes the weight into the family name, so no fontWeight here (a
   // redundant fontWeight would synth faux-bold on web — see applyGlobalFont).
   // letterSpacing = -0.02em × fontSize (export §4 heading tracking).
-  homeLink: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs, marginBottom: spacing.xs },
+  projectHeaderRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  homeLink: { alignSelf: "flex-start" as const, paddingVertical: spacing.xs },
   homeLinkText: { color: c.primary, fontSize: typography.sizeSm, fontWeight: "600" as const },
   title: { color: c.text, fontSize: typography.sizeXxl, fontFamily: FRAUNCES.bold, letterSpacing: -0.56 },
   topic: { color: c.textSecondary, fontSize: typography.sizeMd },
