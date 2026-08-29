@@ -125,6 +125,19 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     expect(Buffer.from(withDefault)).toEqual(Buffer.from(withoutOpt));
   });
 
+  it("stamps zip entries with the book's updatedAt, not the wall clock (determinism)", async () => {
+    // Regression for the CI flake: JSZip defaults each entry's date to `new Date()`,
+    // so two builds a moment apart differed across a DOS 2-second boundary. Every
+    // entry must now carry the book's fixed updatedAt so the bytes never depend on
+    // when the build ran.
+    const book = syntheticBook(); // updatedAt = 2026-05-27T12:00:00.000Z
+    const zip = await unzip(await compileEpub(book));
+    const expected = new Date(book.updatedAt!).toISOString();
+    for (const name of ["OEBPS/content.opf", "OEBPS/css/style.css", "mimetype"]) {
+      expect(zip.file(name)!.date.toISOString()).toBe(expected);
+    }
+  });
+
   it("profile 'kdp' writes KDP_STYLESHEET instead of STYLESHEET", async () => {
     const zip = await unzip(await compileEpub(syntheticBook(), { profile: "kdp" }));
     const css = await zip.file("OEBPS/css/style.css")!.async("string");
