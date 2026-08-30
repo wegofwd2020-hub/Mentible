@@ -133,6 +133,10 @@ export interface BookMetadataModalProps {
   // Action buttons render only when their handler is provided, so the sidebar
   // degrades gracefully (and this change stays additive for callers).
   onMove?: () => void;
+  // Opens the authored book's home (edit / generate / publish / Convert to Project).
+  // Only wired for authored books — restores the actions that were orphaned when
+  // the Studio/Books tab was removed from the nav.
+  onManage?: () => void;
   onReviews?: () => void;
   onDelete?: () => void;
   onClose: () => void;
@@ -148,6 +152,7 @@ export function BookMetadataModal({
   reviewCount,
   onRead,
   onMove,
+  onManage,
   onReviews,
   onDelete,
   onClose,
@@ -193,6 +198,11 @@ export function BookMetadataModal({
             <Pressable style={styles.readBtn} onPress={onRead} accessibilityRole="button" accessibilityLabel="Read this book">
               <Text style={styles.readBtnText}>Read</Text>
             </Pressable>
+            {onManage ? (
+              <Pressable style={styles.iconBtn} onPress={onManage} accessibilityRole="button" accessibilityLabel="Book tools — edit, generate, convert to project" hitSlop={8}>
+                <Ionicons name="construct-outline" size={20} color={theme.textSecondary} />
+              </Pressable>
+            ) : null}
             {onMove ? (
               <Pressable style={styles.iconBtn} onPress={onMove} accessibilityRole="button" accessibilityLabel="Move to shelf" hitSlop={8}>
                 <Ionicons name="folder-outline" size={20} color={theme.textSecondary} />

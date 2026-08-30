@@ -433,6 +433,18 @@ function EpubLibrary() {
           if (item) openItem(item);
         }}
         onMove={() => selected && setMoveTarget(selected)}
+        onManage={
+          // Authored books only (imported EPUBs have no in-app book home). Opens
+          // /book/saved/[id] — edit, generate, publish, and Convert to Project —
+          // the actions orphaned when the Studio/Books tab left the nav.
+          selected && !selected.id.startsWith("imported-")
+            ? () => {
+                const item = selected;
+                closeMeta();
+                router.push(`/book/saved/${item.id}`);
+              }
+            : undefined
+        }
         onReviews={() => {
           const item = selected;
           closeMeta();
