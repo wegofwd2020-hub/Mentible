@@ -10,7 +10,8 @@ Hi Sridhar — you can now turn a book you wrote in **Studio** into a **Project*
 - **Sign in** to your Mentible account (the same one your Studio books are under).
 - **Use the latest version:**
   - **Web:** open [mentible.app](https://mentible.app) and do a hard refresh (Ctrl/Cmd + Shift + R).
-  - **Android:** install the latest app build (v0.2.51 / vc63 or newer).
+  - **Android:** install the latest app build (v0.2.61 / vc73 or newer) from the
+    landing page.
 
 > Your Studio books live on the device/browser where you created them, so run this
 > on that same device.
@@ -19,9 +20,13 @@ Hi Sridhar — you can now turn a book you wrote in **Studio** into a **Project*
 
 ## How to convert a book
 
-Open the book from your **Library** (tap the book to open it), then tap the
-**Convert to Project** button near the bottom, under Share. This works the same on a
-phone or a computer.
+1. Go to the **Library** tab and **tap the book** — a details panel opens.
+2. In that panel, tap the **Book tools** button (the wrench 🔧 icon, next to
+   **Read**). This opens the book's home screen.
+3. On the book's home screen, tap **Convert to Project** (near the bottom, under
+   Share).
+
+This works the same on a phone or a computer.
 
 Then:
 

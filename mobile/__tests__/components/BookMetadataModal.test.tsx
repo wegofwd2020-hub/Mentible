@@ -109,6 +109,28 @@ describe("BookMetadataModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the Book tools action only when onManage is provided (authored books)", () => {
+    const onManage = jest.fn();
+    const { rerender } = render(
+      <BookMetadataModal visible book={FULL_BOOK} meta={fallback} onRead={jest.fn()} onClose={jest.fn()} />,
+    );
+    // No onManage (e.g. an imported EPUB) → no Book tools button.
+    expect(screen.queryByLabelText(/Book tools/)).toBeNull();
+
+    rerender(
+      <BookMetadataModal
+        visible
+        book={FULL_BOOK}
+        meta={fallback}
+        onRead={jest.fn()}
+        onManage={onManage}
+        onClose={jest.fn()}
+      />,
+    );
+    fireEvent.press(screen.getByLabelText(/Book tools/));
+    expect(onManage).toHaveBeenCalledTimes(1);
+  });
+
   it("hides the field rows while the book is loading", () => {
     render(
       <BookMetadataModal
