@@ -182,7 +182,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Have a book in Studio you want to validate as a Project? On the book (Books tab → the book’s panel → “To Project”, or the saved-book screen → “Convert to Project”), Mentible creates a new Project from the book’s outline, and turns each generated topic into a draft. Your Studio book stays exactly where it is — this copies, it doesn’t move.",
+        text: "Have a book you want to validate as a Project? Open it from your Library and choose “Convert to Project” — Mentible creates a new Project from the book’s outline, and turns each generated topic into a draft. Your original book stays exactly where it is — this copies, it doesn’t move.",
       },
       {
         kind: "text",
@@ -191,7 +191,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "steps",
         steps: [
-          "Open the book and choose “Convert to Project” (or “To Project” on the Books panel).",
+          "Open the book from your Library and choose “Convert to Project”.",
           "Confirm — a new Project is created with the book’s outline and drafts.",
           "Open the Project, add your sources under Capture.",
           "Validate each topic (add citations / regenerate grounded if you want, then approve).",
