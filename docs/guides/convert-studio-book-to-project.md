@@ -19,12 +19,9 @@ Hi Sridhar — you can now turn a book you wrote in **Studio** into a **Project*
 
 ## How to convert a book
 
-You'll find the button in either place:
-
-- **On a computer / wide screen:** go to the **Books** tab, click a book to select it,
-  and in the panel on the right click **"To Project."**
-- **On a phone, or the book's own page:** open the book (**Convert to Project** button
-  near the bottom, under Share).
+Open the book from your **Library** (tap the book to open it), then tap the
+**Convert to Project** button near the bottom, under Share. This works the same on a
+phone or a computer.
 
 Then:
 
