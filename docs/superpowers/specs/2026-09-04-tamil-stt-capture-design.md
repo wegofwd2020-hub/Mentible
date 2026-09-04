@@ -133,16 +133,15 @@ Status polling reuses the existing trust `generation_job` polling endpoint/hook.
 
 ### 5.3 Job, keys, and audio custody
 
-- **Async:** reuse Celery + Redis (trust Phase A). Add a `kind` discriminator to `generation_job` if it lacks one, so transcription and generation jobs share the table and polling.
+- **Async:** reuse Celery + Redis (trust Phase A). Transcription is a **single-shot** job, so it reuses the same machinery as `generate_version` — an ephemeral Redis `job:{id}:status` blob polled via the shared `GET /api/v1/jobs/{job_id}` — **not** the durable `generation_job` row (that table is for the whole-book fan-out only). No new job table and no `generation_job` change (it already has a `kind` column).
 - **BYOK speech-to-text key:** reuse `backend/src/core/byok_envelope.py` — encrypt in Redis with a per-job ephemeral key, TTL = job timeout, decrypt in the worker, shred after use. Never persisted, never logged.
 - **Managed key:** Groq/OpenAI key from env/vault (`backend/src/billing` managed-key source), never returned to the client.
 - **Audio at rest (the one genuinely new asset):** production is a Hetzner CX22 (CPU-only, no S3), so store the uploaded audio on local disk under a jobs directory, keyed by `content_hash` (dedupe). Retention: purge after **30 days** (ADR-014 posture; tighter than the source docs' 90). Audio is kept during review so a segment can be replayed while correcting (replay UI deferred to slice 4). Audio bytes and paths never appear in logs.
 
-### 5.4 Data model — migration `0013`
+### 5.4 Data model — migration `0027`
 
-Single change to the trust core:
-- Add `'transcript'` to the `artifact.format` CHECK enum.
-- Add `kind` to `generation_job` (if absent) with a value for transcription.
+Single change to the trust core (latest committed migration is `0026`):
+- Add `'transcript'` to the `artifact.format` CHECK constraint (`artifact_format_check`) and to the `ARTIFACT_FORMATS` tuple. Nothing else — `generation_job` is untouched (transcription doesn't use it).
 
 Content shapes:
 - `artifact_version.content` (jsonb):
@@ -188,7 +187,7 @@ Each slice is its own PR on its own branch (`git checkout -b` before editing).
 
 | Slice | Scope | Verification |
 |-------|-------|--------------|
-| **1 — seam + backend** | `backend/src/capture/` (groq + BYOK openai), `/transcribe` endpoint, Celery transcribe task, migration `0013`, `artifact(format='transcript')` v1 | pytest with mocked `httpx`; migration test; key-redaction test |
+| **1 — seam + backend** | `backend/src/capture/` (groq + BYOK openai), `/transcribe` endpoint, Celery transcribe task, migration `0027`, `artifact(format='transcript')` v1 | pytest with mocked `httpx`; migration test; key-redaction test |
 | **2 — capture UI** | Upload card + `Mp3UploadSheet` + job polling → lands a transcript artifact | `mobile:verify` on device/emulator |
 | **3 — review UI** | Segment review surface (edit text, tag speaker) → new version → existing approval; Help topic | jest + device |
 | **4 — deferred backlog** | Per-segment audio replay; Google diarizing provider; export (SRT/DOCX); correction-derived training data | — |
