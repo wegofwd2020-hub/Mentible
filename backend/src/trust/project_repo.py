@@ -172,6 +172,14 @@ async def delete_input(conn, *, input_id) -> None:
     await conn.execute("DELETE FROM project_input WHERE id = $1", input_id)
 
 
+async def delete_project(conn, *, project_id) -> None:
+    """Hard-delete a project. Every child (inputs, artifacts, versions, feedback,
+    approvals, memberships, invitations, topic_versions) references project with
+    ON DELETE CASCADE (migrations 0009/0010), so this one statement wipes the
+    whole tree. On-disk audio blobs are NOT removed (harmless orphans)."""
+    await conn.execute("DELETE FROM project WHERE id = $1", project_id)
+
+
 async def input_cited_by_validated(conn, *, project_id, input_id) -> bool:
     return bool(
         await conn.fetchval(

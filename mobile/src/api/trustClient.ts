@@ -312,6 +312,12 @@ export async function deleteInput(inputId: string, token: string): Promise<void>
   await trustFetch<null>(`/inputs/${inputId}`, token, { method: "DELETE" });
 }
 
+// Owner-only hard delete of a project + everything under it (DB ON DELETE
+// CASCADE). Irreversible.
+export async function deleteProject(projectId: string, token: string): Promise<void> {
+  await trustFetch<null>(`/projects/${projectId}`, token, { method: "DELETE" });
+}
+
 // Phase B async suggest-TOC (T1/T2): POST .../suggest-toc now returns 202 +
 // this job handle immediately; the actual outline generation runs in a
 // Celery worker. Poll via the shared `pollJob<SuggestTocJobResult>`

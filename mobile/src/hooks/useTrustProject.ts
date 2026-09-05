@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { useBillingPlan } from "@/hooks/useBillingPlan";
-import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveRights as saveRightsApi, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
+import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersion, createArtifact, createTopicVersion, createVersion, deleteInput, deleteProject as deleteProjectApi, getProject, getTopicVersions, getVersion, invite as inviteApi, recordTopicApproval, saveRights as saveRightsApi, saveToc as saveTocApi, updateInput, withdrawApproval, withdrawTopicApproval, type ApprovalView, type ProjectDetailView, type ProjectInputView, type StructuredTocView, type TopicApprovalView, type TopicFeedbackView, type TopicVersionCreatedView, type TopicVersionSummaryView, type VersionDetailView } from "@/api/trustClient";
 import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
 import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
@@ -216,6 +216,11 @@ export function useTrustProject(projectId: string) {
     await refresh();
   }, [accessToken, refresh]);
 
+  const removeProject = useCallback(async () => {
+    if (!accessToken) throw new Error("Not signed in");
+    await deleteProjectApi(projectId, accessToken);
+  }, [accessToken, projectId]);
+
   // Async per-topic generate (Phase A / T2): submit returns a job_id
   // immediately, `runTopicGenJob` polls the shared /jobs/{id} until
   // done|failed. Resolves to the same {id, topic_id, version_no, created_at}
@@ -268,5 +273,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, transcribeAudio, suggestToc, saveToc, saveRights, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, transcribeAudio, suggestToc, saveToc, saveRights, invite, addInput, editInput, removeInput, removeProject, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
 }

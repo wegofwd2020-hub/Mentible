@@ -426,6 +426,21 @@ async def delete_project_input(
     await project_repo.delete_input(conn, input_id=input_id)
 
 
+@router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: uuid.UUID,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> None:
+    """Owner-only hard delete of a project and everything under it (inputs,
+    artifacts, versions, transcripts, feedback, approvals, memberships) via DB
+    ON DELETE CASCADE. Irreversible. On-disk audio blobs are left as harmless
+    orphans."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))
+    await project_repo.delete_project(conn, project_id=project_id)
+
+
 @router.post("/artifacts/{artifact_id}/versions", response_model=schemas.VersionOut)
 async def create_version(
     artifact_id: uuid.UUID,
