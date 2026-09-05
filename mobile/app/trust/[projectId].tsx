@@ -239,6 +239,7 @@ function SourcesPanel({
   addSourceBusy,
   onAddSource,
   onTranscribe,
+  onTranscribed,
   editInput,
   removeInput,
 }: {
@@ -256,7 +257,8 @@ function SourcesPanel({
   setSourceUrl: (v: string) => void;
   addSourceBusy: boolean;
   onAddSource: () => void;
-  onTranscribe: (asset: PickedAudio, opts: { title?: string; language: string }) => Promise<unknown>;
+  onTranscribe: (asset: PickedAudio, opts: { title?: string; language: string }) => Promise<{ artifact_id: string; version_id: string }>;
+  onTranscribed: (r: { artifact_id: string; version_id: string }) => void;
   editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
   removeInput: (inputId: string) => Promise<void>;
 }) {
@@ -338,9 +340,9 @@ function SourcesPanel({
     setTranscribeBusy(true);
     void (async () => {
       try {
-        await onTranscribe(asset, opts);
+        const r = await onTranscribe(asset, opts);
         setUploadOpen(false);
-        Alert.alert("Transcript ready", "Find it in this project's drafts to review and approve.");
+        onTranscribed(r);
       } catch (e) {
         Alert.alert("Couldn't transcribe", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
       } finally {
@@ -2245,6 +2247,12 @@ function TrustProjectDetailInner() {
             addSourceBusy={addSourceBusy}
             onAddSource={onAddSource}
             onTranscribe={transcribeAudio}
+            onTranscribed={(r) =>
+              router.push({
+                pathname: "/trust/transcript/[artifactId]",
+                params: { artifactId: r.artifact_id, versionId: r.version_id, projectId: String(projectId) },
+              })
+            }
             editInput={editInput}
             removeInput={removeInput}
           />
