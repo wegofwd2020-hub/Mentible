@@ -143,7 +143,10 @@ class SarvamSTTProvider:
         data = {
             "model": req.model or self._model,
             "language_code": _to_bcp47(req.language),
-            "mode": "transcribe",
+            # codemix (saaras:v3): keep spoken English in English script instead of
+            # transliterating it to the target script — reads naturally for the
+            # code-mixed Tamil+English speech this targets.
+            "mode": "codemix",
             "with_timestamps": "true",
         }
         client = self._client or httpx.AsyncClient(timeout=_TIMEOUT)
@@ -197,7 +200,9 @@ class SarvamSTTProvider:
         try:
             job = client.speech_to_text_job.create_job(
                 model=req.model or self._model,
-                mode="transcribe",
+                # codemix (saaras:v3): keep spoken English in English script (see the
+                # sync path). Assumes the saaras:v3 default; codemix is v3-only.
+                mode="codemix",
                 language_code=_to_bcp47(req.language),
                 with_timestamps=True,
             )
