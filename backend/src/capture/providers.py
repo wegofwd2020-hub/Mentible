@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import math
+import tempfile
 from pathlib import Path
 from typing import Protocol
 
@@ -90,13 +93,42 @@ class OpenAICompatibleSTTProvider:
         ]
 
 
+# Sarvam's sync /speech-to-text rejects audio longer than 30s with this message;
+# we detect it to fall back to the batch (long-audio) job flow.
+_SARVAM_SYNC_DURATION_MARKER = "maximum limit of 30 seconds"
+
+
+def _segments_from_sarvam(transcript: str, ts: dict) -> list[TranscriptSegment]:
+    """Map a Sarvam timestamps block to segments. Sync returns chunk texts under
+    `words`, batch under `chunks` — accept either. Parallel `start_time_seconds`
+    / `end_time_seconds` arrays give the times. No per-chunk confidence (Sarvam
+    only reports a whole-file `language_probability`) -> None. Falls back to a
+    single segment carrying the whole transcript when timestamps are absent."""
+    chunks = ts.get("chunks") or ts.get("words") or []
+    starts = ts.get("start_time_seconds") or []
+    ends = ts.get("end_time_seconds") or []
+    if chunks and len(chunks) == len(starts) == len(ends):
+        return [
+            TranscriptSegment(
+                text=(chunks[i] or "").strip(),
+                start=float(starts[i]),
+                end=float(ends[i]),
+                confidence=None,
+            )
+            for i in range(len(chunks))
+        ]
+    text = (transcript or "").strip()
+    if not text:
+        return []
+    return [TranscriptSegment(text=text, start=0.0, end=0.0, confidence=None)]
+
+
 class SarvamSTTProvider:
-    """Sarvam Saarika/Saaras — Indic-specialized STT. POST {base}/speech-to-text
-    (multipart), auth via the `api-subscription-key` header (NOT Bearer). With
-    `with_timestamps=true` the response carries chunk-level (sentence/phrase)
-    timestamps as parallel arrays; we map each chunk to a segment. Sarvam gives
-    no per-chunk confidence (only a whole-file `language_probability`), so
-    segment confidence is None — the review UI treats that as "needs review"."""
+    """Sarvam Saarika/Saaras — Indic-specialized STT. Sync path: POST
+    {base}/speech-to-text (multipart), auth via the `api-subscription-key` header
+    (NOT Bearer). Sarvam's sync endpoint caps audio at 30s; on that specific 400
+    we transparently fall back to the BATCH job flow (`_transcribe_batch`, the
+    sarvamai SDK) which handles long audio. No per-chunk confidence -> None."""
 
     def __init__(self, *, provider_id, base_url, model, api_key, http_client=None):
         self.provider_id = provider_id
@@ -134,30 +166,56 @@ class SarvamSTTProvider:
         if resp.status_code == 429:
             raise STTRateLimitError(f"{self.provider_id} rate limited")
         if resp.status_code >= 400:
+            # Long audio (>30s) -> Sarvam's sync endpoint 400s; use the batch job.
+            if resp.status_code == 400 and _SARVAM_SYNC_DURATION_MARKER in (resp.text or ""):
+                return await self._transcribe_batch(req)
             raise STTError(f"{self.provider_id} returned HTTP {resp.status_code}")
 
         try:
             payload = resp.json()
-            transcript = (payload.get("transcript") or "").strip()
-            ts = payload.get("timestamps") or {}
         except (ValueError, AttributeError) as e:
             raise STTError(f"{self.provider_id} returned a malformed payload") from e
+        return _segments_from_sarvam(
+            payload.get("transcript") or "", payload.get("timestamps") or {}
+        )
 
-        chunks = ts.get("words") or []
-        starts = ts.get("start_time_seconds") or []
-        ends = ts.get("end_time_seconds") or []
-        # Chunk-level timestamps -> one segment per chunk when present and aligned;
-        # otherwise a single segment carrying the whole transcript.
-        if chunks and len(chunks) == len(starts) == len(ends):
-            return [
-                TranscriptSegment(
-                    text=(chunks[i] or "").strip(),
-                    start=float(starts[i]),
-                    end=float(ends[i]),
-                    confidence=None,
-                )
-                for i in range(len(chunks))
-            ]
-        if not transcript:
-            return []
-        return [TranscriptSegment(text=transcript, start=0.0, end=0.0, confidence=None)]
+    async def _transcribe_batch(self, req: TranscriptionRequest) -> list[TranscriptSegment]:
+        """Long-audio path via the Sarvam batch job (sarvamai SDK): create job ->
+        upload -> start -> poll -> download the per-file JSON. The SDK is blocking
+        (it drives an Azure blob upload), so it runs in a worker thread. Lazy
+        import keeps the seam importable (and httpx-pure) without the SDK unless
+        batch is actually used."""
+        return await asyncio.to_thread(self._run_batch_sync, req)
+
+    def _run_batch_sync(self, req: TranscriptionRequest) -> list[TranscriptSegment]:
+        try:
+            from sarvamai import SarvamAI
+        except ImportError as e:  # pragma: no cover - dep is in backend requirements
+            raise STTError(f"{self.provider_id} batch requires the sarvamai package") from e
+
+        client = SarvamAI(api_subscription_key=self._api_key)
+        try:
+            job = client.speech_to_text_job.create_job(
+                model=req.model or self._model,
+                mode="transcribe",
+                language_code=_to_bcp47(req.language),
+                with_timestamps=True,
+            )
+            job.upload_files(file_paths=[req.audio_path])
+            job.start()
+            job.wait_until_complete()
+            if not job.is_successful():
+                raise STTError(f"{self.provider_id} batch job did not complete")
+            with tempfile.TemporaryDirectory() as out_dir:
+                job.download_outputs(output_dir=out_dir)
+                results = sorted(Path(out_dir).glob("*.json"))
+                if not results:
+                    raise STTError(f"{self.provider_id} batch job produced no output")
+                payload = json.loads(results[0].read_text(encoding="utf-8"))
+        except STTError:
+            raise
+        except Exception as e:
+            raise STTError(f"{self.provider_id} batch error") from e
+        return _segments_from_sarvam(
+            payload.get("transcript") or "", payload.get("timestamps") or {}
+        )
