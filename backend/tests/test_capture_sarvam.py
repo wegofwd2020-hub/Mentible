@@ -67,10 +67,15 @@ async def test_sarvam_without_timestamps_yields_one_segment(tmp_path):
     audio.write_bytes(b"x")
 
     def handler(_):
-        return httpx.Response(200, json={"request_id": "r", "transcript": "ஒரு வரி", "language_code": "ta-IN"})
+        return httpx.Response(
+            200, json={"request_id": "r", "transcript": "ஒரு வரி", "language_code": "ta-IN"}
+        )
 
     segs = await transcribe(
-        provider_id="sarvam", api_key="k", audio_path=str(audio), language="ta",
+        provider_id="sarvam",
+        api_key="k",
+        audio_path=str(audio),
+        language="ta",
         http_client=_mock_client(handler),
     )
     assert len(segs) == 1
@@ -85,11 +90,17 @@ async def test_sarvam_maps_401_and_429(tmp_path):
 
     with pytest.raises(STTAuthError):
         await transcribe(
-            provider_id="sarvam", api_key="bad", audio_path=str(audio), language="ta",
+            provider_id="sarvam",
+            api_key="bad",
+            audio_path=str(audio),
+            language="ta",
             http_client=_mock_client(lambda _: httpx.Response(403, json={"error": "no"})),
         )
     with pytest.raises(STTRateLimitError):
         await transcribe(
-            provider_id="sarvam", api_key="k", audio_path=str(audio), language="ta",
+            provider_id="sarvam",
+            api_key="k",
+            audio_path=str(audio),
+            language="ta",
             http_client=_mock_client(lambda _: httpx.Response(429, json={"error": "slow"})),
         )
