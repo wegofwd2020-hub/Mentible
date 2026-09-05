@@ -41,6 +41,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       },
       { id: "leaf-input", title: "Input", topicId: "sources" },
       { id: "leaf-capture-audio", title: "Transcribe an interview", topicId: "capture-audio" },
+      { id: "leaf-transcript-review", title: "Review a transcript", topicId: "transcript-review" },
       { id: "leaf-structure", title: "Structure", topicId: "project-structure" },
       {
         id: "projects-drafts",

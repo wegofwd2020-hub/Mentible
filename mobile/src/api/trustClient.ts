@@ -149,6 +149,38 @@ export async function getVersion(versionId: string, token: string): Promise<Vers
   return (await trustFetch<VersionDetailView>(`/versions/${versionId}`, token, { method: "GET" })) as VersionDetailView;
 }
 
+// A transcript version's content — a different stored shape than a draft's
+// {sections}. start/end/confidence may be null; speaker is null until tagged.
+export interface TranscriptSegment {
+  text: string;
+  start: number | null;
+  end: number | null;
+  confidence: number | null;
+  speaker: string | null;
+}
+export interface TranscriptContent {
+  language: string;
+  segments: TranscriptSegment[];
+  source_audio_ref?: string;
+  stt_meta?: { provider?: string; model?: string };
+}
+export interface TranscriptVersionDetail {
+  id: string;
+  artifact_id: string;
+  version_no: number;
+  content: TranscriptContent;
+  is_validated: boolean;
+  recorded_via: string | null;
+  created_at: string | null;
+}
+
+// GET a transcript version. Same /versions/{id} endpoint as getVersion, but the
+// stored content is a transcript ({segments}), not a draft ({sections}) — so it
+// gets its own type rather than a lie-typed cast.
+export async function getTranscriptVersion(versionId: string, token: string): Promise<TranscriptVersionDetail> {
+  return (await trustFetch<TranscriptVersionDetail>(`/versions/${versionId}`, token, { method: "GET" })) as TranscriptVersionDetail;
+}
+
 export async function approveVersion(
   versionId: string, body: { approved_at: string; note?: string; expert_name?: string }, token: string,
 ): Promise<ApprovalView> {

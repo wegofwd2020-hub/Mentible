@@ -977,6 +977,49 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "transcript-review",
+    title: "Review — fix a transcript, tag speakers & approve",
+    featureKey: "transcript-review",
+    keywords: [
+      "transcript",
+      "review",
+      "segment",
+      "edit",
+      "correct",
+      "speaker",
+      "tag",
+      "confidence",
+      "approve",
+      "validate",
+      "version",
+      "audio",
+      "interview",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "When a transcription finishes, Mentible opens the transcript for review. It's split into timed segments, each showing the model's confidence. Low-confidence segments — the ones most likely to be wrong — are listed first so you can fix them fast; a toggle turns that ordering off if you'd rather read in order.",
+      },
+      {
+        kind: "text",
+        text: "Tap a segment's text to correct it, and give each segment a speaker — type a name, or tap a chip to reuse a name you've already used in this transcript. Nothing is saved until you tap Save.",
+      },
+      {
+        kind: "text",
+        text: "Save creates a new immutable version of the transcript (your earlier versions are never overwritten). Once you're happy, Approve records the validation — the same expert-validated approval, with its recorded_via provenance, that every other draft uses. You can withdraw an approval later if you spot something.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Read the segments — low-confidence ones are at the top.",
+          "Tap a segment to fix its text; add a speaker by typing or tapping a chip.",
+          "Tap Save to create a new version of the transcript.",
+          "Tap Approve to record it as validated (or Unapprove to withdraw).",
+        ],
+      },
+    ],
+  },
+  {
     id: "draft-viewer",
     title: "Feedback — read, approve, comment & revise a draft",
     featureKey: "draft-viewer",
