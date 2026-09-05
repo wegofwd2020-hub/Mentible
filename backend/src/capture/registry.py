@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .errors import STTConfigurationError
-from .providers import OpenAICompatibleSTTProvider, STTProvider, SarvamSTTProvider
+from .providers import OpenAICompatibleSTTProvider, SarvamSTTProvider, STTProvider
 
 
 @dataclass(frozen=True)
