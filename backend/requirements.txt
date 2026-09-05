@@ -4,6 +4,10 @@
 # Web framework
 fastapi==0.139.0
 uvicorn[standard]==0.50.0
+# Multipart form parsing — required by the audio-upload transcribe endpoint
+# (POST /api/v1/trust/projects/{id}/transcribe). FastAPI raises at route-build
+# time without it.
+python-multipart==0.0.20
 
 # Configuration
 pydantic-settings==2.14.2

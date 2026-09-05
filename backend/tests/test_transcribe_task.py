@@ -46,7 +46,9 @@ async def test_run_transcribe_writes_version_and_done_status(monkeypatch):
     async def fake_connect():
         return _FakeConn()
 
-    async def fake_create_version(conn, *, artifact_id, content, created_by_sub, generation_meta=None):
+    async def fake_create_version(
+        conn, *, artifact_id, content, created_by_sub, generation_meta=None
+    ):
         created["content"] = content
         created["generation_meta"] = generation_meta
         return _FakeVersion()

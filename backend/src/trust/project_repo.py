@@ -128,9 +128,7 @@ async def add_input(
     return _input(r)
 
 
-async def add_upload_input(
-    conn, *, project_id, title, storage_path, content_hash
-) -> ProjectInput:
+async def add_upload_input(conn, *, project_id, title, storage_path, content_hash) -> ProjectInput:
     """Persist an uploaded binary source (e.g. an interview audio file) as a
     kind='upload' input carrying its on-disk path + content hash. Unlike
     `add_input`, this sets storage_path/content_hash (the columns text sources

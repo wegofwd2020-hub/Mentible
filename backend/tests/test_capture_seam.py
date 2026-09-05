@@ -60,8 +60,11 @@ async def test_transcribe_maps_401_to_auth_error(tmp_path):
 
     with pytest.raises(STTAuthError):
         await transcribe(
-            provider_id="openai", api_key="bad", audio_path=str(audio),
-            language="ta", http_client=_mock_client(handler),
+            provider_id="openai",
+            api_key="bad",
+            audio_path=str(audio),
+            language="ta",
+            http_client=_mock_client(handler),
         )
 
 
@@ -75,6 +78,9 @@ async def test_transcribe_maps_429_to_rate_limit(tmp_path):
 
     with pytest.raises(STTRateLimitError):
         await transcribe(
-            provider_id="groq", api_key="k", audio_path=str(audio),
-            language="ta", http_client=_mock_client(handler),
+            provider_id="groq",
+            api_key="k",
+            audio_path=str(audio),
+            language="ta",
+            http_client=_mock_client(handler),
         )

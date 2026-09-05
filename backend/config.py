@@ -217,6 +217,18 @@ class Settings(BaseSettings):
         description="OpenAI TTS base URL; empty = audio narration disabled",
     )
 
+    # ── Speech-to-text capture (Tamil STT, ADR-042 commodity STT) ─────────────
+    # Default managed STT provider; must be a key in capture.registry.STT_REGISTRY
+    # ('groq' | 'openai'). Managed uses OUR vault key for this provider; BYOK
+    # supplies its own. The per-provider base URL + model live in the seam
+    # registry, not here (kept portable for extraction).
+    stt_default_provider: str = Field(default="groq")
+    # Where uploaded interview audio is stored on disk (prod = a persistent
+    # volume; no S3 on the CX22 box). One file per upload: <dir>/<uuid>.<ext>.
+    audio_upload_dir: str = Field(default=str(_REPO_ROOT / "var" / "audio"))
+    # Hard upload size cap (bytes). 500 MB default.
+    audio_max_bytes: int = Field(default=524_288_000, ge=1)
+
     # ── Artifact compiler (Node) ──────────────────────────────────────────────
     # POST /export shells out to the Node EPUB/PDF compiler (compiler/dist/cli.js).
     # Compilation is deterministic and KEY-FREE (no Anthropic key). Build it with

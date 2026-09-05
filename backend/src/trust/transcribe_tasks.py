@@ -107,14 +107,18 @@ async def _run_transcribe(
         except STTAuthError:
             log.warning("transcription_failed", job_id=str(job_id), reason="auth")
             await _write_status(
-                r, job_id, "failed",
+                r,
+                job_id,
+                "failed",
                 error="The API key was rejected by the provider. Check it in Settings.",
             )
             return
         except STTRateLimitError:
             log.warning("transcription_failed", job_id=str(job_id), reason="rate_limit")
             await _write_status(
-                r, job_id, "failed",
+                r,
+                job_id,
+                "failed",
                 error="The provider is rate-limiting requests. Try again shortly.",
             )
             return
