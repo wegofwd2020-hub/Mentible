@@ -82,6 +82,44 @@ def test_managed_stt_keys_are_separate_from_llm_set(monkeypatch):
     assert "sarvam" not in vault.managed_provider_ids()
 
 
+@pytest.mark.asyncio
+async def test_resolve_managed_stt_access_grants_sarvam_for_staff(monkeypatch):
+    # STT eligibility uses the STT-managed set, not the LLM plan providers: a
+    # staff-allowlisted principal gets a managed grant for sarvam (STT-only),
+    # which resolve_managed_access (LLM) would reject.
+    from backend.src.billing import access
+
+    monkeypatch.setattr(settings, "managed_sarvam_api_key", "sarvam-x")
+
+    async def _no_entitlement(conn, *, account_id):
+        return None
+
+    monkeypatch.setattr(access.entitlement_repo, "get_entitlement", _no_entitlement)
+    monkeypatch.setattr(access, "is_staff_allowlisted", lambda **kw: True)
+
+    p = _principal(sub="staff-1", email="e@x.com")
+    grant = await access.resolve_managed_stt_access(
+        None, account_id=uuid.uuid4(), provider_id="sarvam", principal=p
+    )
+    assert grant is not None and grant.source == "staff"
+
+
+@pytest.mark.asyncio
+async def test_resolve_managed_stt_access_none_without_stt_key(monkeypatch):
+    # A provider with no configured managed STT key is not eligible (returns
+    # before any DB/allowlist check).
+    from backend.src.billing import access
+
+    monkeypatch.setattr(settings, "managed_sarvam_api_key", None)
+    monkeypatch.setattr(access, "is_staff_allowlisted", lambda **kw: True)
+
+    p = _principal(sub="staff-1", email="e@x.com")
+    grant = await access.resolve_managed_stt_access(
+        None, account_id=uuid.uuid4(), provider_id="sarvam", principal=p
+    )
+    assert grant is None
+
+
 def test_managed_off_when_unset(monkeypatch):
     monkeypatch.setattr(settings, "managed_anthropic_api_key", None)
     monkeypatch.setattr(settings, "managed_openai_api_key", None)

@@ -16,7 +16,7 @@ from ..accounts.deps import require_active_user
 from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing import quota, usage_repo
-from ..billing.access import is_pro, over_cap, resolve_managed_access
+from ..billing.access import is_pro, over_cap, resolve_managed_access, resolve_managed_stt_access
 from ..capture.registry import STT_REGISTRY
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
@@ -291,10 +291,13 @@ async def transcribe_upload(
             f"audio exceeds the {settings.audio_max_bytes // (1024 * 1024)} MB limit",
         )
 
-    # managed vs BYOK — mirror generate_version.
+    # managed vs BYOK — mirror generate_version, but STT eligibility uses the
+    # STT-managed set (resolve_managed_stt_access): STT-only providers like sarvam
+    # aren't in the LLM plan managed_providers list, so the LLM resolver would
+    # wrongly reject them.
     managed = api_key is None
     if managed:
-        grant = await resolve_managed_access(
+        grant = await resolve_managed_stt_access(
             conn, account_id=account.id, provider_id=stt_provider, principal=principal
         )
         if grant is None:
