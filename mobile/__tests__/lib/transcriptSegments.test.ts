@@ -32,14 +32,20 @@ describe("transcriptSegments", () => {
     expect(list[1].text).toBe("b"); // original untouched
   });
 
-  it("orderLowConfidenceFirst puts null/low before high and is stable on ties", () => {
+  it("orderLowConfidenceFirst puts real low numbers first; null (unknown) sorts last, stable", () => {
     const list = toEditable([
       seg({ text: "high", confidence: 0.95 }),
       seg({ text: "null", confidence: null }),
       seg({ text: "low", confidence: 0.2 }),
       seg({ text: "high2", confidence: 0.95 }),
     ]);
-    expect(orderLowConfidenceFirst(list).map((s) => s.text)).toEqual(["null", "low", "high", "high2"]);
+    // low number first; high before the confidence-less "null" (unknown, not low).
+    expect(orderLowConfidenceFirst(list).map((s) => s.text)).toEqual(["low", "high", "high2", "null"]);
+  });
+
+  it("all-null (Sarvam) keeps original order — nothing surfaced as low", () => {
+    const list = toEditable([seg({ text: "a", confidence: null }), seg({ text: "b", confidence: null })]);
+    expect(orderLowConfidenceFirst(list).map((s) => s.text)).toEqual(["a", "b"]);
   });
 
   it("confidenceTone boundaries", () => {
@@ -47,7 +53,7 @@ describe("transcriptSegments", () => {
     expect(confidenceTone(0.5)).toBe("medium");
     expect(confidenceTone(0.79)).toBe("medium");
     expect(confidenceTone(0.8)).toBe("high");
-    expect(confidenceTone(null)).toBe("low");
+    expect(confidenceTone(null)).toBe("unknown");
   });
 
   it("segmentsForSave strips key and preserves language/source_audio_ref/stt_meta", () => {
