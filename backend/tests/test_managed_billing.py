@@ -64,6 +64,24 @@ def test_get_managed_key_returns_configured(monkeypatch):
     assert vault.managed_provider_ids() == frozenset({"anthropic"})
 
 
+def test_managed_stt_keys_are_separate_from_llm_set(monkeypatch):
+    # Sarvam is STT-only: it must resolve via get_managed_stt_key but MUST NOT
+    # leak into the LLM managed_provider_ids() (the "Your providers" gen list).
+    # groq/openai reuse their existing managed keys for both gen and STT.
+    monkeypatch.setattr(settings, "managed_anthropic_api_key", None)
+    monkeypatch.setattr(settings, "managed_openai_api_key", None)
+    monkeypatch.setattr(settings, "managed_gemini_api_key", None)
+    monkeypatch.setattr(settings, "managed_groq_api_key", "gsk-x")
+    monkeypatch.setattr(settings, "managed_sarvam_api_key", "sarvam-x")
+
+    assert vault.get_managed_stt_key("sarvam") == "sarvam-x"
+    assert vault.get_managed_stt_key("groq") == "gsk-x"
+    assert vault.managed_stt_provider_ids() == frozenset({"groq", "sarvam"})
+    # sarvam is NOT a text-gen managed provider
+    assert vault.get_managed_key("sarvam") is None
+    assert "sarvam" not in vault.managed_provider_ids()
+
+
 def test_managed_off_when_unset(monkeypatch):
     monkeypatch.setattr(settings, "managed_anthropic_api_key", None)
     monkeypatch.setattr(settings, "managed_openai_api_key", None)

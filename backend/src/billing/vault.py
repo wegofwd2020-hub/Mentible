@@ -35,6 +35,35 @@ def _managed_keys() -> dict[str, str]:
     return {pid: key for pid, key in candidates if key}
 
 
+def _managed_stt_keys() -> dict[str, str]:
+    """`provider_id` → OUR key, for STT (speech-to-text) providers offered managed.
+
+    Deliberately SEPARATE from `_managed_keys()` (the LLM/text-gen set): Sarvam is
+    STT-only and must never appear as a text-gen engine (e.g. in the "Your
+    providers" card), while groq/openai reuse their existing managed keys for both
+    text gen and STT. ADR-037 Capture.
+    """
+    candidates = (
+        ("groq", settings.managed_groq_api_key),
+        ("openai", settings.managed_openai_api_key),
+        ("sarvam", settings.managed_sarvam_api_key),
+    )
+    return {pid: key for pid, key in candidates if key}
+
+
+def get_managed_stt_key(provider_id: str) -> str | None:
+    """OUR managed key for STT `provider_id`, or None if not offered managed.
+
+    NEVER pass the return value to a log call — it is a live provider credential.
+    """
+    return _managed_stt_keys().get(provider_id)
+
+
+def managed_stt_provider_ids() -> frozenset[str]:
+    """The STT providers currently offered managed (i.e. with a configured key)."""
+    return frozenset(_managed_stt_keys())
+
+
 def get_managed_key(provider_id: str) -> str | None:
     """OUR managed key for `provider_id`, or None if that provider isn't offered
     managed (or no key is configured).
