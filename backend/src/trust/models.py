@@ -16,6 +16,7 @@ ARTIFACT_FORMATS = (
     "linkedin",
     "x_thread",
     "essay",
+    "transcript",
 )
 FEEDBACK_AUTHOR_KINDS = ("expert", "operator")
 MEMBERSHIP_ROLES = ("owner", "reviewer")

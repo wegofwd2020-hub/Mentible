@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from backend.config import settings
 
@@ -15,6 +17,7 @@ from ..accounts.models import Account
 from ..auth.principal import Principal
 from ..billing import quota, usage_repo
 from ..billing.access import is_pro, over_cap, resolve_managed_access
+from ..capture.registry import STT_REGISTRY
 from ..core.byok_envelope import encrypt_api_key, parse_master_key
 from ..core.log_redaction import get_logger
 from ..core.rate_limit import enforce_rate_limit
@@ -54,6 +57,7 @@ from .tasks import (
     suggest_toc_task,
 )
 from .toc_util import find_toc_topic
+from .transcribe_tasks import transcribe_task
 
 router = APIRouter(prefix="/api/v1/trust", tags=["trust"])
 log = get_logger("trust")
@@ -230,6 +234,135 @@ async def add_project_input(
         source_ref=i.source_ref,
         created_at=i.created_at,
     )
+
+
+_AUDIO_CONTENT_TYPES = {"audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/x-wav"}
+_AUDIO_EXTS = {".mp3", ".m4a", ".wav"}
+
+
+@router.post(
+    "/projects/{project_id}/transcribe",
+    response_model=schemas.VersionGenerateJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def transcribe_upload(
+    project_id: uuid.UUID,
+    file: UploadFile = File(...),
+    language: str = Form("ta"),
+    title: str | None = Form(None),
+    provider_id: str | None = Form(None),
+    model: str | None = Form(None),
+    api_key: str | None = Form(None),
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+    r: redis.Redis = Depends(get_redis),
+) -> schemas.VersionGenerateJobOut:
+    """Upload an interview audio file and enqueue transcription (Tamil STT
+    capture, slice 1). Owner-only. Stores the audio as a kind='upload' input,
+    creates a format='transcript' artifact, and hands the STT call to
+    `transcribe_task` (Celery). Poll `GET /api/v1/jobs/{job_id}` for the
+    eventual `done`/`failed` status and the created artifact_version id — same
+    single-shot job machinery (encrypted BYOK envelope + status row) as
+    `generate_version`."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))
+    await _enforce_generation_cap(conn, account, principal)
+
+    stt_provider = provider_id or settings.stt_default_provider
+    if stt_provider not in STT_REGISTRY:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"unsupported STT provider {stt_provider!r}"
+        )
+
+    # Validate the file: extension + content-type + size.
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _AUDIO_EXTS or (file.content_type not in _AUDIO_CONTENT_TYPES):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "upload an audio file (.mp3, .m4a, .wav)",
+        )
+    audio_bytes = await file.read()
+    if len(audio_bytes) == 0:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "the audio file is empty")
+    if len(audio_bytes) > settings.audio_max_bytes:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"audio exceeds the {settings.audio_max_bytes // (1024 * 1024)} MB limit",
+        )
+
+    # managed vs BYOK — mirror generate_version.
+    managed = api_key is None
+    if managed:
+        grant = await resolve_managed_access(
+            conn, account_id=account.id, provider_id=stt_provider, principal=principal
+        )
+        if grant is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
+            )
+        if await over_cap(conn, account_id=account.id, access=grant):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "managed allowance exhausted; try again later or add your own key",
+            )
+
+    # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
+    content_hash = hashlib.sha256(audio_bytes).hexdigest()
+    os.makedirs(settings.audio_upload_dir, exist_ok=True)
+    storage_path = os.path.join(settings.audio_upload_dir, f"{uuid.uuid4()}{ext}")
+    with open(storage_path, "wb") as fh:
+        fh.write(audio_bytes)
+
+    # Raw audio -> project_input(kind='upload'); transcript -> artifact.
+    src = await project_repo.add_upload_input(
+        conn,
+        project_id=project_id,
+        title=title or (file.filename or "Interview audio"),
+        storage_path=storage_path,
+        content_hash=content_hash,
+    )
+    artifact = await artifact_repo.create_artifact(
+        conn,
+        project_id=project_id,
+        role="cornerstone",
+        format="transcript",
+        title=title or (file.filename or "Interview transcript"),
+    )
+
+    job_id = uuid.uuid4()
+
+    # BYOK only — encrypt + store the per-job envelope. Managed reads OUR vault key.
+    if not managed:
+        master_key = parse_master_key(settings.byok_master_key)
+        envelope = encrypt_api_key(master_key, str(job_id), api_key)
+        await r.set(_byok_redis_key(job_id), envelope, ex=settings.byok_redis_ttl_seconds)
+
+    await _write_status(r, job_id, "queued")
+
+    transcribe_task.delay(
+        job_id=str(job_id),
+        artifact_id=str(artifact.id),
+        input_id=str(src.id),
+        audio_path=storage_path,
+        language=language,
+        provider_id=stt_provider,
+        model=model,
+        managed=managed,
+        recorded_by_sub=principal.sub,
+    )
+
+    # Safe-surface logging only — never the api_key, never the audio bytes/path.
+    log.info(
+        "transcribe_submitted",
+        job_id=str(job_id),
+        project_id=str(project_id),
+        artifact_id=str(artifact.id),
+        provider_id=stt_provider,
+        managed=managed,
+    )
+
+    return schemas.VersionGenerateJobOut(job_id=str(job_id), status="queued")
 
 
 @router.patch("/inputs/{input_id}", response_model=schemas.ProjectInputOut)
