@@ -45,3 +45,16 @@ it("a reviewer does not see the delete button", async () => {
   await screen.findByLabelText("Back to Home");
   expect(screen.queryByLabelText("Delete project")).toBeNull();
 });
+
+it("does not crash transitioning loading -> loaded (delete hook must be unconditional)", () => {
+  // Regression: deleteBusy useState sat below the loading/!project early returns,
+  // so the hook count changed between the loading and loaded renders -> crash.
+  (useTrustProject as jest.Mock).mockReturnValue({
+    project: null, loading: true, error: null, refresh: jest.fn(), inputs: [],
+    editInput: jest.fn(), removeInput: jest.fn(), transcribeAudio: jest.fn(), removeProject,
+  });
+  const { rerender } = render(<TrustProjectDetail />);
+  (useTrustProject as jest.Mock).mockReturnValue(base("owner"));
+  rerender(<TrustProjectDetail />);
+  expect(screen.getByLabelText("Delete project")).toBeTruthy();
+});

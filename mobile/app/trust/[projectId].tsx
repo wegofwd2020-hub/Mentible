@@ -1519,6 +1519,11 @@ function TrustProjectDetailInner() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, removeProject, transcribeAudio, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
+  // Delete-project busy flag — declared here (before any early return) so it's
+  // an unconditional hook. It was previously below the loading/!project guards,
+  // which changed the hook count between the loading and loaded renders and
+  // crashed the screen to blank.
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const inputs = sourceInputs ?? [];
   const [rightsHolderDraft, setRightsHolderDraft] = useState(project?.project.rights_holder ?? "");
   const [rightsBusy, setRightsBusy] = useState(false);
@@ -2251,7 +2256,6 @@ function TrustProjectDetailInner() {
     setSelected(step.target.phase);
   };
 
-  const [deleteBusy, setDeleteBusy] = useState(false);
   const onDeleteProject = () => {
     Alert.alert(
       "Delete this project?",
