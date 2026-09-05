@@ -18,21 +18,26 @@ export function updateSegment(
 }
 
 // Low confidence first, so what needs attention surfaces at the top. Null
-// confidence is treated as the lowest (most in need of review). Stable sort:
-// ties keep their original order (index tie-break).
+// confidence means the provider doesn't report it (e.g. Sarvam) — that's
+// UNKNOWN, not low, so it sorts LAST (never surfaced as needing review) rather
+// than flooding the top. Stable sort: ties keep their original order.
 export function orderLowConfidenceFirst(list: EditableSegment[]): EditableSegment[] {
-  const val = (c: number | null) => (c == null ? -1 : c);
+  const val = (c: number | null) => (c == null ? 2 : c); // unknown -> after high (<=1)
   return list
     .map((s, i) => ({ s, i }))
     .sort((a, b) => val(a.s.confidence) - val(b.s.confidence) || a.i - b.i)
     .map(({ s }) => s);
 }
 
-export type ConfidenceTone = "low" | "medium" | "high";
+export type ConfidenceTone = "low" | "medium" | "high" | "unknown";
 
 // Segment-level (not per-word — API limit) confidence banding for shading.
+// Null = the provider gives no per-segment confidence (Sarvam) → "unknown",
+// rendered neutral (NOT flagged as low/needs-review — that made clean Sarvam
+// transcripts look entirely failed). Only real low NUMBERS (Whisper) flag.
 export function confidenceTone(confidence: number | null): ConfidenceTone {
-  if (confidence == null || confidence < 0.5) return "low";
+  if (confidence == null) return "unknown";
+  if (confidence < 0.5) return "low";
   if (confidence < 0.8) return "medium";
   return "high";
 }

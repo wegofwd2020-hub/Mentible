@@ -27,7 +27,8 @@ type Styles = ReturnType<typeof makeStyles>;
 
 function toneColor(tone: ConfidenceTone, c: Palette): string {
   // Segment-level shading: a left stripe. Low confidence stands out (needs
-  // review), high fades into the surface.
+  // review), high/unknown fade into the surface. "unknown" = the provider
+  // reports no confidence (Sarvam) — neutral, not flagged.
   if (tone === "low") return c.error;
   if (tone === "medium") return c.textSecondary;
   return c.border;

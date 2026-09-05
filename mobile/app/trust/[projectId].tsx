@@ -1801,8 +1801,21 @@ function TrustProjectDetailInner() {
     }
   };
 
-  const onOpenVersion = (artifactId: string, versionId: string) =>
+  const onOpenVersion = (artifactId: string, versionId: string) => {
+    // A transcript artifact (audio capture) has no draft `sections` — the draft
+    // version viewer would render it blank. Route it to the transcript review
+    // surface instead, so a transcript is re-openable from the Drafts list (not
+    // only right after upload).
+    const fmt = project?.artifacts.find((a) => a.artifact.id === artifactId)?.artifact.format;
+    if (fmt === "transcript") {
+      router.push({
+        pathname: "/trust/transcript/[artifactId]",
+        params: { artifactId, versionId, projectId: String(projectId) },
+      });
+      return;
+    }
     router.push({ pathname: "/trust/version/[versionId]", params: { versionId, artifactId, projectId: String(projectId) } });
+  };
 
   const onGenerateTopic = async (topicId: string) => {
     setTopicGen((cur) => new Map(cur).set(topicId, { startedAt: Date.now(), phase: "queued" }));
