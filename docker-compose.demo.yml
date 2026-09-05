@@ -97,8 +97,16 @@ services:
       # ── Open Library (ADR-027) — published artifacts live on a persistent
       # volume so a redeploy doesn't orphan the published_artifact registry rows.
       ARTIFACT_STORE_DIR: /data/artifacts
+      # ── STT capture (ADR-037 Capture) ──────────────────────────────────────
+      # The transcribe endpoint writes the uploaded audio here; the celery-worker
+      # reads it back to run the STT provider. api + worker are SEPARATE
+      # containers, so this MUST be a shared, persistent volume mounted at the
+      # same path on both (else the worker gets FileNotFoundError). Keep the env
+      # value in lockstep with the celery-worker's below and the volume mount.
+      AUDIO_UPLOAD_DIR: /data/audio
     volumes:
       - mentible-artifacts:/data/artifacts
+      - mentible-audio:/data/audio
     depends_on:
       redis:
         condition: service_healthy
@@ -196,9 +204,15 @@ services:
       FREE_GEN_WINDOW_DAYS: ${FREE_GEN_WINDOW_DAYS:-30}
       # ── Open Library (ADR-027) ─────────────────────────────────────────────
       # Mirrored from `api` for import-time parity even though this worker
-      # doesn't (yet) touch the artifact store — no volume mount below since
-      # per-topic generation (T2) doesn't read/write it.
+      # doesn't (yet) touch the artifact store — but it DOES read the uploaded
+      # audio for transcription (below), so it mounts the shared audio volume.
       ARTIFACT_STORE_DIR: /data/artifacts
+      # ── STT capture (ADR-037 Capture) ──────────────────────────────────────
+      # The transcribe_task reads the audio file the api wrote; must match the
+      # api's AUDIO_UPLOAD_DIR + share the same volume (see the api service).
+      AUDIO_UPLOAD_DIR: /data/audio
+    volumes:
+      - mentible-audio:/data/audio
     depends_on:
       redis:
         condition: service_healthy
@@ -219,3 +233,6 @@ services:
 # files.
 volumes:
   mentible-artifacts:
+  # Shared audio-upload store for STT capture: the api writes, the celery-worker
+  # reads. Persistent so an in-flight transcription survives a container restart.
+  mentible-audio:
