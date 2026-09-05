@@ -57,6 +57,11 @@ wegofwd-secure @ git+https://github.com/wegofwd2020-hub/wegofwd-secure@v0.1.0
 # coupled anthropic 0.28.0 ↔ httpx 0.27.2 pair used by the vendored legacy provider)
 anthropic==0.28.0
 
+# Sarvam AI SDK — Indic-specialized STT. Used ONLY for the batch (long-audio)
+# path in the capture seam (lazy-imported); the sync ≤30s path stays pure httpx.
+# httpx>=0.21.2 is compatible with the pinned httpx==0.27.2 above.
+sarvamai==0.1.32
+
 # ── Dev / test ────────────────────────────────────────────────────────────────
 pytest==9.1.1
 pytest-asyncio==1.4.0
