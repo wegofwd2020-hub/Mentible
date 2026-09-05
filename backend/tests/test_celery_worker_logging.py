@@ -64,7 +64,10 @@ class TestWorkerProcessInitLoggingHandler:
 
 def test_celery_app_imports_cleanly_and_registers_expected_tasks() -> None:
     # Regression guard: the worker entrypoint import chain
-    # (`backend.src.core.celery_app`) must still succeed and register both
-    # the liveness `ping` task and the trust per-topic generation task.
+    # (`backend.src.core.celery_app`) must still succeed and register the
+    # liveness `ping` task, the trust per-topic generation task, and the STT
+    # capture task. `trust.transcribe` was defined but never imported by
+    # celery_app, so the worker rejected every transcribe job as unregistered.
     assert "ping" in celery_app.tasks
     assert "trust.generate_topic" in celery_app.tasks
+    assert "trust.transcribe" in celery_app.tasks

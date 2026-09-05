@@ -67,3 +67,10 @@ def ping() -> str:
 # backend.src.trust.tasks imports `celery_app` from HERE — a top-level import
 # would be circular.
 from backend.src.trust import tasks as trust_tasks  # noqa: E402,F401
+
+# STT capture task — importing registers `trust.transcribe` on this app (the
+# module's @celery_app.task decorator runs at import time). Same deferred-import
+# rationale as trust_tasks above. Without this the worker rejects every
+# transcribe job with "Received unregistered task of type 'trust.transcribe'"
+# and the job never reaches done/failed (the client polls to a timeout).
+from backend.src.trust import transcribe_tasks as trust_transcribe_tasks  # noqa: E402,F401
