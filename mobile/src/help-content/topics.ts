@@ -933,6 +933,50 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "capture-audio",
+    title: "Capture — transcribe an interview (audio → transcript)",
+    featureKey: "capture-audio",
+    keywords: [
+      "audio",
+      "transcribe",
+      "transcription",
+      "interview",
+      "recording",
+      "mp3",
+      "m4a",
+      "wav",
+      "speech",
+      "stt",
+      "tamil",
+      "whisper",
+      "upload audio",
+      "capture",
+    ],
+    blocks: [
+      {
+        kind: "text",
+        text: "On a project you own, the Input tab has an \"Upload interview (audio)\" card. Pick an mp3, m4a, or wav recording, give it an optional title, and choose the language (Tamil by default). Mentible sends it for transcription and, when it's done, lands the result as a transcript in this project — ready to review.",
+      },
+      {
+        kind: "text",
+        text: "Transcription runs on your managed plan by default (no key needed). If you've saved your own Groq or OpenAI key in Settings, it uses that instead so the cost is on your account. It's an owner action — reviewers don't see the upload card.",
+      },
+      {
+        kind: "text",
+        text: "The transcript is broken into timed segments, each with the model's confidence. Reviewing and editing those segments — fixing words, tagging who's speaking — happens on the transcript review surface, and your saved edits become a new version you can approve just like any other draft.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a project you own and go to the Input tab.",
+          "Tap \"Upload interview (audio)\" and choose an mp3/m4a/wav file.",
+          "Set an optional title and the language (Tamil is the default).",
+          "Tap Transcribe and wait — the transcript lands in the project when it's ready.",
+        ],
+      },
+    ],
+  },
+  {
     id: "draft-viewer",
     title: "Feedback — read, approve, comment & revise a draft",
     featureKey: "draft-viewer",
