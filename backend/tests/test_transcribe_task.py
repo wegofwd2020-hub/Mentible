@@ -18,7 +18,7 @@ async def test_run_transcribe_writes_version_and_done_status(monkeypatch):
     monkeypatch.setattr(tt, "_redis_client", lambda: r)
 
     # Managed path (no envelope needed): stub the vault key.
-    monkeypatch.setattr(tt, "get_managed_key", lambda provider_id: "managed-key")
+    monkeypatch.setattr(tt, "get_managed_stt_key", lambda provider_id: "managed-key")
 
     # Stub the STT seam — assert the key is passed, return two segments.
     seen = {}

@@ -104,6 +104,12 @@ services:
       # same path on both (else the worker gets FileNotFoundError). Keep the env
       # value in lockstep with the celery-worker's below and the volume mount.
       AUDIO_UPLOAD_DIR: /data/audio
+      # Managed STT provider (ADR-037 Capture). MANAGED_SARVAM_API_KEY is OUR
+      # Sarvam key (Indic-specialized STT); without this passthrough the key in
+      # .env.demo never reaches the container (the #496 trap). STT_DEFAULT_PROVIDER
+      # picks the managed engine for keyless transcription (sarvam » groq for Tamil).
+      MANAGED_SARVAM_API_KEY: ${MANAGED_SARVAM_API_KEY:-}
+      STT_DEFAULT_PROVIDER: ${STT_DEFAULT_PROVIDER:-groq}
     volumes:
       - mentible-artifacts:/data/artifacts
       - mentible-audio:/data/audio
@@ -211,6 +217,10 @@ services:
       # The transcribe_task reads the audio file the api wrote; must match the
       # api's AUDIO_UPLOAD_DIR + share the same volume (see the api service).
       AUDIO_UPLOAD_DIR: /data/audio
+      # Managed STT: the worker makes the actual Sarvam/Groq call, so it needs the
+      # key + the default-provider selection (mirror of the api service above).
+      MANAGED_SARVAM_API_KEY: ${MANAGED_SARVAM_API_KEY:-}
+      STT_DEFAULT_PROVIDER: ${STT_DEFAULT_PROVIDER:-groq}
     volumes:
       - mentible-audio:/data/audio
     depends_on:

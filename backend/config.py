@@ -113,6 +113,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("managed_groq_api_key", "MENTIBLE_GROQ_KEY", "GROQ_KEY"),
     )
     managed_gemini_api_key: str | None = Field(default=None)
+    # Managed STT-only provider (ADR-037 Capture). Sarvam is Indic-specialized
+    # speech-to-text — not a text-gen engine — so it lives in the STT-managed set
+    # (get_managed_stt_key), NOT the LLM managed_provider_ids() list.
+    managed_sarvam_api_key: str | None = Field(default=None)
     # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
     # backstop that bounds OUR spend even on an unlimited plan or the staff override, against
     # a runaway client / compromised account. 0 ⇒ no ceiling. Independent of the plan allowance.

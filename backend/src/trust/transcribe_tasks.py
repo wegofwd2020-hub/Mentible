@@ -21,9 +21,10 @@ import asyncpg
 import redis.asyncio as redis
 
 from backend.config import settings
-from backend.src.billing.vault import get_managed_key
+from backend.src.billing.vault import get_managed_stt_key
 from backend.src.capture import transcribe as capture_transcribe
 from backend.src.capture.errors import STTAuthError, STTError, STTRateLimitError
+from backend.src.capture.registry import STT_REGISTRY
 from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
 from backend.src.core.celery_app import celery_app
 from backend.src.core.log_redaction import get_logger
@@ -75,7 +76,7 @@ async def _run_transcribe(
 
         # (b) Resolve the provider key: managed = OUR vault key, BYOK = decrypt.
         if managed:
-            api_key = get_managed_key(provider_id)
+            api_key = get_managed_stt_key(provider_id)
             if not api_key:
                 log.warning("managed_key_missing", job_id=str(job_id), provider=provider_id)
                 await _write_status(r, job_id, "failed", error="managed transcription unavailable")
@@ -132,6 +133,12 @@ async def _run_transcribe(
             await _write_status(r, job_id, "failed", error="transcription failed")
             return
 
+        # Record the EFFECTIVE model that actually ran (the request `model` is
+        # None on the managed default path) — so the transcript's provenance says
+        # which engine produced it, not just null.
+        spec = STT_REGISTRY.get(provider_id)
+        effective_model = model or (spec.default_model if spec else None)
+
         content = {
             "language": language,
             "segments": [
@@ -145,7 +152,7 @@ async def _run_transcribe(
                 for s in segments
             ],
             "source_audio_ref": str(input_id),
-            "stt_meta": {"provider": provider_id, "model": model},
+            "stt_meta": {"provider": provider_id, "model": effective_model},
         }
 
         conn = await _db_connect()
@@ -158,7 +165,7 @@ async def _run_transcribe(
                 generation_meta={
                     "kind": "transcription",
                     "provider_id": provider_id,
-                    "model": model,
+                    "model": effective_model,
                     "source_input_id": str(input_id),
                 },
             )
