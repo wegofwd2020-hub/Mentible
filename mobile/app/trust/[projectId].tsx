@@ -240,6 +240,8 @@ function SourcesPanel({
   onAddSource,
   onTranscribe,
   onTranscribed,
+  transcripts,
+  onOpenTranscript,
   editInput,
   removeInput,
 }: {
@@ -259,6 +261,8 @@ function SourcesPanel({
   onAddSource: () => void;
   onTranscribe: (asset: PickedAudio, opts: { title?: string; language: string }) => Promise<{ artifact_id: string; version_id: string }>;
   onTranscribed: (r: { artifact_id: string; version_id: string }) => void;
+  transcripts: { id: string; title: string; versionId: string; versionNo: number; validated: boolean }[];
+  onOpenTranscript: (artifactId: string, versionId: string) => void;
   editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
   removeInput: (inputId: string) => Promise<void>;
 }) {
@@ -423,6 +427,27 @@ function SourcesPanel({
             accessibilityLabel="Upload interview audio"
           />
         </Card>
+      ) : null}
+      {isOwner && transcripts.length > 0 ? (
+        <View>
+          <Text style={styles.artifactTitle}>Transcripts</Text>
+          {transcripts.map((t) => (
+            <Pressable
+              key={t.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open transcript ${t.title}`}
+              style={styles.sourceRow}
+              onPress={() => onOpenTranscript(t.id, t.versionId)}
+            >
+              <Label tone="secondary">Transcript</Label>
+              <Text style={styles.sourceRowTitle}>{t.title}</Text>
+              <Text style={styles.sourceRowDate}>
+                v{t.versionNo}
+                {t.validated ? " · Validated ✓" : " · Review & approve"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       ) : null}
       {inputs.length === 0 ? (
         <Text style={styles.emptyText}>
@@ -2189,6 +2214,22 @@ function TrustProjectDetailInner() {
   const active = selected ?? basePhase(phase.currentKey);
   const anyVersion = project.artifacts.some((a) => a.versions.length > 0);
 
+  // Transcript artifacts (audio capture) with at least one version, surfaced on
+  // the Input tab so a transcript is discoverable where the audio was uploaded
+  // (not buried under Drafts → Whole book). Latest version by version_no.
+  const transcripts = project.artifacts
+    .filter((a) => a.artifact.format === "transcript" && a.versions.length > 0)
+    .map((a) => {
+      const latest = a.versions.reduce((m, v) => (v.version_no > m.version_no ? v : m), a.versions[0]);
+      return {
+        id: a.artifact.id,
+        title: a.artifact.title ?? "Transcript",
+        versionId: latest.id,
+        versionNo: latest.version_no,
+        validated: latest.is_validated,
+      };
+    });
+
   // The single next action that moves an owner toward a first working AI
   // draft — Add a source / Suggest a structure / Generate a topic. Pure
   // (@/lib/nextStep); returns null for reviewers and once a topic is
@@ -2266,6 +2307,8 @@ function TrustProjectDetailInner() {
                 params: { artifactId: r.artifact_id, versionId: r.version_id, projectId: String(projectId) },
               })
             }
+            transcripts={transcripts}
+            onOpenTranscript={onOpenVersion}
             editInput={editInput}
             removeInput={removeInput}
           />
