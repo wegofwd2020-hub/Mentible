@@ -1518,7 +1518,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, transcribeAudio, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, removeProject, transcribeAudio, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [rightsHolderDraft, setRightsHolderDraft] = useState(project?.project.rights_holder ?? "");
   const [rightsBusy, setRightsBusy] = useState(false);
@@ -2251,6 +2251,33 @@ function TrustProjectDetailInner() {
     setSelected(step.target.phase);
   };
 
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const onDeleteProject = () => {
+    Alert.alert(
+      "Delete this project?",
+      "This permanently deletes the project and everything in it — sources, transcripts, drafts, and approvals. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setDeleteBusy(true);
+            void (async () => {
+              try {
+                await removeProject();
+                router.replace("/projects");
+              } catch (e) {
+                Alert.alert("Couldn't delete", e instanceof ApiError ? e.userMessage() : "Please try again.");
+                setDeleteBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
@@ -2407,6 +2434,17 @@ function TrustProjectDetailInner() {
           />
         ) : null}
         <PhaseNav phaseKey={active} onSelect={setSelected} />
+        {isOwner ? (
+          <View style={styles.dangerZone}>
+            <Button
+              variant="ghost"
+              label="Delete project"
+              onPress={onDeleteProject}
+              busy={deleteBusy}
+              accessibilityLabel="Delete project"
+            />
+          </View>
+        ) : null}
       </PageContainer>
     </ScrollView>
   );
@@ -2528,6 +2566,7 @@ const makeStyles = (c: Palette) => ({
   },
   sourcesHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
   captureCard: { gap: spacing.xs, borderColor: c.border },
+  dangerZone: { marginTop: spacing.xl, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: c.border, alignItems: "flex-start" as const },
   captureCardTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "700" as const },
   captureCardHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
   structureBlock: {

@@ -600,6 +600,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Three roles work a project: the Owner (who created it) can edit sources, structure and drafts, and invite people; an invited Reviewer can approve, withdraw an approval, and comment, but can't edit; an invited Editor edits the draft text and creates new versions instead of approving — the two invited roles are separate, an Editor can't approve and a Reviewer can't edit. Everyone with access sees the same project — the tabs just show or hide actions based on your role.",
       },
       {
+        kind: "text",
+        text: "The Owner can delete a project from the \"Delete project\" button at the bottom of the project screen. Deleting is permanent — it removes the project and everything in it (sources, transcripts, drafts, and approval records) and can't be undone.",
+      },
+      {
         kind: "steps",
         steps: [
           "On the Projects tab, tap \"+ New project\".",

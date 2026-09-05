@@ -535,6 +535,20 @@ def test_input_edit_delete_owner_only_and_404():
         )
 
 
+def test_delete_project_owner_only_cascades():
+    with TestClient(app) as c:
+        owner = f"o-{uuid.uuid4()}"
+        pid, iid = _seed_project_with_input(c, owner)
+        # a non-member cannot delete the project
+        _as(f"x-{uuid.uuid4()}", f"x-{uuid.uuid4()}@x.z")
+        assert c.delete(f"/api/v1/trust/projects/{pid}").status_code == 403
+        # the owner deletes it -> 204; the project (and its input, via cascade) is gone
+        _as(owner, f"{owner}@x.z")
+        assert c.delete(f"/api/v1/trust/projects/{pid}").status_code == 204
+        assert c.get(f"/api/v1/trust/projects/{pid}").status_code in (403, 404)
+        assert c.patch(f"/api/v1/trust/inputs/{iid}", json={"title": "z"}).status_code == 404
+
+
 _DRAFT_JSON = _json.dumps(
     {
         "sections": [
