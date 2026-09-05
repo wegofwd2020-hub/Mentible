@@ -6,6 +6,8 @@ import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { PhaseNav } from "@/components/PhaseNav";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
+import { Mp3UploadSheet } from "@/components/trust/Mp3UploadSheet";
+import type { PickedAudio } from "@/api/audioUpload";
 import { Alert } from "@/lib/alert";
 import { useTrustProject } from "@/hooks/useTrustProject";
 import { ApiError, exportBook } from "@/api/client";
@@ -236,6 +238,7 @@ function SourcesPanel({
   setSourceUrl,
   addSourceBusy,
   onAddSource,
+  onTranscribe,
   editInput,
   removeInput,
 }: {
@@ -253,10 +256,13 @@ function SourcesPanel({
   setSourceUrl: (v: string) => void;
   addSourceBusy: boolean;
   onAddSource: () => void;
+  onTranscribe: (asset: PickedAudio, opts: { title?: string; language: string }) => Promise<unknown>;
   editInput: (inputId: string, body: { title?: string; content?: string; source_ref?: string }) => Promise<ProjectInputView>;
   removeInput: (inputId: string) => Promise<void>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [transcribeBusy, setTranscribeBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
@@ -328,6 +334,21 @@ function SourcesPanel({
 
   const canAdd = sourceKind === "link" ? sourceUrl.trim().length > 0 : sourceContent.trim().length > 0;
 
+  const onSubmitAudio = (asset: PickedAudio, opts: { title?: string; language: string }) => {
+    setTranscribeBusy(true);
+    void (async () => {
+      try {
+        await onTranscribe(asset, opts);
+        setUploadOpen(false);
+        Alert.alert("Transcript ready", "Find it in this project's drafts to review and approve.");
+      } catch (e) {
+        Alert.alert("Couldn't transcribe", e instanceof ApiError ? e.userMessage() : e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setTranscribeBusy(false);
+      }
+    })();
+  };
+
   return (
     <View style={styles.sourcesBlock}>
       <Text style={styles.artifactTitle}>Input</Text>
@@ -385,6 +406,21 @@ function SourcesPanel({
             accessibilityLabel="Add source"
           />
         </View>
+      ) : null}
+      {isOwner ? (
+        <Card style={styles.captureCard}>
+          <Text style={styles.captureCardTitle}>Upload interview (audio)</Text>
+          <Text style={styles.captureCardHelper}>
+            Transcribe an mp3, m4a, or wav recording into an editable transcript.
+          </Text>
+          <Button
+            variant="ghost"
+            label="Upload interview (audio)"
+            onPress={() => setUploadOpen(true)}
+            busy={transcribeBusy}
+            accessibilityLabel="Upload interview audio"
+          />
+        </Card>
       ) : null}
       {inputs.length === 0 ? (
         <Text style={styles.emptyText}>
@@ -468,6 +504,12 @@ function SourcesPanel({
           );
         })
       )}
+      <Mp3UploadSheet
+        visible={uploadOpen}
+        busy={transcribeBusy}
+        onClose={() => setUploadOpen(false)}
+        onSubmit={onSubmitAudio}
+      />
     </View>
   );
 }
@@ -1449,7 +1491,7 @@ function TrustProjectDetailInner() {
   const router = useRouter();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
+  const { project, loading, error, refresh, generateFormat, generateTopic, invite, addInput, editInput, removeInput, transcribeAudio, loadVersionContent, suggestToc, saveToc, saveRights, inputs: sourceInputs, accessToken } = useTrustProject(String(projectId));
   const inputs = sourceInputs ?? [];
   const [rightsHolderDraft, setRightsHolderDraft] = useState(project?.project.rights_holder ?? "");
   const [rightsBusy, setRightsBusy] = useState(false);
@@ -2202,6 +2244,7 @@ function TrustProjectDetailInner() {
             setSourceUrl={setSourceUrl}
             addSourceBusy={addSourceBusy}
             onAddSource={onAddSource}
+            onTranscribe={transcribeAudio}
             editInput={editInput}
             removeInput={removeInput}
           />
@@ -2420,6 +2463,9 @@ const makeStyles = (c: Palette) => ({
     gap: spacing.sm,
   },
   sourcesHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
+  captureCard: { gap: spacing.xs, borderColor: c.border },
+  captureCardTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "700" as const },
+  captureCardHelper: { color: c.textSecondary, fontSize: typography.sizeSm },
   structureBlock: {
     backgroundColor: c.surface,
     borderRadius: radius.md,

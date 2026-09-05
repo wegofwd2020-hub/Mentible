@@ -1,4 +1,5 @@
 import { ApiError, resolveBaseUrl } from "./client";
+import { buildAudioForm, type PickedAudio } from "@/api/audioUpload";
 
 export interface MembershipView { project_id: string; role: string }
 export interface SessionSyncView { account_id: string; email: string | null; memberships: MembershipView[] }
@@ -85,6 +86,39 @@ export interface TopicGenerateJobOut { job_id: string; status: string }
 // `pollJob<TopicGenerateJobResult>` (@/api/pollJob, used by
 // useGenerateTopicJob).
 export interface TopicGenerateJobResult { version_id: string; topic_id: string; version_no: number }
+
+// STT capture (slice 2): submit returns an async job; the transcript version
+// arrives via pollJob<TranscribeJobResult> (@/api/pollJob).
+export interface TranscribeJobOut { job_id: string; status: string }
+export interface TranscribeJobResult { artifact_id: string; version_id: string; version_no: number }
+
+// Submit an audio file for transcription. Multipart — NOT the JSON trustFetch:
+// we must let fetch set the multipart boundary, so no Content-Type header here.
+// Owner-only on the backend. Returns the async job; poll GET /api/v1/jobs/{id}
+// for the transcript artifact_version. Omitting providerId/apiKey lets the
+// backend use the managed default STT provider.
+export async function transcribeAudio(
+  projectId: string,
+  args: { asset: PickedAudio; language: string; title?: string; providerId?: string; apiKey?: string },
+  token: string,
+): Promise<TranscribeJobOut> {
+  const body = await buildAudioForm(args.asset, {
+    language: args.language,
+    title: args.title,
+    providerId: args.providerId,
+    apiKey: args.apiKey,
+  });
+  const res = await fetch(`${resolveBaseUrl()}/api/v1/trust/projects/${projectId}/transcribe`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiError(res.status, text);
+  }
+  return res.json() as Promise<TranscribeJobOut>;
+}
 
 async function trustFetch<T>(path: string, token: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(`${resolveBaseUrl()}/api/v1/trust${path}`, {

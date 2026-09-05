@@ -5,6 +5,9 @@ import { addProjectInput, addTopicFeedback as addTopicFeedbackApi, approveVersio
 import { useGenerateTopicJob } from "@/hooks/useGenerateTopicJob";
 import { useGenerateVersionJob } from "@/hooks/useGenerateVersionJob";
 import { useSuggestTocJob } from "@/hooks/useSuggestTocJob";
+import { useTranscribeJob } from "@/hooks/useTranscribeJob";
+import type { PickedAudio } from "@/api/audioUpload";
+import type { TranscribeJobResult } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import { loadDefaultParams } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
@@ -23,6 +26,11 @@ async function resolveGenProvider(): Promise<string> {
     return DEFAULT_GENERATION_PARAMS.provider;
   }
 }
+
+// Providers that can transcribe audio (backend STT_REGISTRY). The general gen
+// provider may be anthropic (no STT), so we only forward a BYOK key when the
+// resolved provider is one of these; otherwise we fall back to managed STT.
+const STT_CAPABLE = new Set(["groq", "openai"]);
 
 export function useTrustProject(projectId: string) {
   const { accessToken, status } = useAuth();
@@ -123,6 +131,39 @@ export function useTrustProject(projectId: string) {
     await refresh();
     return v;
   }, [accessToken, knownNotPro, projectId, refresh, runGenerateVersionJob]);
+
+  // STT capture (slice 2): upload an audio file and poll until the transcript
+  // artifact_version lands. Provider resolution differs from text gen — STT only
+  // works on groq/openai, so anthropic (the common gen default) falls back to
+  // managed STT (backend stt_default_provider). Managed still needs Pro: reuse
+  // the knownNotPro nudge (fail-open while the plan loads / Pro).
+  const { run: runTranscribeJob } = useTranscribeJob();
+
+  const transcribeAudio = useCallback(
+    async (asset: PickedAudio, opts?: { title?: string; language?: string; onPhase?: (p: "queued" | "running") => void }): Promise<TranscribeJobResult> => {
+      const gen = await resolveGenProvider();
+      const sttProvider = STT_CAPABLE.has(gen) ? gen : undefined;
+      const key = sttProvider ? await loadApiKey(sttProvider) : null;
+      // No BYOK STT key and known-not-Pro -> managed transcription is unavailable.
+      if (!key && knownNotPro) {
+        throw new Error("Transcription needs your managed plan or a Groq/OpenAI key saved in Settings.");
+      }
+      if (!accessToken) throw new Error("Not signed in");
+      const result = await runTranscribeJob({
+        projectId,
+        asset,
+        language: opts?.language ?? "ta",
+        title: opts?.title,
+        providerId: key ? sttProvider : undefined,
+        apiKey: key ?? undefined,
+        accessToken,
+        onPhase: opts?.onPhase,
+      });
+      await refresh();
+      return result;
+    },
+    [accessToken, knownNotPro, projectId, refresh, runTranscribeJob],
+  );
 
   // Async suggest-TOC (Phase B / T2): submit returns a job_id immediately,
   // `runSuggestTocJob` polls the shared /jobs/{id} until done|failed.
@@ -227,5 +268,5 @@ export function useTrustProject(projectId: string) {
 
   const inputs = project?.inputs ?? [];
 
-  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, suggestToc, saveToc, saveRights, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
+  return { project, loading, error, refresh, approve, unapprove, loadVersionContent, addArtifact, addVersion, generateVersion, generateFormat, transcribeAudio, suggestToc, saveToc, saveRights, invite, addInput, editInput, removeInput, inputs, generateTopic, approveTopic, withdrawTopic, listTopicVersions, addTopicFeedback, editTopic, accessToken, knownNotPro };
 }
