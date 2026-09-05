@@ -167,6 +167,16 @@ class ProjectInputOut(BaseModel):
     source_ref: str | None
     created_at: datetime | None
 
+    @field_validator("content", mode="before")
+    @classmethod
+    def _content_never_null(cls, v: str | None) -> str:
+        # kind='upload' inputs (audio, ADR-037 Capture) carry storage_path +
+        # content_hash but NO text content — the DB column is NULL. Coerce to ""
+        # so a project that contains an upload still serializes (a required
+        # `content: str` would otherwise 500 the whole GET /projects response),
+        # and the mobile client — which types content as a string — never sees null.
+        return v if v is not None else ""
+
 
 class ProjectInputUpdateIn(BaseModel):
     title: str | None = Field(default=None, max_length=200)
