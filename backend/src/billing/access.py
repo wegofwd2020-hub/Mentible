@@ -30,6 +30,7 @@ from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, usage_repo
 from backend.src.billing.eligibility import is_managed_eligible, is_staff_allowlisted
+from backend.src.billing.vault import get_managed_stt_key
 
 log = structlog.get_logger(__name__)
 
@@ -62,6 +63,43 @@ async def resolve_managed_access(
 
     # 2. Staff allowlist override (dev / dogfood).
     if is_managed_eligible(principal, provider_id):
+        window_start = now - timedelta(days=settings.managed_usage_window_days)
+        return ManagedAccess(settings.managed_period_cost_cap_micros, window_start, "staff")
+
+    return None
+
+
+async def resolve_managed_stt_access(
+    conn: asyncpg.Connection,
+    *,
+    account_id: UUID,
+    provider_id: str,
+    principal: Principal | None,
+) -> ManagedAccess | None:
+    """The account's managed grant for an STT `provider_id`, or None if not eligible.
+
+    STT providers (e.g. sarvam) are offered managed via the STT key set
+    (`get_managed_stt_key`), NOT the LLM plan `managed_providers` list — a
+    text-gen plan never lists an STT-only engine. So STT eligibility is: the
+    provider has a configured managed STT key, AND the account is Pro (an active
+    entitlement) or on the staff allowlist. Mirrors `resolve_managed_access`'s
+    grant shape so `over_cap` works unchanged.
+    """
+    if get_managed_stt_key(provider_id) is None:
+        return None
+
+    now = datetime.now(UTC)
+
+    # 1. Any active plan entitlement grants managed STT (provider availability is
+    #    already ensured by the STT-key check above — STT isn't per-plan-provider).
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account_id)
+    if ent is not None and ent.status == "active" and ent.period_start <= now < ent.period_end:
+        plan = plans.get_plan(ent.plan_id)
+        if plan is not None:
+            return ManagedAccess(plan.allowance_micros, ent.period_start, plan.id)
+
+    # 2. Staff allowlist override (dev / dogfood).
+    if principal is not None and is_staff_allowlisted(sub=principal.sub, email=principal.email):
         window_start = now - timedelta(days=settings.managed_usage_window_days)
         return ManagedAccess(settings.managed_period_cost_cap_micros, window_start, "staff")
 
