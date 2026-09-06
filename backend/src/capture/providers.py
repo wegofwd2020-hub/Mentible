@@ -97,6 +97,37 @@ class OpenAICompatibleSTTProvider:
 # we detect it to fall back to the batch (long-audio) job flow.
 _SARVAM_SYNC_DURATION_MARKER = "maximum limit of 30 seconds"
 
+# Sarvam emits spoken fractions as Unicode vulgar-fraction glyphs (e.g. "half a
+# spoon" -> "½"). Those render as tofu boxes in fonts without the glyph, so
+# normalize them to plain ASCII ("1/2") which every font can show.
+_FRACTIONS = {
+    ord(k): v
+    for k, v in {
+        "½": "1/2",
+        "⅓": "1/3",
+        "⅔": "2/3",
+        "¼": "1/4",
+        "¾": "3/4",
+        "⅕": "1/5",
+        "⅖": "2/5",
+        "⅗": "3/5",
+        "⅘": "4/5",
+        "⅙": "1/6",
+        "⅚": "5/6",
+        "⅐": "1/7",
+        "⅛": "1/8",
+        "⅜": "3/8",
+        "⅝": "5/8",
+        "⅞": "7/8",
+        "⅑": "1/9",
+        "⅒": "1/10",
+    }.items()
+}
+
+
+def _normalize_fractions(text: str) -> str:
+    return text.translate(_FRACTIONS)
+
 
 def _segments_from_sarvam(transcript: str, ts: dict) -> list[TranscriptSegment]:
     """Map a Sarvam timestamps block to segments. Sync returns chunk texts under
@@ -110,14 +141,14 @@ def _segments_from_sarvam(transcript: str, ts: dict) -> list[TranscriptSegment]:
     if chunks and len(chunks) == len(starts) == len(ends):
         return [
             TranscriptSegment(
-                text=(chunks[i] or "").strip(),
+                text=_normalize_fractions((chunks[i] or "").strip()),
                 start=float(starts[i]),
                 end=float(ends[i]),
                 confidence=None,
             )
             for i in range(len(chunks))
         ]
-    text = (transcript or "").strip()
+    text = _normalize_fractions((transcript or "").strip())
     if not text:
         return []
     return [TranscriptSegment(text=text, start=0.0, end=0.0, confidence=None)]

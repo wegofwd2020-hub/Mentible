@@ -177,3 +177,15 @@ async def test_sarvam_non_duration_400_raises_not_batch(tmp_path, monkeypatch):
             language="ta",
             http_client=_mock_client(handler),
         )
+
+
+def test_sarvam_normalizes_unicode_fractions():
+    from backend.src.capture.providers import _normalize_fractions
+
+    assert _normalize_fractions("ஒரு ½ spoon உப்பு") == "ஒரு 1/2 spoon உப்பு"
+    assert _normalize_fractions("¼ tsp, ¾ cup, ⅓ x") == "1/4 tsp, 3/4 cup, 1/3 x"
+
+    # and it flows through the segment mapper (batch `chunks` shape)
+    ts = {"chunks": ["½ spoon"], "start_time_seconds": [0.0], "end_time_seconds": [1.0]}
+    segs = _segments_from_sarvam("½ spoon", ts)
+    assert segs[0].text == "1/2 spoon"
