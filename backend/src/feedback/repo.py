@@ -19,7 +19,7 @@ async def insert_feedback(
     identifiers (columns); everything else is the analyzable JSON `payload`."""
     return await conn.fetchrow(
         """
-        INSERT INTO feedback (account_id, name, email, page, payload)
+        INSERT INTO app_feedback (account_id, name, email, page, payload)
         VALUES ($1, $2, $3, $4, $5::jsonb)
         RETURNING id, created_at
         """,

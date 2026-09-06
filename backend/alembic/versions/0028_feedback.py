@@ -11,7 +11,7 @@ depends_on = None
 def upgrade() -> None:
     op.execute(
         """
-        CREATE TABLE feedback (
+        CREATE TABLE app_feedback (
             id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             -- SET NULL (not CASCADE): feedback is analysis data that must outlive a
             -- deleted account; name/email are copied into columns so it stays complete.
@@ -25,8 +25,8 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute("CREATE INDEX feedback_created_at_idx ON feedback (created_at DESC)")
+    op.execute("CREATE INDEX app_feedback_created_at_idx ON app_feedback (created_at DESC)")
 
 
 def downgrade() -> None:
-    op.execute("DROP TABLE feedback")
+    op.execute("DROP TABLE app_feedback")

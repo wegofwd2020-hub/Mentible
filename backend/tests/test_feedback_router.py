@@ -47,7 +47,7 @@ def test_submit_feedback_stores_row_with_server_email_and_json_payload():
     async def _check():
         conn = await asyncpg.connect(DSN)
         try:
-            row = await conn.fetchrow("SELECT * FROM feedback WHERE id = $1", uuid.UUID(fid))
+            row = await conn.fetchrow("SELECT * FROM app_feedback WHERE id = $1", uuid.UUID(fid))
             assert row is not None
             assert row["email"] == email  # server-set from the principal, not the body
             assert row["name"] == "Jane Q"
