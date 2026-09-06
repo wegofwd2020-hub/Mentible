@@ -154,3 +154,64 @@ export async function revokeEntitlement(
     body: JSON.stringify({ plan_id: planId, status: "canceled" }),
   })) as EntitlementView;
 }
+
+export interface FeedbackRow {
+  id: string;
+  name: string;
+  email: string;
+  app: string;
+  page: string;
+  type: string | null;
+  contact_preference: string | null;
+  company: string | null;
+  role: string | null;
+  snippet: string;
+  created_at: string;
+}
+
+export interface FeedbackDetail extends FeedbackRow {
+  text: string;
+  payload: Record<string, unknown>;
+}
+
+export interface FeedbackListResult {
+  rows: FeedbackRow[];
+  next_cursor: string | null;
+}
+
+export interface FeedbackFilters {
+  type?: string;
+  contact_preference?: string;
+  page?: string;
+  app?: string;
+  q?: string;
+  created_from?: string; // ISO
+  created_to?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+function feedbackParams(f: FeedbackFilters): URLSearchParams {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(f)) {
+    if (v != null && v !== "") p.set(k, String(v));
+  }
+  return p;
+}
+
+export async function listFeedback(token: string, f: FeedbackFilters = {}): Promise<FeedbackListResult> {
+  const qs = feedbackParams(f).toString();
+  return (await adminFetch<FeedbackListResult>(`/feedback${qs ? `?${qs}` : ""}`, token)) as FeedbackListResult;
+}
+
+export async function getFeedback(token: string, id: string): Promise<FeedbackDetail> {
+  return (await adminFetch<FeedbackDetail>(`/feedback/${encodeURIComponent(id)}`, token)) as FeedbackDetail;
+}
+
+// The export endpoint returns a file, not JSON — the screen fetches this URL with
+// the Bearer token and triggers a browser download (web-first).
+export function feedbackExportUrl(f: FeedbackFilters, format: "csv" | "json"): string {
+  const p = feedbackParams({ ...f, limit: undefined, cursor: undefined });
+  p.set("format", format);
+  return `${resolveBaseUrl()}/api/v1/admin/feedback/export?${p.toString()}`;
+}
