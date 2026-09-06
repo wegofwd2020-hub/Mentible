@@ -19,7 +19,11 @@ async def _seed(conn, *, type_, text, cp="feedback_only", app="mentible", page="
     row = await conn.fetchrow(
         "INSERT INTO app_feedback (account_id, name, email, app, page, payload) "
         "VALUES (NULL,$1,$2,$3,$4,$5::jsonb) RETURNING id",
-        "Jane", f"{uuid.uuid4()}@x.z", app, page, json.dumps(payload),
+        "Jane",
+        f"{uuid.uuid4()}@x.z",
+        app,
+        page,
+        json.dumps(payload),
     )
     return row["id"]
 
@@ -45,4 +49,5 @@ def test_query_filters_and_keyset():
             assert page2 and page2[0]["id"] != page1[0]["id"]
         finally:
             await conn.close()
+
     asyncio.run(_run())

@@ -76,30 +76,51 @@ async def export_feedback(
     """Filtered export, capped at 5000 rows, no pagination. Audited — this is
     data egress."""
     rows = await repo.query_feedback(
-        conn, type_=type, contact_preference=contact_preference, page=page, app=app,
-        q=q, created_from=created_from, created_to=created_to, limit=_EXPORT_CAP, cursor=None,
+        conn,
+        type_=type,
+        contact_preference=contact_preference,
+        page=page,
+        app=app,
+        q=q,
+        created_from=created_from,
+        created_to=created_to,
+        limit=_EXPORT_CAP,
+        cursor=None,
     )
     await audit.record(
-        conn, actor_sub=viewer.sub, actor_email=viewer.email,
-        action="feedback.export", target_sub=None,
+        conn,
+        actor_sub=viewer.sub,
+        actor_email=viewer.email,
+        action="feedback.export",
+        target_sub=None,
     )
-    records = [
-        _row(r).model_dump() | {"text": str(_payload(r).get("text", ""))} for r in rows
-    ]
+    records = [_row(r).model_dump() | {"text": str(_payload(r).get("text", ""))} for r in rows]
     if format == "json":
         return Response(
-            content=json.dumps(records, indent=2), media_type="application/json",
+            content=json.dumps(records, indent=2),
+            media_type="application/json",
             headers={"Content-Disposition": 'attachment; filename="feedback.json"'},
         )
     buf = io.StringIO()
-    cols = ["created_at", "name", "email", "app", "page", "type", "contact_preference",
-            "company", "role", "text"]
+    cols = [
+        "created_at",
+        "name",
+        "email",
+        "app",
+        "page",
+        "type",
+        "contact_preference",
+        "company",
+        "role",
+        "text",
+    ]
     w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
     for rec in records:
         w.writerow({k: _csv_safe(v) for k, v in rec.items()})
     return Response(
-        content=buf.getvalue(), media_type="text/csv",
+        content=buf.getvalue(),
+        media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="feedback.csv"'},
     )
 
@@ -119,8 +140,16 @@ async def list_feedback(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> FeedbackAdminList:
     rows = await repo.query_feedback(
-        conn, type_=type, contact_preference=contact_preference, page=page, app=app,
-        q=q, created_from=created_from, created_to=created_to, limit=limit + 1, cursor=cursor,
+        conn,
+        type_=type,
+        contact_preference=contact_preference,
+        page=page,
+        app=app,
+        q=q,
+        created_from=created_from,
+        created_to=created_to,
+        limit=limit + 1,
+        cursor=cursor,
     )
     has_more = len(rows) > limit
     rows = rows[:limit]
