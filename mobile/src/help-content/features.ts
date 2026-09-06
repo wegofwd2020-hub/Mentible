@@ -42,6 +42,7 @@ export const FEATURES = [
   { key: "landing-home", label: "Home & navigation" },
   { key: "capture-audio", label: "Transcribing an interview (audio → transcript)" },
   { key: "transcript-review", label: "Reviewing a transcript (edit, tag speakers, approve)" },
+  { key: "send-feedback", label: "Sending feedback from anywhere in the app" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];

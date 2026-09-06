@@ -110,6 +110,13 @@ services:
       # picks the managed engine for keyless transcription (sarvam » groq for Tamil).
       MANAGED_SARVAM_API_KEY: ${MANAGED_SARVAM_API_KEY:-}
       STT_DEFAULT_PROVIDER: ${STT_DEFAULT_PROVIDER:-groq}
+      # In-app feedback → ZeptoMail (best-effort email on top of the DB store).
+      # Without this passthrough the token in .env.demo never reaches the api
+      # container (the #496 trap). Empty token ⇒ email disabled, feedback still
+      # captured. ZEPTOMAIL_FROM must be on the ZeptoMail-verified domain.
+      ZEPTOMAIL_TOKEN: ${ZEPTOMAIL_TOKEN:-}
+      ZEPTOMAIL_FROM: ${ZEPTOMAIL_FROM:-feedback@kaundinyalabs.com}
+      FEEDBACK_TO: ${FEEDBACK_TO:-support@kaundinyalabs.com}
     volumes:
       - mentible-artifacts:/data/artifacts
       - mentible-audio:/data/audio

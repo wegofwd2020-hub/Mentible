@@ -19,6 +19,7 @@ import { buildInfo } from "@/lib/buildInfo";
 import { loadFontMode, useFontMode } from "@/state/fontMode";
 import { studioLightColors, THEME_META } from "@/constants/theme";
 import { ThemeProvider, useThemeControls } from "@/theme";
+import { FeedbackFab } from "@/components/FeedbackFab";
 
 // Status-bar icons must contrast with the theme ground: dark icons on the light
 // (cream) default, light icons on the dark (navy) theme. Lives inside ThemeProvider
@@ -188,6 +189,7 @@ export default function RootLayout() {
                 options={{ title: "Draft", headerBackTitle: "Project" }}
               />
             </Stack>
+            <FeedbackFab />
           </NavThemeProvider>
         </AppBackground>
         {/* First-run onboarding (sign up → add a key → reading tour). The wizard

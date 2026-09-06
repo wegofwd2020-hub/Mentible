@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     # speech-to-text — not a text-gen engine — so it lives in the STT-managed set
     # (get_managed_stt_key), NOT the LLM managed_provider_ids() list.
     managed_sarvam_api_key: str | None = Field(default=None)
+    # In-app feedback → ZeptoMail (Zoho transactional email). Best-effort
+    # notification on top of the durable DB store. Empty token ⇒ email disabled
+    # (feedback is still captured). `from` MUST be on the ZeptoMail-verified domain.
+    zeptomail_token: str | None = Field(default=None)
+    zeptomail_from: str = Field(default="feedback@kaundinyalabs.com")
+    feedback_to: str = Field(default="support@kaundinyalabs.com")
+    zeptomail_base_url: str = Field(default="https://api.zeptomail.com/v1.1")
     # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
     # backstop that bounds OUR spend even on an unlimited plan or the staff override, against
     # a runaway client / compromised account. 0 ⇒ no ceiling. Independent of the plan allowance.
