@@ -214,12 +214,15 @@ function TranscriptReviewInner() {
               const tone = confidenceTone(s.confidence);
               return (
                 <View key={s.key} style={[styles.segment, { borderLeftColor: toneColor(tone, theme) }]}>
-                  <View style={styles.segMetaRow}>
-                    <Text style={styles.segMeta}>
-                      {s.confidence == null ? "confidence —" : `confidence ${Math.round(s.confidence * 100)}%`}
-                    </Text>
-                    {tone === "low" ? <Text style={styles.segFlag}>needs review</Text> : null}
-                  </View>
+                  {/* Only show the confidence row when the provider actually reports
+                      a per-segment number (Whisper/Groq). Sarvam reports none, so the
+                      row would be an identical, useless "confidence —" on every block. */}
+                  {s.confidence != null ? (
+                    <View style={styles.segMetaRow}>
+                      <Text style={styles.segMeta}>{`confidence ${Math.round(s.confidence * 100)}%`}</Text>
+                      {tone === "low" ? <Text style={styles.segFlag}>needs review</Text> : null}
+                    </View>
+                  ) : null}
                   <TextInput
                     style={styles.segText}
                     value={s.text}

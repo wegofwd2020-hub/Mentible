@@ -70,3 +70,22 @@ describe("TranscriptReview", () => {
     await waitFor(() => expect(mockApprove).toHaveBeenCalledWith("v1"));
   });
 });
+
+it("hides the confidence row when the provider reports no per-segment confidence (Sarvam)", async () => {
+  (getTranscriptVersion as jest.Mock).mockResolvedValue({
+    ...transcript,
+    content: {
+      ...transcript.content,
+      stt_meta: { provider: "sarvam", model: "saaras:v3" },
+      segments: [
+        { text: "வணக்கம்", start: 0, end: 2, confidence: null, speaker: null },
+        { text: "நன்றி", start: 2, end: 3, confidence: null, speaker: null },
+      ],
+    },
+  });
+  render(<TranscriptReview />);
+  await waitFor(() => expect(screen.getByDisplayValue("வணக்கம்")).toBeTruthy());
+  // No per-segment "confidence …" label (anchored so it doesn't match the
+  // "Low-confidence first" toggle).
+  expect(screen.queryByText(/^confidence/)).toBeNull();
+});
