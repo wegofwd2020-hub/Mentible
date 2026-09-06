@@ -66,7 +66,7 @@ def test_submit_feedback_stores_row_with_server_email_and_json_payload():
 
     import asyncio
 
-    asyncio.get_event_loop().run_until_complete(_check())
+    asyncio.run(_check())
 
 
 def test_submit_still_201_when_email_reports_failure():
