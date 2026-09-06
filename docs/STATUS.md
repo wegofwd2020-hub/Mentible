@@ -159,6 +159,40 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
 
 ## Done (on `main`)
 
+### Tamil STT Capture — audio → transcript (ADR-037 "Capture" phase) — BUILT & LIVE (2026-09-05/06)
+
+The missing **Capture** leg of the ADR-037 loop: a project owner uploads an
+interview recording and gets an expert-reviewable transcript, using the same
+trust workflow (artifact → immutable versions → approval) as drafts.
+Checkpoint branch: **`checkpoint/stt-complete-2026-09-06`** (`main@56253be`).
+
+- **Provider-agnostic STT seam** (`backend/src/capture/`, mirrors the LLM seam;
+  ADR-042 — managed/BYOK commodity STT, never self-hosted GPU): contract /
+  registry / providers / errors. Providers: **Groq & OpenAI** (Whisper, OpenAI-
+  compatible `/audio/transcriptions`) and **Sarvam** (Indic-specialized —
+  `api-subscription-key` header, `saaras:v3`, `mode=codemix` so spoken English
+  stays in English script). **Sarvam is the default** (`stt_default_provider`);
+  Whisper-large-v3 transcribes Tamil poorly (script contamination), Sarvam is
+  clean. Long audio (>30 s) auto-falls back to **Sarvam's batch job** (`sarvamai`
+  SDK, worker thread). Managed STT keys are a **separate set** from LLM managed
+  keys (`get_managed_stt_key` / `resolve_managed_stt_access`) so an STT-only
+  provider never appears as a text-gen engine.
+- **Backend**: `POST /api/v1/trust/projects/{id}/transcribe` (owner-only, 202 +
+  async job; single-shot Redis job like `generate_version`), Celery
+  `transcribe_task`, migration `0027` (`artifact(format='transcript')`). Audio
+  stored on a **shared `mentible-audio` volume** mounted on both api + worker.
+  Vulgar-fraction glyphs normalized to ASCII (½→1/2).
+- **Mobile / web**: capture card + `Mp3UploadSheet` (Input tab) → job poll →
+  transcript review screen (`app/trust/transcript/[artifactId].tsx`: segment
+  edit, speaker tags, segment-level confidence shading, Save = new version →
+  existing approval). Transcripts listed on the Input tab for re-entry.
+  In-app Help topics + tree leaves (`capture-audio`, `transcript-review`).
+- **Also this arc**: **owner-only delete project** (`DELETE
+  /trust/projects/{id}`, DB cascade; confirm dialog).
+- Shipped across PRs #509–#528 (spec/slices + Sarvam + batch + codemix + delete +
+  E2E-found fixes). Prod backend refreshed; web live on mentible.app +
+  mambakkam.net/app/mentible.
+
 ### Brand & product shape
 - **Mentible** brand (ADR-006, Accepted): app name, web/PWA title, growing-mind
   mark + Expo icon set, lockups. Trademark sweep flagged a **"Mentable"** conflict
