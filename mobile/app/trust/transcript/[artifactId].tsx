@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
@@ -24,6 +24,17 @@ import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 
 type Styles = ReturnType<typeof makeStyles>;
+
+// Transcripts are multi-script (codemix Tamil + English). On web the app forces
+// the brand font (Inter, Latin-only) onto un-fonted text; Chrome then tofu-boxes
+// the Tamil run right after a leading English word in a <textarea>. Setting an
+// EXPLICIT system stack here makes the web font interceptor leave it alone (it
+// only remaps un-fonted / brand-serif text), so the Tamil falls back reliably to
+// the OS Indic font. Native is unaffected (a CSS stack is web-only).
+const TRANSCRIPT_FONT = Platform.select({
+  web: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Tamil', 'Noto Sans', sans-serif",
+  default: undefined,
+}) as string | undefined;
 
 function toneColor(tone: ConfidenceTone, c: Palette): string {
   // Segment-level shading: a left stripe. Low confidence stands out (needs
@@ -311,8 +322,8 @@ const makeStyles = (c: Palette) => ({
   segMetaRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
   segMeta: { color: c.textMuted, fontSize: typography.sizeSm },
   segFlag: { color: c.error, fontSize: typography.sizeSm, fontWeight: "600" as const },
-  segText: { color: c.text, fontSize: typography.sizeMd, lineHeight: 22 as const, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
-  speakerInput: { color: c.text, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
+  segText: { color: c.text, fontFamily: TRANSCRIPT_FONT, fontSize: typography.sizeMd, lineHeight: 22 as const, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
+  speakerInput: { color: c.text, fontFamily: TRANSCRIPT_FONT, fontSize: typography.sizeSm, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm },
   chipRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs },
   speakerChip: { borderWidth: 1, borderColor: c.border, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 as const },
   speakerChipActive: { backgroundColor: c.primary, borderColor: c.primary },
