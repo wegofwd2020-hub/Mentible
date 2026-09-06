@@ -59,7 +59,7 @@ export default function AdminScreen() {
   if (account && !isAdmin) return <Redirect href="/settings" />;
 
   return (
-    <PageContainer>
+    <PageContainer style={{ flex: 1 }}>
       <Text style={styles.title}>Users</Text>
       <Text style={styles.sub}>
         {total} registered {total === 1 ? "account" : "accounts"}
@@ -91,6 +91,7 @@ export default function AdminScreen() {
         <Text style={styles.error}>{error}</Text>
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           data={users}
           keyExtractor={(u) => u.sub}
           contentContainerStyle={{ paddingBottom: spacing.xl }}

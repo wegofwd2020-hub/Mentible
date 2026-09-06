@@ -203,7 +203,7 @@ export default function AdminFeedbackScreen() {
   if (account && !isAdmin) return <Redirect href="/settings" />;
 
   return (
-    <PageContainer>
+    <PageContainer style={{ flex: 1 }}>
       <Text style={styles.title}>Feedback</Text>
       <Text style={styles.sub}>In-app feedback submitted via the Send feedback sheet.</Text>
 
@@ -265,6 +265,7 @@ export default function AdminFeedbackScreen() {
         <Text style={styles.error}>{error}</Text>
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           data={rows}
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
