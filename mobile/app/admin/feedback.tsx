@@ -130,10 +130,16 @@ export default function AdminFeedbackScreen() {
 
   // Reload on filter change (load's identity changes with `filters`) and on
   // focus — mirrors app/admin.tsx.
+  // Load as soon as we have a token — do NOT wait on the account/`isAdmin`
+  // fetch. Gating the load on `isAdmin` (which comes from a separate /account
+  // request) means a slow or failing /account leaves the screen on an
+  // indefinite spinner. The backend `require_feedback_viewer` gate 403s a
+  // non-viewer and the `account && !isAdmin` redirect below bounces them, so
+  // the client-side gate was only an optimization, not the access control.
   useFocusEffect(
     useCallback(() => {
-      if (isAdmin) void load(true);
-    }, [isAdmin, load]),
+      void load(true);
+    }, [load]),
   );
 
   const openDetail = useCallback(

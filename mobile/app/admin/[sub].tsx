@@ -111,9 +111,10 @@ export default function AdminUserScreen() {
   }, [accessToken, sub, entitlement]);
 
   useFocusEffect(
+    // Load once we have a token — not gated on `isAdmin`/account (see app/admin.tsx).
     useCallback(() => {
-      if (isAdmin) void load();
-    }, [isAdmin, load]),
+      void load();
+    }, [load]),
   );
 
   const onToggleSuspend = useCallback(async () => {

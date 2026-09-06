@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 
 jest.mock("expo-router", () => {
   const React_ = require("react");
@@ -72,8 +72,7 @@ jest.mock("@/api/adminClient", () => ({
   })),
   feedbackExportUrl: jest.fn(() => "http://x/export"),
 }));
-const { listFeedback, getFeedback } = require("@/api/adminClient") as {
-  listFeedback: jest.Mock;
+const { getFeedback } = require("@/api/adminClient") as {
   getFeedback: jest.Mock;
 };
 
@@ -99,10 +98,14 @@ describe("AdminFeedbackScreen", () => {
     expect(getFeedback).toHaveBeenCalledWith("t", "1");
   });
 
-  it("redirects a non-admin to settings and never calls the feedback API", async () => {
+  it("redirects a non-admin to settings", async () => {
+    // Access control is the redirect + the backend `require_feedback_viewer`
+    // 403 — NOT the client withholding the fetch. The list load is intentionally
+    // not gated on `isAdmin` (so a slow/failing /account can't hang the screen on
+    // a spinner), so a non-admin may fire one 403'd request before the redirect;
+    // what matters is that they never SEE data, which the redirect guarantees.
     mockAccount = { is_super_admin: false };
     render(<AdminFeedbackScreen />);
     expect(await screen.findByText("redirect:/settings")).toBeTruthy();
-    await waitFor(() => expect(listFeedback).not.toHaveBeenCalled());
   });
 });
