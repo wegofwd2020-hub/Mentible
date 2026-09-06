@@ -24,6 +24,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-convert-to-project", title: "Convert a Studio book to a Project", topicId: "convert-to-project" },
       { id: "leaf-plans", title: "Plans & billing", topicId: "plans" },
       { id: "leaf-appearance", title: "Appearance & themes", topicId: "appearance" },
+      { id: "leaf-send-feedback", title: "Sending feedback", topicId: "send-feedback" },
     ],
   },
   {

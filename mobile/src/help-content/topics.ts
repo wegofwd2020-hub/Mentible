@@ -1024,6 +1024,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "send-feedback",
+    title: "Sending feedback",
+    featureKey: "send-feedback",
+    keywords: ["feedback", "bug", "report", "suggestion", "contact", "support", "pilot", "help us", "send feedback"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Once you're signed in, a \"Feedback\" button sits in the corner of every screen. Tap it anytime — to report a bug, suggest a feature, comment on a draft's quality, or ask about pricing. Your name and email are filled in from your account (email can't be changed); add a company/role if you like, pick the kind of feedback, and write your message.",
+      },
+      {
+        kind: "text",
+        text: "We record which page you sent it from, so you don't need a subject line. You can send as many as you like — after each one the form clears so you can send another. Tell us whether we can follow up (email you, or schedule a short call), and it reaches our team.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Tap the \"Feedback\" button in the screen corner.",
+          "Pick the kind of feedback and write your message (up to 2,000 characters).",
+          "Say whether we can follow up, then Send.",
+          "Send another anytime — the button is on every screen.",
+        ],
+      },
+    ],
+  },
+  {
     id: "draft-viewer",
     title: "Feedback — read, approve, comment & revise a draft",
     featureKey: "draft-viewer",
