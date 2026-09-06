@@ -45,9 +45,12 @@ export default function AdminScreen() {
 
   // Reload when focused (e.g. returning from a suspend/delete on the detail screen).
   useFocusEffect(
+    // Load once we have a token — not gated on `isAdmin`/account, so a slow or
+    // failing /account can't leave the screen on an indefinite spinner. The
+    // backend admin gate 403s non-admins and the redirect below bounces them.
     useCallback(() => {
-      if (isAdmin) void load();
-    }, [isAdmin, load]),
+      void load();
+    }, [load]),
   );
 
   if (status === "unavailable") return <Redirect href="/settings" />;

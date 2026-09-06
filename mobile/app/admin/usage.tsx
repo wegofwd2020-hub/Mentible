@@ -46,9 +46,10 @@ export default function AdminUsageScreen() {
   }, [accessToken, days]);
 
   useFocusEffect(
+    // Load once we have a token — not gated on `isAdmin`/account (see app/admin.tsx).
     useCallback(() => {
-      if (isAdmin) void load();
-    }, [isAdmin, load]),
+      void load();
+    }, [load]),
   );
 
   if (status === "unavailable") return <Redirect href="/settings" />;
