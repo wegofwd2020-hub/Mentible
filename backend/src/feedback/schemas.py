@@ -36,3 +36,33 @@ class FeedbackIn(BaseModel):
 class FeedbackOut(BaseModel):
     id: str
     created_at: str | None
+
+
+class FeedbackAdminRow(BaseModel):
+    """A feedback row for admin list view."""
+
+    id: str
+    name: str
+    email: str
+    app: str
+    page: str
+    type: str | None
+    contact_preference: str | None
+    company: str | None
+    role: str | None
+    snippet: str
+    created_at: str
+
+
+class FeedbackAdminDetail(FeedbackAdminRow):
+    """Full feedback details for admin view. Inherits all FeedbackAdminRow fields."""
+
+    text: str
+    payload: dict
+
+
+class FeedbackAdminList(BaseModel):
+    """Paginated list of feedback for admin view."""
+
+    rows: list[FeedbackAdminRow]
+    next_cursor: str | None = None

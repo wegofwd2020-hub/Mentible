@@ -36,6 +36,7 @@ from backend.src.core.log_redaction import (
 from backend.src.db.pool import create_pool
 from backend.src.derivatives import router as derivatives_router
 from backend.src.export import router as export_router
+from backend.src.feedback import admin_router as feedback_admin_router
 from backend.src.feedback import router as feedback_router
 from backend.src.generate import router as generate_router
 from backend.src.library import router as library_router
@@ -118,6 +119,7 @@ app.include_router(structure_router.router)
 app.include_router(export_router.router)
 app.include_router(account_router.router)
 app.include_router(feedback_router.router)
+app.include_router(feedback_admin_router.router)
 app.include_router(admin_router.router)
 app.include_router(billing_router.router)
 app.include_router(library_router.router)

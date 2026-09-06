@@ -72,6 +72,16 @@ export default function AdminScreen() {
         <Text style={styles.chevron}>›</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.linkRow}
+        onPress={() => router.push("/admin/feedback")}
+        accessibilityRole="button"
+        accessibilityLabel="View in-app feedback"
+      >
+        <Text style={styles.linkText}>In-app feedback</Text>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
       {loading && users.length === 0 ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
