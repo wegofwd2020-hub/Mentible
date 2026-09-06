@@ -105,3 +105,12 @@ def require_super_admin(principal: Principal = Depends(require_user)) -> Princip
     if not principal.is_super_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="super-admin required")
     return principal
+
+
+def require_feedback_viewer(principal: Principal = Depends(require_super_admin)) -> Principal:
+    """Resolve the caller and require feedback-viewer permissions.
+
+    The seam for feedback-viewer authz. Currently requires super-admin; may be
+    extended to allow scoped feedback reviewer roles.
+    """
+    return principal
