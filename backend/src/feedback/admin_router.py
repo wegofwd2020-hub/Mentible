@@ -34,6 +34,14 @@ def _payload(r: asyncpg.Record) -> dict:
     return json.loads(r["payload"]) if isinstance(r["payload"], str) else (r["payload"] or {})
 
 
+def _csv_safe(v):
+    """Neutralize CSV formula injection: a cell starting with a formula
+    trigger is prefixed with a single quote so a spreadsheet treats it as text."""
+    if isinstance(v, str) and v and v[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 def _row(r: asyncpg.Record) -> FeedbackAdminRow:
     p = _payload(r)
     text = str(p.get("text", ""))
@@ -89,7 +97,7 @@ async def export_feedback(
     w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
     for rec in records:
-        w.writerow(rec)
+        w.writerow({k: _csv_safe(v) for k, v in rec.items()})
     return Response(
         content=buf.getvalue(), media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="feedback.csv"'},
