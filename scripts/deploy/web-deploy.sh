@@ -13,6 +13,22 @@
 #     ~70 vendor/Google fonts under assets/node_modules/ → 404s + blank fonts
 #     (we `git add -f` and assert the file count).
 #
+# VERIFYING A DEPLOY — do NOT trust an immediate grep of the live URL. mentible*
+# surfaces are served by the `mambakkam-astrowind` container, which BAKES the
+# static site into its image at build time (Dockerfile `COPY . .`; NO bind-mount
+# of public/), and Cloudflare caches at the edge. So a push here does NOT change
+# what's served until the VPS rebuilds + recreates astrowind (`docker compose -f
+# docker-compose.demo.yml --env-file .env.demo build astrowind && up -d astrowind`)
+# AND the CF edge refreshes (~1-2 min). Grepping the live bundle before both land
+# reads STALE bytes and will falsely look like the build dropped a feature (this
+# cost a long false-alarm chase on the #529 feedback deploy, 2026-09-06). To check
+# a build actually contains a feature, grep the REPO bytes — the pushed clone or
+# raw.githubusercontent.com/wegofwd2020-hub/mambakkam-net/main/public/$PUBDIR/... —
+# NOT `gh api .../contents/...` (returns empty for the >1MB entry bundle → false
+# negative). The GitHub push→VPS auto-deploy Action is also currently broken at
+# its SSH step; deploy manually on the VPS via `sudo -u deploy bash
+# /opt/mambakkam/scripts/launch/deploy.sh` then the astrowind rebuild above.
+#
 # Usage:
 #   scripts/deploy/web-deploy.sh demo            # DEMO_MODE → mambakkam.net/demos/mentible
 #   scripts/deploy/web-deploy.sh app             # full app  → mambakkam.net/app/mentible
