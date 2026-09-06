@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 
@@ -22,7 +23,7 @@ _SNIPPET = 140
 
 
 def _row(r: asyncpg.Record) -> FeedbackAdminRow:
-    p = r["payload"] if isinstance(r["payload"], dict) else {}
+    p = json.loads(r["payload"]) if isinstance(r["payload"], str) else (r["payload"] or {})
     text = str(p.get("text", ""))
     return FeedbackAdminRow(
         id=str(r["id"]),
@@ -72,6 +73,6 @@ async def get_one(
     r = await repo.get_feedback(conn, feedback_id)
     if r is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such feedback")
-    p = r["payload"] if isinstance(r["payload"], dict) else {}
+    p = json.loads(r["payload"]) if isinstance(r["payload"], str) else (r["payload"] or {})
     base = _row(r)
     return FeedbackAdminDetail(**base.model_dump(), text=str(p.get("text", "")), payload=p)
