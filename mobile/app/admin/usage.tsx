@@ -75,7 +75,7 @@ export default function AdminUsageScreen() {
   );
 
   return (
-    <PageContainer>
+    <PageContainer style={{ flex: 1 }}>
       <Text style={styles.title}>Token usage</Text>
       <Text style={styles.sub}>Managed generations only — BYOK usage isn’t metered.</Text>
 
@@ -107,6 +107,7 @@ export default function AdminUsageScreen() {
         <Text style={styles.error}>{error}</Text>
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           data={data?.rows ?? []}
           keyExtractor={(r, i) => r.sub ?? `deleted-${i}`}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
