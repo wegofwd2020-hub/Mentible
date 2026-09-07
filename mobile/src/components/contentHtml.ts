@@ -50,7 +50,7 @@ function readerStyles(palette: Palette): string {
     -webkit-font-smoothing: antialiased;
     padding: 20px 18px 40px;
     /* Cap the line length for a comfortable reading measure (esp. on tablets). */
-    max-width: 42rem;
+    max-width: 60rem;
     margin: 0 auto;
   }
   h1, h2, h3, h4, h5, h6 {
