@@ -148,10 +148,12 @@ function sourcePreview(title: string | null, content: string): string {
   return content.length > 80 ? `${content.slice(0, 80)}…` : content;
 }
 
-function sourceDate(createdAt: string | null): string | null {
+// Date + time for the rolodex card's top tag (e.g. "12/08/2026 · 2:22 PM").
+function sourceStamp(createdAt: string | null): string | null {
   if (!createdAt) return null;
   const d = new Date(createdAt);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.toLocaleDateString()} · ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
 }
 
 // Meta line for a Revision-notes row: "who · when", omitting the timestamp
@@ -454,20 +456,26 @@ function SourcesPanel({
           No sources yet.{isOwner ? " Add a transcript, note, or link above to get started." : ""}
         </Text>
       ) : (
-        inputs.map((input) => {
+        <View style={styles.inputGrid}>
+          {inputs.map((input) => {
           const isExpanded = expandedId === input.id;
           const isEditing = editingId === input.id;
           return (
-            <Card key={input.id} style={styles.sourceRow}>
+            <Card key={input.id} style={styles.inputCard}>
+              {/* Rolodex top tag: the date/time stamp on its own header strip. */}
+              {sourceStamp(input.created_at) ? (
+                <View style={styles.cardTag}>
+                  <Text style={styles.cardTagText}>{sourceStamp(input.created_at)}</Text>
+                </View>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Open source ${sourcePreview(input.title, input.content)}`}
                 onPress={() => onToggleExpand(input)}
-                style={styles.sourceHeader}
+                style={styles.cardBody}
               >
                 <Label tone="secondary">{sourceKindLabel(input.kind)}</Label>
-                <Text style={styles.sourceRowTitle} numberOfLines={1}>{sourcePreview(input.title, input.content)}</Text>
-                {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
+                <Text style={styles.cardTitle} numberOfLines={2}>{sourcePreview(input.title, input.content)}</Text>
               </Pressable>
               {isExpanded ? (
                 isEditing ? (
@@ -530,7 +538,8 @@ function SourcesPanel({
               ) : null}
             </Card>
           );
-        })
+        })}
+        </View>
       )}
       <Mp3UploadSheet
         visible={uploadOpen}
@@ -2613,13 +2622,22 @@ const makeStyles = (c: Palette) => ({
   // Bespoke spacing only — the surface, border, and padding now come from
   // <Card>, which this style overrides onto (Studio re-skin P1); the eyebrow
   // kind label moved to <Label>.
+  // Rolodex grid of input records — wraps into ~3-4 columns instead of a stack of
+  // full-width rows (flexBasis + flexGrow = "fit as many ~220px cards per row").
+  inputGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.sm },
+  // Grid cell. padding:0 + overflow:hidden so the top tag strip runs edge-to-edge,
+  // clipped to the card's rounded corners.
+  inputCard: { padding: 0, overflow: "hidden" as const, flexGrow: 1, flexBasis: 220, minWidth: 200 },
+  // The rolodex "tab": the date/time stamp on a distinct top strip.
+  cardTag: { backgroundColor: c.surfaceHigh, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
+  cardTagText: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "600" as const },
+  cardBody: { padding: spacing.md, gap: spacing.xs },
+  cardTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  // Transcripts list (separate from the source-input rolodex): a plain stacked row.
   sourceRow: { marginTop: spacing.sm, gap: 2, paddingVertical: spacing.sm },
-  // Collapsed input record = one compact row: [kind] [title fills width] [date],
-  // so a full-width card isn't wasted on a narrow left-aligned stack.
-  sourceHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
-  sourceRowTitle: { color: c.text, fontSize: typography.sizeSm, flex: 1 },
+  sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
-  sourceDetail: { gap: spacing.sm, paddingTop: spacing.sm },
+  sourceDetail: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
   sourceDetailContent: { color: c.text, fontSize: typography.sizeSm },
   sourceActionsRow: { flexDirection: "row" as const, gap: spacing.sm },
   artifactsWrap: { gap: spacing.md },
