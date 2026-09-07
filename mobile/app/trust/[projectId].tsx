@@ -463,9 +463,10 @@ function SourcesPanel({
                 accessibilityRole="button"
                 accessibilityLabel={`Open source ${sourcePreview(input.title, input.content)}`}
                 onPress={() => onToggleExpand(input)}
+                style={styles.sourceHeader}
               >
                 <Label tone="secondary">{sourceKindLabel(input.kind)}</Label>
-                <Text style={styles.sourceRowTitle}>{sourcePreview(input.title, input.content)}</Text>
+                <Text style={styles.sourceRowTitle} numberOfLines={1}>{sourcePreview(input.title, input.content)}</Text>
                 {sourceDate(input.created_at) ? <Text style={styles.sourceRowDate}>{sourceDate(input.created_at)}</Text> : null}
               </Pressable>
               {isExpanded ? (
@@ -2611,7 +2612,10 @@ const makeStyles = (c: Palette) => ({
   // <Card>, which this style overrides onto (Studio re-skin P1); the eyebrow
   // kind label moved to <Label>.
   sourceRow: { marginTop: spacing.sm, gap: 2 },
-  sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
+  // Collapsed input record = one compact row: [kind] [title fills width] [date],
+  // so a full-width card isn't wasted on a narrow left-aligned stack.
+  sourceHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  sourceRowTitle: { color: c.text, fontSize: typography.sizeSm, flex: 1 },
   sourceRowDate: { color: c.textMuted, fontSize: typography.sizeXs },
   sourceDetail: { gap: spacing.sm, paddingTop: spacing.sm },
   sourceDetailContent: { color: c.text, fontSize: typography.sizeSm },
