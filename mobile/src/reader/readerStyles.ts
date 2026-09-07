@@ -84,7 +84,7 @@ export function readerCss(palette: Palette): string {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   padding: 20px 18px 40px;
-  max-width: 42rem;
+  max-width: 60rem;
   margin: 0 auto;
   overflow-y: auto;
   height: 100%;
