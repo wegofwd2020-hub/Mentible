@@ -2627,7 +2627,9 @@ const makeStyles = (c: Palette) => ({
   inputGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.sm },
   // Grid cell. padding:0 + overflow:hidden so the top tag strip runs edge-to-edge,
   // clipped to the card's rounded corners.
-  inputCard: { padding: 0, overflow: "hidden" as const, flexGrow: 1, flexBasis: 220, minWidth: 200 },
+  // maxWidth caps how far flexGrow stretches a card, so a lone/partial row stays
+  // card-sized and left-aligned instead of spanning the whole width.
+  inputCard: { padding: 0, overflow: "hidden" as const, flexGrow: 1, flexBasis: 220, minWidth: 200, maxWidth: 340 },
   // The rolodex "tab": the date/time stamp on a distinct top strip.
   cardTag: { backgroundColor: c.surfaceHigh, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
   cardTagText: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "600" as const },
