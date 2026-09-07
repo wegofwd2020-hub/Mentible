@@ -20,3 +20,24 @@ export async function loadDefaultParams(): Promise<GenerationParams> {
 export async function saveDefaultParams(params: GenerationParams): Promise<void> {
   await AsyncStorage.setItem(KEY, JSON.stringify(params));
 }
+
+// Which Settings tab the user last had open, so it re-opens there. Purely a
+// per-device convenience — best-effort, never throws (a failed read just falls
+// back to the default first tab).
+const TAB_KEY = "sbq_settings_tab";
+
+export async function loadSettingsTab(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(TAB_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSettingsTab(tab: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(TAB_KEY, tab);
+  } catch {
+    // ignore — a remembered tab is a nicety, not state worth surfacing an error for
+  }
+}
