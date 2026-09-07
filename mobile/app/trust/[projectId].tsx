@@ -839,11 +839,15 @@ function DraftsPanel({
           ) : (
             <>
               <Text style={styles.artifactTitle}>Your drafts</Text>
+              <View style={styles.versionGrid}>
               {artifacts.map(({ artifact, versions }) => {
                 const inCompareMode = compareArtifactId === artifact.id;
                 return (
-                  <View key={artifact.id} style={styles.artifact}>
-                    <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+                  <View key={artifact.id} style={[styles.artifact, styles.versionCard]}>
+                    <View style={styles.cardTag}>
+                      <Text style={styles.versionCardTagTitle} numberOfLines={1}>{artifact.title ?? artifact.format}</Text>
+                    </View>
+                    <View style={styles.versionBody}>
                     {versions.length === 0 ? (
                       <Text style={styles.emptyText}>No drafts yet.</Text>
                     ) : (
@@ -931,9 +935,11 @@ function DraftsPanel({
                         />
                       )
                     ) : null}
+                    </View>
                   </View>
                 );
               })}
+              </View>
             </>
           )}
         </>
@@ -1070,11 +1076,15 @@ function FeedbackPanel({
       ) : null}
       {mode === "whole" && anyVersion ? (
         <>
+      <View style={styles.versionGrid}>
       {artifacts.map(({ artifact, versions }) => {
         const inCompareMode = compareArtifactId === artifact.id;
         return (
-          <View key={artifact.id} style={styles.artifact}>
-            <Text style={styles.artifactTitle}>{artifact.title ?? artifact.format}</Text>
+          <View key={artifact.id} style={[styles.artifact, styles.versionCard]}>
+            <View style={styles.cardTag}>
+              <Text style={styles.versionCardTagTitle} numberOfLines={1}>{artifact.title ?? artifact.format}</Text>
+            </View>
+            <View style={styles.versionBody}>
             {versions.map((v) => {
               const ts = versionTimestamp(v.created_at);
               return (
@@ -1158,9 +1168,11 @@ function FeedbackPanel({
                 />
               )
             ) : null}
+            </View>
           </View>
         );
       })}
+      </View>
       {isOwner ? (
         <View style={styles.ownerBlock}>
           <Text style={styles.artifactTitle}>Invite an expert</Text>
@@ -2635,6 +2647,16 @@ const makeStyles = (c: Palette) => ({
   cardTagText: { color: c.textMuted, fontSize: typography.sizeXs, fontWeight: "600" as const },
   cardBody: { padding: spacing.md, gap: spacing.xs },
   cardTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const },
+  // Rolodex grid for artifact (draft) cards — same idea as the input grid, but wider
+  // cells: each version row packs v# + timestamp + validated badge + View button.
+  versionGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.sm },
+  // Layered on top of `artifact` (keeps its surface/border/radius); overrides padding
+  // and gap to 0 so the title tag runs edge-to-edge, and adds flex-grid sizing.
+  // On a phone flexBasis:300 collapses to a single full-width column (no regression).
+  versionCard: { padding: 0, gap: 0, overflow: "hidden" as const, flexGrow: 1, flexBasis: 300, minWidth: 280, maxWidth: 440 },
+  // The rolodex "tab": the artifact title (identity) on a distinct top strip.
+  versionCardTagTitle: { color: c.text, fontFamily: FRAUNCES.semibold, fontSize: typography.sizeMd, letterSpacing: -0.3 },
+  versionBody: { padding: spacing.md, gap: spacing.sm },
   // Transcripts list (separate from the source-input rolodex): a plain stacked row.
   sourceRow: { marginTop: spacing.sm, gap: 2, paddingVertical: spacing.sm },
   sourceRowTitle: { color: c.text, fontSize: typography.sizeSm },
