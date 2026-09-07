@@ -83,9 +83,12 @@ export function readerCss(palette: Palette): string {
   font-size: 16px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
-  padding: 20px 18px 40px;
+  padding: 24px 28px 40px;
   max-width: 60rem;
   margin: 0 auto;
+  /* Frame the reading column so it reads as a distinct page against the shell. */
+  border: 1px solid var(--border);
+  border-radius: 12px;
   overflow-y: auto;
   height: 100%;
 }
