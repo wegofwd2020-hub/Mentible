@@ -26,6 +26,10 @@ it("submits feedback with the current route as page and prefilled name", async (
   const [body, token] = (sendFeedback as jest.Mock).mock.calls[0];
   expect(token).toBe("tok");
   expect(body).toMatchObject({ name: "Jane Q", page: "/trust/p1", text: "the upload broke", type: "bug" });
+  // No confirmation pop-up on success — an inline "Sent" note appears instead.
+  const { Alert } = require("@/lib/alert");
+  await screen.findByText(/Sent/);
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 
 it("does not submit an empty message", () => {

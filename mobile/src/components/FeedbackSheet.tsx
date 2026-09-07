@@ -73,6 +73,7 @@ export function FeedbackSheet({
   const [text, setText] = useState("");
   const [contact, setContact] = useState<ContactPreference>("email_follow_up");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
   // Draggable position of the floating panel (translate from top-left).
   const startPos = () => ({ x: Math.max(MARGIN, width - PANEL_W - MARGIN), y: 72 });
@@ -88,6 +89,7 @@ export function FeedbackSheet({
       setType("bug");
       setText("");
       setContact("email_follow_up");
+      setSent(false);
       pan.setValue(startPos());
     }
     // Only re-seed on open — prefillName/width derive from session/window and
@@ -141,10 +143,11 @@ export function FeedbackSheet({
           accessToken,
         );
         // Repeatable: clear the message + selections, keep name/company/role, stay open.
+        // No confirmation pop-up — an inline "Sent" note (below) is the signal.
         setText("");
         setType("bug");
         setContact("email_follow_up");
-        Alert.alert("Thank you", "Your feedback was sent. You can send another anytime.");
+        setSent(true);
       } catch (e) {
         Alert.alert("Couldn't send", e instanceof ApiError ? e.userMessage() : "Please try again.");
       } finally {
@@ -177,7 +180,10 @@ export function FeedbackSheet({
       <TextInput
         style={styles.textarea}
         value={text}
-        onChangeText={setText}
+        onChangeText={(t) => {
+          setText(t);
+          if (sent) setSent(false);
+        }}
         maxLength={MAX_TEXT}
         multiline
         placeholder="Max 2,000 characters. Please don't share passwords or private customer data."
@@ -189,6 +195,12 @@ export function FeedbackSheet({
 
       <Text style={styles.label}>Can we reach you?</Text>
       <Dropdown value={contact} options={CONTACT} onChange={(v) => setContact(v as ContactPreference)} accessibilityLabel="Contact preference" />
+
+      {sent ? (
+        <Text style={styles.sentNote} accessibilityLiveRegion="polite">
+          ✓ Sent — thank you. You can send another anytime.
+        </Text>
+      ) : null}
 
       <View style={styles.row}>
         <Pressable onPress={onClose} disabled={busy} accessibilityRole="button" accessibilityLabel="Close feedback" style={styles.btn}>
@@ -298,6 +310,7 @@ const makeStyles = (c: Palette) => ({
   readonlyText: { color: c.textMuted, fontSize: typography.sizeMd },
   textarea: { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.sm, color: c.text, fontSize: typography.sizeMd, minHeight: 110, textAlignVertical: "top" as const },
   counter: { alignSelf: "flex-end" as const, color: c.textMuted, fontSize: typography.sizeSm },
+  sentNote: { color: c.success, fontSize: typography.sizeSm, fontWeight: "600" as const, marginTop: spacing.sm },
   row: { flexDirection: "row" as const, justifyContent: "flex-end" as const, gap: spacing.sm, marginTop: spacing.md },
   btn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md },
   btnText: { fontWeight: "700" as const, color: c.textSecondary, fontSize: typography.sizeMd },
