@@ -10,6 +10,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
 import { navModel, goToAnchor } from "./navState";
 import { UserChip } from "./UserChip";
+import { FeedbackHeaderButton } from "./FeedbackHeaderButton";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // Top, center-aligned navigation bar with square icon+label tiles and a leading
@@ -153,6 +154,11 @@ export function TopNavBar({ state, navigation }: BottomTabBarProps) {
           {nav.mode === "marketing" && marketingLinkEls}
         </ScrollView>
         {signInBtn}
+        {nav.showAccount && (
+          <View style={styles.account}>
+            <FeedbackHeaderButton />
+          </View>
+        )}
         {nav.showAccount && <View style={styles.account}><UserChip /></View>}
       </View>
       {/* Engine + usage chip — only in the signed-in app, never on the marketing/

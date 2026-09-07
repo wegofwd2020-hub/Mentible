@@ -11,6 +11,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { NAV_TABS, NAV_ORDER, MARKETING_LINKS } from "./navItems";
 import { navModel, goToAnchor } from "./navState";
 import { UserChip } from "./UserChip";
+import { FeedbackHeaderButton } from "./FeedbackHeaderButton";
 import { ChromeUsageMeter } from "./ChromeUsageMeter";
 
 // A persistent left sidebar version of TopNavBar for wide screens (isDesktop):
@@ -107,7 +108,10 @@ export function SideNav({ state, navigation }: BottomTabBarProps): React.JSX.Ele
           separated from the Mentible brand at the top. */}
       {nav.showAccount && (
         <View style={styles.accountBlock}>
-          <UserChip />
+          <View style={styles.accountRow}>
+            <UserChip />
+            <FeedbackHeaderButton />
+          </View>
           <ChromeUsageMeter style={styles.meterRight} />
         </View>
       )}
@@ -137,5 +141,6 @@ const makeStyles = (c: Palette) => ({
   // the column when there's room, mirroring TopNavBar's trailing-edge layout.
   spacer: { flex: 1 },
   accountBlock: { alignItems: "flex-start" as const, gap: spacing.xs, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  accountRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
   meterRight: { alignSelf: "flex-start" as const },
 });
