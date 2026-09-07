@@ -6,6 +6,7 @@ import { spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useThemedStyles } from "@/theme";
 import { Label } from "@/components/ui";
+import { FeedbackHeaderButton } from "@/components/FeedbackHeaderButton";
 
 // Curated per-route kickers (Studio P2). Keyed by route.name; unmapped routes
 // fall back to the uppercased screen title so nothing renders blank.
@@ -61,6 +62,7 @@ export function StudioHeader({ navigation, route, options, back }: NativeStackHe
         <Text style={styles.wordmark} numberOfLines={1}>MENTIBLE</Text>
         {kicker ? <Label style={styles.kicker}>{kicker}</Label> : null}
       </View>
+      <FeedbackHeaderButton />
     </View>
   );
 }

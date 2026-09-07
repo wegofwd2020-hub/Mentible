@@ -11,6 +11,11 @@ jest.mock("react-native-safe-area-context", () => {
   return mock.default ?? mock;
 });
 
+// StudioHeader now renders FeedbackHeaderButton, which reads useAuth. Signed-out
+// → the button renders null, so the header's wordmark/kicker assertions are
+// unaffected; this just satisfies the hook's AuthProvider requirement.
+jest.mock("@/auth/AuthProvider", () => ({ useAuth: () => ({ status: "signed_out" }) }));
+
 import { StudioHeader, kickerFor } from "@/components/StudioHeader";
 import { FRAUNCES } from "@/constants/fonts";
 
