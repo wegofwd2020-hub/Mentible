@@ -25,6 +25,8 @@ beforeEach(() => jest.clearAllMocks());
 
 it("shows a tile for Navy Trust + the switchable Studio themes and applies one on tap", async () => {
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
+  // Themes now live under the "Looks" tab (dogfeedback #544).
+  fireEvent.press(screen.getByLabelText("Settings section: Looks"));
   // switcher = Navy Trust (default) + the Studio themes (P0 studio re-skin)
   for (const label of ["Navy Trust", "Studio", "Studio Light"]) {
     expect(await screen.findByLabelText(new RegExp(`^Theme: ${label}( \\(selected\\))?$`))).toBeTruthy();
@@ -42,6 +44,7 @@ it("colours each tile's caption from that tile's OWN palette, not the active the
   // render its caption in its own textSecondary, else the label collapses to
   // near-invisible on the dark tile background.
   render(<ThemeProvider><SettingsScreen /></ThemeProvider>);
+  fireEvent.press(screen.getByLabelText("Settings section: Looks"));
   const studioLight = await screen.findByText("Studio Light");
   expect(flatColor(studioLight.props.style)).toBe(themes["studio-light"].textSecondary);
   const studio = screen.getByText("Studio");

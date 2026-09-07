@@ -12,17 +12,31 @@ import { BackupRestore } from "@/components/BackupRestore";
 import { LibrarySync } from "@/components/LibrarySync";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
-import { loadDefaultParams, saveDefaultParams } from "@/storage/settingsStore";
+import { loadDefaultParams, saveDefaultParams, loadSettingsTab, saveSettingsTab } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { useFontMode } from "@/state/fontMode";
 import { IS_DEMO } from "@/constants/demo";
 import { Card, Label } from "@/components/ui";
+
+// Settings is grouped into tabs (dogfeedback #544 — one long full-width page
+// was hard to scan). Each tab holds 1–3 of the existing sections, unchanged.
+type TabKey = "source" | "looks" | "account" | "data";
+const TAB_META: { key: TabKey; label: string }[] = [
+  { key: "source", label: "Tune the source" },
+  { key: "looks", label: "Looks" },
+  { key: "account", label: "Account" },
+  { key: "data", label: "Data" },
+];
+// Most non-Looks sections are !IS_DEMO-gated, so in the demo only Looks has
+// content — offer just the populated tab there (no empty panes).
+const VISIBLE_TABS: TabKey[] = IS_DEMO ? ["looks"] : ["source", "looks", "account", "data"];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { status: authStatus, session } = useAuth();
   const { dyslexic, setDyslexic } = useFontMode();
   const [params, setParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
+  const [tab, setTab] = useState<TabKey>(VISIBLE_TABS[0]);
   const c = useTheme();
   const { themeName, setTheme } = useThemeControls();
   const styles = useThemedStyles(makeStyles);
@@ -32,43 +46,27 @@ export default function SettingsScreen() {
     loadDefaultParams().then(setParams);
   }, []);
 
+  // Restore the last-opened tab (best-effort), but only if it is still a
+  // visible tab in this build (e.g. a persisted "data" is invalid in demo).
+  useEffect(() => {
+    loadSettingsTab().then((saved) => {
+      if (saved && (VISIBLE_TABS as string[]).includes(saved)) setTab(saved as TabKey);
+    });
+  }, []);
+
+  const selectTab = useCallback((next: TabKey) => {
+    setTab(next);
+    void saveSettingsTab(next);
+  }, []);
+
   // Persist the global default immediately on each change.
   const handleParamsChange = useCallback((next: GenerationParams) => {
     setParams(next);
     void saveDefaultParams(next);
   }, []);
 
-  return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="handled"
-    >
-      <PageContainer>
-      {IS_DEMO && (
-        <Card style={styles.demoNote}>
-          <Text style={styles.demoNoteText}>
-            Demo build — read the included books freely. Authoring, content
-            generation, and accounts are disabled in the demo.
-          </Text>
-        </Card>
-      )}
-      {authStatus !== "unavailable" && (
-        <Pressable onPress={() => router.push(authStatus === "signed_in" ? "/account" : "/sign-in")}>
-          <Card style={styles.accountRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.accountTitle}>Account</Text>
-              <Text style={styles.accountSub}>
-                {authStatus === "signed_in"
-                  ? (session?.user?.email ?? "Signed in")
-                  : "Sign in to sync across devices"}
-              </Text>
-            </View>
-            <Text style={styles.accountChevron}>›</Text>
-          </Card>
-        </Pressable>
-      )}
-
+  const appearanceSection = (
+    <>
       <Label tone="secondary">Appearance</Label>
       <Text style={styles.helpText}>
         Pick a colour theme. It applies instantly across the app and is saved on
@@ -97,67 +95,11 @@ export default function SettingsScreen() {
           );
         })}
       </View>
-      <View style={styles.divider} />
+    </>
+  );
 
-      {!IS_DEMO && (
-      <>
-      <Pressable onPress={() => router.push("/paywall")}>
-        <Card style={styles.accountRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.accountTitle}>Plans & billing</Text>
-            <Text style={styles.accountSub}>Managed generation, or bring your own key</Text>
-          </View>
-          <Text style={styles.accountChevron}>›</Text>
-        </Card>
-      </Pressable>
-
-      <Pressable onPress={() => router.push("/usage")}>
-        <Card style={styles.accountRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.accountTitle}>Usage</Text>
-            <Text style={styles.accountSub}>Tokens & estimated cost (observed, not billed)</Text>
-          </View>
-          <Text style={styles.accountChevron}>›</Text>
-        </Card>
-      </Pressable>
-
-      <View style={styles.labelRow}>
-        <Label tone="secondary">API keys (BYOK)</Label>
-        <HelpButton topic="provider-keys" label="BYOK" />
-      </View>
-      <Text style={styles.helpText}>
-        Bring your own key per provider. Keys are stored in your device's secure storage
-        and sent directly to this app's backend, which calls the provider on your
-        behalf. They are never logged or stored on any server.
-      </Text>
-
-      <RequireSignIn action="add your API keys">
-        <ProviderKeyForm />
-      </RequireSignIn>
-
-      <View style={styles.divider} />
-
-      <Label tone="secondary">Generation defaults</Label>
-      <Text style={styles.helpText}>
-        Defaults for new books and one-off lessons. Each book keeps its own copy
-        you can adjust per book.
-      </Text>
-      <GenerationParamsEditor value={params} onChange={handleParamsChange} />
-
-      <View style={styles.divider} />
-
-      <BackupRestore />
-
-      <View style={styles.divider} />
-
-      <RequireSignIn action="sync your library">
-        <LibrarySync />
-      </RequireSignIn>
-      </>
-      )}
-
-      <View style={styles.divider} />
-
+  const accessibilitySection = (
+    <>
       <Label tone="secondary">Accessibility</Label>
       <View style={styles.toggleRow}>
         <View style={styles.toggleText}>
@@ -175,23 +117,147 @@ export default function SettingsScreen() {
           accessibilityLabel="Toggle dyslexia-friendly font"
         />
       </View>
+    </>
+  );
 
-      {!IS_DEMO && (
-      <>
-      <View style={styles.divider} />
-
-      <Label tone="secondary">Prototypes</Label>
-      <Pressable
-        onPress={() => router.push("/concepts")}
-        accessibilityRole="button"
-        accessibilityLabel="Open UI concept gallery"
-      >
-        <Card style={styles.protoRow}>
-          <Text style={styles.protoText}>🎨 UI concept gallery</Text>
-          <Text style={styles.protoChevron}>→</Text>
+  return (
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
+      <PageContainer>
+      {IS_DEMO && (
+        <Card style={styles.demoNote}>
+          <Text style={styles.demoNoteText}>
+            Demo build — read the included books freely. Authoring, content
+            generation, and accounts are disabled in the demo.
+          </Text>
         </Card>
-      </Pressable>
-      </>
+      )}
+
+      {/* Tab bar — swaps the visible section group, no navigation. Rendered only
+          when more than one tab has content (in demo there is just Looks). */}
+      {VISIBLE_TABS.length > 1 && (
+        <View style={styles.tabBar}>
+          {TAB_META.filter((t) => (VISIBLE_TABS as string[]).includes(t.key)).map((t) => {
+            const active = t.key === tab;
+            return (
+              <Pressable
+                key={t.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Settings section: ${t.label}`}
+                style={[styles.tabBtn, active ? styles.tabBtnActive : null]}
+                onPress={() => selectTab(t.key)}
+              >
+                <Text style={active ? styles.tabTextActive : styles.tabText}>{t.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Tune the source — the knobs on content-generation source & quality. */}
+      {!IS_DEMO && tab === "source" && (
+        <>
+          <View style={styles.labelRow}>
+            <Label tone="secondary">API keys (BYOK)</Label>
+            <HelpButton topic="provider-keys" label="BYOK" />
+          </View>
+          <Text style={styles.helpText}>
+            Bring your own key per provider. Keys are stored in your device's secure storage
+            and sent directly to this app's backend, which calls the provider on your
+            behalf. They are never logged or stored on any server.
+          </Text>
+          <RequireSignIn action="add your API keys">
+            <ProviderKeyForm />
+          </RequireSignIn>
+
+          <View style={styles.divider} />
+
+          <Label tone="secondary">Generation defaults</Label>
+          <Text style={styles.helpText}>
+            Defaults for new books and one-off lessons. Each book keeps its own copy
+            you can adjust per book.
+          </Text>
+          <GenerationParamsEditor value={params} onChange={handleParamsChange} />
+        </>
+      )}
+
+      {/* Looks — themes + reading accessibility. Always available (incl. demo). */}
+      {tab === "looks" && (
+        <>
+          {appearanceSection}
+          <View style={styles.divider} />
+          {accessibilitySection}
+        </>
+      )}
+
+      {/* Account — identity, plan, consumption. */}
+      {!IS_DEMO && tab === "account" && (
+        <>
+          {authStatus !== "unavailable" && (
+            <Pressable onPress={() => router.push(authStatus === "signed_in" ? "/account" : "/sign-in")}>
+              <Card style={styles.accountRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.accountTitle}>Account</Text>
+                  <Text style={styles.accountSub}>
+                    {authStatus === "signed_in"
+                      ? (session?.user?.email ?? "Signed in")
+                      : "Sign in to sync across devices"}
+                  </Text>
+                </View>
+                <Text style={styles.accountChevron}>›</Text>
+              </Card>
+            </Pressable>
+          )}
+          <Pressable onPress={() => router.push("/paywall")}>
+            <Card style={styles.accountRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.accountTitle}>Plans & billing</Text>
+                <Text style={styles.accountSub}>Managed generation, or bring your own key</Text>
+              </View>
+              <Text style={styles.accountChevron}>›</Text>
+            </Card>
+          </Pressable>
+          <Pressable onPress={() => router.push("/usage")}>
+            <Card style={styles.accountRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.accountTitle}>Usage</Text>
+                <Text style={styles.accountSub}>Tokens & estimated cost (observed, not billed)</Text>
+              </View>
+              <Text style={styles.accountChevron}>›</Text>
+            </Card>
+          </Pressable>
+        </>
+      )}
+
+      {/* Data — device backup, cloud sync, and the concept-gallery prototype. */}
+      {!IS_DEMO && tab === "data" && (
+        <>
+          <BackupRestore />
+
+          <View style={styles.divider} />
+
+          <RequireSignIn action="sync your library">
+            <LibrarySync />
+          </RequireSignIn>
+
+          <View style={styles.divider} />
+
+          <Label tone="secondary">Prototypes</Label>
+          <Pressable
+            onPress={() => router.push("/concepts")}
+            accessibilityRole="button"
+            accessibilityLabel="Open UI concept gallery"
+          >
+            <Card style={styles.protoRow}>
+              <Text style={styles.protoText}>🎨 UI concept gallery</Text>
+              <Text style={styles.protoChevron}>→</Text>
+            </Card>
+          </Pressable>
+        </>
       )}
       </PageContainer>
     </ScrollView>
@@ -208,6 +274,24 @@ function makeStyles(c: Palette) {
       flexGrow: 1,
     },
     labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+    // Segmented tab bar — same pill treatment as the trust screen's
+    // "Whole book | Per topic" toggle. Wraps so all tabs stay visible on narrow
+    // widths instead of overflowing.
+    tabBar: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    tabBtn: {
+      backgroundColor: c.surfaceHigh,
+      borderRadius: radius.sm,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+    },
+    tabBtnActive: { backgroundColor: c.primary },
+    tabText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
+    tabTextActive: { color: c.primaryText, fontSize: typography.sizeSm, fontWeight: "600" as const },
     // Layout only — the surface, border, and padding now come from <Card>,
     // which this style overrides onto (Studio re-skin P2).
     accountRow: {

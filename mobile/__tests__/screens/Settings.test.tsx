@@ -89,27 +89,48 @@ describe("SettingsScreen", () => {
     });
   });
 
+  // Section titles now live under their tab (dogfeedback #544): "Dyslexia-friendly
+  // font" is on the Looks tab, "🎨 UI concept gallery" on the Data tab — switch to
+  // each before asserting.
   it("renders row titles in Fraunces with no bold (700) weight — Studio re-skin", () => {
     loadApiKey.mockResolvedValue(null);
     render(<SettingsScreen />);
-    // Row/section titles that survive the primitive sweep (auth is "unavailable"
-    // here, so the Account row is hidden — these two always render).
-    for (const text of ["Dyslexia-friendly font", "🎨 UI concept gallery"]) {
+    const assertTitle = (text: string) => {
       const style = flattenStyle(screen.getByText(text).props.style);
       expect(style["fontFamily"]).toBe(FRAUNCES.semibold);
       expect(style["fontWeight"]).not.toBe("700");
       expect(style["fontWeight"]).not.toBe("600");
-    }
+    };
+    fireEvent.press(screen.getByLabelText("Settings section: Looks"));
+    assertTitle("Dyslexia-friendly font");
+    fireEvent.press(screen.getByLabelText("Settings section: Data"));
+    assertTitle("🎨 UI concept gallery");
   });
 
   it("renders section eyebrows via the Label primitive (uppercase, never bold)", () => {
     loadApiKey.mockResolvedValue(null);
     render(<SettingsScreen />);
-    for (const text of ["Appearance", "Accessibility", "Prototypes"]) {
+    const assertEyebrow = (text: string) => {
       const style = flattenStyle(screen.getByText(text).props.style);
       expect(style["textTransform"]).toBe("uppercase");
       expect(style["fontWeight"]).not.toBe("700");
       expect(style["fontWeight"]).not.toBe("600");
+    };
+    fireEvent.press(screen.getByLabelText("Settings section: Looks"));
+    for (const text of ["Appearance", "Accessibility"]) assertEyebrow(text);
+    fireEvent.press(screen.getByLabelText("Settings section: Data"));
+    assertEyebrow("Prototypes");
+  });
+
+  it("groups settings into tabs and defaults to Tune the source", () => {
+    loadApiKey.mockResolvedValue(null);
+    render(<SettingsScreen />);
+    // The four section tabs are offered…
+    for (const label of ["Tune the source", "Looks", "Account", "Data"]) {
+      expect(screen.getByLabelText(`Settings section: ${label}`)).toBeTruthy();
     }
+    // …and the default tab shows the BYOK/source content, not the Looks content.
+    expect(screen.getByLabelText("Paste Anthropic (Claude) API key")).toBeTruthy();
+    expect(screen.queryByText("Dyslexia-friendly font")).toBeNull();
   });
 });
