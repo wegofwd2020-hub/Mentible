@@ -2486,8 +2486,10 @@ const makeStyles = (c: Palette) => ({
   nextStepBtn: { alignSelf: "flex-start" as const },
   artifact: { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
   artifactTitle: { color: c.text, fontSize: typography.sizeLg, fontFamily: FRAUNCES.semibold, letterSpacing: -0.36 },
-  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
-  versionRowLeft: { flexShrink: 1 as const },
+  // Left block flexes to fill so the actions (Review → / View) group on the right
+  // with no dead space stretched across the middle (was justifyContent:space-between).
+  versionRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  versionRowLeft: { flex: 1 },
   versionRowTs: { color: c.textMuted, fontSize: typography.sizeXs },
   versionLabel: { color: c.textSecondary, fontSize: typography.sizeMd },
   validatedRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xs },
@@ -2611,7 +2613,7 @@ const makeStyles = (c: Palette) => ({
   // Bespoke spacing only — the surface, border, and padding now come from
   // <Card>, which this style overrides onto (Studio re-skin P1); the eyebrow
   // kind label moved to <Label>.
-  sourceRow: { marginTop: spacing.sm, gap: 2 },
+  sourceRow: { marginTop: spacing.sm, gap: 2, paddingVertical: spacing.sm },
   // Collapsed input record = one compact row: [kind] [title fills width] [date],
   // so a full-width card isn't wasted on a narrow left-aligned stack.
   sourceHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
