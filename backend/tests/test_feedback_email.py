@@ -48,6 +48,12 @@ async def test_send_posts_to_zeptomail_with_enczapikey_and_reply_to(monkeypatch)
     assert b"support@kaundinyalabs.com" in body  # to
     assert b"jane@x.com" in body  # reply_to = submitter
     assert b"the thing broke" in body
+    # reply_to must be the FLAT {address,name} shape ZeptoMail requires — the
+    # wrapped {email_address:{...}} shape 400s with "Parameter address missing".
+    import json as _json
+
+    reply_to = _json.loads(body)["reply_to"]
+    assert reply_to == [{"address": "jane@x.com", "name": "Jane"}]
 
 
 @pytest.mark.asyncio

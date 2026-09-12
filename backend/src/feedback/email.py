@@ -48,7 +48,9 @@ async def send_feedback_email(
     message = {
         "from": {"address": settings.zeptomail_from, "name": "Mentible Feedback"},
         "to": [{"email_address": {"address": settings.feedback_to}}],
-        "reply_to": [{"email_address": {"address": email, "name": name}}],
+        # ZeptoMail's reply_to is a FLAT {address,name} (unlike to/cc, which wrap
+        # in email_address). The wrapped shape → 400 "Parameter address missing".
+        "reply_to": [{"address": email, "name": name}],
         "subject": f"[mentible] feedback — {page}",
         "htmlbody": _body_html(name=name, email=email, page=page, payload=payload),
     }
