@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -17,6 +18,7 @@ import {
   type HelpTreeNode,
 } from "@/help";
 import { HELP_TOPICS, HELP_TREE } from "@/help-content";
+import { BRAND_NAME, BRAND_SUPPORT } from "@/constants/brand";
 import { relaunchStep, type StepId } from "@/onboarding/firstRunState";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
@@ -178,6 +180,25 @@ export default function HelpScreen() {
         ) : (
           HELP_TREE.map((node) => renderNode(node, 0))
         )}
+
+        <View style={styles.section}>
+          <Label tone="secondary">Still stuck?</Label>
+          <Card style={styles.cardInner}>
+            <Pressable
+              onPress={() =>
+                Linking.openURL(
+                  `mailto:${BRAND_SUPPORT}?subject=${encodeURIComponent(`${BRAND_NAME} support`)}`,
+                )
+              }
+              accessibilityRole="link"
+              accessibilityLabel={`Email support at ${BRAND_SUPPORT}`}
+            >
+              <Text style={styles.supportText}>
+                Email support — <Text style={styles.supportEmail}>{BRAND_SUPPORT}</Text>
+              </Text>
+            </Pressable>
+          </Card>
+        </View>
       </PageContainer>
     </ScrollView>
   );
@@ -219,4 +240,6 @@ const makeStyles = (c: Palette) => ({
   chevron: { width: 16 as const, color: c.textSecondary, fontSize: typography.sizeSm },
   rowTitle: { color: c.text, fontSize: typography.sizeMd, fontWeight: "600" as const, flexShrink: 1 as const },
   blurb: { color: c.textMuted, fontSize: typography.sizeXs, marginLeft: 24 as const, marginBottom: spacing.xs },
+  supportText: { color: c.text, fontSize: typography.sizeMd },
+  supportEmail: { color: c.primary, fontWeight: "600" as const },
 });

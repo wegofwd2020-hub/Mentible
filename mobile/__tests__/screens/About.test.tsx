@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
-import { BRAND_CONTACT, BRAND_NAME } from "@/constants/brand";
+import { BRAND_CONTACT, BRAND_NAME, BRAND_SUPPORT } from "@/constants/brand";
 import { QUALITY_GATE_LIBS } from "@/constants/qualityGateLibs";
 import { buildLabel } from "@/lib/buildInfo";
 
@@ -48,6 +48,17 @@ describe("AboutScreen", () => {
     render(<AboutScreen />);
     fireEvent.press(screen.getByLabelText(`Email ${BRAND_CONTACT}`));
     expect(spy).toHaveBeenCalledWith(`mailto:${BRAND_CONTACT}`);
+    spy.mockRestore();
+  });
+
+  it("shows a Support section that mailto-links the support inbox", () => {
+    const spy = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined as never);
+    render(<AboutScreen />);
+    expect(screen.getByText(BRAND_SUPPORT)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(`Email support at ${BRAND_SUPPORT}`));
+    expect(spy).toHaveBeenCalledWith(
+      `mailto:${BRAND_SUPPORT}?subject=${encodeURIComponent(`${BRAND_NAME} support`)}`,
+    );
     spy.mockRestore();
   });
 
