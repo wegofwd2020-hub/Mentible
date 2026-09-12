@@ -55,6 +55,7 @@ export function GenerationParamsEditor({
 
   return (
     <View style={styles.root}>
+      <View style={styles.fieldBox}>
       <FieldLabel styles={styles} hint="Authoring-grade models give the most coherent long books; experimental ones are faster or cheaper but rougher. Switching providers clears the model pick.">
         Model
       </FieldLabel>
@@ -74,13 +75,17 @@ export function GenerationParamsEditor({
       {providerInfo(value.provider).note ? (
         <Text style={styles.paramHint}>{providerInfo(value.provider).note}</Text>
       ) : null}
+      </View>
 
+      <View style={styles.fieldBox}>
       <FieldLabel styles={styles} hint="Set it to the reader's level, not the topic's difficulty — an advanced topic at a beginner level is explained from the ground up.">
         Level
       </FieldLabel>
       <Text style={styles.paramHint}>Who it&apos;s written for — sets the reading level and assumed background.</Text>
       <LevelPicker value={value.level} onChange={(level) => set({ level })} />
+      </View>
 
+      <View style={styles.fieldBox}>
       <FieldLabel styles={styles} hint="More depth means more sections and detail per topic — and longer generation time and higher token use.">
         Depth
       </FieldLabel>
@@ -103,7 +108,9 @@ export function GenerationParamsEditor({
           );
         })}
       </View>
+      </View>
 
+      <View style={styles.fieldBox}>
       <FieldLabel styles={styles} hint="Conceptual favours metaphor and overview visuals; technical favours precise, architectural ones. Tap 'See examples' to compare.">
         Diagrams
       </FieldLabel>
@@ -134,7 +141,9 @@ export function GenerationParamsEditor({
       >
         <Text style={styles.examplesLink}>See examples →</Text>
       </Pressable>
+      </View>
 
+      <View style={styles.fieldBox}>
       <FieldLabel styles={styles} hint="A target the model aims for across all topics, not a hard limit — set 0 to let each topic run as long as it needs.">
         {pagesLabel}
       </FieldLabel>
@@ -187,12 +196,23 @@ export function GenerationParamsEditor({
         </Pressable>
       </View>
       <Text style={styles.hint}>{pagesHint}</Text>
+      </View>
     </View>
   );
 }
 
 const makeStyles = (c: Palette) => ({
-  root: { gap: spacing.xs },
+  root: { gap: spacing.sm },
+  // Each field group boxed for visual separation (dogfeedback #546). surfaceHigh
+  // so the box reads against the section Card (surface) it sits inside on Settings.
+  fieldBox: {
+    backgroundColor: c.surfaceHigh,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
   // Field heading + its `?` HelpHint on one row (the label keeps its own marginTop).
   labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: spacing.sm },
   label: {
