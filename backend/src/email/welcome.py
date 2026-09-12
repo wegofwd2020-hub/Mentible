@@ -7,6 +7,7 @@ import httpx
 
 from backend.config import settings
 from backend.src.core.log_redaction import get_logger
+from backend.src.email.zepto import zepto_auth_header
 
 log = get_logger("email.welcome")
 
@@ -56,7 +57,7 @@ async def send_welcome_email(
         resp = await client.post(
             f"{settings.zeptomail_base_url.rstrip('/')}/email",
             headers={
-                "Authorization": f"Zoho-enczapikey {token}",
+                "Authorization": zepto_auth_header(token),
                 "Content-Type": "application/json",
             },
             json=message,
