@@ -54,17 +54,26 @@ async def query_feedback(
     q: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
+    status: str = "active",
     limit: int = 50,
     cursor: str | None = None,
 ) -> list[asyncpg.Record]:
     """Filtered, keyset-paginated feedback, newest first. `type_` and
-    `contact_preference` are read from the jsonb payload; the rest are columns."""
+    `contact_preference` are read from the jsonb payload; the rest are columns.
+    `status` selects archive state: "active" (archived_at IS NULL, the default),
+    "archived" (archived_at IS NOT NULL), or "all"."""
     clauses: list[str] = []
     args: list = []
 
     def bind(value) -> str:
         args.append(value)
         return f"${len(args)}"
+
+    if status == "active":
+        clauses.append("archived_at IS NULL")
+    elif status == "archived":
+        clauses.append("archived_at IS NOT NULL")
+    # "all" (or any other value) → no archive-state clause
 
     if type_ is not None:
         clauses.append(f"payload->>'type' = {bind(type_)}")
@@ -85,7 +94,7 @@ async def query_feedback(
         c_created, c_id = decode_cursor(cursor)
         clauses.append(f"(created_at, id) < ({bind(c_created)}, {bind(c_id)})")
 
-    sql = "SELECT id, name, email, app, page, payload, created_at FROM app_feedback"
+    sql = "SELECT id, name, email, app, page, payload, created_at, archived_at FROM app_feedback"
     if clauses:
         sql += " WHERE " + " AND ".join(clauses)
     sql += f" ORDER BY created_at DESC, id DESC LIMIT {bind(limit)}"
@@ -94,6 +103,25 @@ async def query_feedback(
 
 async def get_feedback(conn: asyncpg.Connection, feedback_id: uuid.UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
-        "SELECT id, name, email, app, page, payload, created_at FROM app_feedback WHERE id = $1",
+        "SELECT id, name, email, app, page, payload, created_at, archived_at "
+        "FROM app_feedback WHERE id = $1",
         feedback_id,
     )
+
+
+async def set_archived(conn: asyncpg.Connection, feedback_id: uuid.UUID, *, archived: bool) -> bool:
+    """Soft-archive (archived=True → archived_at=now) or restore (False → NULL).
+    Returns True if a row was updated, False if the id doesn't exist."""
+    row = await conn.fetchrow(
+        "UPDATE app_feedback SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END "
+        "WHERE id = $1 RETURNING id",
+        feedback_id,
+        archived,
+    )
+    return row is not None
+
+
+async def delete_feedback(conn: asyncpg.Connection, feedback_id: uuid.UUID) -> bool:
+    """Hard-delete one feedback row. Returns True if a row was removed."""
+    row = await conn.fetchrow("DELETE FROM app_feedback WHERE id = $1 RETURNING id", feedback_id)
+    return row is not None

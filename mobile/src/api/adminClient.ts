@@ -167,6 +167,7 @@ export interface FeedbackRow {
   role: string | null;
   snippet: string;
   created_at: string;
+  archived: boolean;
 }
 
 export interface FeedbackDetail extends FeedbackRow {
@@ -179,6 +180,8 @@ export interface FeedbackListResult {
   next_cursor: string | null;
 }
 
+export type FeedbackStatus = "active" | "archived" | "all";
+
 export interface FeedbackFilters {
   type?: string;
   contact_preference?: string;
@@ -187,6 +190,7 @@ export interface FeedbackFilters {
   q?: string;
   created_from?: string; // ISO
   created_to?: string;
+  status?: FeedbackStatus;
   limit?: number;
   cursor?: string;
 }
@@ -206,6 +210,23 @@ export async function listFeedback(token: string, f: FeedbackFilters = {}): Prom
 
 export async function getFeedback(token: string, id: string): Promise<FeedbackDetail> {
   return (await adminFetch<FeedbackDetail>(`/feedback/${encodeURIComponent(id)}`, token)) as FeedbackDetail;
+}
+
+// Soft-archive (archived=true → hidden from the default list) or restore. 204.
+export async function setFeedbackArchived(
+  token: string,
+  id: string,
+  archived: boolean,
+): Promise<void> {
+  await adminFetch<null>(`/feedback/${encodeURIComponent(id)}/archive`, token, {
+    method: "POST",
+    body: JSON.stringify({ archived }),
+  });
+}
+
+// Hard-delete one feedback row. Irreversible. 204.
+export async function deleteFeedback(token: string, id: string): Promise<void> {
+  await adminFetch<null>(`/feedback/${encodeURIComponent(id)}`, token, { method: "DELETE" });
 }
 
 // The export endpoint returns a file, not JSON — the screen fetches this URL with
