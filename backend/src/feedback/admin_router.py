@@ -18,6 +18,7 @@ from backend.src.feedback.schemas import (
     FeedbackAdminDetail,
     FeedbackAdminList,
     FeedbackAdminRow,
+    FeedbackArchiveIn,
 )
 
 router = APIRouter(prefix="/api/v1/admin/feedback", tags=["admin", "feedback"])
@@ -57,6 +58,7 @@ def _row(r: asyncpg.Record) -> FeedbackAdminRow:
         role=p.get("role"),
         snippet=text[:_SNIPPET],
         created_at=r["created_at"].isoformat(),
+        archived=r["archived_at"] is not None,
     )
 
 
@@ -84,6 +86,7 @@ async def export_feedback(
         q=q,
         created_from=created_from,
         created_to=created_to,
+        status="all",  # export covers active + archived (unchanged pre-archive behavior)
         limit=_EXPORT_CAP,
         cursor=None,
     )
@@ -134,6 +137,7 @@ async def list_feedback(
     q: str | None = Query(default=None),
     created_from: datetime | None = Query(default=None),
     created_to: datetime | None = Query(default=None),
+    status_: str = Query(default="active", alias="status", pattern="^(active|archived|all)$"),
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = Query(default=None),
     _viewer: Principal = Depends(require_feedback_viewer),
@@ -148,6 +152,7 @@ async def list_feedback(
         q=q,
         created_from=created_from,
         created_to=created_to,
+        status=status_,
         limit=limit + 1,
         cursor=cursor,
     )
@@ -169,3 +174,45 @@ async def get_one(
     p = _payload(r)
     base = _row(r)
     return FeedbackAdminDetail(**base.model_dump(), text=str(p.get("text", "")), payload=p)
+
+
+@router.post("/{feedback_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
+async def archive_one(
+    feedback_id: uuid.UUID,
+    body: FeedbackArchiveIn,
+    viewer: Principal = Depends(require_feedback_viewer),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> Response:
+    """Soft-archive (hide from the default list) or restore a feedback row.
+    Reversible; audited."""
+    ok = await repo.set_archived(conn, feedback_id, archived=body.archived)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such feedback")
+    await audit.record(
+        conn,
+        actor_sub=viewer.sub,
+        actor_email=viewer.email,
+        action="feedback.archive" if body.archived else "feedback.unarchive",
+        target_sub=str(feedback_id),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_one(
+    feedback_id: uuid.UUID,
+    viewer: Principal = Depends(require_feedback_viewer),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> Response:
+    """Hard-delete one feedback row. Irreversible; audited (data destruction)."""
+    ok = await repo.delete_feedback(conn, feedback_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such feedback")
+    await audit.record(
+        conn,
+        actor_sub=viewer.sub,
+        actor_email=viewer.email,
+        action="feedback.delete",
+        target_sub=str(feedback_id),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

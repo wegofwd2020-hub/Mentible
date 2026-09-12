@@ -51,3 +51,45 @@ def test_query_filters_and_keyset():
             await conn.close()
 
     asyncio.run(_run())
+
+
+def test_archive_status_filter_and_hard_delete():
+    async def _run():
+        conn = await asyncpg.connect(DSN)
+        try:
+            a = await _seed(conn, type_="bug", text="archive me please")
+            k = await _seed(conn, type_="bug", text="keep me active here")
+
+            # archive `a` → drops out of the default active view, shows under archived
+            assert await repo.set_archived(conn, a, archived=True) is True
+            active = {r["id"] for r in await repo.query_feedback(conn, q="me", limit=100)}
+            assert k in active and a not in active
+            archived = {
+                r["id"]
+                for r in await repo.query_feedback(conn, q="me", status="archived", limit=100)
+            }
+            assert a in archived and k not in archived
+            all_ = {
+                r["id"] for r in await repo.query_feedback(conn, q="me", status="all", limit=100)
+            }
+            assert a in all_ and k in all_
+
+            # detail carries the archived_at column
+            row = await repo.get_feedback(conn, a)
+            assert row is not None and row["archived_at"] is not None
+
+            # restore → back in active
+            assert await repo.set_archived(conn, a, archived=False) is True
+            active2 = {r["id"] for r in await repo.query_feedback(conn, q="me", limit=100)}
+            assert a in active2
+
+            # hard delete removes it entirely
+            assert await repo.delete_feedback(conn, k) is True
+            assert await repo.get_feedback(conn, k) is None
+            # deleting a missing id is a no-op returning False
+            assert await repo.delete_feedback(conn, k) is False
+            assert await repo.set_archived(conn, k, archived=True) is False
+        finally:
+            await conn.close()
+
+    asyncio.run(_run())

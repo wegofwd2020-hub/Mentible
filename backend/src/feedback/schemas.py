@@ -52,6 +52,14 @@ class FeedbackAdminRow(BaseModel):
     role: str | None
     snippet: str
     created_at: str
+    archived: bool = False
+
+
+class FeedbackArchiveIn(BaseModel):
+    """Body for the archive endpoint. archived=True hides the row from the
+    default (active) list; False restores it."""
+
+    archived: bool = True
 
 
 class FeedbackAdminDetail(FeedbackAdminRow):

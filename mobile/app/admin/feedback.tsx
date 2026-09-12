@@ -14,9 +14,11 @@ import { Redirect, useFocusEffect } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
 import {
+  deleteFeedback,
   feedbackExportUrl,
   getFeedback,
   listFeedback,
+  setFeedbackArchived,
   type FeedbackDetail,
   type FeedbackFilters,
   type FeedbackRow,
@@ -43,10 +45,16 @@ const CONTACT_OPTIONS: DropdownOption[] = [
   { value: "schedule_call", label: "Schedule a call" },
 ];
 
+const STATUS_OPTIONS: DropdownOption[] = [
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+  { value: "all", label: "All" },
+];
+
 const THIRTY_DAYS_MS = 30 * 864e5;
 
 function defaultFilters(): FeedbackFilters {
-  return { created_from: new Date(Date.now() - THIRTY_DAYS_MS).toISOString() };
+  return { status: "active", created_from: new Date(Date.now() - THIRTY_DAYS_MS).toISOString() };
 }
 
 function formatDateTime(iso: string): string {
@@ -170,8 +178,55 @@ export default function AdminFeedbackScreen() {
 
   const clearFilters = useCallback(() => {
     setQInput("");
-    setFilters({});
+    setFilters({ status: "active" });
   }, []);
+
+  // Archive/restore: after the server confirms, update the list in place. In the
+  // "all" view the row stays but flips its badge; in the active/archived views it
+  // no longer matches the filter, so drop it. Close the detail modal if it's open.
+  const handleArchive = useCallback(
+    async (id: string, archived: boolean) => {
+      if (!accessToken) return;
+      try {
+        await setFeedbackArchived(accessToken, id, archived);
+        setRows((prev) =>
+          filters.status === "all"
+            ? prev.map((r) => (r.id === id ? { ...r, archived } : r))
+            : prev.filter((r) => r.id !== id),
+        );
+        setDetail((d) => (d && d.id === id ? { ...d, archived } : d));
+        if (filters.status !== "all") closeDetail();
+      } catch (e) {
+        Alert.alert("Couldn’t update", e instanceof Error ? e.message : "Please try again.");
+      }
+    },
+    [accessToken, filters.status, closeDetail],
+  );
+
+  const doDelete = useCallback(
+    async (id: string) => {
+      if (!accessToken) return;
+      try {
+        await deleteFeedback(accessToken, id);
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        closeDetail();
+      } catch (e) {
+        Alert.alert("Couldn’t delete", e instanceof Error ? e.message : "Please try again.");
+      }
+    },
+    [accessToken, closeDetail],
+  );
+
+  // Hard delete is irreversible → confirm first (window.confirm on web via the shim).
+  const handleDelete = useCallback(
+    (id: string) => {
+      Alert.alert("Delete this feedback?", "It will be permanently removed. This cannot be undone.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => void doDelete(id) },
+      ]);
+    },
+    [doDelete],
+  );
 
   const handleExport = useCallback(
     async (fmt: "csv" | "json") => {
@@ -219,6 +274,14 @@ export default function AdminFeedbackScreen() {
           options={CONTACT_OPTIONS}
           onChange={(v) => setFilters((f) => ({ ...f, contact_preference: v || undefined }))}
           accessibilityLabel="Filter by contact preference"
+        />
+        <Dropdown
+          value={filters.status ?? "active"}
+          options={STATUS_OPTIONS}
+          onChange={(v) =>
+            setFilters((f) => ({ ...f, status: (v as FeedbackFilters["status"]) || "active" }))
+          }
+          accessibilityLabel="Filter by archive status"
         />
         <TextInput
           style={styles.search}
@@ -293,6 +356,30 @@ export default function AdminFeedbackScreen() {
               <Text style={styles.snippet} numberOfLines={2}>
                 {item.snippet}
               </Text>
+              <View style={styles.rowActions}>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    void handleArchive(item.id, !item.archived);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.archived ? "Restore feedback" : "Archive feedback"}
+                >
+                  <Text style={styles.actionText}>{item.archived ? "Restore" : "Archive"}</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    handleDelete(item.id);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete feedback"
+                >
+                  <Text style={styles.actionTextDanger}>Delete</Text>
+                </Pressable>
+              </View>
             </Pressable>
           )}
           ListEmptyComponent={<Text style={styles.meta}>No feedback in this range yet.</Text>}
@@ -338,14 +425,36 @@ export default function AdminFeedbackScreen() {
                   <Text style={styles.payload}>{JSON.stringify(detail.payload, null, 2)}</Text>
                 </>
               ) : null}
-              <Pressable
-                style={styles.closeBtn}
-                onPress={closeDetail}
-                accessibilityRole="button"
-                accessibilityLabel="Close feedback detail"
-              >
-                <Text style={styles.closeText}>Close</Text>
-              </Pressable>
+              <View style={styles.detailActions}>
+                {detail ? (
+                  <>
+                    <Pressable
+                      style={styles.actionBtn}
+                      onPress={() => void handleArchive(detail.id, !detail.archived)}
+                      accessibilityRole="button"
+                      accessibilityLabel={detail.archived ? "Restore feedback" : "Archive feedback"}
+                    >
+                      <Text style={styles.actionText}>{detail.archived ? "Restore" : "Archive"}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.actionBtn}
+                      onPress={() => handleDelete(detail.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete feedback"
+                    >
+                      <Text style={styles.actionTextDanger}>Delete</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                <Pressable
+                  style={styles.closeBtn}
+                  onPress={closeDetail}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close feedback detail"
+                >
+                  <Text style={styles.closeText}>Close</Text>
+                </Pressable>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -416,6 +525,28 @@ const makeStyles = (c: Palette) => ({
   },
   page: { color: c.textMuted, fontSize: typography.sizeXs, flex: 1 },
   snippet: { color: c.textSecondary, fontSize: typography.sizeSm, marginTop: spacing.xs },
+  rowActions: {
+    flexDirection: "row" as const,
+    justifyContent: "flex-end" as const,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  actionBtn: {
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  actionText: { color: c.textSecondary, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  actionTextDanger: { color: c.error, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  detailActions: {
+    flexDirection: "row" as const,
+    justifyContent: "flex-end" as const,
+    alignItems: "center" as const,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
   meta: { color: c.textMuted, fontSize: typography.sizeXs, marginTop: 2 },
   error: { color: c.error, fontSize: typography.sizeSm, marginTop: spacing.md },
   loadMore: {

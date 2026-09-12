@@ -38,6 +38,7 @@ jest.mock("@/api/adminClient", () => ({
         role: null,
         snippet: "hi",
         created_at: "2026-09-06T00:00:00Z",
+        archived: false,
       },
       {
         id: "2",
@@ -51,6 +52,7 @@ jest.mock("@/api/adminClient", () => ({
         role: null,
         snippet: "would be nice",
         created_at: "2026-09-05T00:00:00Z",
+        archived: false,
       },
     ],
     next_cursor: null,
@@ -67,13 +69,30 @@ jest.mock("@/api/adminClient", () => ({
     role: null,
     snippet: "hi",
     created_at: "2026-09-06T00:00:00Z",
+    archived: false,
     text: "full text here",
     payload: { type: "bug" },
   })),
+  setFeedbackArchived: jest.fn(async () => {}),
+  deleteFeedback: jest.fn(async () => {}),
   feedbackExportUrl: jest.fn(() => "http://x/export"),
 }));
-const { getFeedback } = require("@/api/adminClient") as {
+
+// The delete confirm goes through @/lib/alert. In the test, auto-press the
+// destructive (non-cancel) button so doDelete runs.
+jest.mock("@/lib/alert", () => ({
+  Alert: {
+    alert: (_t: string, _m?: string, buttons?: { style?: string; onPress?: () => void }[]) => {
+      const action = buttons?.find((b) => b.style !== "cancel");
+      action?.onPress?.();
+    },
+  },
+}));
+
+const { getFeedback, setFeedbackArchived, deleteFeedback } = require("@/api/adminClient") as {
   getFeedback: jest.Mock;
+  setFeedbackArchived: jest.Mock;
+  deleteFeedback: jest.Mock;
 };
 
 import AdminFeedbackScreen from "../../app/admin/feedback";
@@ -96,6 +115,27 @@ describe("AdminFeedbackScreen", () => {
     fireEvent.press(screen.getByLabelText("View feedback from alice@x.com"));
     expect(await screen.findByText("full text here")).toBeTruthy();
     expect(getFeedback).toHaveBeenCalledWith("t", "1");
+  });
+
+  it("archives a row and removes it from the active list", async () => {
+    render(<AdminFeedbackScreen />);
+    await screen.findByText("alice@x.com");
+    const archiveBtns = screen.getAllByLabelText("Archive feedback");
+    fireEvent.press(archiveBtns[0]);
+    expect(setFeedbackArchived).toHaveBeenCalledWith("t", "1", true);
+    // active view: the archived row drops out, the other stays
+    await screen.findByText("bob@y.com");
+    expect(screen.queryByText("alice@x.com")).toBeNull();
+  });
+
+  it("hard-deletes a row after confirming", async () => {
+    render(<AdminFeedbackScreen />);
+    await screen.findByText("alice@x.com");
+    const deleteBtns = screen.getAllByLabelText("Delete feedback");
+    fireEvent.press(deleteBtns[0]);
+    expect(deleteFeedback).toHaveBeenCalledWith("t", "1");
+    await screen.findByText("bob@y.com");
+    expect(screen.queryByText("alice@x.com")).toBeNull();
   });
 
   it("redirects a non-admin to settings", async () => {
