@@ -5,6 +5,7 @@ import {
   listPlans,
   listUsers,
   revokeEntitlement,
+  sendWelcomeEmail,
   suspendUser,
 } from "../../src/api/adminClient";
 
@@ -118,4 +119,21 @@ describe("adminClient", () => {
     expect(JSON.parse(init.body as string)).toEqual({ plan_id: "managed_unlimited", status: "canceled" });
     expect(res.status).toBe("canceled");
   });
+});
+
+test("sendWelcomeEmail POSTs email + name and returns the result", async () => {
+  mockResponse({ sent: true, detail: "sent" });
+  const res = await sendWelcomeEmail(TOKEN, "new@x.com", "Sam");
+  const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+  expect(url).toContain("/api/v1/admin/welcome-email");
+  expect(opts.method).toBe("POST");
+  expect(JSON.parse(opts.body as string)).toEqual({ email: "new@x.com", name: "Sam" });
+  expect(res).toEqual({ sent: true, detail: "sent" });
+});
+
+test("sendWelcomeEmail omits an empty name", async () => {
+  mockResponse({ sent: false, detail: "email is not configured" });
+  await sendWelcomeEmail(TOKEN, "new@x.com");
+  const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+  expect(JSON.parse(opts.body as string)).toEqual({ email: "new@x.com" });
 });

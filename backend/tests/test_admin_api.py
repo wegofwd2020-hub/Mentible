@@ -285,3 +285,38 @@ def test_usage_by_user_rolls_up_the_target(admin_client):
     assert row["total_tokens"] == 11000
     assert row["cost_micros"] == 12345 and row["events"] == 2
     assert row["providers"] == ["anthropic", "groq"]  # sorted, deduped
+
+
+def test_welcome_email_admin_trigger(admin_client):
+    # No ZeptoMail token in the test env → the send is a no-op that reports why,
+    # but the endpoint still returns 200 and records the audit attempt.
+    r = admin_client.post(
+        f"{ADMIN}/welcome-email", json={"email": "newtester@x.com", "name": "Sam"}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sent"] is False and "detail" in body
+    # audit trail recorded the attempt against the recipient
+    audit = admin_client.get(f"{ADMIN}/audit").json()
+    assert any(
+        e["action"] == "welcome_email.send" and e["target_sub"] == "newtester@x.com"
+        for e in audit["entries"]
+    )
+
+
+def test_welcome_email_rejects_bad_address(admin_client):
+    r = admin_client.post(f"{ADMIN}/welcome-email", json={"email": "not-an-email"})
+    assert r.status_code == 400
+
+
+def test_welcome_email_requires_super_admin():
+    # No super_admin override → the real gate runs against a non-admin principal.
+    app.dependency_overrides[require_user] = lambda: Principal(
+        sub="plain", email="plain@x.com", issuer="https://test", is_super_admin=False
+    )
+    try:
+        with TestClient(app) as c:
+            r = c.post(f"{ADMIN}/welcome-email", json={"email": "x@y.z"})
+            assert r.status_code == 403
+    finally:
+        app.dependency_overrides.clear()

@@ -240,6 +240,18 @@ export default function AdminUserScreen() {
         ) : null}
 
         <Pressable
+          style={[styles.action, (busy || !user.email) && styles.actionDisabled]}
+          disabled={busy || !user.email}
+          onPress={() =>
+            router.push({ pathname: "/admin/welcome", params: { email: user.email ?? "" } })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Send welcome email to this user"
+        >
+          <Text style={styles.actionText}>Send welcome email</Text>
+        </Pressable>
+
+        <Pressable
           style={[styles.action, busy && styles.actionDisabled]}
           disabled={busy}
           onPress={onToggleSuspend}

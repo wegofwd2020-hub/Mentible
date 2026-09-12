@@ -229,6 +229,25 @@ export async function deleteFeedback(token: string, id: string): Promise<void> {
   await adminFetch<null>(`/feedback/${encodeURIComponent(id)}`, token, { method: "DELETE" });
 }
 
+export interface WelcomeEmailResult {
+  sent: boolean;
+  detail: string;
+}
+
+// Send the Mentible welcome email to a recipient (admin-triggered; the
+// recipient need not have an account). `sent:false` carries a `detail` reason
+// (e.g. email not configured) — a 200 either way unless the address is invalid.
+export async function sendWelcomeEmail(
+  token: string,
+  email: string,
+  name?: string,
+): Promise<WelcomeEmailResult> {
+  return (await adminFetch<WelcomeEmailResult>("/welcome-email", token, {
+    method: "POST",
+    body: JSON.stringify({ email, name: name || undefined }),
+  })) as WelcomeEmailResult;
+}
+
 // The export endpoint returns a file, not JSON — the screen fetches this URL with
 // the Bearer token and triggers a browser download (web-first).
 export function feedbackExportUrl(f: FeedbackFilters, format: "csv" | "json"): string {
