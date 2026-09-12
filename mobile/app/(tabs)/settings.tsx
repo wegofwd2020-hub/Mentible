@@ -158,31 +158,34 @@ export default function SettingsScreen() {
         </View>
       )}
 
-      {/* Tune the source — the knobs on content-generation source & quality. */}
+      {/* Tune the source — the knobs on content-generation source & quality.
+          Each topic is boxed in its own Card (dogfeedback #546). */}
       {!IS_DEMO && tab === "source" && (
-        <>
-          <View style={styles.labelRow}>
-            <Label tone="secondary">API keys (BYOK)</Label>
-            <HelpButton topic="provider-keys" label="BYOK" />
-          </View>
-          <Text style={styles.helpText}>
-            Bring your own key per provider. Keys are stored in your device's secure storage
-            and sent directly to this app's backend, which calls the provider on your
-            behalf. They are never logged or stored on any server.
-          </Text>
-          <RequireSignIn action="add your API keys">
-            <ProviderKeyForm />
-          </RequireSignIn>
+        <View style={styles.sourceGroups}>
+          <Card>
+            <View style={styles.labelRow}>
+              <Label tone="secondary">API keys (BYOK)</Label>
+              <HelpButton topic="provider-keys" label="BYOK" />
+            </View>
+            <Text style={styles.helpText}>
+              Bring your own key per provider. Keys are stored in your device's secure storage
+              and sent directly to this app's backend, which calls the provider on your
+              behalf. They are never logged or stored on any server.
+            </Text>
+            <RequireSignIn action="add your API keys">
+              <ProviderKeyForm />
+            </RequireSignIn>
+          </Card>
 
-          <View style={styles.divider} />
-
-          <Label tone="secondary">Generation defaults</Label>
-          <Text style={styles.helpText}>
-            Defaults for new books and one-off lessons. Each book keeps its own copy
-            you can adjust per book.
-          </Text>
-          <GenerationParamsEditor value={params} onChange={handleParamsChange} />
-        </>
+          <Card>
+            <Label tone="secondary">Generation defaults</Label>
+            <Text style={styles.helpText}>
+              Defaults for new books and one-off lessons. Each book keeps its own copy
+              you can adjust per book.
+            </Text>
+            <GenerationParamsEditor value={params} onChange={handleParamsChange} />
+          </Card>
+        </View>
       )}
 
       {/* Looks — themes + reading accessibility. Always available (incl. demo). */}
@@ -274,6 +277,8 @@ function makeStyles(c: Palette) {
       flexGrow: 1,
     },
     labelRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+    // "Tune the source" section Cards, spaced apart (#546 — box per topic).
+    sourceGroups: { gap: spacing.md },
     // Segmented tab bar — same pill treatment as the trust screen's
     // "Whole book | Per topic" toggle. Wraps so all tabs stay visible on narrow
     // widths instead of overflowing.
