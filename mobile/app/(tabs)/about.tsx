@@ -1,6 +1,6 @@
 import React from "react";
 import { Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { BRAND_AUTHOR, BRAND_CONTACT, BRAND_NAME, BRAND_TAGLINE } from "@/constants/brand";
+import { BRAND_AUTHOR, BRAND_CONTACT, BRAND_NAME, BRAND_SUPPORT, BRAND_TAGLINE } from "@/constants/brand";
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
@@ -79,6 +79,25 @@ export default function AboutScreen() {
           >
             <Text style={styles.rowLabel}>Contact</Text>
             <Text style={styles.contactValue}>{BRAND_CONTACT}</Text>
+          </Pressable>
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <Label tone="secondary">Support</Label>
+        <Card style={styles.cardInner}>
+          <Pressable
+            style={styles.row}
+            onPress={() =>
+              Linking.openURL(
+                `mailto:${BRAND_SUPPORT}?subject=${encodeURIComponent(`${BRAND_NAME} support`)}`,
+              )
+            }
+            accessibilityRole="link"
+            accessibilityLabel={`Email support at ${BRAND_SUPPORT}`}
+          >
+            <Text style={styles.rowLabel}>Email support</Text>
+            <Text style={styles.contactValue}>{BRAND_SUPPORT}</Text>
           </Pressable>
         </Card>
       </View>
