@@ -32,6 +32,8 @@ from backend.src.accounts.schemas import (
     EntitlementView,
     GrantEntitlementRequest,
     PlanSummary,
+    WelcomeEmailRequest,
+    WelcomeEmailResult,
 )
 from backend.src.admin import audit
 from backend.src.auth import identity_admin
@@ -39,6 +41,7 @@ from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, usage_repo
 from backend.src.db.deps import get_conn
+from backend.src.email.welcome import send_welcome_email
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -133,6 +136,24 @@ async def get_user(
     creds = await repo.list_credentials(conn, account_id=account.id)
     devices = await repo.list_devices(conn, account_id=account.id)
     return _detail(account, creds, devices)
+
+
+@router.post("/welcome-email", response_model=WelcomeEmailResult)
+async def send_welcome(
+    body: WelcomeEmailRequest,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> WelcomeEmailResult:
+    """Send the Mentible welcome email to a recipient (admin-triggered; the
+    recipient need not have an account). Returns (sent, detail) so an
+    unconfigured/failed send surfaces. Audited — the attempt is recorded with
+    the recipient as target regardless of the send outcome."""
+    email = body.email.strip()
+    if "@" not in email.strip("@"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid email address")
+    sent, detail = await send_welcome_email(to=email, name=body.name)
+    await _audit(conn, admin, "welcome_email.send", email)
+    return WelcomeEmailResult(sent=sent, detail=detail)
 
 
 @router.post("/users/{sub}/suspend", response_model=AdminUserSummary)

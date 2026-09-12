@@ -124,6 +124,10 @@ class Settings(BaseSettings):
     zeptomail_from: str = Field(default="feedback@kaundinyalabs.com")
     feedback_to: str = Field(default="support@kaundinyalabs.com")
     zeptomail_base_url: str = Field(default="https://api.zeptomail.com/v1.1")
+    # Sender for the admin-triggered welcome email. MUST be on the
+    # ZeptoMail-verified domain (kaundinyalabs.com is domain-verified, so any
+    # address on it works). Distinct from `zeptomail_from` for branding.
+    welcome_from: str = Field(default="hello@kaundinyalabs.com")
     # Hard per-account spend ceiling in micro-USD over the usage window (Phase 6, O7) — a
     # backstop that bounds OUR spend even on an unlimited plan or the staff override, against
     # a runaway client / compromised account. 0 ⇒ no ceiling. Independent of the plan allowance.

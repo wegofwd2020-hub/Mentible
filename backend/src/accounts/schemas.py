@@ -229,6 +229,19 @@ class PlanStatusView(BaseModel):
     features: list[str] = []
 
 
+class WelcomeEmailRequest(BaseModel):
+    """Admin request to send the welcome email to a recipient (who may not yet
+    have an account). `name` personalizes the greeting; optional."""
+
+    email: str = Field(min_length=3, max_length=320)
+    name: str | None = Field(default=None, max_length=255)
+
+
+class WelcomeEmailResult(BaseModel):
+    sent: bool
+    detail: str
+
+
 class CredentialUpsert(BaseModel):
     source: str  # validated against CREDENTIAL_SOURCES in the route
     status: str = "unverified"

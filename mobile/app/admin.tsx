@@ -85,6 +85,16 @@ export default function AdminScreen() {
         <Text style={styles.chevron}>›</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.linkRow}
+        onPress={() => router.push("/admin/welcome")}
+        accessibilityRole="button"
+        accessibilityLabel="Send a welcome email"
+      >
+        <Text style={styles.linkText}>Send welcome email</Text>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
       {loading && users.length === 0 ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
