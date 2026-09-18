@@ -45,7 +45,9 @@ class _Conn:
             # error_code, duration_ms, properties (as JSON string from repo layer)
             # Parse properties JSON back to dict since asyncpg would auto-deserialize JSONB
             properties_json = args[17]
-            properties = json.loads(properties_json) if isinstance(properties_json, str) else properties_json
+            properties = (
+                json.loads(properties_json) if isinstance(properties_json, str) else properties_json
+            )
 
             self.inserted_events.append(
                 {
@@ -135,7 +137,7 @@ def as_user():
         app.dependency_overrides[require_active_user] = lambda: Principal(
             sub=sub, email=email, issuer="test"
         )
-        app.dependency_overrides[get_conn] = lambda: (conn or _Conn())
+        app.dependency_overrides[get_conn] = lambda: conn or _Conn()
         app.state.db = _Pool(conn or _Conn())
 
     yield _setup
@@ -248,7 +250,8 @@ async def test_post_event_recomputes_journey_state(as_user):
 
     # Verify the journey state upsert was called
     upsert_calls = [
-        call for call in conn.executed
+        call
+        for call in conn.executed
         if call[0] == "execute" and "INSERT INTO journey_state" in call[1]
     ]
     assert len(upsert_calls) == 1  # One upsert per event post

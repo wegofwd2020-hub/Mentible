@@ -38,7 +38,9 @@ def validate_no_sensitive_fields(properties: dict) -> None:
         lowered = key.lower()
         for fragment in _FORBIDDEN_PROPERTY_KEY_FRAGMENTS:
             if fragment in lowered:
-                raise PrivacyViolation(f"properties key '{key}' looks like sensitive data (matches '{fragment}')")
+                raise PrivacyViolation(
+                    f"properties key '{key}' looks like sensitive data (matches '{fragment}')"
+                )
         if isinstance(value, str) and _EMAIL_SHAPED.search(value):
             raise PrivacyViolation(f"properties key '{key}' has an email-shaped value")
 

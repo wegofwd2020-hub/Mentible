@@ -43,9 +43,7 @@ def upgrade() -> None:
         "CREATE INDEX analytics_event_user_occurred_at_idx "
         "ON analytics_event (user_id, occurred_at)"
     )
-    op.execute(
-        "CREATE INDEX analytics_event_anonymous_id_idx ON analytics_event (anonymous_id)"
-    )
+    op.execute("CREATE INDEX analytics_event_anonymous_id_idx ON analytics_event (anonymous_id)")
     op.execute(
         "CREATE INDEX analytics_event_event_name_occurred_at_idx "
         "ON analytics_event (event_name, occurred_at)"

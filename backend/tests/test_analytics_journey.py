@@ -25,9 +25,7 @@ def test_signup_completed_advances_to_create_first_value_in_progress():
 def test_generation_completed_alone_does_not_activate_user():
     """AC3 / the doc's Primary Activation Decision: draft generation without a
     meaningful follow-up action is NOT activation."""
-    result = evaluate_journey_state(
-        [_event("signup_completed"), _event("generation_completed")]
-    )
+    result = evaluate_journey_state([_event("signup_completed"), _event("generation_completed")])
     assert result.current_journey_stage == JourneyStage.CREATE_FIRST_VALUE
     assert result.stage_status == StageStatus.IN_PROGRESS
     assert result.last_meaningful_event != "generation_completed"
