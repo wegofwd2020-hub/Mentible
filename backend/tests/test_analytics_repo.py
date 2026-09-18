@@ -76,7 +76,9 @@ async def test_merge_anonymous_into_user_backfills_user_id(conn, account_id):
         conn, anonymous_id="anon-merge-me", user_id=account_id
     )
     assert updated == 1
-    row = await conn.fetchrow("SELECT user_id FROM analytics_event WHERE event_id = $1", ev.event_id)
+    row = await conn.fetchrow(
+        "SELECT user_id FROM analytics_event WHERE event_id = $1", ev.event_id
+    )
     assert row["user_id"] == account_id
 
 
