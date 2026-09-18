@@ -17,75 +17,33 @@ Old Studio books (single-lesson model, removed per ADR-009) need to be migrated 
 | Generated content | Topic → Versions (first version is the lesson export) |
 | No validation | Topic → Approvals (expert review step, new in ADR-037) |
 
-## Import Steps
+## Recommended Path: Web UI Manual Import
 
-### 1. Export Old Studio Books
+**For users without server access (e.g., Sridhar):**
 
-**Via the web app (mentible.app/app/mentible, auth as sxp718@gmail.com):**
-- Navigate to **Library** → old books list
-- For each book:
-  - Open the book
-  - **Menu** → **Export** → **Markdown**
-  - Save file as `{BookName}.md`
+### 1. Export Old Studio Books (Web App)
 
-**Or via API (if direct DB access available):**
-- Endpoint: `GET /api/v1/library/{book_id}/export?format=markdown`
-- Auth: Bearer token for sxp718@gmail.com
-- Save response to local file
+Log in at **mentible.app** as sxp718@gmail.com:
+1. **Library** → browse old books
+2. For each book:
+   - Open it
+   - **Menu** → **Export** → **Markdown**
+   - Save file locally as `{BookName}.md`
 
-### 2. Structure for Import
+### 2. Import into Projects (Web UI)
 
-Create a project directory structure:
-
-```
-imports/
-  old_studio_books/
-    book_1_name/
-      manifest.json          # metadata (title, author, created_at)
-      topics/
-        01_chapter_or_lesson.md
-        02_chapter_or_lesson.md
-        ...
-    book_2_name/
-      ...
-```
-
-**manifest.json template:**
-```json
-{
-  "title": "Book Title",
-  "description": "Original description from old Studio",
-  "author": "Sridhar Parthasarathy",
-  "created_at": "2025-XX-XX",
-  "topics": [
-    {
-      "label": "01 First Topic",
-      "file": "topics/01_chapter_or_lesson.md"
-    }
-  ]
-}
-```
-
-### 3. Import into Projects (Web UI)
-
-**Create a new Project:**
 1. Log in at **mentible.app** (sxp718@gmail.com)
 2. **Projects** → **+ Create new project**
-3. Fill in project name, description
-4. **Add topics** (manual, or bulk import below)
-
-**Add Topics (Manual):**
-1. For each `.md` file:
+3. Fill in:
+   - **Project name** (book title)
+   - **Description** (optional)
+4. **Add topics** for each exported `.md` file:
    - **Project** → **Edit** → **Add topic**
    - Paste markdown content into the topic editor
-   - Label: use chapter/section name
-   - Save
+   - **Label:** use chapter/section name from the old book
+   - **Save**
 
-**Bulk Import (CLI/API, requires backend access):**
-- Script location: `scripts/import-studio-books.py` (to be created)
-- Usage: `python scripts/import-studio-books.py imports/old_studio_books/ --account sxp718@gmail.com`
-
-### 4. Enable Expert Validation (New in Projects)
+### 3. Enable Expert Validation (New in Projects)
 
 Once topics are imported:
 
@@ -94,24 +52,22 @@ Once topics are imported:
 2. **Reviews** tab shows feedback from reviewers
 3. **Approvals** to mark content as validated
 
+## Bulk Import (For Operators Only)
+
+**Note:** Bulk import via script requires server access and OAuth token generation. Not available to regular users without server credentials.
+
+If many books need importing and you have server access:
+1. Structure books as `imports/old_studio_books/{book_name}/manifest.json + topics/*.md`
+2. Generate OAuth token for sxp718@gmail.com on the server
+3. Run: `python scripts/import-studio-books.py imports/old_studio_books/ --token <TOKEN>`
+
+Script location: `scripts/import-studio-books.py`
+
 ## Current Limitations
 
-- ⚠️ No automated migration for old Studio metadata (dates, stats)
-- ⚠️ No bulk-import CLI yet (manual web UI only, or custom script needed)
-- ⚠️ Old lesson generation context lost (keep source exports as reference)
-
-## Next Steps if Bulk Import Needed
-
-1. **Create import script** (`scripts/import-studio-books.py`):
-   - Read manifest.json per project
-   - POST to `/api/v1/trust/projects` (create project)
-   - POST to `/api/v1/trust/projects/{id}/topics` (add topics)
-   - Requires admin/system account or OAuth token
-
-2. **Database direct import** (if API unavailable):
-   - Backup prod DB first
-   - Upsert into `trust_project`, `trust_topic`, `trust_artifact_version`
-   - Run alembic migrations to ensure schema is current
+- Old Studio metadata (dates, stats) not automatically migrated
+- Old lesson generation context lost (keep markdown exports as reference)
+- Web UI import is manual but requires no server access
 
 ## Support
 
