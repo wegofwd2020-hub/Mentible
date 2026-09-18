@@ -27,6 +27,7 @@ from starlette import status as _status
 from backend.config import settings
 from backend.src.accounts import router as account_router
 from backend.src.admin import router as admin_router
+from backend.src.analytics import router as analytics_router
 from backend.src.billing import router as billing_router
 from backend.src.core.log_redaction import (
     configure_logging,
@@ -118,6 +119,7 @@ app.include_router(derivatives_router.router)
 app.include_router(structure_router.router)
 app.include_router(export_router.router)
 app.include_router(account_router.router)
+app.include_router(analytics_router.router)
 app.include_router(feedback_router.router)
 app.include_router(feedback_admin_router.router)
 app.include_router(admin_router.router)
