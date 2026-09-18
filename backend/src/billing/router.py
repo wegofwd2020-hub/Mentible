@@ -32,6 +32,9 @@ from backend.src.accounts.schemas import (
     ManagedUsageView,
     PlanStatusView,
 )
+from backend.src.analytics import repo as analytics_repo
+from backend.src.analytics.models import DeviceClass, EventName
+from backend.src.analytics.schemas import EventIn
 from backend.src.auth.principal import Principal
 from backend.src.billing import entitlement_repo, plans, quota, revenuecat, usage_repo
 from backend.src.billing.access import resolve_managed_access
@@ -179,6 +182,25 @@ async def revenuecat_webhook(request: Request) -> dict:
                     period_start=now,
                     period_end=period_end,
                 )
+
+                # Record checkout_completed event (best-effort).
+                try:
+                    event = EventIn(
+                        event_name=EventName.CHECKOUT_COMPLETED,
+                        session_id=str(account.id),
+                        device_class=DeviceClass.DESKTOP,
+                        properties={
+                            "plan_id": plan.id,
+                            "transaction_id": payload.get("event", {}).get("transaction_id", "unknown"),
+                        },
+                    )
+                    await analytics_repo.record_event(conn, event=event, user_id=account.id)
+                except Exception as e:
+                    log.warning(
+                        "analytics_checkout_completed_event_failed",
+                        account_id=str(account.id),
+                        error=str(e),
+                    )
             else:  # set_status (expiration → canceled, billing issue → past_due)
                 await entitlement_repo.set_status(conn, account_id=account.id, status=intent.status)
 

@@ -14,6 +14,9 @@ from backend.config import settings
 from ..accounts import repo as accounts_repo
 from ..accounts.deps import require_active_user
 from ..accounts.models import Account
+from ..analytics import repo as analytics_repo
+from ..analytics.models import DeviceClass, EventName
+from ..analytics.schemas import EventIn
 from ..auth.principal import Principal
 from ..billing import quota, usage_repo
 from ..billing.access import is_pro, over_cap, resolve_managed_access, resolve_managed_stt_access
@@ -460,6 +463,26 @@ async def create_version(
         created_by_sub=principal.sub,
         generation_meta=body.generation_meta,
     )
+
+    # Record meaningful_action_completed event for draft save (best-effort).
+    try:
+        event = EventIn(
+            event_name=EventName.MEANINGFUL_ACTION_COMPLETED,
+            session_id=str(artifact_id),
+            device_class=DeviceClass.DESKTOP,
+            properties={
+                "action_type": "save",
+            },
+        )
+        await analytics_repo.record_event(conn, event=event, user_id=account.id)
+    except Exception as e:
+        log.warning(
+            "analytics_meaningful_action_completed_event_failed",
+            action_type="save",
+            version_id=str(v.id),
+            error=str(e),
+        )
+
     return schemas.VersionOut(
         id=str(v.id),
         artifact_id=str(v.artifact_id),
@@ -1722,6 +1745,26 @@ async def record_version_approval(
         note=body.note,
         recorded_via=recorded_via,
     )
+
+    # Record meaningful_action_completed event for approval (best-effort).
+    try:
+        event = EventIn(
+            event_name=EventName.MEANINGFUL_ACTION_COMPLETED,
+            session_id=str(version_id),
+            device_class=DeviceClass.DESKTOP,
+            properties={
+                "action_type": "approve",
+            },
+        )
+        await analytics_repo.record_event(conn, event=event, user_id=account.id)
+    except Exception as e:
+        log.warning(
+            "analytics_meaningful_action_completed_event_failed",
+            action_type="approve",
+            version_id=str(version_id),
+            error=str(e),
+        )
+
     return schemas.ApprovalOut(
         id=str(ap.id),
         version_id=str(ap.version_id),
@@ -1797,6 +1840,26 @@ async def record_topic_version_approval(
         note=body.note,
         recorded_via=recorded_via,
     )
+
+    # Record meaningful_action_completed event for topic approval (best-effort).
+    try:
+        event = EventIn(
+            event_name=EventName.MEANINGFUL_ACTION_COMPLETED,
+            session_id=str(topic_version_id),
+            device_class=DeviceClass.DESKTOP,
+            properties={
+                "action_type": "approve",
+            },
+        )
+        await analytics_repo.record_event(conn, event=event, user_id=account.id)
+    except Exception as e:
+        log.warning(
+            "analytics_meaningful_action_completed_event_failed",
+            action_type="approve",
+            topic_version_id=str(topic_version_id),
+            error=str(e),
+        )
+
     return schemas.TopicApprovalOut(
         id=str(ap.id),
         topic_version_id=str(ap.topic_version_id),

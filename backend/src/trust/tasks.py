@@ -31,6 +31,10 @@ from wegofwd_llm.errors import LLMAuthError, LLMError, LLMRateLimitError, LLMSch
 
 from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
+from backend.src.analytics import repo as analytics_repo
+from backend.src.analytics.journey import evaluate_journey_state
+from backend.src.analytics.models import DeviceClass, EventName
+from backend.src.analytics.schemas import EventIn
 from backend.src.auth.principal import Principal
 from backend.src.billing import pricing, usage_repo
 from backend.src.billing.access import over_cap, resolve_managed_access
@@ -63,6 +67,47 @@ from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
 
 log = get_logger("trust.tasks")
+
+
+async def _record_generation_failed(
+    conn: asyncpg.Connection, *, job_id: uuid.UUID, recorded_by_sub: str, provider_id: str, error_code: str
+) -> None:
+    """Record generation_failed event and advance journey state on generation failure.
+    Catches exceptions to avoid blocking the generation task on analytics failure."""
+    try:
+        acct = await accounts_repo.get_or_create_account(
+            conn, idp_sub=recorded_by_sub, email=None
+        )
+        event = EventIn(
+            event_name=EventName.GENERATION_FAILED,
+            session_id=str(job_id),
+            device_class=DeviceClass.DESKTOP,
+            properties={
+                "outcome": "failure",
+                "error_code": error_code,
+                "provider_id": provider_id,
+            },
+        )
+        await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+
+        # Evaluate and persist journey state.
+        history = await analytics_repo.get_events_for_user(conn, acct.id)
+        result = evaluate_journey_state([dict(row) for row in history])
+        await analytics_repo.upsert_journey_state(
+            conn,
+            user_id=acct.id,
+            current_journey_stage=result.current_journey_stage.value,
+            stage_status=result.stage_status.value,
+            last_meaningful_event=result.last_meaningful_event,
+            last_meaningful_event_at=result.last_meaningful_event_at,
+        )
+    except Exception as e:
+        # Log but do not raise — analytics failure must not block the task.
+        log.warning(
+            "analytics_generation_failed_event_failed",
+            job_id=str(job_id),
+            error=str(e),
+        )
 
 
 def cited_content_hash(sources, cited_ids: set[str]) -> str:
@@ -446,15 +491,36 @@ async def _run_version(
         try:
             project_id = await project_id_for_artifact(conn, artifact_id=artifact_id)
             if project_id is None:
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="artifact_not_found",
+                )
                 await _write_status(r, job_id, "failed", error="artifact not found")
                 return
             fmt = await conn.fetchval("SELECT format FROM artifact WHERE id=$1", artifact_id)
             p = await project_repo.get_project(conn, project_id=project_id)
             if p is None:
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="project_not_found",
+                )
                 await _write_status(r, job_id, "failed", error="project not found")
                 return
             sources = await project_repo.list_inputs(conn, project_id=project_id)
             if not sources:
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="no_sources",
+                )
                 await _write_status(
                     r, job_id, "failed", error="add at least one source before generating a draft"
                 )
@@ -479,10 +545,24 @@ async def _run_version(
                 )
             except LLMSchemaError:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="schema")
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="schema_validation",
+                )
                 await _write_status(r, job_id, "failed", error="generated draft failed validation")
                 return
             except LLMAuthError:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="auth")
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="auth_error",
+                )
                 await _write_status(
                     r,
                     job_id,
@@ -492,6 +572,13 @@ async def _run_version(
                 return
             except LLMRateLimitError as e:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="rate_limit")
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="rate_limit",
+                )
                 await _write_status(
                     r,
                     job_id,
@@ -504,6 +591,13 @@ async def _run_version(
                 return
             except LLMError as e:
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="llm_error")
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="llm_error",
+                )
                 await _write_status(
                     r,
                     job_id,
@@ -514,6 +608,13 @@ async def _run_version(
             except Exception:
                 # Defense in depth: never let a raw error escape with key material.
                 log.warning("draft_generation_failed", job_id=str(job_id), reason="unexpected")
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="unexpected_error",
+                )
                 await _write_status(r, job_id, "failed", error="draft generation failed")
                 return
 
@@ -552,6 +653,47 @@ async def _run_version(
                     )
                 except Exception:
                     log.warning("trust_managed_usage_record_failed", job_id=str(job_id))
+
+            # Record generation_completed event — best-effort, after successful
+            # generation. Never fails the job; analytics failure is logged only.
+            try:
+                acct = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=recorded_by_sub, email=None
+                )
+                event = EventIn(
+                    event_name=EventName.GENERATION_COMPLETED,
+                    session_id=str(job_id),
+                    device_class=DeviceClass.DESKTOP,
+                    properties={
+                        "outcome": "success",
+                        "output_word_count": sum(
+                            len(sec["body"].split()) for sec in sections
+                        ),
+                        "model": resolved_model,
+                        "provider_id": provider_id,
+                        "input_tokens": out.total_input_tokens,
+                        "output_tokens": out.total_output_tokens,
+                    },
+                )
+                await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+
+                # Evaluate and persist journey state.
+                history = await analytics_repo.get_events_for_user(conn, acct.id)
+                result = evaluate_journey_state([dict(row) for row in history])
+                await analytics_repo.upsert_journey_state(
+                    conn,
+                    user_id=acct.id,
+                    current_journey_stage=result.current_journey_stage.value,
+                    stage_status=result.stage_status.value,
+                    last_meaningful_event=result.last_meaningful_event,
+                    last_meaningful_event_at=result.last_meaningful_event_at,
+                )
+            except Exception as e:
+                log.warning(
+                    "analytics_generation_completed_failed",
+                    job_id=str(job_id),
+                    error=str(e),
+                )
         finally:
             await conn.close()
 

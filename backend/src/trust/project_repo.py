@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import json
 
+import asyncpg
+import structlog
+
+from backend.src.analytics import repo as analytics_repo
+from backend.src.analytics.models import DeviceClass, EventName
+from backend.src.analytics.schemas import EventIn
+
 from .models import INPUT_KINDS, PROJECT_STATUSES, Project, ProjectInput
+
+log = structlog.get_logger(__name__)
 
 _P = (
     "id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc, "
@@ -64,7 +73,36 @@ async def create_project(
         audience,
         goal,
     )
-    return _project(r)
+    project = _project(r)
+
+    # Record second_project_created event if this is the account's second project (best-effort).
+    try:
+        # Count existing projects (before this one). Since we just created it, it's in the count.
+        # Fetch the count of projects for this owner.
+        count = await conn.fetchval(
+            "SELECT count(*) FROM project WHERE owner_account_id = $1", owner_account_id
+        )
+        # If count is 2, this is the second project (the one we just created is first in old DB state before this insert).
+        # Actually, since the insert has already happened, count will be >= 1. We emit the event if count == 2.
+        if count == 2:
+            # Get the account row to associate with the event.
+            account_row = await conn.fetchrow("SELECT idp_sub FROM account WHERE id = $1", owner_account_id)
+            if account_row:
+                event = EventIn(
+                    event_name=EventName.SECOND_PROJECT_CREATED,
+                    session_id=str(project.id),
+                    device_class=DeviceClass.DESKTOP,
+                )
+                await analytics_repo.record_event(conn, event=event, user_id=owner_account_id)
+    except Exception as e:
+        log.warning(
+            "analytics_second_project_created_event_failed",
+            owner_account_id=str(owner_account_id),
+            project_id=str(project.id),
+            error=str(e),
+        )
+
+    return project
 
 
 async def get_project(conn, *, project_id) -> Project | None:

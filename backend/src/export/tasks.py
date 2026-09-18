@@ -35,6 +35,11 @@ import asyncpg
 import redis.asyncio as redis
 
 from backend.config import settings
+from backend.src.accounts import repo as accounts_repo
+from backend.src.analytics import repo as analytics_repo
+from backend.src.analytics.journey import evaluate_journey_state
+from backend.src.analytics.models import DeviceClass, EventName
+from backend.src.analytics.schemas import EventIn
 from backend.src.core.log_redaction import get_logger
 from backend.src.export import compiler
 from backend.src.export import trust as export_trust
@@ -114,15 +119,84 @@ async def run_export(
         result = await compiler.compile_book(raw_book, fmt=fmt, diagrams=diagrams, profile=profile)
     except compiler.ExportValidationError as exc:
         # User-input problem (mirrors the sync path's 422): the message is safe.
+        # Record export_failed event (best-effort).
+        if published_by_sub and db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=published_by_sub, email=None
+                    )
+                    event = EventIn(
+                        event_name=EventName.EXPORT_FAILED,
+                        session_id=str(job_id),
+                        device_class=DeviceClass.DESKTOP,
+                        properties={
+                            "export_format": fmt,
+                            "error_code": "validation_error",
+                        },
+                    )
+                    await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+            except Exception as e:
+                log.warning(
+                    "analytics_export_failed_event_failed",
+                    job_id=str(job_id),
+                    error=str(e),
+                )
         await _write_status(r, job_id, {"status": "failed", "error": str(exc)})
         return
     except compiler.CompilerError:
         # Never leak subprocess internals to the client; details are logged inside
         # the compiler.
+        # Record export_failed event (best-effort).
+        if published_by_sub and db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=published_by_sub, email=None
+                    )
+                    event = EventIn(
+                        event_name=EventName.EXPORT_FAILED,
+                        session_id=str(job_id),
+                        device_class=DeviceClass.DESKTOP,
+                        properties={
+                            "export_format": fmt,
+                            "error_code": "compiler_error",
+                        },
+                    )
+                    await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+            except Exception as e:
+                log.warning(
+                    "analytics_export_failed_event_failed",
+                    job_id=str(job_id),
+                    error=str(e),
+                )
         await _write_status(r, job_id, {"status": "failed", "error": "Could not compile the book."})
         return
     except Exception:
         log.error("export_task_unexpected", job_id=str(job_id))
+        # Record export_failed event (best-effort).
+        if published_by_sub and db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    acct = await accounts_repo.get_or_create_account(
+                        conn, idp_sub=published_by_sub, email=None
+                    )
+                    event = EventIn(
+                        event_name=EventName.EXPORT_FAILED,
+                        session_id=str(job_id),
+                        device_class=DeviceClass.DESKTOP,
+                        properties={
+                            "export_format": fmt,
+                            "error_code": "unexpected_error",
+                        },
+                    )
+                    await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+            except Exception as e:
+                log.warning(
+                    "analytics_export_failed_event_failed",
+                    job_id=str(job_id),
+                    error=str(e),
+                )
         await _write_status(r, job_id, {"status": "failed", "error": "Could not compile the book."})
         return
 
@@ -177,6 +251,43 @@ async def run_export(
             payload["published"] = False
 
     await _write_status(r, job_id, payload)
+
+    # Record export_completed event (best-effort).
+    if published_by_sub and db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                acct = await accounts_repo.get_or_create_account(
+                    conn, idp_sub=published_by_sub, email=None
+                )
+                event = EventIn(
+                    event_name=EventName.EXPORT_COMPLETED,
+                    session_id=str(job_id),
+                    device_class=DeviceClass.DESKTOP,
+                    properties={
+                        "export_format": fmt,
+                        "output_size_bytes": len(result.data),
+                    },
+                )
+                await analytics_repo.record_event(conn, event=event, user_id=acct.id)
+
+                # Evaluate and persist journey state.
+                history = await analytics_repo.get_events_for_user(conn, acct.id)
+                eval_result = evaluate_journey_state([dict(row) for row in history])
+                await analytics_repo.upsert_journey_state(
+                    conn,
+                    user_id=acct.id,
+                    current_journey_stage=eval_result.current_journey_stage.value,
+                    stage_status=eval_result.stage_status.value,
+                    last_meaningful_event=eval_result.last_meaningful_event,
+                    last_meaningful_event_at=eval_result.last_meaningful_event_at,
+                )
+        except Exception as e:
+            log.warning(
+                "analytics_export_completed_event_failed",
+                job_id=str(job_id),
+                error=str(e),
+            )
+
     log.info(
         "export_job_done",
         job_id=str(job_id),

@@ -8,7 +8,16 @@ never by mutating or removing the original 'approve'.
 
 from __future__ import annotations
 
+import asyncpg
+import structlog
+
+from backend.src.analytics import repo as analytics_repo
+from backend.src.analytics.models import DeviceClass, EventName
+from backend.src.analytics.schemas import EventIn
+
 from .models import APPROVAL_ACTION, APPROVAL_VIA, Approval
+
+log = structlog.get_logger(__name__)
 
 _AP = (
     "id, version_id, expert_name, expert_email, expert_role, "
@@ -68,7 +77,38 @@ async def record_approval(
         recorded_via,
         action,
     )
-    return _approval(r)
+    approval = _approval(r)
+
+    # Record review_completed event for approve/withdraw actions (best-effort).
+    if action in ("approve", "withdraw"):
+        try:
+            # Map action to review_status: approve → approved, withdraw → revoked
+            review_status = "approved" if action == "approve" else "revoked"
+
+            # Get the account to associate with the event.
+            account_row = await conn.fetchrow(
+                "SELECT id FROM account WHERE idp_sub = $1", recorded_by_sub
+            )
+            if account_row:
+                event = EventIn(
+                    event_name=EventName.REVIEW_COMPLETED,
+                    session_id=str(version_id),
+                    device_class=DeviceClass.DESKTOP,
+                    properties={
+                        "review_status": review_status,
+                        "review_duration_ms": 0,  # Not tracked client-side; placeholder
+                    },
+                )
+                await analytics_repo.record_event(conn, event=event, user_id=account_row["id"])
+        except Exception as e:
+            log.warning(
+                "analytics_review_completed_event_failed",
+                version_id=str(version_id),
+                action=action,
+                error=str(e),
+            )
+
+    return approval
 
 
 async def withdraw_approval(
