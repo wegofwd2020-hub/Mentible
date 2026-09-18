@@ -1654,10 +1654,19 @@ async def create_topic_version_manual(
         for v in await topic_repo.list_topic_versions(conn, project_id=project_id)
         if v.topic_id == topic_id
     ]
-    if not existing:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
-    # list_topic_versions orders by topic_id, version_no -> last = latest
-    title = existing[-1].title
+    if existing:
+        # list_topic_versions orders by topic_id, version_no -> last = latest
+        title = existing[-1].title
+    else:
+        # First manual version (e.g. book-import): no prior generated version yet.
+        # Validate topic_id against the project TOC and pull the title from there.
+        p = await project_repo.get_project(conn, project_id=project_id)
+        if p is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+        toc_topic = _find_toc_topic(p.toc, topic_id)
+        if toc_topic is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "topic not found")
+        title = toc_topic.get("title") or topic_id
     sections = body.content.get("sections", []) if isinstance(body.content, dict) else []
     source_ids = sorted(
         {
