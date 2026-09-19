@@ -21,6 +21,15 @@ class StageStatus(StrEnum):
     COMPLETED = "completed"
 
 
+class StallReason(StrEnum):
+    """Why a user's journey stalled (sub-project 2)."""
+    NO_MEANINGFUL_ACTION = "no_meaningful_action"
+    INVITE_UNRESPONDED = "invite_unresponded"
+    PAYMENT_INCOMPLETE = "payment_incomplete"
+    INACTIVE = "inactive"
+    UNKNOWN = "unknown"
+
+
 class DeviceClass(StrEnum):
     DESKTOP = "desktop"
     TABLET = "tablet"

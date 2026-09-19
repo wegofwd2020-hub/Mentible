@@ -286,6 +286,22 @@ class Settings(BaseSettings):
     # control — and unlike the /generate limiter it fails CLOSED (see rate_limit.py).
     feed_fetch_per_minute: int = Field(default=20, ge=0)
     feed_fetch_per_day: int = Field(default=300, ge=0)
+
+    # ── Journey Analytics — stall detection thresholds (sub-project 2) ──────────
+    # Time (days) user is inactive before stalling in each journey stage.
+    # All required at MVP; fail fast if missing.
+    stall_threshold_discover_join: int = Field(default=7, ge=1)
+    stall_threshold_create_first_value: int = Field(default=7, ge=1)
+    stall_threshold_refine_validate: int = Field(default=10, ge=1)
+    stall_threshold_finish_pay: int = Field(default=14, ge=1)
+    stall_threshold_return_advocate: int = Field(default=21, ge=1)
+    # Pattern thresholds: generations in a loop before marking stall
+    stall_generation_loop_count: int = Field(default=5, ge=1)
+    stall_generation_loop_zero_saves: bool = Field(default=True)
+    # Intervention config (for sub-project 3 reference; not used here)
+    max_intervention_attempts: int = Field(default=3, ge=1)
+    intervention_retry_interval_days: int = Field(default=7, ge=1)
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Browser-origin allowlist (comma-separated). Was `*`, which let any site call
     # the API from a browser. It never leaked the BYOK key — the key rides in the
@@ -326,6 +342,17 @@ class Settings(BaseSettings):
         issuer = self.oidc_issuer.rstrip("/")
         suffix = "/auth/v1"
         return issuer[: -len(suffix)] if issuer.endswith(suffix) else issuer
+
+    @property
+    def stall_thresholds(self) -> dict[str, int]:
+        """Stall detection time thresholds by journey stage (days)."""
+        return {
+            "discover_join": self.stall_threshold_discover_join,
+            "create_first_value": self.stall_threshold_create_first_value,
+            "refine_validate": self.stall_threshold_refine_validate,
+            "finish_pay": self.stall_threshold_finish_pay,
+            "return_advocate": self.stall_threshold_return_advocate,
+        }
 
 
 settings = Settings()  # type: ignore[call-arg]
