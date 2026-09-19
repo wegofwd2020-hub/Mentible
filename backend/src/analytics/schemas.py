@@ -8,7 +8,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.src.analytics.models import DeviceClass, EventName, JourneyStage
 
@@ -72,3 +72,134 @@ class EventIn(BaseModel):
     def _no_sensitive_fields(cls, v: dict) -> dict:
         validate_no_sensitive_fields(v)
         return v
+
+
+# Dashboard response schemas (sub-project 4)
+
+
+class ReEngagementRowSchema(BaseModel):
+    """Re-engagement rate by stall reason — for dashboard metric 1."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "stall_reason": "no_meaningful_action",
+                "total_stalled": 100,
+                "resumed": 50,
+                "re_engagement_rate_pct": 50.0,
+            }
+        }
+    )
+
+    stall_reason: str = Field(..., description="Stall reason enum value")
+    total_stalled: int = Field(..., ge=0, description="Total users who stalled")
+    resumed: int = Field(..., ge=0, description="Users who resumed after intervention")
+    re_engagement_rate_pct: float = Field(
+        ..., ge=0.0, le=100.0, description="Re-engagement rate percentage"
+    )
+
+
+class TTFRRowSchema(BaseModel):
+    """Time-to-first-response distribution — for dashboard metric 2."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "stall_reason": "invite_unresponded",
+                "responded_count": 30,
+                "p50_seconds": 3600,
+                "p95_seconds": 86400,
+            }
+        }
+    )
+
+    stall_reason: str = Field(..., description="Stall reason enum value")
+    responded_count: int = Field(..., ge=0, description="Users who responded")
+    p50_seconds: int | None = Field(
+        None, ge=0, description="Median response time in seconds"
+    )
+    p95_seconds: int | None = Field(
+        None, ge=0, description="95th percentile response time in seconds"
+    )
+
+
+class ResponseRateMetricSchema(BaseModel):
+    """Overall response rate — for dashboard metric 3."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"response_rate": 0.65, "no_response_count": 35, "total_interventions": 100}
+        }
+    )
+
+    response_rate: float = Field(
+        ..., ge=0.0, le=1.0, description="Fraction of users who responded (0.0-1.0)"
+    )
+    no_response_count: int = Field(..., ge=0, description="Users with no response")
+    total_interventions: int = Field(..., ge=0, description="Total interventions sent")
+
+
+class RetryEffectivenessRowSchema(BaseModel):
+    """Retry effectiveness — success rate by attempt number — for dashboard metric 4."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "attempt_count": 1,
+                "attempts_made": 100,
+                "resumed": 60,
+                "success_rate_pct": 60.0,
+            }
+        }
+    )
+
+    attempt_count: int = Field(..., ge=1, description="Attempt number (1, 2, ...)")
+    attempts_made: int = Field(..., ge=0, description="Number of interventions at this attempt")
+    resumed: int = Field(..., ge=0, description="Users who resumed at this attempt")
+    success_rate_pct: float = Field(
+        ..., ge=0.0, le=100.0, description="Success rate percentage"
+    )
+
+
+class DashboardResponseSchema(BaseModel):
+    """Aggregated dashboard metrics — all 4 core metrics for intervention overview."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "re_engagement": [
+                    {
+                        "stall_reason": "invite_unresponded",
+                        "total_stalled": 50,
+                        "resumed": 50,
+                        "re_engagement_rate_pct": 100.0,
+                    }
+                ],
+                "ttfr": [
+                    {
+                        "stall_reason": "invite_unresponded",
+                        "responded_count": 50,
+                        "p50_seconds": 3600,
+                        "p95_seconds": 86400,
+                    }
+                ],
+                "response_rate": {"response_rate": 0.65, "no_response_count": 35, "total_interventions": 100},
+                "retry_effectiveness": [
+                    {"attempt_count": 1, "attempts_made": 100, "resumed": 60, "success_rate_pct": 60.0}
+                ],
+            }
+        }
+    )
+
+    re_engagement: list[ReEngagementRowSchema] = Field(
+        ..., description="Re-engagement rate by stall reason (sorted by rate DESC)"
+    )
+    ttfr: list[TTFRRowSchema] = Field(
+        ..., description="TTFR distribution by stall reason"
+    )
+    response_rate: ResponseRateMetricSchema = Field(
+        ..., description="Overall response rate metric"
+    )
+    retry_effectiveness: list[RetryEffectivenessRowSchema] = Field(
+        ..., description="Retry effectiveness by attempt count (sorted by attempt ASC)"
+    )

@@ -18,7 +18,13 @@ from backend.src.analytics.repo import (
     record_event,
     upsert_journey_state,
 )
-from backend.src.analytics.schemas import EventIn
+from backend.src.analytics.dashboards import (
+    get_re_engagement_by_reason,
+    get_response_rate,
+    get_retry_effectiveness,
+    get_ttfr_distribution,
+)
+from backend.src.analytics.schemas import DashboardResponseSchema, EventIn
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
@@ -159,3 +165,61 @@ async def send_interventions(
             sent_count=sent_count,
             dry_run=body.dry_run,
         )
+
+
+@router.get("/dashboards/intervention-overview", status_code=status.HTTP_200_OK)
+async def get_intervention_overview(
+    principal: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> DashboardResponseSchema:
+    """Get intervention dashboard metrics (super-admin only).
+
+    Returns aggregated metrics for measuring intervention effectiveness:
+    - Re-engagement rate by stall_reason
+    - Time-to-first-response distribution (p50, p95)
+    - Overall response rate (any response vs silent)
+    - Retry effectiveness (success rate by attempt count)
+
+    All metrics are computed from journey_state + analytics_event data.
+    """
+    # Query all 4 metrics in parallel
+    re_engagement = await get_re_engagement_by_reason(conn)
+    ttfr = await get_ttfr_distribution(conn)
+    response_rate = await get_response_rate(conn)
+    retry_effectiveness = await get_retry_effectiveness(conn)
+
+    # Convert dataclass results to Pydantic schemas for response validation
+    return DashboardResponseSchema(
+        re_engagement=[
+            {
+                "stall_reason": row.stall_reason,
+                "total_stalled": row.total_stalled,
+                "resumed": row.resumed,
+                "re_engagement_rate_pct": row.re_engagement_rate_pct,
+            }
+            for row in re_engagement
+        ],
+        ttfr=[
+            {
+                "stall_reason": row.stall_reason,
+                "responded_count": row.responded_count,
+                "p50_seconds": row.p50_seconds,
+                "p95_seconds": row.p95_seconds,
+            }
+            for row in ttfr
+        ],
+        response_rate={
+            "response_rate": response_rate.response_rate,
+            "no_response_count": response_rate.no_response_count,
+            "total_interventions": response_rate.total_interventions,
+        },
+        retry_effectiveness=[
+            {
+                "attempt_count": row.attempt_count,
+                "attempts_made": row.attempts_made,
+                "resumed": row.resumed,
+                "success_rate_pct": row.success_rate_pct,
+            }
+            for row in retry_effectiveness
+        ],
+    )
