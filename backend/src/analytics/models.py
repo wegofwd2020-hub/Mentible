@@ -30,6 +30,14 @@ class StallReason(StrEnum):
     UNKNOWN = "unknown"
 
 
+class CustomerResponseType(StrEnum):
+    """Customer response to intervention (sub-project 3)."""
+    RESUMED_JOURNEY = "resumed_journey"
+    UNSUBSCRIBED = "unsubscribed"
+    NO_RESPONSE = "no_response"
+    UNKNOWN = "unknown"
+
+
 class DeviceClass(StrEnum):
     DESKTOP = "desktop"
     TABLET = "tablet"

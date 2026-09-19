@@ -63,12 +63,17 @@ async def upsert_journey_state(
     stall_reason: str | None = None,
     intervention_status: str | None = None,
     resumed_at=None,
+    intervention_sent_at=None,
+    customer_response_type: str | None = None,
+    intervention_attempt_count: int | None = None,
 ) -> None:
-    """Upsert journey_state row with stall-detection fields (sub-project 2).
+    """Upsert journey_state row with stall & intervention fields (sub-project 2 & 3).
 
-    Stall fields are populated by evaluate_journey_state() when stall detection
-    is enabled. On resume (stall_reason set, then cleared by a meaningful action),
-    stalled_at and stall_reason are retained for audit trail.
+    Stall fields (sub-project 2): populated by evaluate_journey_state() when stall detection
+    is enabled. stalled_at and stall_reason are retained for audit trail on resume.
+
+    Intervention fields (sub-project 3): intervention_sent_at, customer_response_type,
+    intervention_attempt_count track when intervention was sent and whether user responded.
     """
     await conn.execute(
         """
@@ -76,8 +81,9 @@ async def upsert_journey_state(
             user_id, current_journey_stage, stage_status,
             last_meaningful_event, last_meaningful_event_at,
             stalled_at, stall_reason, intervention_status, resumed_at,
+            intervention_sent_at, customer_response_type, intervention_attempt_count,
             updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
         ON CONFLICT (user_id) DO UPDATE SET
             current_journey_stage = EXCLUDED.current_journey_stage,
             stage_status = EXCLUDED.stage_status,
@@ -87,6 +93,9 @@ async def upsert_journey_state(
             stall_reason = COALESCE(EXCLUDED.stall_reason, journey_state.stall_reason),
             intervention_status = EXCLUDED.intervention_status,
             resumed_at = EXCLUDED.resumed_at,
+            intervention_sent_at = COALESCE(EXCLUDED.intervention_sent_at, journey_state.intervention_sent_at),
+            customer_response_type = COALESCE(EXCLUDED.customer_response_type, journey_state.customer_response_type),
+            intervention_attempt_count = COALESCE(EXCLUDED.intervention_attempt_count, journey_state.intervention_attempt_count),
             updated_at = now()
         """,
         user_id,
@@ -98,6 +107,9 @@ async def upsert_journey_state(
         stall_reason,
         intervention_status,
         resumed_at,
+        intervention_sent_at,
+        customer_response_type,
+        intervention_attempt_count,
     )
 
 
