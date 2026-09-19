@@ -302,6 +302,11 @@ class Settings(BaseSettings):
     max_intervention_attempts: int = Field(default=3, ge=1)
     intervention_retry_interval_days: int = Field(default=7, ge=1)
 
+    # ── Journey Analytics — stall-rate alerting (sub-project 5A) ──────────────
+    # Automated daily stall-rate monitoring via Celery beat (8 AM ET).
+    stall_rate_threshold: float = Field(default=20.0, ge=0.0, le=100.0)
+    ops_alert_email: str = Field(default="ops@kaundinyalabs.com")
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Browser-origin allowlist (comma-separated). Was `*`, which let any site call
     # the API from a browser. It never leaked the BYOK key — the key rides in the
