@@ -245,6 +245,67 @@ services:
         max-size: '10m'
         max-file: '5'
 
+  celery-beat:
+    # Celery Beat scheduler — runs periodic tasks (e.g., daily stall-rate alerting).
+    # Same image as `api` + `celery-worker`; only the command differs.
+    image: mentible-backend:latest
+    container_name: mentible-celery-beat
+    restart: always
+    command:
+      [
+        'celery',
+        '-A',
+        'backend.src.core.celery_app',
+        'beat',
+        '--loglevel=INFO',
+      ]
+    environment:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?set BYOK_MASTER_KEY in .env.demo (openssl rand -hex 32)}
+      SYSTEM_OWNER_SECRET: ${SYSTEM_OWNER_SECRET:?set SYSTEM_OWNER_SECRET in .env.demo (openssl rand -hex 32)}
+      ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-authenticated}
+      DATABASE_URL: ${DATABASE_URL:-}
+      SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
+      SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+      MANAGED_ANTHROPIC_API_KEY: ${MANAGED_ANTHROPIC_API_KEY:-}
+      MANAGED_GROQ_API_KEY: ${MANAGED_GROQ_API_KEY:-}
+      GROQ_MAX_OUTPUT_TOKENS: ${GROQ_MAX_OUTPUT_TOKENS:-5000}
+      GROQ_TPM_LIMIT: ${GROQ_TPM_LIMIT:-8000}
+      MANAGED_PLAN_EMAILS: ${MANAGED_PLAN_EMAILS:-}
+      MANAGED_PLAN_SUBS: ${MANAGED_PLAN_SUBS:-}
+      MANAGED_ACCOUNT_SPEND_CEILING_MICROS: ${MANAGED_ACCOUNT_SPEND_CEILING_MICROS:-0}
+      FREE_MAX_PROJECTS: ${FREE_MAX_PROJECTS:-2}
+      FREE_MAX_GENERATIONS: ${FREE_MAX_GENERATIONS:-20}
+      FREE_GEN_WINDOW_DAYS: ${FREE_GEN_WINDOW_DAYS:-30}
+      ARTIFACT_STORE_DIR: /data/artifacts
+      AUDIO_UPLOAD_DIR: /data/audio
+      MANAGED_SARVAM_API_KEY: ${MANAGED_SARVAM_API_KEY:-}
+      STT_DEFAULT_PROVIDER: ${STT_DEFAULT_PROVIDER:-groq}
+      ZEPTOMAIL_TOKEN: ${ZEPTOMAIL_TOKEN:-}
+      ZEPTOMAIL_FROM: ${ZEPTOMAIL_FROM:-feedback@kaundinyalabs.com}
+      FEEDBACK_TO: ${FEEDBACK_TO:-support@kaundinyalabs.com}
+      # Journey Analytics: stall-rate alert config (Sub-Project 5A)
+      STALL_RATE_THRESHOLD: ${STALL_RATE_THRESHOLD:-20.0}
+      OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-ops@kaundinyalabs.com}
+    depends_on:
+      redis:
+        condition: service_healthy
+    # No ports — beat has nothing to serve.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
 # Named volume for the Open Library's published artifacts (ADR-027). Persists
 # across container rebuilds/redeploys so the published_artifact rows keep their
 # files.
