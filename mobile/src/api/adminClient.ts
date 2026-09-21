@@ -22,9 +22,20 @@ export interface AdminDevice {
   last_seen: string;
 }
 
+export interface ProviderChange {
+  provider_id: string;
+  action: string; // added, removed, verified, failed, activated, deactivated
+  actor_sub: string | null;
+  actor_email: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
 export interface AdminUserDetail extends AdminUserRow {
   credentials: ProviderCredential[];
   devices: AdminDevice[];
+  active_provider_id: string | null;
+  provider_changes: ProviderChange[];
 }
 
 export interface AdminUserList {
@@ -153,6 +164,18 @@ export async function revokeEntitlement(
     method: "PUT",
     body: JSON.stringify({ plan_id: planId, status: "canceled" }),
   })) as EntitlementView;
+}
+
+export async function setUserActiveProvider(
+  token: string,
+  sub: string,
+  providerId: string,
+): Promise<void> {
+  await adminFetch(
+    `/users/${encodeURIComponent(sub)}/active-provider/${encodeURIComponent(providerId)}`,
+    token,
+    { method: "POST" },
+  );
 }
 
 export interface FeedbackRow {

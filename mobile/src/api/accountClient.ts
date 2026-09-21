@@ -70,6 +70,11 @@ export async function registerDevice(
   await authFetch("/devices", token, { method: "POST", body: JSON.stringify(body) });
 }
 
+/** Set the active/selected LLM provider for generation (logs the selection). */
+export async function setActiveProvider(token: string, providerId: string): Promise<void> {
+  await authFetch(`/active-provider/${encodeURIComponent(providerId)}`, token, { method: "POST" });
+}
+
 /** Full account purge (ADR-014 D8). Device-local keys are cleared separately by the client. */
 export async function deleteAccount(token: string): Promise<void> {
   await authFetch("", token, { method: "DELETE" });

@@ -19,6 +19,7 @@ from backend.src.accounts.models import (
     CREDENTIAL_STATUSES,
     Account,
     Device,
+    ProviderChangeLogEntry,
     ProviderCredential,
 )
 
@@ -36,6 +37,7 @@ def _account(row: asyncpg.Record) -> Account:
         synced_library_ref=row["synced_library_ref"],
         suspended=row["suspended"],
         suspended_at=row["suspended_at"],
+        active_provider_id=row.get("active_provider_id"),
     )
 
 
@@ -58,7 +60,7 @@ async def get_or_create_account(
         INSERT INTO account (idp_sub, email) VALUES ($1, $2)
         ON CONFLICT (idp_sub)
             DO UPDATE SET email = COALESCE(EXCLUDED.email, account.email)
-        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at
+        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id
         """,
         idp_sub,
         email,
@@ -68,7 +70,7 @@ async def get_or_create_account(
 
 async def get_account(conn: asyncpg.Connection, *, idp_sub: str) -> Account | None:
     row = await conn.fetchrow(
-        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id "
         "FROM account WHERE idp_sub = $1",
         idp_sub,
     )
@@ -77,7 +79,7 @@ async def get_account(conn: asyncpg.Connection, *, idp_sub: str) -> Account | No
 
 async def get_account_by_id(conn: asyncpg.Connection, *, account_id: UUID) -> Account | None:
     row = await conn.fetchrow(
-        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id "
         "FROM account WHERE id = $1",
         account_id,
     )
@@ -88,7 +90,7 @@ async def list_accounts(conn: asyncpg.Connection, *, limit: int, offset: int) ->
     """Admin-only listing (ADR-020 D3.1), newest first. Metadata only — no keys,
     no content. Page with limit/offset; pair with count_accounts for the total."""
     rows = await conn.fetch(
-        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at "
+        "SELECT id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id "
         "FROM account ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         limit,
         offset,
@@ -111,7 +113,7 @@ async def set_account_suspended(
            SET suspended = $2,
                suspended_at = CASE WHEN $2 THEN now() ELSE NULL END
          WHERE idp_sub = $1
-        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at
+        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id
         """,
         idp_sub,
         suspended,
@@ -235,3 +237,88 @@ async def count_devices_by_account(
         account_ids,
     )
     return {r["account_id"]: int(r["n"]) for r in rows}
+
+
+def _provider_change_log(row: asyncpg.Record) -> ProviderChangeLogEntry:
+    return ProviderChangeLogEntry(
+        id=row["id"],
+        account_id=row["account_id"],
+        provider_id=row["provider_id"],
+        action=row["action"],
+        actor_sub=row["actor_sub"],
+        actor_email=row["actor_email"],
+        reason=row["reason"],
+        created_at=row["created_at"],
+    )
+
+
+async def log_provider_change(
+    conn: asyncpg.Connection,
+    *,
+    account_id: UUID | None,
+    provider_id: str,
+    action: str,
+    actor_sub: str | None = None,
+    actor_email: str | None = None,
+    reason: str | None = None,
+) -> ProviderChangeLogEntry:
+    """Record a provider/LLM configuration change (user-initiated or admin-triggered).
+    Actions: added, removed, verified, failed, activated, deactivated."""
+    row = await conn.fetchrow(
+        """
+        INSERT INTO provider_change_log
+            (account_id, provider_id, action, actor_sub, actor_email, reason)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, account_id, provider_id, action, actor_sub, actor_email, reason, created_at
+        """,
+        account_id,
+        provider_id,
+        action,
+        actor_sub,
+        actor_email,
+        reason,
+    )
+    return _provider_change_log(row)
+
+
+async def list_provider_changes(
+    conn: asyncpg.Connection,
+    *,
+    account_id: UUID,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[ProviderChangeLogEntry]:
+    """Get an account's provider change history, newest first (super-admin detail view)."""
+    rows = await conn.fetch(
+        """
+        SELECT id, account_id, provider_id, action, actor_sub, actor_email, reason, created_at
+        FROM provider_change_log
+        WHERE account_id = $1
+        ORDER BY created_at DESC, id DESC
+        LIMIT $2 OFFSET $3
+        """,
+        account_id,
+        limit,
+        offset,
+    )
+    return [_provider_change_log(r) for r in rows]
+
+
+async def set_active_provider(
+    conn: asyncpg.Connection,
+    *,
+    idp_sub: str,
+    provider_id: str | None,
+) -> Account | None:
+    """Set the active/selected LLM provider for an account. None to clear."""
+    row = await conn.fetchrow(
+        """
+        UPDATE account
+           SET active_provider_id = $2
+         WHERE idp_sub = $1
+        RETURNING id, idp_sub, email, created_at, synced_library_ref, suspended, suspended_at, active_provider_id
+        """,
+        idp_sub,
+        provider_id,
+    )
+    return _account(row) if row else None

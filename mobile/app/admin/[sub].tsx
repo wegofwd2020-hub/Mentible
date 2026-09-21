@@ -198,7 +198,15 @@ export default function AdminUserScreen() {
           ))
         )}
 
-        <Text style={styles.section}>Providers</Text>
+        <Text style={styles.section}>LLM Provider</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {user.active_provider_id || "(none selected)"}
+          </Text>
+          <Text style={styles.muted}>Currently configured</Text>
+        </View>
+
+        <Text style={styles.section}>Provider Credentials</Text>
         {user.credentials.length === 0 ? (
           <Text style={styles.muted}>No provider credentials.</Text>
         ) : (
@@ -210,6 +218,28 @@ export default function AdminUserScreen() {
               </Text>
             </View>
           ))
+        )}
+
+        {user.provider_changes.length > 0 && (
+          <>
+            <Text style={styles.section}>LLM Change History</Text>
+            {user.provider_changes.map((change, idx) => (
+              <View key={idx} style={styles.card}>
+                <Text style={styles.cardTitle}>
+                  {change.provider_id} · {change.action}
+                </Text>
+                <Text style={styles.muted}>
+                  {formatDateTime(change.created_at)}
+                </Text>
+                {change.actor_email && (
+                  <Text style={styles.muted}>by {change.actor_email}</Text>
+                )}
+                {change.reason && (
+                  <Text style={styles.muted}>reason: {change.reason}</Text>
+                )}
+              </View>
+            ))}
+          </>
         )}
 
         <Text style={styles.section}>Plan</Text>

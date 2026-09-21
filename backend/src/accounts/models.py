@@ -30,6 +30,8 @@ class Account:
     # require_active_user; does NOT stop public BYOK generation (O6).
     suspended: bool = False
     suspended_at: datetime | None = None
+    # Active provider for LLM selection (super-admin visibility + user tracking)
+    active_provider_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,3 +59,18 @@ class ProviderCredential:
     status: str  # one of CREDENTIAL_STATUSES
     last_verified_at: datetime | None
     updated_at: datetime
+
+
+@dataclass(frozen=True)
+class ProviderChangeLogEntry:
+    """One change to a user's provider configuration (added, verified, activated,
+    deactivated, failed, etc). Immutable audit log for super-admin visibility."""
+
+    id: UUID
+    account_id: UUID | None
+    provider_id: str
+    action: str  # added, removed, verified, failed, activated, deactivated
+    actor_sub: str | None  # who made the change (user's own sub, or an admin's)
+    actor_email: str | None
+    reason: str | None  # context (why it failed, why it was removed, etc)
+    created_at: datetime

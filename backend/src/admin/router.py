@@ -32,6 +32,7 @@ from backend.src.accounts.schemas import (
     EntitlementView,
     GrantEntitlementRequest,
     PlanSummary,
+    ProviderChangeView,
     WelcomeEmailRequest,
     WelcomeEmailResult,
 )
@@ -58,7 +59,7 @@ def _summary(a: Account) -> AdminUserSummary:
     )
 
 
-def _detail(a: Account, creds, devices) -> AdminUserDetail:
+def _detail(a: Account, creds, devices, changes) -> AdminUserDetail:
     return AdminUserDetail(
         **_summary(a).model_dump(),
         credentials=[
@@ -81,6 +82,18 @@ def _detail(a: Account, creds, devices) -> AdminUserDetail:
                 last_seen=d.last_seen,
             )
             for d in devices
+        ],
+        active_provider_id=a.active_provider_id,
+        provider_changes=[
+            ProviderChangeView(
+                provider_id=c.provider_id,
+                action=c.action,
+                actor_sub=c.actor_sub,
+                actor_email=c.actor_email,
+                reason=c.reason,
+                created_at=c.created_at,
+            )
+            for c in changes
         ],
     )
 
@@ -129,13 +142,14 @@ async def get_user(
     _admin: Principal = Depends(require_super_admin),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> AdminUserDetail:
-    """One account + its credential-set metadata. 404 if unknown."""
+    """One account + its credential-set metadata + LLM change history. 404 if unknown."""
     account = await repo.get_account(conn, idp_sub=sub)
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
     creds = await repo.list_credentials(conn, account_id=account.id)
     devices = await repo.list_devices(conn, account_id=account.id)
-    return _detail(account, creds, devices)
+    changes = await repo.list_provider_changes(conn, account_id=account.id, limit=50)
+    return _detail(account, creds, devices, changes)
 
 
 @router.post("/welcome-email", response_model=WelcomeEmailResult)
@@ -343,6 +357,35 @@ async def usage_by_user(
         total_output_tokens=sum(r.output_tokens for r in rows),
         total_cost_micros=sum(r.cost_micros for r in rows),
     )
+
+
+@router.post("/users/{sub}/active-provider/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_set_active_provider(
+    sub: str,
+    provider_id: str,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> Response:
+    """Admin-triggered: set a user's active/selected LLM provider. Logs the action."""
+    account = await repo.get_account(conn, idp_sub=sub)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no such user")
+
+    await repo.set_active_provider(conn, idp_sub=sub, provider_id=provider_id)
+
+    # Log as an admin action in both the provider change log and the admin audit.
+    await repo.log_provider_change(
+        conn,
+        account_id=account.id,
+        provider_id=provider_id,
+        action="activated",
+        actor_sub=admin.sub,
+        actor_email=admin.email,
+        reason="admin-set",
+    )
+    await _audit(conn, admin, f"provider.set:{provider_id}", sub)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/audit", response_model=AdminAuditList)

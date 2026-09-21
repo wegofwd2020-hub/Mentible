@@ -40,6 +40,17 @@ class CredentialView(BaseModel):
     updated_at: datetime
 
 
+class ProviderChangeView(BaseModel):
+    """One entry in a user's LLM change history (admin visibility)."""
+
+    provider_id: str
+    action: str  # added, removed, verified, failed, activated, deactivated
+    actor_sub: str | None
+    actor_email: str | None
+    reason: str | None
+    created_at: datetime
+
+
 class AccountView(BaseModel):
     # Identity reference only — `sub` + email. No internal id, nothing generated (D8).
     sub: str
@@ -70,11 +81,13 @@ class AdminUserRow(AdminUserSummary):
 class AdminUserDetail(AdminUserSummary):
     """One user for the admin detail view: summary + credential-set metadata
     (custody source + verification status only — never the key, D5) + the
-    account's registered devices."""
+    account's registered devices + LLM selection + change history."""
 
     credentials: list[CredentialView]
     device_count: int = 0
     devices: list[AdminDeviceView] = []
+    active_provider_id: str | None = None
+    provider_changes: list[ProviderChangeView] = []
 
 
 class AdminUserList(BaseModel):
