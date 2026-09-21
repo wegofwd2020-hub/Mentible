@@ -320,3 +320,38 @@ def test_welcome_email_requires_super_admin():
             assert r.status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_detail_includes_provider_changes(admin_client):
+    """Admin detail view includes active_provider_id and provider_changes history."""
+    # User adds two providers
+    admin_client.put(f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local", "status": "valid"})
+    admin_client.put(f"{ACCOUNT}/credentials/openai", json={"source": "device_local", "status": "valid"})
+
+    detail = admin_client.get(f"{ADMIN}/users/{TARGET}").json()
+
+    # Should have active_provider_id (initially null) and provider_changes history
+    assert "active_provider_id" in detail
+    assert "provider_changes" in detail
+    assert len(detail["provider_changes"]) == 2  # two credentials added
+
+    # Verify action is logged as "added" or "verified"
+    actions = [c["action"] for c in detail["provider_changes"]]
+    assert "added" in actions or "verified" in actions
+
+
+def test_admin_set_active_provider(admin_client):
+    """Admin can set a user's active LLM provider."""
+    admin_client.put(f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local"})
+
+    # Admin sets anthropic as active
+    r = admin_client.post(f"{ADMIN}/users/{TARGET}/active-provider/anthropic")
+    assert r.status_code == 204
+
+    # Verify it's set and logged
+    detail = admin_client.get(f"{ADMIN}/users/{TARGET}").json()
+    assert detail["active_provider_id"] == "anthropic"
+
+    # Verify the change is in the history
+    changes = detail["provider_changes"]
+    assert any(c["action"] == "activated" and c["provider_id"] == "anthropic" for c in changes)
