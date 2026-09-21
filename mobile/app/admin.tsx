@@ -60,40 +60,42 @@ export default function AdminScreen() {
 
   return (
     <PageContainer style={{ flex: 1 }}>
-      <Text style={styles.title}>Users</Text>
-      <Text style={styles.sub}>
-        {total} registered {total === 1 ? "account" : "accounts"}
-      </Text>
+      <View style={{ paddingBottom: spacing.md }}>
+        <Text style={styles.title}>Users</Text>
+        <Text style={styles.sub}>
+          {total} registered {total === 1 ? "account" : "accounts"}
+        </Text>
 
-      <Pressable
-        style={styles.linkRow}
-        onPress={() => router.push("/admin/usage")}
-        accessibilityRole="button"
-        accessibilityLabel="View token usage by user"
-      >
-        <Text style={styles.linkText}>Token usage by user</Text>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
+        <Pressable
+          style={styles.linkRow}
+          onPress={() => router.push("/admin/usage")}
+          accessibilityRole="button"
+          accessibilityLabel="View token usage by user"
+        >
+          <Text style={styles.linkText}>Token usage by user</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
 
-      <Pressable
-        style={styles.linkRow}
-        onPress={() => router.push("/admin/feedback")}
-        accessibilityRole="button"
-        accessibilityLabel="View in-app feedback"
-      >
-        <Text style={styles.linkText}>In-app feedback</Text>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
+        <Pressable
+          style={styles.linkRow}
+          onPress={() => router.push("/admin/feedback")}
+          accessibilityRole="button"
+          accessibilityLabel="View in-app feedback"
+        >
+          <Text style={styles.linkText}>In-app feedback</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
 
-      <Pressable
-        style={styles.linkRow}
-        onPress={() => router.push("/admin/welcome")}
-        accessibilityRole="button"
-        accessibilityLabel="Send a welcome email"
-      >
-        <Text style={styles.linkText}>Send welcome email</Text>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
+        <Pressable
+          style={styles.linkRow}
+          onPress={() => router.push("/admin/welcome")}
+          accessibilityRole="button"
+          accessibilityLabel="Send a welcome email"
+        >
+          <Text style={styles.linkText}>Send welcome email</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+      </View>
 
       {loading && users.length === 0 ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.xl }} />
