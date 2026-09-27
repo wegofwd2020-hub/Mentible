@@ -69,6 +69,7 @@ async def backfill(from_date: str, to_date: str) -> None:
                     stage_status=result.stage_status.value,
                     last_meaningful_event=result.last_meaningful_event,
                     last_meaningful_event_at=result.last_meaningful_event_at,
+                    intervention_attempt_count=0,
                 )
 
             # Get all projects this user has events in
@@ -99,6 +100,7 @@ async def backfill(from_date: str, to_date: str) -> None:
                         stage_status=result.stage_status.value,
                         last_meaningful_event=result.last_meaningful_event,
                         last_meaningful_event_at=result.last_meaningful_event_at,
+                        intervention_attempt_count=0,
                     )
 
             print("✓")
