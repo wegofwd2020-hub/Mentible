@@ -1,18 +1,23 @@
 """Backfill journey_state + project_journey_state from analytics_event history.
 
 Usage:
-    python backfill_journey_state.py --from-date 2026-09-15 --to-date 2026-09-27
+    cd backend && python -m scripts.backfill_journey_state --from-date 2026-09-15 --to-date 2026-09-27
 """
 
 import argparse
 import asyncio
+import sys
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
 import asyncpg
 
-from backend.src.analytics.journey import evaluate_journey_state
-from backend.src.analytics.repo import (
+# Add parent to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.analytics.journey import evaluate_journey_state
+from src.analytics.repo import (
     get_events_for_user,
     get_events_for_project,
     upsert_journey_state,
