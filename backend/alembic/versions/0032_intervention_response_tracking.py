@@ -2,6 +2,7 @@
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 revision = "0032"
 down_revision = "0030"
@@ -26,7 +27,7 @@ def upgrade() -> None:
         "journey_state_intervention_status_sent_at_idx",
         "journey_state",
         ["intervention_status", "intervention_sent_at"],
-        where=op.text("intervention_status = 'not_started'"),
+        where=text("intervention_status = 'not_started'"),
     )
 
 
