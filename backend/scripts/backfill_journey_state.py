@@ -64,7 +64,7 @@ async def backfill(from_date: str, to_date: str) -> None:
                 result = evaluate_journey_state(event_dicts)
                 await upsert_journey_state(
                     conn,
-                    user_id=UUID(user_id),
+                    user_id=user_id,
                     current_journey_stage=result.current_journey_stage.value,
                     stage_status=result.stage_status.value,
                     last_meaningful_event=result.last_meaningful_event,
@@ -93,8 +93,8 @@ async def backfill(from_date: str, to_date: str) -> None:
                     result = evaluate_journey_state(project_event_dicts)
                     await upsert_project_journey_state(
                         conn,
-                        user_id=UUID(user_id),
-                        project_id=UUID(project_id),
+                        user_id=user_id,
+                        project_id=project_id,
                         current_journey_stage=result.current_journey_stage.value,
                         stage_status=result.stage_status.value,
                         last_meaningful_event=result.last_meaningful_event,
