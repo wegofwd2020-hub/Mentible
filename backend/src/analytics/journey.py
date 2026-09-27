@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from backend.src.analytics.models import JourneyStage, StageStatus, StallReason
+from backend.src.analytics.models import JourneyStage, StageStatus, StallReason, CustomerResponseType
 from backend.src.analytics.stall import detect_stall
 
 _QUALIFYING_ACTION_TYPES = {"edit", "save", "approve", "continue"}
@@ -34,6 +34,8 @@ class JourneyStateResult:
     stall_reason: StallReason | None = None
     intervention_status: str | None = None
     resumed_at: datetime | None = None
+    intervention_sent_at: datetime | None = None
+    customer_response_type: CustomerResponseType | None = None
 
 
 def _is_meaningful_action(event: dict) -> bool:
@@ -46,13 +48,15 @@ def evaluate_journey_state(
     events: list[dict],
     thresholds: dict[str, int] | None = None,
     current_time: datetime | None = None,
+    intervention_sent_at: datetime | None = None,
 ) -> JourneyStateResult:
-    """Evaluate user's journey stage and stall status.
+    """Evaluate user's journey stage, stall status, and intervention response.
 
     Args:
         events: List of event dicts with 'event_name' and 'occurred_at'.
         thresholds: Stall detection thresholds (stage -> days). If None, stall detection is skipped.
         current_time: Reference time for stall detection. Defaults to now.
+        intervention_sent_at: When intervention email was sent (for response detection, sub-project 3).
     """
     from uuid import UUID
 
@@ -111,6 +115,19 @@ def evaluate_journey_state(
             stall_reason = result.stall_reason
             status = StageStatus.STALLED
 
+    # Detect customer response to intervention (sub-project 3)
+    customer_response_type = None
+    if intervention_sent_at is not None:
+        # Check if user took meaningful action after intervention was sent
+        meaningful_actions_after_intervention = [
+            e for e in events
+            if e["event_name"] == "meaningful_action_completed"
+            and _is_meaningful_action(e)
+            and e["occurred_at"] > intervention_sent_at
+        ]
+        if meaningful_actions_after_intervention:
+            customer_response_type = CustomerResponseType.RESUMED_JOURNEY
+
     return JourneyStateResult(
         current_journey_stage=_STAGE_ORDER[stage_index],
         stage_status=status,
@@ -118,4 +135,6 @@ def evaluate_journey_state(
         last_meaningful_event_at=last_meaningful_event_at,
         stalled_at=stalled_at,
         stall_reason=stall_reason,
+        intervention_sent_at=intervention_sent_at,
+        customer_response_type=customer_response_type,
     )

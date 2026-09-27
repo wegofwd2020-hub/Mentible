@@ -13,18 +13,30 @@ from backend.src.accounts.deps import require_active_user
 from backend.src.analytics.intervention import InterventionService
 from backend.src.analytics.journey import evaluate_journey_state
 from backend.src.analytics.repo import (
+    get_events_for_project,
     get_events_for_user,
     get_journey_state,
     record_event,
     upsert_journey_state,
+    upsert_project_journey_state,
 )
 from backend.src.analytics.dashboards import (
+    get_completion_funnel,
+    get_project_bottlenecks,
     get_re_engagement_by_reason,
     get_response_rate,
     get_retry_effectiveness,
+    get_stall_by_stage,
+    get_stalled_users,
     get_ttfr_distribution,
 )
-from backend.src.analytics.schemas import DashboardResponseSchema, EventIn
+from backend.src.analytics.schemas import (
+    DashboardResponseSchema,
+    EventIn,
+    FunnelRowSchema,
+    ProjectBottleneckRowSchema,
+    StalledUserRowSchema,
+)
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
@@ -34,12 +46,14 @@ router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
 class SendInterventionsRequest(BaseModel):
     """Send interventions to stalled users (manual super-admin trigger)."""
+
     user_id: UUID | None = None
     dry_run: bool = False
 
 
 class SendInterventionsResponse(BaseModel):
     """Response: how many interventions were sent."""
+
     sent_count: int
     dry_run: bool = False
     user_id: UUID | None = None
@@ -77,7 +91,7 @@ async def post_event(
     # Step 4: Evaluate journey state
     result = evaluate_journey_state(event_dicts)
 
-    # Step 5: Upsert journey state
+    # Step 5: Upsert journey state (global)
     await upsert_journey_state(
         conn,
         user_id=account.id,
@@ -86,6 +100,22 @@ async def post_event(
         last_meaningful_event=result.last_meaningful_event,
         last_meaningful_event_at=result.last_meaningful_event_at,
     )
+
+    # Step 6: If event has project_id, also upsert per-project journey state (UX analytics)
+    if body.project_id:
+        project_events = await get_events_for_project(conn, account.id, body.project_id)
+        project_event_dicts = [dict(e) for e in project_events]
+        project_result = evaluate_journey_state(project_event_dicts)
+
+        await upsert_project_journey_state(
+            conn,
+            user_id=account.id,
+            project_id=body.project_id,
+            current_journey_stage=project_result.current_journey_stage.value,
+            stage_status=project_result.stage_status.value,
+            last_meaningful_event=project_result.last_meaningful_event,
+            last_meaningful_event_at=project_result.last_meaningful_event_at,
+        )
 
     return {"event_id": str(body.event_id)}
 
@@ -179,14 +209,16 @@ async def get_intervention_overview(
     - Time-to-first-response distribution (p50, p95)
     - Overall response rate (any response vs silent)
     - Retry effectiveness (success rate by attempt count)
+    - Stall breakdown by journey stage (where users drop off)
 
     All metrics are computed from journey_state + analytics_event data.
     """
-    # Query all 4 metrics in parallel
+    # Query all 5 metrics in parallel
     re_engagement = await get_re_engagement_by_reason(conn)
     ttfr = await get_ttfr_distribution(conn)
     response_rate = await get_response_rate(conn)
     retry_effectiveness = await get_retry_effectiveness(conn)
+    stall_by_stage = await get_stall_by_stage(conn)
 
     # Convert dataclass results to Pydantic schemas for response validation
     return DashboardResponseSchema(
@@ -221,5 +253,85 @@ async def get_intervention_overview(
                 "success_rate_pct": row.success_rate_pct,
             }
             for row in retry_effectiveness
+        ],
+        stall_by_stage=[
+            {
+                "journey_stage": row.journey_stage,
+                "total_stalled": row.total_stalled,
+                "avg_time_in_stage_hours": row.avg_time_in_stage_hours,
+                "stall_rate_pct": row.stall_rate_pct,
+            }
+            for row in stall_by_stage
+        ],
+    )
+
+
+class ProjectUXAnalyticsResponse(BaseModel):
+    """Per-project UX bottleneck analysis + funnel + stalled users list."""
+
+    bottlenecks: list[ProjectBottleneckRowSchema] = []
+    funnel: list[FunnelRowSchema] = []
+    stalled_users: list[StalledUserRowSchema] = []
+
+
+@router.get("/dashboards/project-ux/{project_id}", status_code=status.HTTP_200_OK)
+async def get_project_ux_analytics(
+    project_id: str,
+    principal: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> ProjectUXAnalyticsResponse:
+    """Get per-project UX bottleneck analysis (super-admin only).
+
+    Shows where users get stuck in a specific project and intervention effectiveness.
+    Useful for product teams to identify where UX needs improvement.
+
+    Returns:
+    - bottlenecks: stage-by-stage stall rates + intervention metrics
+    - funnel: completion funnel (% advancing from stage N to N+1)
+    - stalled_users: list of users currently stuck (for ops/support outreach)
+    """
+    bottlenecks = await get_project_bottlenecks(conn, project_id)
+    funnel = await get_completion_funnel(conn, project_id)
+    stalled_users = await get_stalled_users(conn, project_id)
+
+    return ProjectUXAnalyticsResponse(
+        bottlenecks=[
+            {
+                "project_id": row.project_id,
+                "journey_stage": row.journey_stage,
+                "total_users_at_stage": row.total_users_at_stage,
+                "stalled_count": row.stalled_count,
+                "stall_rate_pct": row.stall_rate_pct,
+                "avg_hours_before_stall": row.avg_hours_before_stall,
+                "intervention_sent_count": row.intervention_sent_count,
+                "resumed_after_intervention_count": row.resumed_after_intervention_count,
+                "re_engagement_rate_pct": row.re_engagement_rate_pct,
+            }
+            for row in bottlenecks
+        ],
+        funnel=[
+            {
+                "project_id": row.project_id,
+                "from_stage": row.from_stage,
+                "to_stage": row.to_stage,
+                "users_at_from_stage": row.users_at_from_stage,
+                "users_advanced": row.users_advanced,
+                "advancement_rate_pct": row.advancement_rate_pct,
+            }
+            for row in funnel
+        ],
+        stalled_users=[
+            {
+                "user_id": row.user_id,
+                "email": row.email,
+                "project_id": row.project_id,
+                "project_name": row.project_name,
+                "journey_stage": row.journey_stage,
+                "stalled_at": row.stalled_at,
+                "days_stalled": row.days_stalled,
+                "intervention_attempt_count": row.intervention_attempt_count,
+                "last_intervention_sent_at": row.last_intervention_sent_at,
+            }
+            for row in stalled_users
         ],
     )

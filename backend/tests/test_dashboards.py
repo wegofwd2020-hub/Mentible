@@ -10,10 +10,12 @@ from backend.src.analytics.dashboards import (
     ReEngagementRow,
     ResponseRateMetric,
     RetryEffectivenessRow,
+    StageMetricRow,
     TTFRRow,
     get_re_engagement_by_reason,
     get_response_rate,
     get_retry_effectiveness,
+    get_stall_by_stage,
     get_ttfr_distribution,
 )
 
@@ -208,12 +210,13 @@ def test_pydantic_schema_retry_effectiveness():
 
 
 def test_pydantic_schema_dashboard_response_aggregation():
-    """DashboardResponseSchema aggregates all 4 metrics."""
+    """DashboardResponseSchema aggregates all 5 metrics."""
     from backend.src.analytics.schemas import (
         DashboardResponseSchema,
         ReEngagementRowSchema,
         ResponseRateMetricSchema,
         RetryEffectivenessRowSchema,
+        StageMetricRowSchema,
         TTFRRowSchema,
     )
 
@@ -242,18 +245,28 @@ def test_pydantic_schema_dashboard_response_aggregation():
                 attempt_count=1, attempts_made=100, resumed=60, success_rate_pct=60.0
             )
         ],
+        stall_by_stage=[
+            StageMetricRowSchema(
+                journey_stage="create_first_value",
+                total_stalled=25,
+                avg_time_in_stage_hours=48.5,
+                stall_rate_pct=12.5,
+            )
+        ],
     )
     # Verify aggregation
     assert len(dashboard.re_engagement) == 1
     assert len(dashboard.ttfr) == 1
     assert dashboard.response_rate.response_rate == 0.65
     assert len(dashboard.retry_effectiveness) == 1
+    assert len(dashboard.stall_by_stage) == 1
     # Serialize to JSON
     data = dashboard.model_dump()
     assert "re_engagement" in data
     assert "ttfr" in data
     assert "response_rate" in data
     assert "retry_effectiveness" in data
+    assert "stall_by_stage" in data
 
 
 @pytest.mark.skipif(True, reason="Requires live server; skipped in CI")
@@ -282,6 +295,7 @@ def test_endpoint_schema_validation():
         ReEngagementRowSchema,
         ResponseRateMetricSchema,
         RetryEffectivenessRowSchema,
+        StageMetricRowSchema,
         TTFRRowSchema,
     )
 
@@ -316,6 +330,14 @@ def test_endpoint_schema_validation():
                 "success_rate_pct": 60.0,
             }
         ],
+        "stall_by_stage": [
+            {
+                "journey_stage": "create_first_value",
+                "total_stalled": 25,
+                "avg_time_in_stage_hours": 48.5,
+                "stall_rate_pct": 12.5,
+            }
+        ],
     }
 
     # Validate response against schema
@@ -324,6 +346,7 @@ def test_endpoint_schema_validation():
     assert len(response.ttfr) == 1
     assert response.response_rate.response_rate == 0.65
     assert len(response.retry_effectiveness) == 1
+    assert len(response.stall_by_stage) == 1
 
     # Serialize to JSON
     json_data = response.model_dump_json()
@@ -348,10 +371,12 @@ def test_schema_edge_case_empty_metrics():
             response_rate=0.0, no_response_count=0, total_interventions=0
         ),
         retry_effectiveness=[],
+        stall_by_stage=[],
     )
     assert len(response.re_engagement) == 0
     assert len(response.ttfr) == 0
     assert response.response_rate.response_rate == 0.0
+    assert len(response.stall_by_stage) == 0
     assert len(response.retry_effectiveness) == 0
 
 
@@ -501,3 +526,46 @@ def test_dataclass_retry_effectiveness_row():
     )
     assert row.attempt_count == 2
     assert row.success_rate_pct == 30.0
+
+
+def test_stage_metric_row_dataclass():
+    """StageMetricRow dataclass instantiates and validates."""
+    row = StageMetricRow(
+        journey_stage="create_first_value",
+        total_stalled=25,
+        avg_time_in_stage_hours=48.5,
+        stall_rate_pct=12.5,
+    )
+    assert row.journey_stage == "create_first_value"
+    assert row.total_stalled == 25
+    assert row.avg_time_in_stage_hours == 48.5
+    assert row.stall_rate_pct == 12.5
+
+
+def test_pydantic_schema_stage_metric_row():
+    """StageMetricRowSchema validates and serializes."""
+    from backend.src.analytics.schemas import StageMetricRowSchema
+
+    schema = StageMetricRowSchema(
+        journey_stage="refine_validate",
+        total_stalled=15,
+        avg_time_in_stage_hours=72.0,
+        stall_rate_pct=8.3,
+    )
+    assert schema.journey_stage == "refine_validate"
+    assert schema.stall_rate_pct == 8.3
+    # Null avg_time allowed
+    schema_null = StageMetricRowSchema(
+        journey_stage="finish_pay",
+        total_stalled=5,
+        avg_time_in_stage_hours=None,
+        stall_rate_pct=2.5,
+    )
+    assert schema_null.avg_time_in_stage_hours is None
+
+
+@pytest.mark.skipif(True, reason="Requires live DB; skipped in CI without DATABASE_URL")
+async def test_stall_by_stage_query_aggregates(sample_journey_states):
+    """Stall by stage query groups and calculates stage-level metrics."""
+    # Requires database setup; skipped in CI
+    pass

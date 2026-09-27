@@ -161,6 +161,116 @@ class RetryEffectivenessRowSchema(BaseModel):
     )
 
 
+class StageMetricRowSchema(BaseModel):
+    """Stall breakdown by journey stage — how many users stalled at each stage."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "journey_stage": "create_first_value",
+                "total_stalled": 25,
+                "avg_time_in_stage_hours": 48.5,
+                "stall_rate_pct": 12.5,
+            }
+        }
+    )
+
+    journey_stage: str = Field(..., description="Journey stage enum value")
+    total_stalled: int = Field(..., ge=0, description="Users who stalled at this stage")
+    avg_time_in_stage_hours: float | None = Field(
+        None, ge=0, description="Average hours spent in stage before stalling"
+    )
+    stall_rate_pct: float = Field(
+        ..., ge=0.0, le=100.0, description="Percentage of users reaching this stage who stalled"
+    )
+
+
+class ProjectBottleneckRowSchema(BaseModel):
+    """Per-project stage bottleneck — shows where users are getting stuck."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "project_id": "550e8400-e29b-41d4-a716-446655440000",
+                "journey_stage": "refine_validate",
+                "total_users_at_stage": 15,
+                "stalled_count": 6,
+                "stall_rate_pct": 40.0,
+                "avg_hours_before_stall": 72.5,
+                "intervention_sent_count": 4,
+                "resumed_after_intervention_count": 1,
+                "re_engagement_rate_pct": 25.0,
+            }
+        }
+    )
+
+    project_id: str = Field(..., description="Project UUID")
+    journey_stage: str = Field(..., description="Journey stage enum value")
+    total_users_at_stage: int = Field(..., ge=0, description="Total users at this stage in project")
+    stalled_count: int = Field(..., ge=0, description="Users who stalled at this stage")
+    stall_rate_pct: float = Field(..., ge=0.0, le=100.0, description="Dropout rate at this stage (%)")
+    avg_hours_before_stall: float | None = Field(None, ge=0, description="Avg hours before stall")
+    intervention_sent_count: int = Field(..., ge=0, description="Intervention emails sent")
+    resumed_after_intervention_count: int = Field(..., ge=0, description="Resumed after intervention")
+    re_engagement_rate_pct: float | None = Field(
+        None, ge=0.0, le=100.0, description="% who resumed after intervention"
+    )
+
+
+class FunnelRowSchema(BaseModel):
+    """Completion funnel: % advancing from stage N to N+1."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "project_id": "550e8400-e29b-41d4-a716-446655440000",
+                "from_stage": "create_first_value",
+                "to_stage": "refine_validate",
+                "users_at_from_stage": 50,
+                "users_advanced": 30,
+                "advancement_rate_pct": 60.0,
+            }
+        }
+    )
+
+    project_id: str = Field(..., description="Project UUID")
+    from_stage: str = Field(..., description="Starting journey stage")
+    to_stage: str = Field(..., description="Next journey stage")
+    users_at_from_stage: int = Field(..., ge=0, description="Users in from_stage")
+    users_advanced: int = Field(..., ge=0, description="Users who advanced to to_stage")
+    advancement_rate_pct: float = Field(..., ge=0.0, le=100.0, description="Advancement rate (%)")
+
+
+class StalledUserRowSchema(BaseModel):
+    """User stuck at a stage in a project — for ops/support view."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                "email": "user@example.com",
+                "project_id": "660e8400-e29b-41d4-a716-446655440000",
+                "project_name": "My First Book",
+                "journey_stage": "refine_validate",
+                "stalled_at": "2026-09-15T10:30:00Z",
+                "days_stalled": 12,
+                "intervention_attempt_count": 1,
+                "last_intervention_sent_at": "2026-09-20T08:00:00Z",
+            }
+        }
+    )
+
+    user_id: str = Field(..., description="User UUID")
+    email: str = Field(..., description="User email (for outreach)")
+    project_id: str = Field(..., description="Project UUID")
+    project_name: str = Field(..., description="Project name")
+    journey_stage: str = Field(..., description="Stage where user stalled")
+    stalled_at: str = Field(..., description="ISO timestamp when stall was detected")
+    days_stalled: int = Field(..., ge=0, description="Days since stall detected")
+    intervention_attempt_count: int = Field(..., ge=0, description="Intervention emails sent")
+    last_intervention_sent_at: str | None = Field(None, description="ISO timestamp of last email")
+
+
 class DashboardResponseSchema(BaseModel):
     """Aggregated dashboard metrics — all 4 core metrics for intervention overview."""
 
@@ -187,6 +297,14 @@ class DashboardResponseSchema(BaseModel):
                 "retry_effectiveness": [
                     {"attempt_count": 1, "attempts_made": 100, "resumed": 60, "success_rate_pct": 60.0}
                 ],
+                "stall_by_stage": [
+                    {
+                        "journey_stage": "create_first_value",
+                        "total_stalled": 25,
+                        "avg_time_in_stage_hours": 48.5,
+                        "stall_rate_pct": 12.5,
+                    }
+                ],
             }
         }
     )
@@ -202,4 +320,7 @@ class DashboardResponseSchema(BaseModel):
     )
     retry_effectiveness: list[RetryEffectivenessRowSchema] = Field(
         ..., description="Retry effectiveness by attempt count (sorted by attempt ASC)"
+    )
+    stall_by_stage: list[StageMetricRowSchema] = Field(
+        ..., description="Stall breakdown by journey stage (sorted by stall_rate_pct DESC)"
     )

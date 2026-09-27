@@ -113,10 +113,89 @@ async def upsert_journey_state(
     )
 
 
+async def upsert_project_journey_state(
+    conn: asyncpg.Connection,
+    *,
+    user_id: uuid.UUID,
+    project_id: uuid.UUID,
+    current_journey_stage: str,
+    stage_status: str,
+    last_meaningful_event: str | None = None,
+    last_meaningful_event_at=None,
+    stalled_at=None,
+    stall_reason: str | None = None,
+    intervention_status: str | None = None,
+    resumed_at=None,
+    intervention_sent_at=None,
+    customer_response_type: str | None = None,
+    intervention_attempt_count: int | None = None,
+) -> None:
+    """Upsert project_journey_state row (per-project UX analytics).
+
+    Mirrors journey_state but scoped to user + project. Used for bottleneck detection
+    and per-project UX analysis to identify which stages have highest dropout.
+
+    Stall fields: retained for audit trail; populated by per-project stage evaluator.
+    Intervention fields: track per-project intervention effectiveness (may differ by project).
+    """
+    await conn.execute(
+        """
+        INSERT INTO project_journey_state (
+            user_id, project_id, current_journey_stage, stage_status,
+            last_meaningful_event, last_meaningful_event_at,
+            stalled_at, stall_reason, intervention_status, resumed_at,
+            intervention_sent_at, customer_response_type, intervention_attempt_count,
+            updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+        ON CONFLICT (user_id, project_id) DO UPDATE SET
+            current_journey_stage = EXCLUDED.current_journey_stage,
+            stage_status = EXCLUDED.stage_status,
+            last_meaningful_event = EXCLUDED.last_meaningful_event,
+            last_meaningful_event_at = EXCLUDED.last_meaningful_event_at,
+            stalled_at = COALESCE(EXCLUDED.stalled_at, project_journey_state.stalled_at),
+            stall_reason = COALESCE(EXCLUDED.stall_reason, project_journey_state.stall_reason),
+            intervention_status = EXCLUDED.intervention_status,
+            resumed_at = EXCLUDED.resumed_at,
+            intervention_sent_at = COALESCE(EXCLUDED.intervention_sent_at, project_journey_state.intervention_sent_at),
+            customer_response_type = COALESCE(EXCLUDED.customer_response_type, project_journey_state.customer_response_type),
+            intervention_attempt_count = COALESCE(EXCLUDED.intervention_attempt_count, project_journey_state.intervention_attempt_count),
+            updated_at = now()
+        """,
+        user_id,
+        project_id,
+        current_journey_stage,
+        stage_status,
+        last_meaningful_event,
+        last_meaningful_event_at,
+        stalled_at,
+        stall_reason,
+        intervention_status,
+        resumed_at,
+        intervention_sent_at,
+        customer_response_type,
+        intervention_attempt_count,
+    )
+
+
 async def get_events_for_user(conn: asyncpg.Connection, user_id: uuid.UUID) -> list[asyncpg.Record]:
     """Full event history for one user, oldest first — the input to evaluate_journey_state."""
     return await conn.fetch(
         "SELECT * FROM analytics_event WHERE user_id = $1 ORDER BY occurred_at ASC", user_id
+    )
+
+
+async def get_events_for_project(
+    conn: asyncpg.Connection, user_id: uuid.UUID, project_id: uuid.UUID
+) -> list[asyncpg.Record]:
+    """Event history for one user in one project, oldest first.
+
+    Input to per-project stage evaluator. Filters by user_id + project_id
+    (only events with project_id are included in per-project journey state).
+    """
+    return await conn.fetch(
+        "SELECT * FROM analytics_event WHERE user_id = $1 AND project_id = $2 ORDER BY occurred_at ASC",
+        user_id,
+        project_id,
     )
 
 
