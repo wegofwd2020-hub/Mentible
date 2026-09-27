@@ -370,3 +370,30 @@ async def get_stalled_users(
     """
     rows = await conn.fetch(query, project_id, stage)
     return [StalledUserRow(**dict(r)) for r in rows]
+
+
+async def get_global_stalled_users(conn: asyncpg.Connection) -> list[StalledUserRow]:
+    """Get all stalled users across all projects (super-admin dashboard).
+
+    For ops: "who is stuck and needs help?" (system-wide view).
+    Sorted by days_stalled descending (worst offenders first).
+    """
+    query = """
+    SELECT
+      pjs.user_id::TEXT,
+      a.email,
+      pjs.project_id::TEXT,
+      p.name as project_name,
+      pjs.current_journey_stage as journey_stage,
+      pjs.stalled_at::TEXT,
+      EXTRACT(DAY FROM NOW() - pjs.stalled_at)::INT as days_stalled,
+      pjs.intervention_attempt_count,
+      pjs.intervention_sent_at::TEXT
+    FROM project_journey_state pjs
+    JOIN account a ON pjs.user_id = a.id
+    JOIN project p ON pjs.project_id = p.id
+    WHERE pjs.stalled_at IS NOT NULL
+    ORDER BY days_stalled DESC
+    """
+    rows = await conn.fetch(query)
+    return [StalledUserRow(**dict(r)) for r in rows]

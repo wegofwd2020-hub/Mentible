@@ -335,3 +335,34 @@ async def get_project_ux_analytics(
             for row in stalled_users
         ],
     )
+
+
+@router.get("/dashboards/stalled-users-global", status_code=status.HTTP_200_OK)
+async def get_stalled_users_global(
+    principal: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> dict[str, list[dict]]:
+    """Get all stalled users across all projects (super-admin only).
+
+    Shows system-wide stalled user list for ops support + outreach.
+    Returns: email, project, stage, days_stalled, last_accessed, last_reminder_sent.
+    Sorted by days_stalled descending (worst offenders first).
+    """
+    stalled_users = await get_stalled_users(conn, project_id=None, stage=None)
+
+    return {
+        "stalled_users": [
+            {
+                "user_id": row.user_id,
+                "email": row.email,
+                "project_id": row.project_id,
+                "project_name": row.project_name,
+                "journey_stage": row.journey_stage,
+                "stalled_at": row.stalled_at,
+                "days_stalled": row.days_stalled,
+                "intervention_attempt_count": row.intervention_attempt_count,
+                "last_intervention_sent_at": row.last_intervention_sent_at,
+            }
+            for row in stalled_users
+        ]
+    }

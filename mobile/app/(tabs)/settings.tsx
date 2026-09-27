@@ -12,6 +12,7 @@ import { BackupRestore } from "@/components/BackupRestore";
 import { LibrarySync } from "@/components/LibrarySync";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
+import { useAccount } from "@/hooks/useAccount";
 import { loadDefaultParams, saveDefaultParams, loadSettingsTab, saveSettingsTab } from "@/storage/settingsStore";
 import { DEFAULT_GENERATION_PARAMS, type GenerationParams } from "@/types/generationParams";
 import { useFontMode } from "@/state/fontMode";
@@ -34,6 +35,7 @@ const VISIBLE_TABS: TabKey[] = IS_DEMO ? ["looks"] : ["source", "looks", "accoun
 export default function SettingsScreen() {
   const router = useRouter();
   const { status: authStatus, session } = useAuth();
+  const { account } = useAccount();
   const { dyslexic, setDyslexic } = useFontMode();
   const [params, setParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
   const [tab, setTab] = useState<TabKey>(VISIBLE_TABS[0]);
@@ -41,6 +43,7 @@ export default function SettingsScreen() {
   const { themeName, setTheme } = useThemeControls();
   const styles = useThemedStyles(makeStyles);
   const THEME_NAMES = SWITCHABLE_THEMES;
+  const isAdmin = account?.is_super_admin === true;
 
   useEffect(() => {
     loadDefaultParams().then(setParams);
@@ -233,6 +236,17 @@ export default function SettingsScreen() {
               <Text style={styles.accountChevron}>›</Text>
             </Card>
           </Pressable>
+          {isAdmin && (
+            <Pressable onPress={() => router.push("/settings/analytics")}>
+              <Card style={styles.accountRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.accountTitle}>Analytics</Text>
+                  <Text style={styles.accountSub}>Stalled users & intervention tracking</Text>
+                </View>
+                <Text style={styles.accountChevron}>›</Text>
+              </Card>
+            </Pressable>
+          )}
         </>
       )}
 
