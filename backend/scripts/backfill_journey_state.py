@@ -79,7 +79,7 @@ async def backfill(from_date: str, to_date: str) -> None:
                 WHERE user_id = $1 AND project_id IS NOT NULL
                 ORDER BY project_id
                 """,
-                UUID(user_id),
+                user_id,
             )
 
             # Evaluate per-project journey state
