@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
+import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
 import { spacing, typography } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -118,11 +119,15 @@ export default function ProjectAnalyticsScreen() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { accessToken } = useAuth();
+  const { account } = useAccount();
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
 
   const [data, setData] = useState<ProjectUXAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Super-admin only
+  const isAdmin = account?.is_super_admin === true;
 
   useEffect(() => {
     fetchAnalytics();
@@ -164,6 +169,18 @@ export default function ProjectAnalyticsScreen() {
       setLoading(false);
     }
   };
+
+  // Super-admin gate
+  if (account && !isAdmin) {
+    return (
+      <PageContainer>
+        <Stack.Screen options={{ title: "Access Denied" }} />
+        <Text style={styles.errorText}>
+          Analytics available to super-admins only.
+        </Text>
+      </PageContainer>
+    );
+  }
 
   if (loading) {
     return (
