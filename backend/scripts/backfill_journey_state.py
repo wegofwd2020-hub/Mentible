@@ -33,16 +33,20 @@ async def backfill(from_date: str, to_date: str) -> None:
         raise ValueError("DATABASE_URL not set in environment")
     conn = await asyncpg.connect(database_url)
     try:
+        # Parse date strings to datetime
+        from_dt = datetime.fromisoformat(from_date)
+        to_dt = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59)
+
         # Get all unique users with events in the date range
         users = await conn.fetch(
             """
             SELECT DISTINCT user_id FROM analytics_event
-            WHERE occurred_at >= $1::timestamp AND occurred_at <= $2::timestamp
+            WHERE occurred_at >= $1 AND occurred_at <= $2
             AND user_id IS NOT NULL
             ORDER BY user_id
             """,
-            from_date,
-            to_date,
+            from_dt,
+            to_dt,
         )
 
         print(f"Backfilling {len(users)} users from {from_date} to {to_date}")
