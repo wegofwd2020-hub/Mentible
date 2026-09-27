@@ -27,7 +27,11 @@ from src.analytics.repo import (
 
 async def backfill(from_date: str, to_date: str) -> None:
     """Backfill journey state for all users with events in date range."""
-    conn = await asyncpg.connect()
+    import os
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL not set in environment")
+    conn = await asyncpg.connect(database_url)
     try:
         # Get all unique users with events in the date range
         users = await conn.fetch(
