@@ -6,7 +6,6 @@ This service reads that state and sends templated emails via ZeptoMail.
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -15,88 +14,12 @@ import asyncpg
 import httpx
 
 from backend.config import settings
-from backend.src.analytics.models import DeviceClass, EventName, StallReason, CustomerResponseType
-from backend.src.analytics.schemas import EventIn
+from backend.src.analytics.email_templates import get_email_template
+from backend.src.analytics.models import DeviceClass, EventName, StallReason
 from backend.src.analytics.repo import record_event, upsert_journey_state
+from backend.src.analytics.schemas import EventIn
 
 logger = logging.getLogger(__name__)
-
-# Email templates by stall_reason (sub-project 3)
-STALL_REASON_TEMPLATES = {
-    StallReason.NO_MEANINGFUL_ACTION: {
-        "subject": "Your content is ready—let's publish it 🚀",
-        "body": """Hi there,
-
-We noticed you've drafted some great content but haven't published yet.
-Save and approve your work to activate it and start sharing with your audience.
-
-👉 Resume in Mentible: {app_url}
-
-Your draft is waiting for you!
-
-Best,
-The Mentible Team""",
-    },
-    StallReason.INVITE_UNRESPONDED: {
-        "subject": "Your expert reviewers are waiting",
-        "body": """Hi there,
-
-You've invited expert reviewers to validate your content,
-but we haven't heard back from them yet.
-
-You can:
-- Check in with your reviewers
-- Add additional reviewers
-- Proceed without validation
-
-👉 Check your project: {app_url}
-
-Best,
-The Mentible Team""",
-    },
-    StallReason.PAYMENT_INCOMPLETE: {
-        "subject": "Finish checkout to publish",
-        "body": """Hi there,
-
-You're one step away from publishing!
-Complete your payment to unlock unlimited publishing.
-
-👉 Complete checkout: {app_url}
-
-Questions? We're here to help.
-
-Best,
-The Mentible Team""",
-    },
-    StallReason.INACTIVE: {
-        "subject": "Welcome back! Let's finish your project",
-        "body": """Hi there,
-
-We haven't seen you in a while.
-Your project is waiting for you—pick up where you left off.
-
-👉 Open Mentible: {app_url}
-
-We're here to help if you need anything.
-
-Best,
-The Mentible Team""",
-    },
-    StallReason.UNKNOWN: {
-        "subject": "We noticed you've paused",
-        "body": """Hi there,
-
-We noticed you've paused your project.
-Is there anything blocking you? We're here to help.
-
-👉 Open Mentible: {app_url}
-
-Just reply to this email or reach out to support@kaundinyalabs.com.
-
-Best,
-The Mentible Team""",
-    },
-}
 
 
 class InterventionService:
@@ -128,14 +51,13 @@ class InterventionService:
             - Emits 'followup_email_sent' or 'followup_email_failed' event
             - Updates journey_state: intervention_sent_at = now, intervention_status = in_progress (if success)
         """
-        # 1. Select template
-        template = STALL_REASON_TEMPLATES.get(stall_reason)
-        if not template:
-            template = STALL_REASON_TEMPLATES[StallReason.UNKNOWN]
+        # 1. Select template by stall_reason + attempt_count (escalating)
+        attempt_count = (journey_state_dict.get("intervention_attempt_count", 0) or 0) + 1
+        email_template = get_email_template(stall_reason, attempt_count)
 
         # 2. Render email
-        subject = template["subject"]
-        body = template["body"].format(app_url=app_url)
+        subject = email_template.subject
+        body = email_template.body.format(app_url=app_url)
 
         # 3. Send via ZeptoMail
         send_success = False
@@ -165,7 +87,9 @@ class InterventionService:
 
         # 4. Emit event (always, even on send failure)
         try:
-            event_name = EventName.FOLLOWUP_EMAIL_SENT if send_success else EventName.FOLLOWUP_EMAIL_FAILED
+            event_name = (
+                EventName.FOLLOWUP_EMAIL_SENT if send_success else EventName.FOLLOWUP_EMAIL_FAILED
+            )
             await record_event(
                 conn,
                 event=EventIn(
@@ -197,7 +121,10 @@ class InterventionService:
                     stall_reason=journey_state_dict.get("stall_reason"),
                     intervention_sent_at=datetime.now(UTC),
                     intervention_status="in_progress",
-                    intervention_attempt_count=(journey_state_dict.get("intervention_attempt_count", 0) or 0) + 1,
+                    intervention_attempt_count=(
+                        journey_state_dict.get("intervention_attempt_count", 0) or 0
+                    )
+                    + 1,
                 )
             except Exception as e:
                 logger.warning(f"Failed to update journey_state for {user_id} after send: {e}")
