@@ -2,6 +2,7 @@
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 revision = "0033"
 down_revision = "0032"
@@ -16,7 +17,7 @@ def upgrade() -> None:
         "journey_state_dashboards_idx",
         "journey_state",
         ["intervention_sent_at", "stall_reason", "customer_response_type"],
-        where=op.text("intervention_sent_at IS NOT NULL"),
+        postgresql_where=text("intervention_sent_at IS NOT NULL"),
     )
 
 

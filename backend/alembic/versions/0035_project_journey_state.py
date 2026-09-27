@@ -9,6 +9,7 @@ ADR: TBD
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 revision = "0035"
 down_revision = "0034"
@@ -81,7 +82,7 @@ def upgrade() -> None:
         "idx_project_journey_state_stalled",
         "project_journey_state",
         ["project_id", "stalled_at"],
-        where=op.text("stalled_at IS NOT NULL"),
+        postgresql_where=text("stalled_at IS NOT NULL"),
     )
 
     # User-centric: lookup user's projects + states
@@ -96,7 +97,7 @@ def upgrade() -> None:
         "idx_project_journey_state_intervention",
         "project_journey_state",
         ["project_id", "intervention_sent_at"],
-        where=op.text("intervention_sent_at IS NOT NULL"),
+        postgresql_where=text("intervention_sent_at IS NOT NULL"),
     )
 
 
