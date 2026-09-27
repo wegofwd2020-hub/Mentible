@@ -354,7 +354,7 @@ async def get_stalled_users(
       pjs.user_id::TEXT,
       a.email,
       pjs.project_id::TEXT,
-      p.name as project_name,
+      p.title as project_name,
       pjs.current_journey_stage as journey_stage,
       pjs.stalled_at::TEXT,
       EXTRACT(DAY FROM NOW() - pjs.stalled_at)::INT as days_stalled,
