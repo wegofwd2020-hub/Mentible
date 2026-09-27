@@ -52,11 +52,11 @@ async def backfill(from_date: str, to_date: str) -> None:
         print(f"Backfilling {len(users)} users from {from_date} to {to_date}")
 
         for row in users:
-            user_id = row["user_id"]
+            user_id = UUID(str(row["user_id"]))  # Convert asyncpg UUID to Python UUID
             print(f"  Processing user {user_id}...", end=" ", flush=True)
 
             # Get all events for this user (ordered by time)
-            events = await get_events_for_user(conn, UUID(user_id))
+            events = await get_events_for_user(conn, user_id)
             event_dicts = [dict(e) for e in events]
 
             # Evaluate global journey state
@@ -83,9 +83,9 @@ async def backfill(from_date: str, to_date: str) -> None:
 
             # Evaluate per-project journey state
             for proj in projects:
-                project_id = proj["project_id"]
+                project_id = UUID(str(proj["project_id"]))  # Convert asyncpg UUID to Python UUID
                 project_events = await get_events_for_project(
-                    conn, UUID(user_id), UUID(project_id)
+                    conn, user_id, project_id
                 )
                 project_event_dicts = [dict(e) for e in project_events]
 
