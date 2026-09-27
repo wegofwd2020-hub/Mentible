@@ -21,16 +21,17 @@ import { Card, Label } from "@/components/ui";
 
 // Settings is grouped into tabs (dogfeedback #544 — one long full-width page
 // was hard to scan). Each tab holds 1–3 of the existing sections, unchanged.
-type TabKey = "source" | "looks" | "account" | "data";
+type TabKey = "source" | "looks" | "account" | "analytics" | "data";
 const TAB_META: { key: TabKey; label: string }[] = [
   { key: "source", label: "Tune the source" },
   { key: "looks", label: "Looks" },
   { key: "account", label: "Account" },
+  { key: "analytics", label: "Analytics" },
   { key: "data", label: "Data" },
 ];
 // Most non-Looks sections are !IS_DEMO-gated, so in the demo only Looks has
 // content — offer just the populated tab there (no empty panes).
-const VISIBLE_TABS: TabKey[] = IS_DEMO ? ["looks"] : ["source", "looks", "account", "data"];
+const VISIBLE_TABS: TabKey[] = IS_DEMO ? ["looks"] : ["source", "looks", "account", "analytics", "data"];
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -236,18 +237,20 @@ export default function SettingsScreen() {
               <Text style={styles.accountChevron}>›</Text>
             </Card>
           </Pressable>
-          {isAdmin && (
-            <Pressable onPress={() => router.push("/settings/analytics")}>
-              <Card style={styles.accountRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.accountTitle}>Analytics</Text>
-                  <Text style={styles.accountSub}>Stalled users & intervention tracking</Text>
-                </View>
-                <Text style={styles.accountChevron}>›</Text>
-              </Card>
-            </Pressable>
-          )}
         </>
+      )}
+
+      {/* Analytics — stalled users dashboard (super-admin only). */}
+      {!IS_DEMO && isAdmin && tab === "analytics" && (
+        <Pressable onPress={() => router.push("/settings/analytics")}>
+          <Card style={styles.accountRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.accountTitle}>Stalled Users</Text>
+              <Text style={styles.accountSub}>View all users stuck in projects + send reminders</Text>
+            </View>
+            <Text style={styles.accountChevron}>›</Text>
+          </Card>
+        </Pressable>
       )}
 
       {/* Data — device backup, cloud sync, and the concept-gallery prototype. */}
