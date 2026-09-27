@@ -27,7 +27,7 @@ def upgrade() -> None:
         "journey_state_intervention_status_sent_at_idx",
         "journey_state",
         ["intervention_status", "intervention_sent_at"],
-        where=text("intervention_status = 'not_started'"),
+        postgresql_where=text("intervention_status = 'not_started'"),
     )
 
 
