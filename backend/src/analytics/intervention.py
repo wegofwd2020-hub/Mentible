@@ -18,6 +18,7 @@ from backend.src.analytics.email_templates import get_email_template
 from backend.src.analytics.models import DeviceClass, EventName, StallReason
 from backend.src.analytics.repo import record_event, upsert_journey_state
 from backend.src.analytics.schemas import EventIn
+from backend.src.email.html_templates import get_html_email_template
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,13 @@ class InterventionService:
         """
         # 1. Select template by stall_reason + attempt_count (escalating)
         attempt_count = (journey_state_dict.get("intervention_attempt_count", 0) or 0) + 1
-        email_template = get_email_template(stall_reason, attempt_count)
+        email_template = get_html_email_template(stall_reason, attempt_count)
 
         # 2. Render email
         subject = email_template.subject
-        body = email_template.body.format(app_url=app_url)
+        html_body = email_template.html_body.format(
+            app_url=app_url,
+        )
 
         # 3. Send via ZeptoMail
         send_success = False
@@ -72,7 +75,7 @@ class InterventionService:
                         "from": {"address": settings.zeptomail_from, "name": "Mentible"},
                         "to": [{"email_address": {"address": email}}],
                         "subject": subject,
-                        "textbody": body,  # Plain text for now (TODO: markdown → HTML)
+                        "htmlbody": html_body,
                         "reply_to": {"address": settings.feedback_to},
                     },
                 )

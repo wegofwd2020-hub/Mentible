@@ -2,52 +2,100 @@
 
 import pytest
 from backend.src.analytics.models import StallReason
-from backend.src.analytics.intervention import STALL_REASON_TEMPLATES, InterventionService
+from backend.src.analytics.intervention import InterventionService
+from backend.src.email.html_templates import (
+    REMINDER_1_TEMPLATES,
+    REMINDER_2_TEMPLATES,
+    REMINDER_3_TEMPLATES,
+    get_html_email_template,
+)
 
 
-def test_template_exists_for_each_stall_reason():
-    """Every StallReason has a corresponding template."""
-    for reason in StallReason:
-        assert reason in STALL_REASON_TEMPLATES or reason == StallReason.UNKNOWN, \
-            f"Missing template for {reason}"
+def test_html_template_exists_for_each_stall_reason():
+    """Every StallReason has HTML templates for all 3 tiers."""
+    for tier, templates in [
+        (1, REMINDER_1_TEMPLATES),
+        (2, REMINDER_2_TEMPLATES),
+        (3, REMINDER_3_TEMPLATES),
+    ]:
+        for reason in StallReason:
+            assert reason in templates, f"Tier {tier}: missing template for {reason}"
 
 
-def test_each_template_has_required_fields():
-    """Each template has subject and body."""
-    for reason, template in STALL_REASON_TEMPLATES.items():
-        assert "subject" in template, f"Template {reason} missing subject"
-        assert "body" in template, f"Template {reason} missing body"
-        assert len(template["subject"]) > 0, f"Template {reason} has empty subject"
-        assert len(template["body"]) > 0, f"Template {reason} has empty body"
-        assert "{app_url}" in template["body"], f"Template {reason} missing {{app_url}} placeholder"
+def test_html_template_has_required_fields():
+    """Each HTML template has subject and html_body."""
+    for tier, templates in [
+        (1, REMINDER_1_TEMPLATES),
+        (2, REMINDER_2_TEMPLATES),
+        (3, REMINDER_3_TEMPLATES),
+    ]:
+        for reason, template in templates.items():
+            assert template.subject, f"Tier {tier}, {reason}: empty subject"
+            assert template.html_body, f"Tier {tier}, {reason}: empty html_body"
+            # Either has app_url placeholder OR mailto link for support
+            has_app_url = "{app_url}" in template.html_body
+            has_support_link = "mailto:" in template.html_body
+            assert has_app_url or has_support_link, (
+                f"Tier {tier}, {reason}: missing CTA placeholder"
+            )
+            assert "<!DOCTYPE html>" in template.html_body, (
+                f"Tier {tier}, {reason}: missing HTML structure"
+            )
 
 
-def test_template_subjects_are_distinct():
-    """Each template has a unique subject."""
-    subjects = [t["subject"] for t in STALL_REASON_TEMPLATES.values()]
-    assert len(subjects) == len(set(subjects)), "Duplicate template subjects found"
+def test_html_template_subjects_distinct_per_tier():
+    """Subjects are unique within each tier."""
+    for tier, templates in [
+        (1, REMINDER_1_TEMPLATES),
+        (2, REMINDER_2_TEMPLATES),
+        (3, REMINDER_3_TEMPLATES),
+    ]:
+        subjects = [t.subject for t in templates.values()]
+        assert len(subjects) == len(set(subjects)), (
+            f"Tier {tier}: duplicate subjects found"
+        )
 
 
-def test_template_bodies_mention_stall_reason_context():
-    """Templates are contextual to the stall reason."""
-    # no_meaningful_action mentions saving/approving
-    assert "save" in STALL_REASON_TEMPLATES[StallReason.NO_MEANINGFUL_ACTION]["body"].lower()
-    # invite_unresponded mentions reviewers
-    assert "review" in STALL_REASON_TEMPLATES[StallReason.INVITE_UNRESPONDED]["body"].lower()
-    # payment_incomplete mentions checkout
-    assert "checkout" in STALL_REASON_TEMPLATES[StallReason.PAYMENT_INCOMPLETE]["body"].lower()
+def test_html_templates_contextual_to_stall_reason():
+    """Templates reference the stall reason."""
+    # Tier 1: gentle nudge
+    assert "draft" in REMINDER_1_TEMPLATES[StallReason.NO_MEANINGFUL_ACTION].html_body.lower()
+    assert "review" in REMINDER_1_TEMPLATES[StallReason.INVITE_UNRESPONDED].html_body.lower()
+    assert "checkout" in REMINDER_1_TEMPLATES[StallReason.PAYMENT_INCOMPLETE].html_body.lower()
+
+    # Tier 2: escalation
+    assert "stuck" in REMINDER_2_TEMPLATES[StallReason.NO_MEANINGFUL_ACTION].html_body.lower()
 
 
-def test_unknown_stall_reason_uses_fallback():
-    """UNKNOWN stall reason has a generic template."""
-    template = STALL_REASON_TEMPLATES[StallReason.UNKNOWN]
-    assert "paused" in template["body"].lower()
-    assert "help" in template["body"].lower()
+def test_html_unknown_stall_reason_fallback():
+    """UNKNOWN stall reason has a generic HTML template."""
+    template = REMINDER_1_TEMPLATES[StallReason.UNKNOWN]
+    assert "paused" in template.html_body.lower()
+    assert "help" in template.html_body.lower()
 
 
-def test_all_templates_include_call_to_action():
-    """Each template includes a link/CTA."""
-    for reason, template in STALL_REASON_TEMPLATES.items():
-        combined = (template["subject"] + template["body"]).lower()
-        assert "mentible" in combined or "open" in combined or "checkout" in combined or "resume" in combined, \
-            f"Template {reason} missing clear CTA"
+def test_all_html_templates_include_cta():
+    """All HTML templates include a CTA link."""
+    for tier, templates in [
+        (1, REMINDER_1_TEMPLATES),
+        (2, REMINDER_2_TEMPLATES),
+        (3, REMINDER_3_TEMPLATES),
+    ]:
+        for reason, template in templates.items():
+            combined = (template.subject + template.html_body).lower()
+            assert ("href" in template.html_body and "app_url" in template.html_body) or \
+                   "mailto" in template.html_body, \
+                   f"Tier {tier}, {reason}: missing CTA link"
+
+
+def test_get_html_email_template_by_attempt():
+    """get_html_email_template returns correct tier."""
+    for attempt, expected_templates in [
+        (1, REMINDER_1_TEMPLATES),
+        (2, REMINDER_2_TEMPLATES),
+        (3, REMINDER_3_TEMPLATES),
+    ]:
+        template = get_html_email_template(StallReason.NO_MEANINGFUL_ACTION, attempt)
+        expected = expected_templates[StallReason.NO_MEANINGFUL_ACTION]
+        assert template.subject == expected.subject
+        assert template.html_body == expected.html_body
