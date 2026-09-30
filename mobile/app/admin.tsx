@@ -95,6 +95,16 @@ export default function AdminScreen() {
           <Text style={styles.linkText}>Send welcome email</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.linkRow}
+          onPress={() => router.push("/admin/intervention-config")}
+          accessibilityRole="button"
+          accessibilityLabel="Manage intervention config"
+        >
+          <Text style={styles.linkText}>Intervention config</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
       </View>
 
       {loading && users.length === 0 ? (
