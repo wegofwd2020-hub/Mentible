@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from fastapi import FastAPI
 
-from backend.src.admin.config_repo import set_config
+from src.admin.config_repo import set_config
 
 
 @pytest.mark.asyncio

@@ -7,8 +7,8 @@ import os
 import asyncpg
 import structlog
 
-from backend.config import settings
-from backend.src.admin import config_repo
+from config import settings
+from . import config_repo
 
 log = structlog.get_logger(__name__)
 
