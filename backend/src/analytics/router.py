@@ -10,16 +10,6 @@ from pydantic import BaseModel
 
 from backend.src.accounts import repo as accounts_repo
 from backend.src.accounts.deps import require_active_user
-from backend.src.analytics.intervention import InterventionService
-from backend.src.analytics.journey import evaluate_journey_state
-from backend.src.analytics.repo import (
-    get_events_for_project,
-    get_events_for_user,
-    get_journey_state,
-    record_event,
-    upsert_journey_state,
-    upsert_project_journey_state,
-)
 from backend.src.analytics.dashboards import (
     get_completion_funnel,
     get_project_bottlenecks,
@@ -29,6 +19,16 @@ from backend.src.analytics.dashboards import (
     get_stall_by_stage,
     get_stalled_users,
     get_ttfr_distribution,
+)
+from backend.src.analytics.intervention import InterventionService
+from backend.src.analytics.journey import evaluate_journey_state
+from backend.src.analytics.repo import (
+    get_events_for_project,
+    get_events_for_user,
+    get_journey_state,
+    record_event,
+    upsert_journey_state,
+    upsert_project_journey_state,
 )
 from backend.src.analytics.schemas import (
     DashboardResponseSchema,
@@ -139,11 +139,13 @@ async def send_interventions(
     Sends to users with intervention_status=not_started, or to in_progress users if
     intervention_retry_interval_days has elapsed since last send.
     """
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
+
+    from backend.src.admin.intervention_config import get_intervention_retry_interval_days
 
     service = InterventionService()
     sent_count = 0
-    retry_interval = settings.intervention_retry_interval_days
+    retry_interval = get_intervention_retry_interval_days()
 
     def _should_retry(journey: dict, force: bool = False) -> bool:
         """Check if user is due for retry intervention."""

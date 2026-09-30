@@ -63,6 +63,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = redis.from_url(settings.redis_url, decode_responses=False)
     # Account store (ADR-014). None when DATABASE_URL is unset — account routes 503.
     app.state.db = await create_pool(settings.database_url)
+
+    # Load live intervention config from DB
+    if app.state.db is not None:
+        try:
+            from backend.src.admin.intervention_config import load_intervention_config
+            async with app.state.db.acquire() as conn:
+                await load_intervention_config(conn)
+            log.info("intervention_config loaded from database")
+        except Exception as e:
+            log.warning("failed to load intervention config from DB (table may not exist yet)", error=str(e))
+
     try:
         yield
     finally:

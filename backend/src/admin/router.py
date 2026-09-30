@@ -37,6 +37,11 @@ from backend.src.accounts.schemas import (
     WelcomeEmailResult,
 )
 from backend.src.admin import audit
+from backend.src.admin.schemas import (
+    InterventionConfigResponse,
+    InterventionConfigUpdateRequest,
+    InterventionConfigUpdateResponse,
+)
 from backend.src.auth import identity_admin
 from backend.src.auth.deps import require_super_admin
 from backend.src.auth.principal import Principal
@@ -415,36 +420,71 @@ async def list_audit(
     )
 
 
-@router.get("/analytics/intervention-config")
+@router.get("/analytics/intervention-config", response_model=InterventionConfigResponse)
 async def get_intervention_config(
     _admin: Principal = Depends(require_super_admin),
-) -> dict:
-    """Read current intervention retry interval config (super-admin only)."""
-    from backend.config import settings
+) -> InterventionConfigResponse:
+    """Read current intervention retry interval config (super-admin only).
 
-    return {
-        "intervention_retry_interval_days": settings.intervention_retry_interval_days,
-        "max_intervention_attempts": settings.max_intervention_attempts,
-        "note": "Update via environment variable INTERVENTION_RETRY_INTERVAL_DAYS and restart"
-    }
-
-
-@router.patch("/analytics/intervention-config")
-async def update_intervention_config(
-    body: dict,
-    _admin: Principal = Depends(require_super_admin),
-) -> dict:
-    """Update intervention config (super-admin only).
-
-    Note: This is read-only at runtime. To change:
-    1. Set INTERVENTION_RETRY_INTERVAL_DAYS env var
-    2. Restart backend service
-
-    This endpoint documents the current config.
+    Returns live values from database (with env var override precedence).
     """
-    return {
-        "message": "Update via environment variable and restart backend",
-        "current": {
-            "intervention_retry_interval_days": settings.intervention_retry_interval_days,
-        }
+    from backend.src.admin.intervention_config import (
+        get_intervention_retry_interval_days,
+        get_max_intervention_attempts,
+    )
+
+    return InterventionConfigResponse(
+        intervention_retry_interval_days=get_intervention_retry_interval_days(),
+        max_intervention_attempts=get_max_intervention_attempts(),
+        note="Update via PATCH endpoint below (live, no restart needed)"
+    )
+
+
+@router.patch("/analytics/intervention-config", response_model=InterventionConfigUpdateResponse)
+async def update_intervention_config(
+    body: InterventionConfigUpdateRequest,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> InterventionConfigUpdateResponse:
+    """Update intervention config live (super-admin only).
+
+    Request body example:
+    {
+        "intervention_retry_interval_days": 5,
+        "max_intervention_attempts": 4
     }
+
+    Returns updated config. No restart needed.
+    """
+    from backend.src.admin import audit
+    from backend.src.admin.intervention_config import update_intervention_config as update_config
+
+    if body.intervention_retry_interval_days is None and body.max_intervention_attempts is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must provide at least one of: intervention_retry_interval_days, max_intervention_attempts"
+        )
+
+    try:
+        async with conn.transaction():
+            updated = await update_config(
+                conn,
+                retry_interval_days=body.intervention_retry_interval_days,
+                max_attempts=body.max_intervention_attempts,
+                updated_by=admin.email,
+            )
+            await audit.record(
+                conn,
+                actor_sub=admin.sub,
+                actor_email=admin.email,
+                action="intervention_config.update",
+                target_sub="system",
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return InterventionConfigUpdateResponse(
+        message="intervention config updated (live, no restart needed)",
+        updated=updated,
+        updated_by=admin.email,
+    )
