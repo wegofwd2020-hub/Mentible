@@ -413,3 +413,38 @@ async def list_audit(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/analytics/intervention-config")
+async def get_intervention_config(
+    _admin: Principal = Depends(require_super_admin),
+) -> dict:
+    """Read current intervention retry interval config (super-admin only)."""
+    from backend.config import settings
+
+    return {
+        "intervention_retry_interval_days": settings.intervention_retry_interval_days,
+        "max_intervention_attempts": settings.max_intervention_attempts,
+        "note": "Update via environment variable INTERVENTION_RETRY_INTERVAL_DAYS and restart"
+    }
+
+
+@router.patch("/analytics/intervention-config")
+async def update_intervention_config(
+    body: dict,
+    _admin: Principal = Depends(require_super_admin),
+) -> dict:
+    """Update intervention config (super-admin only).
+
+    Note: This is read-only at runtime. To change:
+    1. Set INTERVENTION_RETRY_INTERVAL_DAYS env var
+    2. Restart backend service
+
+    This endpoint documents the current config.
+    """
+    return {
+        "message": "Update via environment variable and restart backend",
+        "current": {
+            "intervention_retry_interval_days": settings.intervention_retry_interval_days,
+        }
+    }

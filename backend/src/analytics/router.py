@@ -129,27 +129,42 @@ async def send_interventions(
     """Send intervention emails to stalled users (super-admin only, MVP manual trigger).
 
     Args:
-        user_id: Optional. Send to one user only. If omitted, send to all with intervention_status=not_started
+        user_id: Optional. Send to one user only. If omitted, send to all due for intervention
         dry_run: If true, don't actually send; just return count
+        force: If true, ignore retry interval and send anyway
 
     Returns:
         Count of emails sent (or would-be sent if dry_run=true)
 
-    This is the manual trigger for MVP. Scheduler job (deferred to 3B) will enable automatic daily sends.
+    Sends to users with intervention_status=not_started, or to in_progress users if
+    intervention_retry_interval_days has elapsed since last send.
     """
+    from datetime import UTC, datetime, timedelta
+
     service = InterventionService()
     sent_count = 0
+    retry_interval = settings.intervention_retry_interval_days
+
+    def _should_retry(journey: dict, force: bool = False) -> bool:
+        """Check if user is due for retry intervention."""
+        if force or journey["intervention_status"] == "not_started":
+            return True
+        if journey["intervention_status"] != "in_progress" or not journey.get("intervention_sent_at"):
+            return False
+        days_since_last = (datetime.now(UTC) - journey["intervention_sent_at"]).days
+        return days_since_last >= retry_interval
 
     if body.user_id:
         # Send to one user
         journey = await get_journey_state(conn, body.user_id)
         account = await accounts_repo.get_account(conn, body.user_id)
 
-        if not journey or not account or journey["intervention_status"] != "not_started":
-            raise HTTPException(
-                400,
-                "User not found, not stalled, or already has intervention pending",
-            )
+        if not journey or not account:
+            raise HTTPException(404, "User not found")
+        if not journey.get("stalled_at"):
+            raise HTTPException(400, "User not stalled")
+        if not _should_retry(journey, body.force if hasattr(body, 'force') else False):
+            raise HTTPException(400, f"Not due for retry (interval: {retry_interval} days)")
 
         if not body.dry_run:
             sent = await service.send_intervention_for_user(
@@ -167,11 +182,16 @@ async def send_interventions(
             user_id=body.user_id,
         )
     else:
-        # Send to all intervention_status=not_started
+        # Send to all users due for intervention
         stalled_users = await conn.fetch(
-            """SELECT id, email FROM account a
+            """SELECT a.id, a.email FROM account a
                JOIN journey_state j ON a.id = j.user_id
-               WHERE j.intervention_status = 'not_started' AND j.stalled_at IS NOT NULL"""
+               WHERE j.stalled_at IS NOT NULL
+               AND (j.intervention_status = 'not_started'
+                    OR (j.intervention_status = 'in_progress'
+                        AND j.intervention_sent_at IS NOT NULL
+                        AND (NOW() AT TIME ZONE 'UTC' - j.intervention_sent_at) >= INTERVAL '1 day' * %s))"""
+            , (retry_interval,)
         )
 
         for row in stalled_users:
