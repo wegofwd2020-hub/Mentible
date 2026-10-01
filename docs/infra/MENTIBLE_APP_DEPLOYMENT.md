@@ -71,3 +71,22 @@ docker compose up -d astrowind  # restart from last image
 # or
 docker compose build astrowind && docker compose up -d astrowind  # rebuild from current files
 ```
+
+## Port Binding Confusion
+
+⚠️ **Critical:** Mentible API port varies by compose config:
+- **dev** (`docker-compose.yml`): `0.0.0.0:8001:8000` (public, dev reload enabled)
+- **prod** (`docker-compose.demo.yml` with `--env-file .env.demo`): `127.0.0.1:8092:8000` (localhost only)
+
+**Restart always requires full flags:**
+```bash
+cd /opt/mentible
+docker compose -f docker-compose.demo.yml --env-file .env.demo down
+docker compose -f docker-compose.demo.yml --env-file .env.demo up -d
+```
+
+Omitting `-f` or `--env-file` silently loads dev config (8001, no DATABASE_URL) → all routes 503.
+
+**Update nginx to match port after any restart:**
+- Production (demo.yml): `127.0.0.1:8092`
+- Development: `127.0.0.1:8001`
