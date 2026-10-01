@@ -7,6 +7,7 @@ import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
 import { adminClient } from "@/api/adminClient";
+import { resolveBaseUrl } from "@/api/client";
 
 interface InterventionConfig {
   intervention_retry_interval_days: number;
@@ -35,8 +36,9 @@ export default function InterventionConfigScreen() {
     setLoading(true);
     setError(null);
     try {
+      const baseUrl = resolveBaseUrl();
       const response = await fetch(
-        "https://mambakkam.net/mentible-api/api/v1/admin/analytics/intervention-config",
+        `${baseUrl}/api/v1/admin/analytics/intervention-config`,
         {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
@@ -86,8 +88,9 @@ export default function InterventionConfigScreen() {
     }
 
     try {
+      const baseUrl = resolveBaseUrl();
       const response = await fetch(
-        "https://mambakkam.net/mentible-api/api/v1/admin/analytics/intervention-config",
+        `${baseUrl}/api/v1/admin/analytics/intervention-config`,
         {
           method: "PATCH",
           headers: {
