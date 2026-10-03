@@ -417,13 +417,14 @@ class CommonProjectIn(BaseModel):
 
 
 class CommonProjectOut(BaseModel):
-    """Common project in repository (read-only view for non-authors)."""
+    """Common project in repository (publicly visible fields)."""
     id: str
-    author_id: str
+    author_name: str  # display_name or derived name, never raw idp_sub
     title: str
     description: str | None
     created_at: datetime
     updated_at: datetime
+    is_author: bool = False  # true only if requested by the project author
     # project_data not included in list responses for bandwidth
 
 
