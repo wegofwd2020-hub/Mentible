@@ -79,8 +79,8 @@ export interface TopicVersionSummaryView { id: string; version_no: number; creat
 
 // Common Project Repository types
 export interface CommonProjectSummary {
-  id: string; author_id: string; title: string; description: string | null;
-  created_at: string; updated_at: string;
+  id: string; author_name: string; title: string; description: string | null;
+  created_at: string; updated_at: string; is_author: boolean;
 }
 export interface CommonProjectDetail extends CommonProjectSummary {
   project_data: Record<string, unknown>;

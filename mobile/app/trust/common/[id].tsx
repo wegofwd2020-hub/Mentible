@@ -29,7 +29,6 @@ const makeStyles = (c: Palette) => ({
 
 export default function CommonProjectDetailScreen() {
   const router = useRouter();
-  const { session } = useAuth();
   const params = useLocalSearchParams<{ id: string }>();
   const projectId = params.id || "";
   const { project, loading, error, import: import_, update, remove } = useCommonProject(projectId);
@@ -38,7 +37,7 @@ export default function CommonProjectDetailScreen() {
   const [deleting, setDeleting] = useState(false);
   const styles = useThemedStyles(makeStyles);
 
-  const isAuthor = project && session?.user?.id === project.author_id;
+  const isAuthor = project?.is_author ?? false;
 
   const handleImport = useCallback(async () => {
     setImporting(true);
@@ -94,7 +93,7 @@ export default function CommonProjectDetailScreen() {
         <View style={styles.header}>
           <Label style={styles.kicker}>SHARED PROJECT</Label>
           <Text style={styles.title}>{project.title}</Text>
-          <Text style={styles.author}>By {project.author_id}</Text>
+          <Text style={styles.author}>By {project.author_name}</Text>
         </View>
 
         {project.description && <Text style={styles.description}>{project.description}</Text>}

@@ -17,6 +17,7 @@ from ..accounts.models import Account
 from ..analytics import repo as analytics_repo
 from ..analytics.models import DeviceClass, EventName
 from ..analytics.schemas import EventIn
+from ..auth.deps import optional_user
 from ..auth.principal import Principal
 from ..billing import quota, usage_repo
 from ..billing.access import is_pro, over_cap, resolve_managed_access, resolve_managed_stt_access
@@ -1994,45 +1995,71 @@ async def add_topic_version_feedback(
     )
 
 
+async def _get_author_name(conn: asyncpg.Connection, author_id: str) -> str:
+    """Get safe author display name from idp_sub (account.display_name or derived)."""
+    row = await conn.fetchrow(
+        "SELECT display_name FROM account WHERE idp_sub = $1", author_id
+    )
+    if row and row["display_name"]:
+        return row["display_name"]
+    # Fallback: derive from hash of idp_sub (never expose raw sub or email)
+    import hashlib
+    short_hash = hashlib.sha256(author_id.encode()).hexdigest()[:6]
+    return f"Author {short_hash}"
+
+
 # ── Common Project Repository routes ─────────────────────────────────────────
 
 @router.get("/common-projects", response_model=list[schemas.CommonProjectOut])
-async def list_common_projects(conn: asyncpg.Connection = Depends(get_conn)) -> list[schemas.CommonProjectOut]:
-    """List all projects in Common Project Repository (public read-only)."""
+async def list_common_projects(
+    principal: Principal | None = Depends(optional_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> list[schemas.CommonProjectOut]:
+    """List all projects in Common Project Repository (public, optional-auth)."""
     from . import common_project_repo
+    requester_sub = principal.idp_sub if principal else None
     repo = common_project_repo.CommonProjectRepo(conn)
     projects = await repo.list_all()
-    return [
-        schemas.CommonProjectOut(
-            id=p.id,
-            author_id=p.author_id,
-            title=p.title,
-            description=p.description,
-            created_at=p.created_at,
-            updated_at=p.updated_at,
+    result = []
+    for p in projects:
+        author_name = await _get_author_name(conn, p.author_id)
+        result.append(
+            schemas.CommonProjectOut(
+                id=p.id,
+                author_name=author_name,
+                title=p.title,
+                description=p.description,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+                is_author=(requester_sub == p.author_id),
+            )
         )
-        for p in projects
-    ]
+    return result
 
 
 @router.get("/common-projects/{project_id}", response_model=schemas.CommonProjectDetailOut)
 async def get_common_project(
-    project_id: str, conn: asyncpg.Connection = Depends(get_conn)
+    project_id: str,
+    principal: Principal | None = Depends(optional_user),
+    conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.CommonProjectDetailOut:
-    """Get full details of a common project (public read-only)."""
+    """Get full details of a common project (public, optional-auth)."""
     from . import common_project_repo
+    requester_sub = principal.idp_sub if principal else None
     repo = common_project_repo.CommonProjectRepo(conn)
     project = await repo.get_by_id(project_id)
     if not project:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "common project not found")
+    author_name = await _get_author_name(conn, project.author_id)
     return schemas.CommonProjectDetailOut(
         id=project.id,
-        author_id=project.author_id,
+        author_name=author_name,
         title=project.title,
         description=project.description,
         project_data=project.project_data,
         created_at=project.created_at,
         updated_at=project.updated_at,
+        is_author=(requester_sub == project.author_id),
     )
 
 

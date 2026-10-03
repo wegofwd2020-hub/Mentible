@@ -44,7 +44,7 @@ function CommonProjectCard({ item, onPress }: { item: CommonProjectSummary; onPr
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>{item.title}</Text>
           {item.description && <Text style={styles.cardDescription} numberOfLines={2}>{item.description}</Text>}
-          <Text style={styles.cardAuthor}>By {item.author_id}</Text>
+          <Text style={styles.cardAuthor}>By {item.author_name}</Text>
         </View>
       </Card>
     </Pressable>
