@@ -56,6 +56,9 @@ class CommonProjectRepo:
             params.append(tags)
             param_idx += 1
 
+        # Always filter out taken-down projects from public list
+        where_clauses.append("taken_down_at IS NULL")
+
         where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
 
         # Clamp limit
@@ -68,9 +71,10 @@ class CommonProjectRepo:
         return [_from_row(r) for r in rows]
 
     async def get_by_id(self, project_id: str) -> CommonProject | None:
-        """Get a common project by ID."""
+        """Get a common project by ID (public: excludes taken-down)."""
         row = await self.db.fetchrow(
-            f"SELECT {_FIELDS} FROM common_projects WHERE id = $1", project_id
+            f"SELECT {_FIELDS} FROM common_projects WHERE id = $1 AND taken_down_at IS NULL",
+            project_id,
         )
         return _from_row(row) if row else None
 

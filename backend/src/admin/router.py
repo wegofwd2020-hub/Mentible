@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel, Field
 
 from backend.src.accounts import repo
 from backend.src.accounts.models import Account
@@ -487,4 +488,94 @@ async def update_intervention_config(
         message="intervention config updated (live, no restart needed)",
         updated=updated,
         updated_by=admin.email,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Common Projects Moderation (ADR-037 Step 4b)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TakedownRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500, description="Reason for takedown")
+
+
+class TakedownResponse(BaseModel):
+    id: str
+    taken_down_at: datetime
+    taken_down_reason: str
+    message: str
+
+
+@router.post("/common-projects/{project_id}/takedown", response_model=TakedownResponse)
+async def takedown_common_project(
+    project_id: str,
+    body: TakedownRequest,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> TakedownResponse:
+    """Takedown a common project (hide from list/detail, preserve audit trail)."""
+    async with conn.transaction():
+        now = datetime.now(UTC)
+        result = await conn.fetchrow(
+            """UPDATE common_projects
+               SET taken_down_at = $1, taken_down_reason = $2
+               WHERE id = $3 AND taken_down_at IS NULL
+               RETURNING id, taken_down_at, taken_down_reason""",
+            now,
+            body.reason,
+            project_id,
+        )
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found or already taken down",
+            )
+        await audit.record(
+            conn,
+            actor_sub=admin.sub,
+            actor_email=admin.email,
+            action="common_project.takedown",
+            target_sub=project_id,
+        )
+    return TakedownResponse(
+        id=result["id"],
+        taken_down_at=result["taken_down_at"],
+        taken_down_reason=result["taken_down_reason"],
+        message="Project taken down",
+    )
+
+
+@router.post("/common-projects/{project_id}/restore", response_model=TakedownResponse)
+async def restore_common_project(
+    project_id: str,
+    admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> TakedownResponse:
+    """Restore a taken-down common project."""
+    async with conn.transaction():
+        result = await conn.fetchrow(
+            """UPDATE common_projects
+               SET taken_down_at = NULL, taken_down_reason = NULL
+               WHERE id = $1 AND taken_down_at IS NOT NULL
+               RETURNING id, taken_down_at, taken_down_reason""",
+            project_id,
+        )
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found or not taken down",
+            )
+        await audit.record(
+            conn,
+            actor_sub=admin.sub,
+            actor_email=admin.email,
+            action="common_project.restore",
+            target_sub=project_id,
+        )
+    return TakedownResponse(
+        id=result["id"],
+        taken_down_at=result["taken_down_at"],
+        taken_down_reason=result["taken_down_reason"],
+        message="Project restored",
     )
