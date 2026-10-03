@@ -2200,12 +2200,26 @@ async def import_common_project(
     new_project_id = str(uuid.uuid4())
     now = datetime.now(UTC)
 
+    # Handle title conflicts: if user already has a project with this title, suffix it
+    final_title = common_project.title
+    counter = 2
+    while True:
+        existing = await conn.fetchval(
+            "SELECT id FROM projects WHERE owner_account_id = $1 AND title = $2 LIMIT 1",
+            account.id,
+            final_title,
+        )
+        if not existing:
+            break
+        final_title = f"{common_project.title} ({counter})"
+        counter += 1
+
     await conn.execute(
         "INSERT INTO projects (id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc) "
         "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         new_project_id,
         account.id,
-        common_project.title,
+        final_title,
         topic,
         audience,
         goal,
@@ -2228,7 +2242,7 @@ async def import_common_project(
 
     return schemas.ProjectOut(
         id=new_project_id,
-        title=common_project.title,
+        title=final_title,
         topic=topic,
         audience=audience,
         goal=goal,

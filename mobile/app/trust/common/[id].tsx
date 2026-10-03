@@ -98,15 +98,23 @@ export default function CommonProjectDetailScreen() {
 
         {project.description && <Text style={styles.description}>{project.description}</Text>}
 
-        {toc && (
+        {toc && typeof toc === "object" && "subjects" in toc && (
           <View style={styles.tocPreview}>
             <Text style={styles.sectionLabel}>Table of Contents</Text>
-            {typeof toc === "object" && Object.keys(toc).slice(0, 5).map((key) => (
-              <Text key={key} style={styles.tocItem}>
-                • {String(toc[key])}
-              </Text>
+            {(toc as any).subjects.slice(0, 3).map((subject: any) => (
+              <View key={subject.subject_label}>
+                <Text style={{ ...styles.tocItem, fontWeight: "600" }}>{subject.subject_label}</Text>
+                {subject.units.slice(0, 2).map((unit: any) => (
+                  <Text key={unit.id} style={styles.tocItem}>
+                    • {unit.title}
+                  </Text>
+                ))}
+                {subject.units.length > 2 && <Text style={styles.tocItem}>  • ... +{subject.units.length - 2} more</Text>}
+              </View>
             ))}
-            {Object.keys(toc).length > 5 && <Text style={styles.tocItem}>• ... and {Object.keys(toc).length - 5} more topics</Text>}
+            {(toc as any).subjects.length > 3 && (
+              <Text style={styles.tocItem}>... and {(toc as any).subjects.length - 3} more sections</Text>
+            )}
           </View>
         )}
 
