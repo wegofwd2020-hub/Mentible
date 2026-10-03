@@ -55,6 +55,14 @@ async def count_projects(conn: asyncpg.Connection, account_id: UUID) -> int:
     )
 
 
+async def count_published_common_projects(conn: asyncpg.Connection, idp_sub: str) -> int:
+    """Count active (not taken down) common projects published by author."""
+    return await conn.fetchval(
+        "SELECT count(*) FROM common_projects WHERE author_id = $1 AND taken_down_at IS NULL",
+        idp_sub,
+    )
+
+
 async def count_generations(conn: asyncpg.Connection, sub: str, since: datetime) -> int:
     """Generations = per-topic drafts (`topic_version`) + artifact versions
     (`artifact_version`) the account authored, since `since`. A single query so the

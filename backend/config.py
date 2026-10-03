@@ -171,6 +171,7 @@ class Settings(BaseSettings):
     free_max_projects: int = Field(default=2, ge=0)
     free_max_generations: int = Field(default=20, ge=0)
     free_gen_window_days: int = Field(default=30, ge=1)
+    max_common_publishes: int = Field(default=10, ge=0)
 
     # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
     # The account + per-provider credential-set DB. OPTIONAL, like identity: empty

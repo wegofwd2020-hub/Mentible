@@ -2078,10 +2078,21 @@ async def publish_common_project(
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.CommonProjectDetailOut:
-    """Publish a new project to Common Project Repository (authenticated)."""
+    """Publish a new project to Common Project Repository (authenticated, quota-gated)."""
     from . import common_project_repo
+    from ..billing import quota
+
     project_id = str(uuid.uuid4())
     account = await _account(conn, principal)
+
+    # Check publish quota
+    published_count = await quota.count_published_common_projects(conn, account.idp_sub)
+    if published_count >= settings.max_common_publishes:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Publish limit reached: {settings.max_common_publishes} projects maximum.",
+        )
+
     repo = common_project_repo.CommonProjectRepo(conn)
     project = await repo.create(
         project_id=project_id,
@@ -2090,14 +2101,16 @@ async def publish_common_project(
         description=body.description,
         project_data=body.project_data,
     )
+    author_name = await _get_author_name(conn, project.author_id)
     return schemas.CommonProjectDetailOut(
         id=project.id,
-        author_id=project.author_id,
+        author_name=author_name,
         title=project.title,
         description=project.description,
         project_data=project.project_data,
         created_at=project.created_at,
         updated_at=project.updated_at,
+        is_author=True,
     )
 
 
