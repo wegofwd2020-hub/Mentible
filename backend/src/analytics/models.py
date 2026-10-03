@@ -78,6 +78,7 @@ class EventName(StrEnum):
     REFERRAL_CONVERTED = "referral_converted"
     HELP_OPENED = "help_opened"
     INTERVENTION_SENT = "intervention_sent"
+    COMMON_PROJECT_IMPORTED = "common_project_imported"
     JOURNEY_RESUMED = "journey_resumed"
     FOLLOWUP_DRAFT_CREATED = "followup_draft_created"
     FOLLOWUP_REVIEW_COMPLETED = "followup_review_completed"

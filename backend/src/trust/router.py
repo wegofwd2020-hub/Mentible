@@ -2109,3 +2109,66 @@ async def delete_common_project(
     deleted = await repo.delete(project_id=project_id, author_id=account.idp_sub)
     if not deleted:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+
+
+@router.post("/common-projects/{project_id}/import", response_model=schemas.ProjectOut)
+async def import_common_project(
+    project_id: str,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.ProjectOut:
+    """Import a common project — creates local copy owned by user."""
+    from . import common_project_repo
+    
+    # Get common project
+    repo = common_project_repo.CommonProjectRepo(conn)
+    common_project = await repo.get_by_id(project_id)
+    if not common_project:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    
+    # Get account
+    account = await _account(conn, principal)
+    
+    # Create local copy of the project
+    new_project_id = str(uuid.uuid4())
+    now = datetime.now(UTC)
+    
+    # Extract project data from common project (assumes it's stored as serialized project JSON)
+    project_data = common_project.project_data
+    
+    await conn.execute(
+        "INSERT INTO projects (id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        new_project_id,
+        account.id,
+        common_project.title,
+        project_data.get("topic"),
+        project_data.get("audience"),
+        project_data.get("goal"),
+        "active",
+        now,
+        now,
+        json.dumps(project_data.get("toc")) if project_data.get("toc") else None,
+    )
+    
+    # Log import event
+    await analytics_repo.add_event(
+        conn,
+        EventIn(
+            device_class=DeviceClass.WEB,
+            event_name=EventName.COMMON_PROJECT_IMPORTED,
+            app_version="web",
+            account_id=str(account.id),
+        ),
+    )
+    
+    return schemas.ProjectOut(
+        id=new_project_id,
+        title=common_project.title,
+        topic=project_data.get("topic"),
+        audience=project_data.get("audience"),
+        goal=project_data.get("goal"),
+        status="active",
+        created_at=now,
+        updated_at=now,
+    )
