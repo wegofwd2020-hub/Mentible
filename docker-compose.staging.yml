@@ -16,6 +16,30 @@
 # =============================================================================
 
 services:
+  staging-db:
+    image: postgres:15-alpine
+    container_name: mentible-staging-db
+    restart: always
+    environment:
+      POSTGRES_DB: mentible_staging
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Bind to localhost:5433 to avoid conflict with any local postgres:5432
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - mentible-staging-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
   redis:
     image: redis:7-alpine
     container_name: mentible-staging-redis
@@ -79,6 +103,8 @@ services:
       - mentible-staging-artifacts:/data/artifacts
       - mentible-staging-audio:/data/audio
     depends_on:
+      staging-db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -150,6 +176,8 @@ services:
       - mentible-staging-artifacts:/data/artifacts
       - mentible-staging-audio:/data/audio
     depends_on:
+      staging-db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     deploy:
@@ -182,6 +210,8 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-authenticated}
     depends_on:
+      staging-db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     deploy:
@@ -191,5 +221,6 @@ services:
           memory: 256M
 
 volumes:
+  mentible-staging-db:
   mentible-staging-artifacts:
   mentible-staging-audio:
