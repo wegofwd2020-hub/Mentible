@@ -2078,29 +2078,33 @@ async def publish_common_project(
     principal: Principal = Depends(require_active_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> schemas.CommonProjectDetailOut:
-    """Publish a new project to Common Project Repository (authenticated, quota-gated)."""
+    """Publish a new project to Common Project Repository (authenticated, quota-gated by plan)."""
     from . import common_project_repo
-    from ..billing import quota
+    from ..billing import quota, access
 
     project_id = str(uuid.uuid4())
     account = await _account(conn, principal)
+    is_pro = await access.is_pro(conn, account_id=account.id)
 
-    # Check publish quota
-    published_count = await quota.count_published_common_projects(conn, account.idp_sub)
-    if published_count >= settings.max_common_publishes:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Publish limit reached: {settings.max_common_publishes} projects maximum.",
+    # Quota limit tied to plan: Pro unlimited, Free capped
+    max_publishes = float("inf") if is_pro else settings.max_common_publishes
+
+    # SERIALIZABLE isolation prevents race where two requests both count under-limit then both insert
+    async with conn.transaction(isolation="serializable"):
+        published_count = await quota.count_published_common_projects(conn, account.idp_sub)
+        if published_count >= max_publishes:
+            detail = "Upgrade to Pro to publish unlimited projects." if not is_pro else "Publish limit exceeded (contact support)."
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail)
+
+        repo = common_project_repo.CommonProjectRepo(conn)
+        project = await repo.create(
+            project_id=project_id,
+            author_id=account.idp_sub,
+            title=body.title,
+            description=body.description,
+            project_data=body.project_data,
         )
 
-    repo = common_project_repo.CommonProjectRepo(conn)
-    project = await repo.create(
-        project_id=project_id,
-        author_id=account.idp_sub,
-        title=body.title,
-        description=body.description,
-        project_data=body.project_data,
-    )
     author_name = await _get_author_name(conn, project.author_id)
     return schemas.CommonProjectDetailOut(
         id=project.id,
