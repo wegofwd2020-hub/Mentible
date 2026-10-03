@@ -2119,38 +2119,66 @@ async def import_common_project(
 ) -> schemas.ProjectOut:
     """Import a common project — creates local copy owned by user."""
     from . import common_project_repo
-    
+
     # Get common project
     repo = common_project_repo.CommonProjectRepo(conn)
     common_project = await repo.get_by_id(project_id)
     if not common_project:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
-    
+
     # Get account
     account = await _account(conn, principal)
-    
+
+    # Check project cap
+    if not await is_pro(conn, account_id=account.id):
+        if await quota.count_projects(conn, account.id) >= settings.free_max_projects:
+            raise quota.pro_required(
+                f"Free plan is limited to {settings.free_max_projects} projects "
+                "— upgrade to Pro for more."
+            )
+
+    # Validate and sanitize copied data
+    project_data = common_project.project_data
+    topic = project_data.get("topic")
+    audience = project_data.get("audience")
+    goal = project_data.get("goal")
+    toc = project_data.get("toc")
+
+    # Validate string fields (max lengths from ProjectCreateIn)
+    if topic is not None and (not isinstance(topic, str) or len(topic) > 500):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid topic")
+    if audience is not None and (not isinstance(audience, str) or len(audience) > 500):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid audience")
+    if goal is not None and (not isinstance(goal, str) or len(goal) > 500):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid goal")
+
+    # Validate toc (must be dict if present, size-capped)
+    if toc is not None:
+        if not isinstance(toc, dict):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid toc")
+        toc_json = json.dumps(toc)
+        if len(toc_json.encode("utf-8")) > 1_000_000:  # 1MB for toc
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "toc too large")
+
     # Create local copy of the project
     new_project_id = str(uuid.uuid4())
     now = datetime.now(UTC)
-    
-    # Extract project data from common project (assumes it's stored as serialized project JSON)
-    project_data = common_project.project_data
-    
+
     await conn.execute(
         "INSERT INTO projects (id, owner_account_id, title, topic, audience, goal, status, created_at, updated_at, toc) "
         "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         new_project_id,
         account.id,
         common_project.title,
-        project_data.get("topic"),
-        project_data.get("audience"),
-        project_data.get("goal"),
+        topic,
+        audience,
+        goal,
         "active",
         now,
         now,
-        json.dumps(project_data.get("toc")) if project_data.get("toc") else None,
+        json.dumps(toc) if toc else None,
     )
-    
+
     # Log import event
     await analytics_repo.add_event(
         conn,
@@ -2161,13 +2189,13 @@ async def import_common_project(
             account_id=str(account.id),
         ),
     )
-    
+
     return schemas.ProjectOut(
         id=new_project_id,
         title=common_project.title,
-        topic=project_data.get("topic"),
-        audience=project_data.get("audience"),
-        goal=project_data.get("goal"),
+        topic=topic,
+        audience=audience,
+        goal=goal,
         status="active",
         created_at=now,
         updated_at=now,
