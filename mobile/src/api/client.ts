@@ -18,11 +18,10 @@ import { fromBase64 } from "@/storage/pickBookFile";
 // On web (Expo browser preview), 10.0.2.2 is the Android emulator loopback
 // address — unreachable from a real browser. Transparently swap it for
 // localhost so the web preview works without touching .env.local.
-// For staging testing, use 8093 (docker-compose.staging.yml); for dev use 8001.
 export function resolveBaseUrl(): string {
   const url =
     process.env["EXPO_PUBLIC_API_BASE_URL"] ??
-    (Platform.OS === "web" ? "http://localhost:8093" : "http://10.0.2.2:8093");
+    (Platform.OS === "web" ? "http://localhost:8001" : "http://10.0.2.2:8001");
   if (Platform.OS === "web") return url.replace("10.0.2.2", "localhost");
   return url;
 }
