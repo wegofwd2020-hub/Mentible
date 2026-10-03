@@ -72,13 +72,13 @@ export default function AboutScreen() {
         <Card style={styles.cardInner}>
           <Row label="Author" value={BRAND_AUTHOR} styles={styles} />
           <Pressable
-            style={styles.row}
+            style={styles.supportLink}
             onPress={() => Linking.openURL(`mailto:${BRAND_CONTACT}`)}
             accessibilityRole="link"
             accessibilityLabel={`Email ${BRAND_CONTACT}`}
           >
             <Text style={styles.rowLabel}>Contact</Text>
-            <Text style={styles.contactValue}>{BRAND_CONTACT}</Text>
+            <Text style={[styles.contactValue, styles.contactLinkText]}>{BRAND_CONTACT}</Text>
           </Pressable>
         </Card>
       </View>
@@ -87,7 +87,7 @@ export default function AboutScreen() {
         <Label tone="secondary">Support</Label>
         <Card style={styles.cardInner}>
           <Pressable
-            style={styles.row}
+            style={styles.supportLink}
             onPress={() =>
               Linking.openURL(
                 `mailto:${BRAND_SUPPORT}?subject=${encodeURIComponent(`${BRAND_NAME} support`)}`,
@@ -97,7 +97,7 @@ export default function AboutScreen() {
             accessibilityLabel={`Email support at ${BRAND_SUPPORT}`}
           >
             <Text style={styles.rowLabel}>Email support</Text>
-            <Text style={styles.contactValue}>{BRAND_SUPPORT}</Text>
+            <Text style={[styles.contactValue, styles.contactLinkText]}>{BRAND_SUPPORT}</Text>
           </Pressable>
         </Card>
       </View>
@@ -178,6 +178,8 @@ const makeStyles = (c: Palette) => ({
   rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
   rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "500" as const },
   contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "500" as const },
+  supportLink: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, cursor: "pointer" as any },
+  contactLinkText: { textDecorationLine: "underline" as const },
   libRow: {
     flexDirection: "row" as const,
     justifyContent: "space-between" as const,
