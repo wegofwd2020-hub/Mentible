@@ -77,6 +77,15 @@ export interface TopicVersionDetailView {
 }
 export interface TopicVersionSummaryView { id: string; version_no: number; created_at: string | null; is_validated: boolean }
 
+// Common Project Repository types
+export interface CommonProjectSummary {
+  id: string; author_id: string; title: string; description: string | null;
+  created_at: string; updated_at: string;
+}
+export interface CommonProjectDetail extends CommonProjectSummary {
+  project_data: Record<string, unknown>;
+}
+
 // Phase A async per-topic generate (T2): POST .../generate now returns 202 +
 // this job handle immediately; the actual generation runs in a Celery worker.
 export interface TopicGenerateJobOut { job_id: string; status: string }
@@ -480,4 +489,34 @@ export async function latestGenerationJob(projectId: string, token: string): Pro
   return (await trustFetch<GenerationJob>(
     `/projects/${projectId}/generation-jobs/latest`, token, { method: "GET" },
   )) as GenerationJob | null;
+}
+
+// ── Common Project Repository ──────────────────────────────────────
+
+export async function listCommonProjects(token: string): Promise<CommonProjectSummary[]> {
+  return (await trustFetch<CommonProjectSummary[]>("/common-projects", token, { method: "GET" })) as CommonProjectSummary[];
+}
+
+export async function getCommonProject(projectId: string, token: string): Promise<CommonProjectDetail> {
+  return (await trustFetch<CommonProjectDetail>(`/common-projects/${projectId}`, token, { method: "GET" })) as CommonProjectDetail;
+}
+
+export async function publishCommonProject(
+  body: { title: string; description?: string; project_data: Record<string, unknown> }, token: string,
+): Promise<CommonProjectDetail> {
+  return (await trustFetch<CommonProjectDetail>("/common-projects", token, { method: "POST", body: JSON.stringify(body) })) as CommonProjectDetail;
+}
+
+export async function updateCommonProject(
+  projectId: string, body: { title: string; description?: string; project_data: Record<string, unknown> }, token: string,
+): Promise<CommonProjectDetail> {
+  return (await trustFetch<CommonProjectDetail>(`/common-projects/${projectId}`, token, { method: "PUT", body: JSON.stringify(body) })) as CommonProjectDetail;
+}
+
+export async function deleteCommonProject(projectId: string, token: string): Promise<void> {
+  await trustFetch<null>(`/common-projects/${projectId}`, token, { method: "DELETE" });
+}
+
+export async function importCommonProject(projectId: string, token: string): Promise<ProjectView> {
+  return (await trustFetch<ProjectView>(`/common-projects/${projectId}/import`, token, { method: "POST" })) as ProjectView;
 }

@@ -11,6 +11,7 @@ import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Button, Card, Label } from "@/components/ui";
 import type { ProjectSummaryView } from "@/api/trustClient";
+import { IS_DEMO } from "@/constants/demo";
 
 // The New-project pill: primary CTA that opens `/trust/new`. Preserves the
 // Free/Pro project cap wall (Slice B, mirrored from app/trust/new.tsx) — UX
@@ -40,6 +41,28 @@ function NewProjectButton({
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+function CommonRepositoryCard() {
+  const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Browse common projects"
+      onPress={() => router.push("/trust/common")}
+      style={({ pressed }) => [styles.cardWrap, pressed && styles.cardPressed]}
+    >
+      <Card>
+        <View style={styles.cardTop}>
+          <Text style={styles.statusGlyph}>↓</Text>
+          <Label>shared</Label>
+        </View>
+        <Text style={styles.cardTitle}>Common Project Repository</Text>
+        <Text style={styles.cardTopic} numberOfLines={2}>Browse and import projects shared by other authors.</Text>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -111,6 +134,7 @@ function ProjectsInner() {
       ) : (
         <FlatList
           key={isTablet ? "grid2" : "grid1"}
+          ListHeaderComponent={!IS_DEMO ? <CommonRepositoryCard /> : null}
           data={projects}
           keyExtractor={(p) => p.id}
           numColumns={isTablet ? 2 : 1}

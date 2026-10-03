@@ -1270,4 +1270,34 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
   },
+  {
+    id: "common-projects",
+    title: "Browse and import shared projects",
+    featureKey: "common-projects",
+    keywords: ["common", "shared", "repository", "browse", "import", "author", "copy", "project"],
+    blocks: [
+      {
+        kind: "text",
+        text: "The Common Project Repository is a collection of projects published by other authors on Mentible. You can browse shared projects, read their descriptions, and import a copy into your own workspace to use as a starting point or reference.",
+      },
+      {
+        kind: "text",
+        text: "Once you import a project, you own the copy — it becomes a regular project in your Projects tab with full edit access. You can modify the outline, regenerate drafts, invite reviewers, and publish it under your own name. Importing never modifies the original project.",
+      },
+      {
+        kind: "text",
+        text: "If you're the author of a shared project, you can edit or delete it from the detail view. Authors can only edit and delete their own projects; non-authors see a read-only view with an Import button.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "On the Projects tab, tap the \"Common Project Repository\" card.",
+          "Browse the list of shared projects.",
+          "Tap a project to see its full details and description.",
+          "Tap \"Import to My Projects\" to create your own copy.",
+          "You'll be taken to your new project where you can edit and work on it.",
+        ],
+      },
+    ],
+  },
 ];

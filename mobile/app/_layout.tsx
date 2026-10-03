@@ -187,6 +187,14 @@ export default function RootLayout() {
                 name="trust/version/[versionId]"
                 options={{ title: "Draft", headerBackTitle: "Project" }}
               />
+              <Stack.Screen
+                name="trust/common/index"
+                options={{ title: "Common Projects", headerBackTitle: "Projects" }}
+              />
+              <Stack.Screen
+                name="trust/common/[id]"
+                options={{ title: "Common Project", headerBackTitle: "Common Projects" }}
+              />
             </Stack>
           </NavThemeProvider>
         </AppBackground>

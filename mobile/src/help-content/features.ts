@@ -15,6 +15,7 @@ export const FEATURES = [
   { key: "figures", label: "Figures (attached images)" },
   { key: "reviews", label: "Reviewing & approving projects" },
   { key: "projects", label: "Creating & managing projects" },
+  { key: "common-projects", label: "Browsing & importing common projects" },
   { key: "make-a-post", label: "Make a post" },
   { key: "publish-card", label: "Publish an image card" },
   { key: "publish-carousel", label: "Publish a carousel" },

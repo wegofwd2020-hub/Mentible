@@ -38,6 +38,7 @@ export const HELP_TREE: HelpTreeNode[] = [
         children: [
           { id: "leaf-what-is-a-project", title: "What is a project?", topicId: "projects" },
           { id: "leaf-project-fields", title: "New project fields", topicId: "project-fields" },
+          { id: "leaf-common-projects", title: "Browse & import shared projects", topicId: "common-projects" },
         ],
       },
       { id: "leaf-input", title: "Input", topicId: "sources" },
