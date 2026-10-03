@@ -19,7 +19,7 @@ import { saveBook } from "@/storage/bookStore";
 import { trackedExport } from "@/lib/trackedExport";
 import { downloadArtifact, saveEpub } from "@/storage/epubLibrary";
 import { randomUUID } from "@/lib/uuid";
-import { estimateBook, generateBook, getGenerationJob, getTopicVersion, latestGenerationJob, listProjectFeedback } from "@/api/trustClient";
+import { estimateBook, generateBook, getGenerationJob, getTopicVersion, latestGenerationJob, listProjectFeedback, publishCommonProject } from "@/api/trustClient";
 import type { ArtifactDetailView, DraftSection, GenerationJob, ProjectFeedbackItem, ProjectInputView, ProjectView, StructuredTocUnit, StructuredTocView, TopicStatusView } from "@/api/trustClient";
 import { loadApiKey } from "@/secure/keyStore";
 import type { PlanStatus } from "@/api/billingClient";
@@ -2278,6 +2278,48 @@ function TrustProjectDetailInner() {
     setSelected(step.target.phase);
   };
 
+  const onShareProject = () => {
+    Alert.alert(
+      "Share to Common Project Repository?",
+      `"${project.project.title}" will be published as a shared project that other users can discover and import.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Share",
+          style: "default",
+          onPress: () => {
+            setDeleteBusy(true); // reuse for share busy state
+            void (async () => {
+              try {
+                if (!accessToken) throw new Error("Not signed in");
+                const goal = project.project.goal || "";
+                const description = goal || `A ${project.project.topic || "project"} for learning.`;
+                await publishCommonProject(
+                  {
+                    title: project.project.title,
+                    description,
+                    project_data: {
+                      topic: project.project.topic,
+                      audience: project.project.audience,
+                      goal,
+                      toc: project.project.toc,
+                    },
+                  },
+                  accessToken,
+                );
+                Alert.alert("Shared!", "Your project is now in the Common Project Repository.");
+              } catch (e) {
+                Alert.alert("Couldn't share", e instanceof ApiError ? e.userMessage() : "Please try again.");
+              } finally {
+                setDeleteBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   const onDeleteProject = () => {
     Alert.alert(
       "Delete this project?",
@@ -2462,6 +2504,13 @@ function TrustProjectDetailInner() {
         <PhaseNav phaseKey={active} onSelect={setSelected} />
         {isOwner ? (
           <View style={styles.dangerZone}>
+            <Button
+              label="Share to Common Repository"
+              onPress={onShareProject}
+              busy={deleteBusy}
+              accessibilityLabel="Share project"
+              style={{ marginBottom: 12 }}
+            />
             <Button
               variant="ghost"
               label="Delete project"
