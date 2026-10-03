@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 PROJECT_STATUSES = ("active", "archived")
 INPUT_KINDS = ("transcript", "note", "upload", "link")
@@ -177,3 +178,19 @@ class Invitation:
     invited_by_sub: str
     created_at: datetime | None
     revoked_at: datetime | None
+
+
+@dataclass(frozen=True)
+class CommonProject:
+    """Shared project in the Common Project Repository.
+    
+    Authors can publish, update, delete their own projects.
+    Other users can view and import (creates local copy).
+    """
+    id: str
+    author_id: str
+    title: str
+    description: str | None
+    project_data: dict[str, Any]  # serialized project JSON
+    created_at: datetime
+    updated_at: datetime
