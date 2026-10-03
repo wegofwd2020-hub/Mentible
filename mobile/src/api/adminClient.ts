@@ -278,3 +278,26 @@ export function feedbackExportUrl(f: FeedbackFilters, format: "csv" | "json"): s
   p.set("format", format);
   return `${resolveBaseUrl()}/api/v1/admin/feedback/export?${p.toString()}`;
 }
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Common Projects Moderation (ADR-037 Step 4c)
+// ────────────────────────────────────────────────────────────────────────────────
+
+export async function takedownCommonProject(
+  token: string,
+  projectId: string,
+  reason: string,
+): Promise<void> {
+  const url = `${resolveBaseUrl()}/api/v1/admin/common-projects/${encodeURIComponent(projectId)}/takedown`;
+  await adminFetch<{ id: string; message: string }>(url.replace(resolveBaseUrl(), ""), token, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function restoreCommonProject(token: string, projectId: string): Promise<void> {
+  const url = `${resolveBaseUrl()}/api/v1/admin/common-projects/${encodeURIComponent(projectId)}/restore`;
+  await adminFetch<{ id: string; message: string }>(url.replace(resolveBaseUrl(), ""), token, {
+    method: "POST",
+  });
+}

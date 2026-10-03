@@ -105,6 +105,16 @@ export default function AdminScreen() {
           <Text style={styles.linkText}>Intervention config</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.linkRow}
+          onPress={() => router.push("/admin/common-projects")}
+          accessibilityRole="button"
+          accessibilityLabel="Moderate common projects"
+        >
+          <Text style={styles.linkText}>Common projects</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
       </View>
 
       {loading && users.length === 0 ? (
