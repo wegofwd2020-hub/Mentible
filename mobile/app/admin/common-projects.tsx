@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
-import { useThemedStyles } from "@/hooks/useThemedStyles";
+import { useTheme, useThemedStyles } from "@/theme";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button, Label } from "@/components/ui";
 import { Palette } from "@/constants/theme";
