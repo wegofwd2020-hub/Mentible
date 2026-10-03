@@ -25,8 +25,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      # Bind to localhost:5433 to avoid conflict with any local postgres:5432
-      - '127.0.0.1:5433:5432'
+      # Bind to localhost:5434 to avoid conflict with any local postgres:5432 or other services
+      - '127.0.0.1:5434:5432'
     volumes:
       - mentible-staging-db:/var/lib/postgresql/data
     healthcheck:
