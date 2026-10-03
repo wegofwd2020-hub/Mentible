@@ -38,7 +38,9 @@ PyJWT>=2.9,<3
 
 # Account + credential-set store (ADR-014 D2/D8 — Supabase Postgres, O1/O5).
 # asyncpg is the runtime driver (CLAUDE.md rule 6); alembic owns schema migrations.
+# greenlet required by asyncpg + sqlalchemy.ext.asyncio for async context switching.
 asyncpg>=0.30,<0.32
+greenlet>=3.0.0
 alembic>=1.13,<2
 
 # Shared multi-provider LLM seam (ADR-012) — the provider seam lives in its own
