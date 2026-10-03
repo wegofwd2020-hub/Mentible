@@ -394,3 +394,28 @@ class DraftGenerateIn(BaseModel):
         if prefix and not self.api_key.startswith(prefix):
             raise ValueError(f"{self.provider_id} api_key must start with {prefix}")
         return self
+
+
+# ── Common Project Repository schemas ────────────────────────────────────────
+
+class CommonProjectIn(BaseModel):
+    """Input for creating/updating a common project."""
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    project_data: dict = Field(..., description="Serialized project JSON")
+
+
+class CommonProjectOut(BaseModel):
+    """Common project in repository (read-only view for non-authors)."""
+    id: str
+    author_id: str
+    title: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+    # project_data not included in list responses for bandwidth
+
+
+class CommonProjectDetailOut(CommonProjectOut):
+    """Full common project details (includes project_data)."""
+    project_data: dict

@@ -31,6 +31,7 @@ from . import (
     approval_repo,
     artifact_repo,
     book_gen,
+    common_project_repo,
     feedback_repo,
     generation_job_repo,
     grounding_repo,
@@ -1991,3 +1992,124 @@ async def add_topic_version_feedback(
         body=f.body,
         created_at=f.created_at,
     )
+
+
+# ── Common Project Repository routes ─────────────────────────────────────────
+
+@router.get("/common-projects", response_model=list[schemas.CommonProjectOut])
+async def list_common_projects(conn: asyncpg.Connection = Depends(get_conn)) -> list[schemas.CommonProjectOut]:
+    """List all projects in Common Project Repository (public read-only)."""
+    from . import common_project_repo
+    repo = common_project_repo.CommonProjectRepo(conn)
+    projects = await repo.list_all()
+    return [
+        schemas.CommonProjectOut(
+            id=p.id,
+            author_id=p.author_id,
+            title=p.title,
+            description=p.description,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+        )
+        for p in projects
+    ]
+
+
+@router.get("/common-projects/{project_id}", response_model=schemas.CommonProjectDetailOut)
+async def get_common_project(
+    project_id: str, conn: asyncpg.Connection = Depends(get_conn)
+) -> schemas.CommonProjectDetailOut:
+    """Get full details of a common project (public read-only)."""
+    from . import common_project_repo
+    repo = common_project_repo.CommonProjectRepo(conn)
+    project = await repo.get_by_id(project_id)
+    if not project:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "common project not found")
+    return schemas.CommonProjectDetailOut(
+        id=project.id,
+        author_id=project.author_id,
+        title=project.title,
+        description=project.description,
+        project_data=project.project_data,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.post("/common-projects", response_model=schemas.CommonProjectDetailOut)
+async def publish_common_project(
+    body: schemas.CommonProjectIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.CommonProjectDetailOut:
+    """Publish a new project to Common Project Repository (authenticated)."""
+    from . import common_project_repo
+    project_id = str(uuid.uuid4())
+    account = await _account(conn, principal)
+    repo = common_project_repo.CommonProjectRepo(conn)
+    project = await repo.create(
+        project_id=project_id,
+        author_id=account.idp_sub,
+        title=body.title,
+        description=body.description,
+        project_data=body.project_data,
+    )
+    return schemas.CommonProjectDetailOut(
+        id=project.id,
+        author_id=project.author_id,
+        title=project.title,
+        description=project.description,
+        project_data=project.project_data,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.put("/common-projects/{project_id}", response_model=schemas.CommonProjectDetailOut)
+async def update_common_project(
+    project_id: str,
+    body: schemas.CommonProjectIn,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> schemas.CommonProjectDetailOut:
+    """Update a common project (author only)."""
+    from . import common_project_repo
+    account = await _account(conn, principal)
+    repo = common_project_repo.CommonProjectRepo(conn)
+    project = await repo.update(
+        project_id=project_id,
+        author_id=account.idp_sub,
+        title=body.title,
+        description=body.description,
+        project_data=body.project_data,
+    )
+    if not project:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "only the author can update this project"
+        )
+    return schemas.CommonProjectDetailOut(
+        id=project.id,
+        author_id=project.author_id,
+        title=project.title,
+        description=project.description,
+        project_data=project.project_data,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.delete("/common-projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_common_project(
+    project_id: str,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> None:
+    """Delete a common project (author only)."""
+    from . import common_project_repo
+    account = await _account(conn, principal)
+    repo = common_project_repo.CommonProjectRepo(conn)
+    deleted = await repo.delete(project_id=project_id, author_id=account.idp_sub)
+    if not deleted:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "only the author can delete this project"
+        )
