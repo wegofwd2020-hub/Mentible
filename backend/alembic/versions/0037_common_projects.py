@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(["author_id"], ["accounts.sub"]),
+        sa.ForeignKeyConstraint(["author_id"], ["account.idp_sub"]),
         sa.Index("ix_common_projects_author_id", "author_id"),
         sa.Index("ix_common_projects_created_at", "created_at"),
     )

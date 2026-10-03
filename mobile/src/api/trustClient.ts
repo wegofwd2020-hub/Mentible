@@ -498,7 +498,7 @@ export async function listCommonProjects(token: string): Promise<CommonProjectSu
 }
 
 export async function getCommonProject(projectId: string, token: string): Promise<CommonProjectDetail> {
-  return (await trustFetch<CommonProjectDetail>(`/common-projects/${projectId}`, token, { method: "GET" })) as CommonProjectDetail;
+  return (await trustFetch<CommonProjectDetail>(`/common-projects/${encodeURIComponent(projectId)}`, token, { method: "GET" })) as CommonProjectDetail;
 }
 
 export async function publishCommonProject(
@@ -510,13 +510,13 @@ export async function publishCommonProject(
 export async function updateCommonProject(
   projectId: string, body: { title: string; description?: string; project_data: Record<string, unknown> }, token: string,
 ): Promise<CommonProjectDetail> {
-  return (await trustFetch<CommonProjectDetail>(`/common-projects/${projectId}`, token, { method: "PUT", body: JSON.stringify(body) })) as CommonProjectDetail;
+  return (await trustFetch<CommonProjectDetail>(`/common-projects/${encodeURIComponent(projectId)}`, token, { method: "PUT", body: JSON.stringify(body) })) as CommonProjectDetail;
 }
 
 export async function deleteCommonProject(projectId: string, token: string): Promise<void> {
-  await trustFetch<null>(`/common-projects/${projectId}`, token, { method: "DELETE" });
+  await trustFetch<null>(`/common-projects/${encodeURIComponent(projectId)}`, token, { method: "DELETE" });
 }
 
 export async function importCommonProject(projectId: string, token: string): Promise<ProjectView> {
-  return (await trustFetch<ProjectView>(`/common-projects/${projectId}/import`, token, { method: "POST" })) as ProjectView;
+  return (await trustFetch<ProjectView>(`/common-projects/${encodeURIComponent(projectId)}/import`, token, { method: "POST" })) as ProjectView;
 }

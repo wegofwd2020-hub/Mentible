@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 import asyncpg
 import structlog
@@ -52,7 +52,7 @@ class CommonProjectRepo:
         self, project_id: str, author_id: str, title: str, description: str | None, project_data: dict
     ) -> CommonProject:
         """Publish a new project to Common Project Repository."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         await self.db.execute(
             f"INSERT INTO common_projects ({_FIELDS}) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             project_id,
@@ -75,7 +75,7 @@ class CommonProjectRepo:
 
     async def update(self, project_id: str, author_id: str, title: str, description: str | None, project_data: dict) -> CommonProject | None:
         """Update a common project (author only)."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         await self.db.execute(
             f"UPDATE common_projects SET title=$2, description=$3, project_data=$4, updated_at=$5 WHERE id=$1 AND author_id=$6",
             project_id,
