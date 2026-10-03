@@ -2084,9 +2084,7 @@ async def update_common_project(
         project_data=body.project_data,
     )
     if not project:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "only the author can update this project"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
     return schemas.CommonProjectDetailOut(
         id=project.id,
         author_id=project.author_id,
@@ -2110,6 +2108,4 @@ async def delete_common_project(
     repo = common_project_repo.CommonProjectRepo(conn)
     deleted = await repo.delete(project_id=project_id, author_id=account.idp_sub)
     if not deleted:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "only the author can delete this project"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
