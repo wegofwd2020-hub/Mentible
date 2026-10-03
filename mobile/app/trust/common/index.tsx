@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCommonProjects } from "@/hooks/useCommonProjects";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -14,7 +14,8 @@ import type { CommonProjectSummary } from "@/api/trustClient";
 const makeStyles = (c: Palette) => ({
   header: { paddingBottom: 16 },
   kicker: { color: c.secondary, marginBottom: 4 },
-  title: { fontSize: 32, fontFamily: FRAUNCES, fontWeight: "600", color: c.foreground, marginBottom: 24 },
+  title: { fontSize: 32, fontFamily: FRAUNCES, fontWeight: "600", color: c.foreground, marginBottom: 12 },
+  searchInput: { borderWidth: 1, borderColor: c.border, borderRadius: 8, padding: 12, marginBottom: 24, color: c.foreground, fontSize: 16 },
   list: { flex: 1 },
   contentContainer: { paddingHorizontal: 16, paddingVertical: 12 },
   card: { marginBottom: 12, cursor: "pointer" },
@@ -54,7 +55,8 @@ function CommonProjectCard({ item, onPress }: { item: CommonProjectSummary; onPr
 function CommonProjectsInner() {
   const router = useRouter();
   const { isTablet } = useResponsive();
-  const { projects, loading, error, refresh } = useCommonProjects();
+  const [searchQuery, setSearchQuery] = useState("");
+  const { projects, loading, error, refresh } = useCommonProjects(searchQuery ? { q: searchQuery } : undefined);
   const styles = useThemedStyles(makeStyles);
 
   useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
@@ -72,6 +74,13 @@ function CommonProjectsInner() {
       <View style={styles.header}>
         <Label style={styles.kicker}>DISCOVER</Label>
         <Text style={styles.title}>Common Projects</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by title..."
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
       </View>
 
       {projects.length === 0 ? (

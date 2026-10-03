@@ -2012,14 +2012,23 @@ async def _get_author_name(conn: asyncpg.Connection, author_id: str) -> str:
 
 @router.get("/common-projects", response_model=list[schemas.CommonProjectOut])
 async def list_common_projects(
+    q: str | None = None,
+    tag: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
     principal: Principal | None = Depends(optional_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> list[schemas.CommonProjectOut]:
-    """List all projects in Common Project Repository (public, optional-auth)."""
+    """List projects in Common Project Repository (public, optional-auth, searchable)."""
     from . import common_project_repo
     requester_sub = principal.idp_sub if principal else None
     repo = common_project_repo.CommonProjectRepo(conn)
-    projects = await repo.list_all()
+    # Validate and normalize search params
+    tags = [t.strip().lower() for t in tag.split(",") if t.strip()] if tag else None
+    # Cap tags at 5 for query safety
+    if tags:
+        tags = tags[:5]
+    projects = await repo.list_all(q=q, tags=tags if tags else None, limit=limit, offset=offset)
     result = []
     for p in projects:
         author_name = await _get_author_name(conn, p.author_id)

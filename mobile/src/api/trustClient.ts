@@ -493,8 +493,18 @@ export async function latestGenerationJob(projectId: string, token: string): Pro
 
 // ── Common Project Repository ──────────────────────────────────────
 
-export async function listCommonProjects(token: string): Promise<CommonProjectSummary[]> {
-  return (await trustFetch<CommonProjectSummary[]>("/common-projects", token, { method: "GET" })) as CommonProjectSummary[];
+export async function listCommonProjects(
+  token: string,
+  opts?: { q?: string; tag?: string; limit?: number; offset?: number },
+): Promise<CommonProjectSummary[]> {
+  const params = new URLSearchParams();
+  if (opts?.q) params.append("q", opts.q);
+  if (opts?.tag) params.append("tag", opts.tag);
+  if (opts?.limit) params.append("limit", String(opts.limit));
+  if (opts?.offset) params.append("offset", String(opts.offset));
+  const qs = params.toString();
+  const path = `/common-projects${qs ? `?${qs}` : ""}`;
+  return (await trustFetch<CommonProjectSummary[]>(path, token, { method: "GET" })) as CommonProjectSummary[];
 }
 
 export async function getCommonProject(projectId: string, token: string): Promise<CommonProjectDetail> {

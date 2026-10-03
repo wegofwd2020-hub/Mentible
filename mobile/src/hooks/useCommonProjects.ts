@@ -11,7 +11,7 @@ import {
   type ProjectView,
 } from "@/api/trustClient";
 
-export function useCommonProjects() {
+export function useCommonProjects(opts?: { q?: string; tag?: string; limit?: number; offset?: number }) {
   const { accessToken, status } = useAuth();
   const [projects, setProjects] = useState<CommonProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,13 +22,13 @@ export function useCommonProjects() {
     setLoading(true);
     setError(null);
     try {
-      setProjects(await listCommonProjects(accessToken));
+      setProjects(await listCommonProjects(accessToken, opts));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load common projects.");
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, opts]);
 
   useEffect(() => {
     if (status === "signed_in") void refresh();

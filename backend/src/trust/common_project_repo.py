@@ -34,11 +34,37 @@ class CommonProjectRepo:
     def __init__(self, db: asyncpg.Pool):
         self.db = db
 
-    async def list_all(self) -> list[CommonProject]:
-        """List all published common projects (read-only for non-authors)."""
-        rows = await self.db.fetch(
-            f"SELECT {_FIELDS} FROM common_projects ORDER BY created_at DESC"
-        )
+    async def list_all(
+        self, q: str | None = None, tags: list[str] | None = None, limit: int = 20, offset: int = 0
+    ) -> list[CommonProject]:
+        """List published common projects with optional search and tag filter."""
+        # Build WHERE clauses
+        where_clauses = []
+        params = []
+        param_idx = 1
+
+        # Search by title or description (case-insensitive ILIKE)
+        if q:
+            q_pattern = f"%{q}%"
+            where_clauses.append(f"(title ILIKE ${param_idx} OR description ILIKE ${param_idx + 1})")
+            params.extend([q_pattern, q_pattern])
+            param_idx += 2
+
+        # Filter by tags (array overlap)
+        if tags:
+            where_clauses.append(f"tags && ${param_idx}")
+            params.append(tags)
+            param_idx += 1
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
+
+        # Clamp limit
+        limit = min(max(limit, 1), 50)
+
+        sql = f"SELECT {_FIELDS} FROM common_projects WHERE {where_sql} ORDER BY created_at DESC LIMIT ${param_idx} OFFSET ${param_idx + 1}"
+        params.extend([limit, offset])
+
+        rows = await self.db.fetch(sql, *params)
         return [_from_row(r) for r in rows]
 
     async def get_by_id(self, project_id: str) -> CommonProject | None:
