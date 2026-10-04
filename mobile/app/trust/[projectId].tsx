@@ -2505,6 +2505,7 @@ function TrustProjectDetailInner() {
         {isOwner ? (
           <View style={styles.dangerZone}>
             <Button
+              variant="primary"
               label="Share to Common Repository"
               onPress={onShareProject}
               busy={deleteBusy}
