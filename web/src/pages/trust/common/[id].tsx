@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getCommonProject,
+  importCommonProject,
   CommonProjectDetail,
   ApiError,
   StructuredTocView,
   StructuredTocUnit,
+  ProjectView,
 } from "@/lib/api";
+import { ImportConflictDialog } from "@/components/ImportConflictDialog";
+import { Toast } from "@/components/Toast";
 
 export default function CommonProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +19,10 @@ export default function CommonProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [existingProjectTitle, setExistingProjectTitle] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [conflictAction, setConflictAction] = useState<"suffix" | "replace" | null>(null);
 
   const token = localStorage.getItem("sb-mentible-app-auth-token");
   // TODO: Get current user from auth context
@@ -49,8 +57,90 @@ export default function CommonProjectDetailPage() {
       return;
     }
     if (!id) return;
-    // TODO: Implement conflict handling
-    navigate(`/trust/common/${id}/import`, { state: { project } });
+
+    setImporting(true);
+    try {
+      const importedProject = await importCommonProject(id, token);
+      setToast({
+        message: `✓ Imported as "${importedProject.title}"`,
+        type: "success",
+      });
+      setTimeout(() => {
+        navigate(`/projects/${importedProject.id}`);
+      }, 1500);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        // Title conflict - show dialog to handle resolution
+        try {
+          // Try to extract existing title from error message
+          // Backend should return conflict details
+          setExistingProjectTitle(null);
+          setShowConflictDialog(true);
+        } catch {
+          setToast({
+            message: "A project with this title already exists",
+            type: "error",
+          });
+        }
+      } else {
+        setToast({
+          message: e instanceof Error ? e.message : "Import failed",
+          type: "error",
+        });
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportWithSuffix = async () => {
+    if (!token || !id) return;
+    setImporting(true);
+    try {
+      const importedProject = await importCommonProject(id, token, {
+        conflict_action: "new_with_suffix",
+      });
+      setShowConflictDialog(false);
+      setToast({
+        message: `✓ Imported as "${importedProject.title}"`,
+        type: "success",
+      });
+      setTimeout(() => {
+        navigate(`/projects/${importedProject.id}`);
+      }, 1500);
+    } catch (e) {
+      setToast({
+        message: e instanceof Error ? e.message : "Import failed",
+        type: "error",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportReplace = async () => {
+    if (!token || !id) return;
+    setImporting(true);
+    try {
+      const importedProject = await importCommonProject(id, token, {
+        conflict_action: "replace_existing",
+      });
+      setShowConflictDialog(false);
+      setToast({
+        message: `✓ Project replaced and imported`,
+        type: "success",
+      });
+      setTimeout(() => {
+        navigate(`/projects/${importedProject.id}`);
+      }, 1500);
+    } catch (e) {
+      setToast({
+        message: e instanceof Error ? e.message : "Import failed",
+        type: "error",
+      });
+    } finally {
+      setImporting(false);
+    }
   };
 
   const isAuthor = project?.is_author || false;
@@ -186,6 +276,27 @@ export default function CommonProjectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Conflict Dialog */}
+      <ImportConflictDialog
+        isOpen={showConflictDialog}
+        projectTitle={project.title}
+        existingProjectTitle={existingProjectTitle}
+        isLoading={importing}
+        onImportWithSuffix={handleImportWithSuffix}
+        onReplaceExisting={handleImportReplace}
+        onKeepExisting={() => setShowConflictDialog(false)}
+        onCancel={() => setShowConflictDialog(false)}
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
