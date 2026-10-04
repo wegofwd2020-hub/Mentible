@@ -1,6 +1,9 @@
 import { ApiError } from "./common-projects";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://mambakkam.net/mentible-api";
+// Expo export --platform web sets EXPO_PUBLIC_* as window globals
+const API_BASE = typeof window !== 'undefined' && (window as any).EXPO_PUBLIC_API_BASE_URL
+  ? (window as any).EXPO_PUBLIC_API_BASE_URL
+  : "https://mambakkam.net/mentible-api";
 
 async function trustFetch<T>(
   path: string,
