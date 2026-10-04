@@ -65,6 +65,13 @@ export default function AdminPage() {
           <h3 className="font-semibold text-lg mb-1">Intervention Config</h3>
           <p className="text-sm text-gray-600">Configure interventions</p>
         </Link>
+        <Link
+          to="/admin/common-projects"
+          className="p-4 bg-pink-50 border border-pink-200 rounded hover:bg-pink-100"
+        >
+          <h3 className="font-semibold text-lg mb-1">Common Projects</h3>
+          <p className="text-sm text-gray-600">Moderate shared projects</p>
+        </Link>
       </div>
 
       <div className="bg-white border rounded p-6">

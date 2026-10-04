@@ -186,14 +186,84 @@ export async function importCommonProject(
   );
 }
 
+// Admin fetch helper for /api/v1/admin endpoints
+async function adminFetch<T>(
+  path: string,
+  options?: RequestInit & { token?: string },
+): Promise<T> {
+  const { token, ...fetchOptions } = options || {};
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...fetchOptions.headers,
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/api/v1/admin${path}`, {
+    ...fetchOptions,
+    headers,
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+
+  if (res.status === 204) return null as T;
+  return res.json() as Promise<T>;
+}
+
+export interface AdminCommonProjectRow {
+  id: string;
+  title: string;
+  description: string | null;
+  author_name: string;
+  created_at: string;
+  updated_at: string;
+  taken_down_at: string | null;
+  taken_down_reason: string | null;
+}
+
+export interface AdminCommonProjectsList {
+  projects: AdminCommonProjectRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // Admin endpoints — super-admin only
+export async function adminListCommonProjects(
+  opts?: {
+    q?: string;
+    limit?: number;
+    offset?: number;
+    token?: string;
+  },
+): Promise<AdminCommonProjectsList> {
+  const params = new URLSearchParams();
+  if (opts?.q) params.append("q", opts.q);
+  if (opts?.limit) params.append("limit", String(opts.limit));
+  if (opts?.offset) params.append("offset", String(opts.offset));
+
+  const qs = params.toString();
+  const path = `/common-projects${qs ? `?${qs}` : ""}`;
+
+  return adminFetch<AdminCommonProjectsList>(path, {
+    method: "GET",
+    token: opts?.token,
+  });
+}
+
 export async function takeDownCommonProject(
   projectId: string,
   body: { reason: string },
   token: string,
-): Promise<CommonProjectDetail> {
-  return trustFetch<CommonProjectDetail>(
-    `/common-projects/${encodeURIComponent(projectId)}/admin/takedown`,
+): Promise<{ id: string; taken_down_at: string; taken_down_reason: string; message: string }> {
+  return adminFetch(
+    `/common-projects/${encodeURIComponent(projectId)}/takedown`,
     {
       method: "POST",
       body: JSON.stringify(body),
@@ -205,9 +275,9 @@ export async function takeDownCommonProject(
 export async function restoreCommonProject(
   projectId: string,
   token: string,
-): Promise<CommonProjectDetail> {
-  return trustFetch<CommonProjectDetail>(
-    `/common-projects/${encodeURIComponent(projectId)}/admin/restore`,
+): Promise<{ id: string; taken_down_at: null; taken_down_reason: null; message: string }> {
+  return adminFetch(
+    `/common-projects/${encodeURIComponent(projectId)}/restore`,
     {
       method: "POST",
       token,

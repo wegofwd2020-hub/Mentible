@@ -507,6 +507,84 @@ class TakedownResponse(BaseModel):
     message: str
 
 
+class AdminCommonProjectRow(BaseModel):
+    """Common project row for admin list (includes moderation status)."""
+    id: str
+    title: str
+    description: str | None
+    author_name: str
+    created_at: datetime
+    updated_at: datetime
+    taken_down_at: datetime | None
+    taken_down_reason: str | None
+
+
+class AdminCommonProjectsList(BaseModel):
+    """Admin list response for common projects."""
+    projects: list[AdminCommonProjectRow]
+    total: int
+    limit: int
+    offset: int
+
+
+@router.get("/common-projects", response_model=AdminCommonProjectsList)
+async def admin_list_common_projects(
+    q: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    _admin: Principal = Depends(require_super_admin),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> AdminCommonProjectsList:
+    """List all common projects (including taken-down) for admin moderation.
+
+    Search by title/description if q is provided.
+    """
+    search_clause = ""
+    params: list[str | int] = [limit, offset]
+
+    if q:
+        search_clause = "AND (title ILIKE $3 OR description ILIKE $3)"
+        params.insert(2, f"%{q}%")
+
+    # Total count
+    count_query = f"SELECT COUNT(*) as cnt FROM common_projects WHERE 1=1 {search_clause}"
+    count_result = await conn.fetchval(count_query, *params[2:] if q else [])
+    total = count_result or 0
+
+    # Projects list
+    list_query = f"""
+        SELECT id, title, description,
+               (SELECT display_name FROM accounts WHERE idp_sub = common_projects.author_id LIMIT 1) as author_name,
+               created_at, updated_at, taken_down_at, taken_down_reason
+        FROM common_projects
+        WHERE 1=1 {search_clause}
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+    """
+    rows = await conn.fetch(list_query, *params)
+
+    projects = [
+        AdminCommonProjectRow(
+            id=r["id"],
+            title=r["title"],
+            description=r["description"],
+            author_name=r["author_name"] or "(unknown)",
+            created_at=r["created_at"],
+            updated_at=r["updated_at"],
+            taken_down_at=r["taken_down_at"],
+            taken_down_reason=r["taken_down_reason"],
+        )
+        for r in rows
+    ]
+
+    return AdminCommonProjectsList(
+        projects=projects,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.post("/common-projects/{project_id}/takedown", response_model=TakedownResponse)
 async def takedown_common_project(
     project_id: str,
