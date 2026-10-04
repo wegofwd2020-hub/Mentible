@@ -43,7 +43,7 @@ class ApiError extends Error {
   }
 }
 
-const API_BASE = process.env.REACT_APP_API_URL || "https://mambakkam.net/mentible-api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://mambakkam.net/mentible-api";
 
 async function trustFetch<T>(
   path: string,

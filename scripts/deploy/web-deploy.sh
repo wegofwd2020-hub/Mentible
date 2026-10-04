@@ -100,12 +100,16 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"$BASEURL\"#" "$WT/mob
 
 (
   cd "$WT/mobile"
+  # Expo export for web uses Vite, which reads VITE_* prefixed env vars
+  export VITE_API_BASE_URL="$API_BASE_URL"
   export EXPO_PUBLIC_API_BASE_URL="$API_BASE_URL"
   if [ -n "$DEMO_FLAG" ]; then
     # Read-only demo: demo flag on, Supabase OFF (auth unavailable → no sign-in).
     export EXPO_PUBLIC_DEMO_MODE=1
   else
     # Full app: Supabase on (accounts), demo flag off.
+    export VITE_SUPABASE_URL="$SB_URL"
+    export VITE_SUPABASE_ANON_KEY="$SB_KEY"
     export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
     export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
   fi
