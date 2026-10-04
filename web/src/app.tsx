@@ -4,6 +4,7 @@ import { Navigation } from "@/components/Navigation";
 import CommonProjectsPage from "@/pages/trust/common";
 import CommonProjectDetailPage from "@/pages/trust/common/[id]";
 import LoginPage from "@/pages/login";
+import AuthCallbackPage from "@/pages/auth/callback";
 import ProjectsPage from "@/pages/projects";
 import SettingsPage from "@/pages/settings";
 
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           {/* Auth pages (no nav) */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
           {/* App pages (with nav) */}
           <Route

@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 export interface AuthUser {
   sub: string;
@@ -6,11 +8,21 @@ export interface AuthUser {
   email_verified?: boolean;
 }
 
+function mapSupabaseUser(user: User | null): AuthUser | null {
+  if (!user) return null;
+  return {
+    sub: user.id,
+    email: user.email || "",
+    email_verified: user.email_confirmed_at !== null,
+  };
+}
+
 export interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => void;
 }
 
@@ -21,44 +33,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load token from localStorage on mount
+  // Load token from localStorage + check Supabase session on mount
   useEffect(() => {
-    const storedToken = localStorage.getItem("sb-mentible-app-auth-token");
-    const storedUser = localStorage.getItem("sb-mentible-app-user");
-    if (storedToken && storedUser) {
+    const initAuth = async () => {
       try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch {
-        // Invalid stored data, clear
-        localStorage.removeItem("sb-mentible-app-auth-token");
-        localStorage.removeItem("sb-mentible-app-user");
+        // Check for stored token first
+        const storedToken = localStorage.getItem("sb-mentible-app-auth-token");
+        const storedUser = localStorage.getItem("sb-mentible-app-user");
+        if (storedToken && storedUser) {
+          try {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          } catch {
+            localStorage.removeItem("sb-mentible-app-auth-token");
+            localStorage.removeItem("sb-mentible-app-user");
+          }
+        } else {
+          // Check Supabase session
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            const mappedUser = mapSupabaseUser(data.session.user);
+            setToken(data.session.access_token);
+            setUser(mappedUser);
+            localStorage.setItem("sb-mentible-app-auth-token", data.session.access_token);
+            if (mappedUser) {
+              localStorage.setItem("sb-mentible-app-user", JSON.stringify(mappedUser));
+            }
+          }
+        }
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    initAuth();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // TODO: Replace with actual Supabase auth call
-      // This is a placeholder that simulates login
-      const mockToken = `mock-token-${Date.now()}`;
-      const mockUser: AuthUser = {
-        sub: `user-${Date.now()}`,
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        email_verified: true,
-      };
-      setToken(mockToken);
-      setUser(mockUser);
-      localStorage.setItem("sb-mentible-app-auth-token", mockToken);
-      localStorage.setItem("sb-mentible-app-user", JSON.stringify(mockUser));
+        password,
+      });
+
+      if (error) throw error;
+      if (!data.session) throw new Error("No session returned");
+
+      const mappedUser = mapSupabaseUser(data.user);
+      setToken(data.session.access_token);
+      setUser(mappedUser);
+
+      localStorage.setItem("sb-mentible-app-auth-token", data.session.access_token);
+      if (mappedUser) {
+        localStorage.setItem("sb-mentible-app-user", JSON.stringify(mappedUser));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const signOut = () => {
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setToken(null);
     setUser(null);
     localStorage.removeItem("sb-mentible-app-auth-token");
@@ -66,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, signIn, signInWithGoogle, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

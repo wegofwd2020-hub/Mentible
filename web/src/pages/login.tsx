@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { AuthError } from "@supabase/supabase-js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,27 @@ export default function LoginPage() {
       await signIn(email, password);
       navigate("/trust/common");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      if (e instanceof AuthError) {
+        setError(e.message);
+      } else {
+        setError(e instanceof Error ? e.message : "Login failed");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    try {
+      await signInWithGoogle();
+      // Redirect will happen after OAuth callback
+    } catch (e) {
+      if (e instanceof AuthError) {
+        setError(e.message);
+      } else {
+        setError(e instanceof Error ? e.message : "Google sign-in failed");
+      }
     }
   };
 
@@ -75,6 +94,24 @@ export default function LoginPage() {
             className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {loading ? "Signing in..." : "Sign In"}
+          </button>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+          >
+            🔷 Google
           </button>
         </form>
 
