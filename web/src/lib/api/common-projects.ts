@@ -20,6 +20,7 @@ export interface CommonProjectDetail extends CommonProjectSummary {
   taken_down_reason?: string | null;
 }
 
+// API returns array directly, wrapper for pagination state
 export interface CommonProjectsListResponse {
   projects: CommonProjectSummary[];
   total: number;
@@ -94,11 +95,20 @@ export async function listCommonProjects(
   const qs = params.toString();
   const path = `/common-projects${qs ? `?${qs}` : ""}`;
 
-  return trustFetch<CommonProjectsListResponse>(path, {
+  // Backend returns array directly
+  const projects = await trustFetch<CommonProjectSummary[]>(path, {
     method: "GET",
     token: opts?.token,
     allowOptionalAuth: true,
   });
+
+  // Wrap for pagination state
+  return {
+    projects: projects || [],
+    total: projects?.length || 0,
+    limit: opts?.limit || 20,
+    offset: opts?.offset || 0,
+  };
 }
 
 export async function getCommonProject(
