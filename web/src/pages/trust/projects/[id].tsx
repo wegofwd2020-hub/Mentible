@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getProject, ProjectDetail } from "@/lib/api/trust";
+import { getProject, generateTopics, publishProject, ProjectDetail } from "@/lib/api/trust";
+import { ImportConflictDialog } from "@/components/ImportConflictDialog";
+import { Toast } from "@/components/Toast";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +14,10 @@ export default function ProjectDetailPage() {
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -78,6 +84,41 @@ export default function ProjectDetailPage() {
       console.error("Save error:", e);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!token || !id) return;
+    setGenerating(true);
+    try {
+      const result = await generateTopics(id, token);
+      setToast({ message: `Started topic generation (Job: ${result.job_id})`, type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Generation failed", type: "error" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handlePublish = async (title: string, description: string, tags: string[]) => {
+    if (!token || !project) return;
+    setPublishing(true);
+    try {
+      const result = await publishProject(
+        {
+          title,
+          description,
+          tags,
+          project_data: project,
+        },
+        token,
+      );
+      setToast({ message: `Published as "${result.title}" (ID: ${result.id})`, type: "success" });
+      setShowPublishDialog(false);
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Publish failed", type: "error" });
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -243,16 +284,18 @@ export default function ProjectDetailPage() {
           {isOwner && (
             <div className="space-y-2">
               <button
-                disabled
+                onClick={handleGenerate}
+                disabled={generating}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
               >
-                📤 Generate Topics
+                {generating ? "Generating..." : "📤 Generate Topics"}
               </button>
               <button
-                disabled
+                onClick={() => setShowPublishDialog(true)}
+                disabled={publishing}
                 className="w-full px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
               >
-                🚀 Publish to Common
+                {publishing ? "Publishing..." : "🚀 Publish to Common"}
               </button>
               <button
                 disabled
@@ -264,6 +307,24 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Dialog and Toast */}
+      <ImportConflictDialog
+        projectTitle={p.title}
+        isOpen={showPublishDialog}
+        isLoading={publishing}
+        mode="publish"
+        onPublish={handlePublish}
+        onCancel={() => setShowPublishDialog(false)}
+      />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
