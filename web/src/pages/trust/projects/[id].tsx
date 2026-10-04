@@ -1,22 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { getProject, ProjectDetail } from "@/lib/api/trust";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { token } = useAuth();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-
-  const token = localStorage.getItem("sb-mentible-app-auth-token");
+  const [editField, setEditField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      if (!token || !id) {
-        navigate("/auth/login");
-        return;
-      }
+      if (!token || !id) return;
       setLoading(true);
       setError(null);
       try {
@@ -29,11 +28,7 @@ export default function ProjectDetailPage() {
       }
     };
     load();
-  }, [token, id, navigate]);
-
-  if (!token) {
-    return null;
-  }
+  }, [token, id]);
 
   if (loading) {
     return <div className="max-w-7xl mx-auto p-6 text-center py-8">Loading...</div>;
@@ -51,6 +46,79 @@ export default function ProjectDetailPage() {
   }
 
   const { project: p, artifacts, my_role, inputs, topic_status, book_validated } = project;
+  const isOwner = my_role === "owner";
+
+  const startEdit = (field: string, value: string) => {
+    setEditField(field);
+    setEditValue(value);
+  };
+
+  const cancelEdit = () => {
+    setEditField(null);
+    setEditValue("");
+  };
+
+  const saveEdit = async () => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      // TODO: Call PATCH /api/v1/trust/projects/{id} with { [editField]: editValue }
+      // For now, just update local state
+      if (editField === "title") {
+        setProject({ ...project, project: { ...p, title: editValue } });
+      } else if (editField === "topic") {
+        setProject({ ...project, project: { ...p, topic: editValue } });
+      } else if (editField === "audience") {
+        setProject({ ...project, project: { ...p, audience: editValue } });
+      } else if (editField === "goal") {
+        setProject({ ...project, project: { ...p, goal: editValue } });
+      }
+      setEditField(null);
+    } catch (e) {
+      console.error("Save error:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const EditableField = ({ label, field, value }: { label: string; field: string; value: string | null }) => {
+    const isEditing = editField === field;
+    return (
+      <div className="mb-4">
+        <label className="text-sm text-gray-600 block mb-1">{label}</label>
+        {isEditing ? (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="flex-1 px-3 py-2 border rounded text-sm"
+              autoFocus
+            />
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button onClick={cancelEdit} className="px-3 py-2 bg-gray-300 text-gray-700 text-sm rounded">
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => isOwner && startEdit(field, value || "")}
+            className={`p-2 rounded ${
+              isOwner ? "cursor-pointer hover:bg-gray-100" : ""
+            } text-sm`}
+          >
+            {value || "(empty)"}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -59,11 +127,16 @@ export default function ProjectDetailPage() {
       </Link>
 
       <div className="mt-4 mb-6">
-        <h1 className="text-3xl font-bold mb-2">{p.title}</h1>
-        <div className="flex gap-4 text-sm text-gray-600">
-          <span>Status: {p.status}</span>
-          <span>Role: {my_role}</span>
-          {p.created_at && <span>Created: {new Date(p.created_at).toLocaleDateString()}</span>}
+        <div className="flex justify-between items-start gap-4">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold mb-2">{p.title}</h1>
+            <div className="flex gap-4 text-sm text-gray-600">
+              <span>Status: {p.status}</span>
+              <span>Role: {my_role}</span>
+              {p.created_at && <span>Created: {new Date(p.created_at).toLocaleDateString()}</span>}
+            </div>
+          </div>
+          {isOwner && <div className="text-xs text-gray-500">Click fields to edit</div>}
         </div>
       </div>
 
@@ -73,24 +146,9 @@ export default function ProjectDetailPage() {
           {/* Project metadata */}
           <div className="bg-white border rounded p-4 mb-6">
             <h2 className="text-lg font-semibold mb-3">Overview</h2>
-            {p.topic && (
-              <div className="mb-3">
-                <label className="text-sm text-gray-600">Topic</label>
-                <p className="text-base">{p.topic}</p>
-              </div>
-            )}
-            {p.audience && (
-              <div className="mb-3">
-                <label className="text-sm text-gray-600">Audience</label>
-                <p className="text-base">{p.audience}</p>
-              </div>
-            )}
-            {p.goal && (
-              <div className="mb-3">
-                <label className="text-sm text-gray-600">Goal</label>
-                <p className="text-base">{p.goal}</p>
-              </div>
-            )}
+            <EditableField label="Topic" field="topic" value={p.topic} />
+            <EditableField label="Audience" field="audience" value={p.audience} />
+            <EditableField label="Goal" field="goal" value={p.goal} />
             {p.rights_holder && (
               <div className="mb-3">
                 <label className="text-sm text-gray-600">Rights Holder</label>
@@ -124,9 +182,7 @@ export default function ProjectDetailPage() {
               <div className="space-y-4">
                 {artifacts.map((artifact) => (
                   <div key={artifact.id} className="border rounded p-3">
-                    <div className="font-semibold text-base">
-                      {artifact.title || artifact.format}
-                    </div>
+                    <div className="font-semibold text-base">{artifact.title || artifact.format}</div>
                     <div className="text-sm text-gray-600 mt-1">
                       Role: {artifact.role} | Format: {artifact.format}
                     </div>
@@ -147,7 +203,10 @@ export default function ProjectDetailPage() {
               <h2 className="text-lg font-semibold mb-3">Topics ({topic_status.length})</h2>
               <div className="space-y-2">
                 {topic_status.map((topic) => (
-                  <div key={topic.topic_id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                  <div
+                    key={topic.topic_id}
+                    className="flex justify-between items-center py-2 border-b last:border-b-0"
+                  >
                     <span className="text-sm">{topic.topic_name || topic.topic_id}</span>
                     <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100">
                       {topic.status}
@@ -177,28 +236,29 @@ export default function ProjectDetailPage() {
           <div className="bg-white border rounded p-4 mb-4">
             <h3 className="font-semibold text-sm mb-2">Your Role</h3>
             <p className="text-sm text-gray-700 capitalize">{my_role}</p>
-            {my_role === "owner" && (
-              <p className="text-xs text-gray-500 mt-2">You own this project.</p>
-            )}
-            {my_role === "reviewer" && (
-              <p className="text-xs text-gray-500 mt-2">You are invited to review this project.</p>
-            )}
+            {isOwner && <p className="text-xs text-gray-500 mt-2">You own this project.</p>}
           </div>
 
           {/* Action buttons */}
-          {my_role === "owner" && (
+          {isOwner && (
             <div className="space-y-2">
               <button
                 disabled
-                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50 text-sm"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
               >
-                Invite Reviewer
+                📤 Generate Topics
               </button>
               <button
                 disabled
-                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50 text-sm"
+                className="w-full px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
               >
-                Edit Project
+                🚀 Publish to Common
+              </button>
+              <button
+                disabled
+                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm disabled:opacity-50"
+              >
+                👥 Invite Reviewer
               </button>
             </div>
           )}
