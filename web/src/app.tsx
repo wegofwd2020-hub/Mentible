@@ -1,4 +1,3 @@
-// Build: 2025-01-14 env var fix
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navigation } from "@/components/Navigation";
@@ -11,6 +10,8 @@ import LoginPage from "@/pages/login";
 import AuthCallbackPage from "@/pages/auth/callback";
 import ProjectsPage from "@/pages/projects";
 import SettingsPage from "@/pages/settings";
+
+const APP_VERSION = "4.2.1";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
