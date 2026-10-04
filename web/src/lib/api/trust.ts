@@ -122,4 +122,39 @@ export async function getProject(projectId: string, token: string): Promise<Proj
   });
 }
 
+export async function updateProject(
+  projectId: string,
+  data: { title?: string; topic?: string; audience?: string; goal?: string },
+  token: string,
+): Promise<ProjectDetail> {
+  return trustFetch<ProjectDetail>(`/projects/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+    token,
+  });
+}
+
+export async function generateTopics(projectId: string, token: string): Promise<{ job_id: string }> {
+  return trustFetch<{ job_id: string }>(`/projects/${encodeURIComponent(projectId)}/generate`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function publishProject(
+  data: {
+    title: string;
+    description?: string;
+    tags?: string[];
+    project_data: Record<string, unknown>;
+  },
+  token: string,
+): Promise<{ id: string; title: string }> {
+  return trustFetch<{ id: string; title: string }>("/common-projects", {
+    method: "POST",
+    body: JSON.stringify(data),
+    token,
+  });
+}
+
 export { ApiError };
