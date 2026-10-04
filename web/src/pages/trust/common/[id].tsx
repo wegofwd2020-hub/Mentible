@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   getCommonProject,
   importCommonProject,
@@ -15,6 +16,7 @@ import { Toast } from "@/components/Toast";
 export default function CommonProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { token, user } = useAuth();
   const [project, setProject] = useState<CommonProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +25,6 @@ export default function CommonProjectDetailPage() {
   const [existingProjectTitle, setExistingProjectTitle] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [conflictAction, setConflictAction] = useState<"suffix" | "replace" | null>(null);
-
-  const token = localStorage.getItem("sb-mentible-app-auth-token");
-  // TODO: Get current user from auth context
-  const currentUserEmail = localStorage.getItem("sb-mentible-app-email");
 
   useEffect(() => {
     const loadProject = async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   listCommonProjects,
   CommonProjectSummary,
@@ -11,6 +12,7 @@ const PAGE_SIZE = 20;
 
 export default function CommonProjectsPage() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [projects, setProjects] = useState<CommonProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +21,6 @@ export default function CommonProjectsPage() {
   const [sortBy, setSortBy] = useState<"newest" | "popular" | "author">("newest");
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-
-  const token = localStorage.getItem("sb-mentible-app-auth-token");
 
   const loadProjects = async (
     query: string,

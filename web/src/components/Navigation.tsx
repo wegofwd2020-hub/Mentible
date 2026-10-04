@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Navigation() {
   const location = useLocation();
-  const token = localStorage.getItem("sb-mentible-app-auth-token");
+  const { token, signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -58,7 +59,7 @@ export function Navigation() {
               {token ? (
                 <button
                   onClick={() => {
-                    localStorage.removeItem("sb-mentible-app-auth-token");
+                    signOut();
                     window.location.href = "/";
                   }}
                   className="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 rounded hover:bg-red-50"
