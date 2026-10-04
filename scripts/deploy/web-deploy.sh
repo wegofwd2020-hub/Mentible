@@ -99,29 +99,17 @@ ln -s "$SELF/mobile/node_modules" "$WT/mobile/node_modules"
 sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"$BASEURL\"#" "$WT/mobile/app.json"
 
 (
-  cd "$WT/mobile"
-  # Expo export for web uses Vite, which reads VITE_* prefixed env vars
+  cd "$WT/web"
+  # Web app uses Vite, which reads VITE_* prefixed env vars
   export VITE_API_BASE_URL="$API_BASE_URL"
-  export EXPO_PUBLIC_API_BASE_URL="$API_BASE_URL"
-  if [ -n "$DEMO_FLAG" ]; then
-    # Read-only demo: demo flag on, Supabase OFF (auth unavailable → no sign-in).
-    export EXPO_PUBLIC_DEMO_MODE=1
-  else
-    # Full app: Supabase on (accounts), demo flag off.
-    export VITE_SUPABASE_URL="$SB_URL"
-    export VITE_SUPABASE_ANON_KEY="$SB_KEY"
-    export EXPO_PUBLIC_SUPABASE_URL="$SB_URL"
-    export EXPO_PUBLIC_SUPABASE_ANON_KEY="$SB_KEY"
-  fi
-  # --clear is REQUIRED: without it, an export reuses a stale metro asset cache
-  # from a prior build with different env (e.g. an app build before a demo build)
-  # and silently drops assets — the demo once shipped with 0 of its 55 fonts.
-  npx expo export --platform web --clear >/dev/null
+  export VITE_SUPABASE_URL="$SB_URL"
+  export VITE_SUPABASE_ANON_KEY="$SB_KEY"
+  npm run build >/dev/null 2>&1
 )
 
-grep -q "${BASEURL%/}/_expo/" "$WT/mobile/dist/index.html" \
-  || { echo "✗ baseUrl $BASEURL not baked into the build"; exit 1; }
-BUILT="$(find "$WT/mobile/dist" -type f | wc -l)"
+grep -q "index" "$WT/web/dist/index.html" \
+  || { echo "✗ build failed or index.html not found"; exit 1; }
+BUILT="$(find "$WT/web/dist" -type f | wc -l)"
 echo "  built $BUILT files from main@$MAIN_SHA"
 
 # Open Graph / Twitter meta so shared links (WhatsApp, Slack, iMessage…) show a
@@ -130,9 +118,9 @@ echo "  built $BUILT files from main@$MAIN_SHA"
 # The og:image (mobile/public/og-image.jpg, 1200×630) + copy mirror the landing
 # page (mambakkam.net/mentible). Idempotent: skips if a build ever ships its own.
 SITE_URL="https://${VHOST}${BASEURL}"
-cp -f "$WT/mobile/public/og-image.jpg" "$WT/mobile/dist/og-image.jpg" 2>/dev/null || true
+cp -f "$WT/web/public/og-image.jpg" "$WT/web/dist/og-image.jpg" 2>/dev/null || true
 OG_DESC="Expert-validated books, guides, and social content — drafted by AI from your own sources, every claim cited back to one, then reviewed and signed off by a named expert."
-python3 - "$WT/mobile/dist/index.html" "$SITE_URL" "$OG_DESC" <<'PYOG'
+python3 - "$WT/web/dist/index.html" "$SITE_URL" "$OG_DESC" <<'PYOG'
 import sys, html
 path, site, desc = sys.argv[1], sys.argv[2], sys.argv[3]
 doc = open(path, encoding="utf-8").read()
@@ -169,7 +157,7 @@ fi
 
 rm -rf "${MB:?}/public/$PUBDIR"/*
 mkdir -p "$MB/public/$PUBDIR"
-cp -r "$WT/mobile/dist/." "$MB/public/$PUBDIR/"
+cp -r "$WT/web/dist/." "$MB/public/$PUBDIR/"
 git -C "$MB" add -f "public/$PUBDIR"   # -f: node_modules/-path fonts are gitignored otherwise
 STAGED="$(git -C "$MB" ls-files "public/$PUBDIR" | wc -l)"
 echo "  staged $STAGED files into public/$PUBDIR"
