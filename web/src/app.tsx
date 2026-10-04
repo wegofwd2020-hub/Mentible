@@ -3,6 +3,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Navigation } from "@/components/Navigation";
 import CommonProjectsPage from "@/pages/trust/common";
 import CommonProjectDetailPage from "@/pages/trust/common/[id]";
+import TrustProjectsPage from "@/pages/trust/projects";
+import TrustProjectDetailPage from "@/pages/trust/projects/[id]";
+import ReviewsPage from "@/pages/trust/reviews";
 import LoginPage from "@/pages/login";
 import AuthCallbackPage from "@/pages/auth/callback";
 import ProjectsPage from "@/pages/projects";
@@ -48,6 +51,30 @@ export default function App() {
             element={
               <AppLayout>
                 <CommonProjectDetailPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/trust/projects"
+            element={
+              <AppLayout>
+                <TrustProjectsPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/trust/projects/:id"
+            element={
+              <AppLayout>
+                <TrustProjectDetailPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/trust/reviews"
+            element={
+              <AppLayout>
+                <ReviewsPage />
               </AppLayout>
             }
           />

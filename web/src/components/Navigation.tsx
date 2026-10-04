@@ -32,14 +32,24 @@ export function Navigation() {
             {token && (
               <>
                 <Link
-                  to="/projects"
+                  to="/trust/projects"
                   className={`font-medium transition ${
-                    isActive("/projects")
+                    isActive("/trust/projects")
                       ? "text-blue-600 border-b-2 border-blue-600 pb-1"
                       : "text-gray-700 hover:text-gray-900"
                   }`}
                 >
-                  My Projects
+                  Projects
+                </Link>
+                <Link
+                  to="/trust/reviews"
+                  className={`font-medium transition ${
+                    isActive("/trust/reviews")
+                      ? "text-blue-600 border-b-2 border-blue-600 pb-1"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  Reviews
                 </Link>
                 <Link
                   to="/settings"
