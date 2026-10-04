@@ -18,6 +18,6 @@ export default defineConfig({
     sourcemap: false,
   },
   define: {
-    'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'https://mambakkam.net/mentible-api'),
+    'process.env.REACT_APP_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://mambakkam.net/mentible-api'),
   },
 })
