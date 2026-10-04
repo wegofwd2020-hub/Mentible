@@ -109,7 +109,16 @@ export default function ProjectDetailPage() {
           title,
           description,
           tags,
-          project_data: project,
+          project_data: {
+            topic: project.project.topic,
+            audience: project.project.audience,
+            goal: project.project.goal,
+            artifacts: project.artifacts.map((a) => ({
+              id: a.id,
+              format: a.format,
+              title: a.title,
+            })),
+          },
         },
         token,
       );
