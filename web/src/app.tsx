@@ -11,8 +11,6 @@ import AuthCallbackPage from "@/pages/auth/callback";
 import ProjectsPage from "@/pages/projects";
 import SettingsPage from "@/pages/settings";
 
-const APP_VERSION = "4.2.1";
-
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-white">
