@@ -1,6 +1,27 @@
-import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+interface ProjectSummary {
+  id: string;
+  title: string;
+}
+
+interface JourneyDataPoint {
+  date: string;
+  stalled_count: number;
+}
 
 interface Bottleneck {
   project_id: string;
@@ -14,202 +35,202 @@ interface Bottleneck {
   re_engagement_rate_pct: number | null;
 }
 
-interface FunnelRow {
-  project_id: string;
-  from_stage: string;
-  to_stage: string;
-  users_at_from_stage: number;
-  users_advanced: number;
-  advancement_rate_pct: number;
-}
-
-interface StalledUser {
-  user_id: string;
-  email: string;
-  project_id: string;
-  project_name: string;
-  journey_stage: string;
-  stalled_at: string;
-  days_stalled: number;
-  intervention_attempt_count: number;
-  last_intervention_sent_at: string | null;
-}
-
 interface ProjectUXAnalytics {
   bottlenecks: Bottleneck[];
-  funnel: FunnelRow[];
-  stalled_users: StalledUser[];
+  journey_data: JourneyDataPoint[];
+  stalled_count: number;
+  total_users: number;
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  discover_join: "#3B82F6",
-  create_first_value: "#10B981",
-  refine_validate: "#F59E0B",
-  finish_pay: "#EF4444",
-  return_advocate: "#8B5CF6",
-};
-
 export default function ProjectUXDashboard() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { token } = useAuth();
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [data, setData] = useState<ProjectUXAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Load owned projects
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    const loadProjects = async () => {
+      if (!token) return;
       try {
-        const response = await fetch(
-          `/api/v1/analytics/dashboards/project-ux/${projectId}`,
+        const res = await fetch("/api/v1/trust/projects", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load projects");
+        const list = await res.json();
+        setProjects(list);
+        if (list.length > 0) {
+          setSelectedProjectId(list[0].id);
+        }
+      } catch (e) {
+        console.error("Load projects error:", e);
+      }
+    };
+    loadProjects();
+  }, [token]);
+
+  // Load analytics for selected project
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      if (!token || !selectedProjectId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/v1/analytics/dashboards/project-ux/${selectedProjectId}`,
           {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
-        if (!response.ok) throw new Error("Failed to fetch analytics");
-        const result = await response.json();
+        if (!res.ok) {
+          if (res.status === 404) {
+            setData(null);
+            setError("No analytics data available for this project yet");
+            return;
+          }
+          throw new Error("Failed to fetch analytics");
+        }
+        const result = await res.json();
         setData(result);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Unknown error");
+        setData(null);
       } finally {
         setLoading(false);
       }
     };
+    loadAnalytics();
+  }, [token, selectedProjectId]);
 
-    if (projectId) fetchAnalytics();
-  }, [projectId]);
-
-  if (loading) return <div className="p-8">Loading analytics...</div>;
-  if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
-  if (!data) return <div className="p-8">No data available</div>;
+  if (loading) {
+    return <div className="max-w-7xl mx-auto p-6 text-center py-8">Loading...</div>;
+  }
 
   return (
-    <div className="p-8 space-y-8">
-      <h1 className="text-3xl font-bold">Project UX Analytics</h1>
+    <div className="max-w-7xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
 
-      {/* Bottleneck Analysis */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Stage Bottleneck Analysis</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data.bottlenecks}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="journey_stage" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="stall_rate_pct" fill="#EF4444" name="Stall Rate (%)" />
-            <Bar
-              dataKey="re_engagement_rate_pct"
-              fill="#10B981"
-              name="Re-engagement Rate (%)"
-            />
-          </BarChart>
-        </ResponsiveContainer>
-        <table className="w-full mt-6 text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2">Stage</th>
-              <th className="text-right py-2">Users</th>
-              <th className="text-right py-2">Stalled</th>
-              <th className="text-right py-2">Stall %</th>
-              <th className="text-right py-2">Interventions</th>
-              <th className="text-right py-2">Re-engaged</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.bottlenecks.map((row) => (
-              <tr key={row.journey_stage} className="border-b hover:bg-gray-50">
-                <td className="py-2">{row.journey_stage}</td>
-                <td className="text-right">{row.total_users_at_stage}</td>
-                <td className="text-right">{row.stalled_count}</td>
-                <td className="text-right font-semibold text-red-600">
-                  {row.stall_rate_pct.toFixed(1)}%
-                </td>
-                <td className="text-right">{row.intervention_sent_count}</td>
-                <td className="text-right text-green-600">
-                  {row.resumed_after_intervention_count}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Funnel Analysis */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Completion Funnel</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data.funnel}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="from_stage"
-              angle={-45}
-              textAnchor="end"
-              height={100}
-            />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar
-              dataKey="advancement_rate_pct"
-              fill="#3B82F6"
-              name="Advancement %"
-            />
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {data.funnel.map((row) => (
-            <div key={`${row.from_stage}-${row.to_stage}`} className="p-4 border rounded">
-              <div className="text-sm text-gray-600">
-                {row.from_stage} → {row.to_stage}
-              </div>
-              <div className="text-2xl font-bold text-blue-600">
-                {row.advancement_rate_pct.toFixed(1)}%
-              </div>
-              <div className="text-xs text-gray-500">
-                {row.users_advanced} of {row.users_at_from_stage} advanced
-              </div>
-            </div>
+      {/* Project selector */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Project</label>
+        <select
+          value={selectedProjectId}
+          onChange={(e) => setSelectedProjectId(e.target.value)}
+          className="px-4 py-2 border rounded-lg"
+        >
+          <option value="">-- Choose a project --</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
-      {/* Stalled Users */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Stalled Users</h2>
-        {data.stalled_users.length === 0 ? (
-          <p className="text-gray-600">No stalled users</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Email</th>
-                <th className="text-left py-2">Stage</th>
-                <th className="text-right py-2">Days Stalled</th>
-                <th className="text-right py-2">Interventions</th>
-                <th className="text-left py-2">Last Sent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.stalled_users.map((user) => (
-                <tr key={user.user_id} className="border-b hover:bg-gray-50">
-                  <td className="py-2">{user.email}</td>
-                  <td className="py-2">{user.journey_stage}</td>
-                  <td className="text-right">{user.days_stalled}</td>
-                  <td className="text-right font-semibold">
-                    {user.intervention_attempt_count}
-                  </td>
-                  <td className="py-2 text-xs text-gray-500">
-                    {user.last_intervention_sent_at
-                      ? new Date(user.last_intervention_sent_at).toLocaleDateString()
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {!selectedProjectId && (
+        <div className="text-center py-12">
+          <p className="text-gray-600">Select a project to view analytics</p>
+        </div>
+      )}
+
+      {selectedProjectId && !data && error && (
+        <div className="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded">
+          {error}
+        </div>
+      )}
+
+      {selectedProjectId && data && (
+        <div className="space-y-6">
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white border rounded p-4">
+              <div className="text-sm text-gray-600">Total Users</div>
+              <div className="text-2xl font-bold mt-1">{data.total_users}</div>
+            </div>
+            <div className="bg-white border rounded p-4">
+              <div className="text-sm text-gray-600">Currently Stalled</div>
+              <div className="text-2xl font-bold text-red-600 mt-1">{data.stalled_count}</div>
+            </div>
+          </div>
+
+          {/* Journey graph */}
+          {data.journey_data.length > 0 && (
+            <div className="bg-white border rounded p-6">
+              <h2 className="text-lg font-semibold mb-4">Stalled Users Over Time</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.journey_data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="stalled_count"
+                    stroke="#EF4444"
+                    name="Stalled Users"
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Bottleneck analysis */}
+          {data.bottlenecks.length > 0 && (
+            <div className="bg-white border rounded p-6">
+              <h2 className="text-lg font-semibold mb-4">Stage Bottleneck Analysis</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.bottlenecks}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="journey_stage" angle={-45} textAnchor="end" height={100} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="stall_rate_pct" fill="#EF4444" name="Stall Rate (%)" />
+                  <Bar
+                    dataKey="re_engagement_rate_pct"
+                    fill="#10B981"
+                    name="Re-engagement Rate (%)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Bottleneck table */}
+              <table className="w-full mt-6 text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Stage</th>
+                    <th className="text-right py-2">Users</th>
+                    <th className="text-right py-2">Stalled</th>
+                    <th className="text-right py-2">Stall %</th>
+                    <th className="text-right py-2">Interventions</th>
+                    <th className="text-right py-2">Re-engaged</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.bottlenecks.map((row) => (
+                    <tr key={row.journey_stage} className="border-b hover:bg-gray-50">
+                      <td className="py-2">{row.journey_stage}</td>
+                      <td className="text-right">{row.total_users_at_stage}</td>
+                      <td className="text-right">{row.stalled_count}</td>
+                      <td className="text-right font-semibold text-red-600">
+                        {row.stall_rate_pct.toFixed(1)}%
+                      </td>
+                      <td className="text-right">{row.intervention_sent_count}</td>
+                      <td className="text-right text-green-600">
+                        {row.resumed_after_intervention_count}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
