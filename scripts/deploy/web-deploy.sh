@@ -100,6 +100,7 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"$BASEURL\"#" "$WT/mob
 
 (
   cd "$WT/web"
+  npm install >/dev/null 2>&1
   # Web app uses Vite, which reads VITE_* prefixed env vars
   export VITE_API_BASE_URL="$API_BASE_URL"
   export VITE_SUPABASE_URL="$SB_URL"
