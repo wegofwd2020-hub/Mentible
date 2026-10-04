@@ -4,6 +4,8 @@ import { Navigation } from "@/components/Navigation";
 import CommonProjectsPage from "@/pages/trust/common";
 import CommonProjectDetailPage from "@/pages/trust/common/[id]";
 import LoginPage from "@/pages/login";
+import ProjectsPage from "@/pages/projects";
+import SettingsPage from "@/pages/settings";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -44,6 +46,22 @@ export default function App() {
             element={
               <AppLayout>
                 <CommonProjectDetailPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <AppLayout>
+                <ProjectsPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <AppLayout>
+                <SettingsPage />
               </AppLayout>
             }
           />
