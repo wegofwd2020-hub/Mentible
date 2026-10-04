@@ -157,4 +157,19 @@ export async function publishProject(
   });
 }
 
+export async function inviteReviewer(
+  projectId: string,
+  email: string,
+  token: string,
+): Promise<{ id: string; invited_email: string; role: string }> {
+  return trustFetch<{ id: string; invited_email: string; role: string }>(
+    `/projects/${encodeURIComponent(projectId)}/invitations`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+      token,
+    },
+  );
+}
+
 export { ApiError };

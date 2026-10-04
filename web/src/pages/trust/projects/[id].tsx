@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getProject, generateTopics, publishProject, ProjectDetail } from "@/lib/api/trust";
+import { getProject, generateTopics, publishProject, inviteReviewer, ProjectDetail } from "@/lib/api/trust";
 import { ImportConflictDialog } from "@/components/ImportConflictDialog";
 import { Toast } from "@/components/Toast";
 
@@ -15,8 +15,11 @@ export default function ProjectDetailPage() {
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
@@ -128,6 +131,21 @@ export default function ProjectDetailPage() {
       setToast({ message: e instanceof Error ? e.message : "Publish failed", type: "error" });
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!token || !id || !inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      const result = await inviteReviewer(id, inviteEmail.trim(), token);
+      setToast({ message: `Invited ${result.invited_email} as ${result.role}`, type: "success" });
+      setShowInviteDialog(false);
+      setInviteEmail("");
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Invite failed", type: "error" });
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -307,10 +325,11 @@ export default function ProjectDetailPage() {
                 {publishing ? "Publishing..." : "🚀 Publish to Common"}
               </button>
               <button
-                disabled
-                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm disabled:opacity-50"
+                onClick={() => setShowInviteDialog(true)}
+                disabled={inviting}
+                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 disabled:opacity-50"
               >
-                👥 Invite Reviewer
+                {inviting ? "Inviting..." : "👥 Invite Reviewer"}
               </button>
             </div>
           )}
@@ -326,6 +345,50 @@ export default function ProjectDetailPage() {
         onPublish={handlePublish}
         onCancel={() => setShowPublishDialog(false)}
       />
+
+      {/* Invite Reviewer Dialog */}
+      {showInviteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Invite Reviewer</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the email address of an expert reviewer who can review and approve versions.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                disabled={inviting}
+                placeholder="reviewer@example.com"
+                className="w-full px-3 py-2 border rounded text-sm disabled:bg-gray-100"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={handleInvite}
+                disabled={inviting || !inviteEmail.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {inviting ? "Sending..." : "Send Invite"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowInviteDialog(false);
+                  setInviteEmail("");
+                }}
+                disabled={inviting}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <Toast
