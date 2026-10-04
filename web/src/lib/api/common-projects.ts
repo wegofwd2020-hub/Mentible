@@ -1,0 +1,208 @@
+import { ProjectView, StructuredTocView } from "./types";
+
+export interface CommonProjectSummary {
+  id: string;
+  author_name: string;
+  title: string;
+  description: string | null;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+  is_author: boolean;
+}
+
+export interface CommonProjectDetail extends CommonProjectSummary {
+  project_data: {
+    toc?: StructuredTocView;
+    [key: string]: unknown;
+  };
+  taken_down_at?: string | null;
+  taken_down_reason?: string | null;
+}
+
+export interface CommonProjectsListResponse {
+  projects: CommonProjectSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ImportConflictResolution {
+  action: "keep_existing" | "keep_new" | "new_with_suffix";
+  new_title?: string;
+}
+
+class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+const API_BASE = process.env.REACT_APP_API_URL || "https://mambakkam.net/mentible-api";
+
+async function trustFetch<T>(
+  path: string,
+  options?: RequestInit & { token?: string; allowOptionalAuth?: boolean },
+): Promise<T> {
+  const { token, allowOptionalAuth, ...fetchOptions } = options || {};
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...fetchOptions.headers,
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/api/v1/trust${path}`, {
+    ...fetchOptions,
+    headers,
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+
+  if (res.status === 204) return null as T;
+  return res.json() as Promise<T>;
+}
+
+export async function listCommonProjects(
+  opts?: {
+    q?: string;
+    tag?: string | string[];
+    limit?: number;
+    offset?: number;
+    token?: string;
+  },
+): Promise<CommonProjectsListResponse> {
+  const params = new URLSearchParams();
+  if (opts?.q) params.append("q", opts.q);
+  if (opts?.tag) {
+    const tags = Array.isArray(opts.tag) ? opts.tag : [opts.tag];
+    tags.forEach((t) => params.append("tag", t));
+  }
+  if (opts?.limit) params.append("limit", String(opts.limit));
+  if (opts?.offset) params.append("offset", String(opts.offset));
+
+  const qs = params.toString();
+  const path = `/common-projects${qs ? `?${qs}` : ""}`;
+
+  return trustFetch<CommonProjectsListResponse>(path, {
+    method: "GET",
+    token: opts?.token,
+    allowOptionalAuth: true,
+  });
+}
+
+export async function getCommonProject(
+  projectId: string,
+  token?: string,
+): Promise<CommonProjectDetail> {
+  return trustFetch<CommonProjectDetail>(
+    `/common-projects/${encodeURIComponent(projectId)}`,
+    {
+      method: "GET",
+      token,
+      allowOptionalAuth: true,
+    },
+  );
+}
+
+export async function publishCommonProject(
+  body: {
+    title: string;
+    description?: string;
+    tags?: string[];
+    project_data: Record<string, unknown>;
+  },
+  token: string,
+): Promise<CommonProjectDetail> {
+  return trustFetch<CommonProjectDetail>("/common-projects", {
+    method: "POST",
+    body: JSON.stringify(body),
+    token,
+  });
+}
+
+export async function updateCommonProject(
+  projectId: string,
+  body: {
+    title: string;
+    description?: string;
+    tags?: string[];
+    project_data: Record<string, unknown>;
+  },
+  token: string,
+): Promise<CommonProjectDetail> {
+  return trustFetch<CommonProjectDetail>(
+    `/common-projects/${encodeURIComponent(projectId)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export async function deleteCommonProject(
+  projectId: string,
+  token: string,
+): Promise<void> {
+  await trustFetch<null>(`/common-projects/${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+export async function importCommonProject(
+  projectId: string,
+  token: string,
+  opts?: { conflict_action?: string; new_title?: string },
+): Promise<ProjectView> {
+  return trustFetch<ProjectView>(
+    `/common-projects/${encodeURIComponent(projectId)}/import`,
+    {
+      method: "POST",
+      body: opts ? JSON.stringify(opts) : undefined,
+      token,
+    },
+  );
+}
+
+// Admin endpoints — super-admin only
+export async function takeDownCommonProject(
+  projectId: string,
+  body: { reason: string },
+  token: string,
+): Promise<CommonProjectDetail> {
+  return trustFetch<CommonProjectDetail>(
+    `/common-projects/${encodeURIComponent(projectId)}/admin/takedown`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export async function restoreCommonProject(
+  projectId: string,
+  token: string,
+): Promise<CommonProjectDetail> {
+  return trustFetch<CommonProjectDetail>(
+    `/common-projects/${encodeURIComponent(projectId)}/admin/restore`,
+    {
+      method: "POST",
+      token,
+    },
+  );
+}
+
+export { ApiError };
