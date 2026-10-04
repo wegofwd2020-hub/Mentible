@@ -51,8 +51,8 @@ const makeStyles = (theme: any) => ({
     marginBottom: spacing.xs,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     marginTop: spacing.sm,
   },
   badge: {

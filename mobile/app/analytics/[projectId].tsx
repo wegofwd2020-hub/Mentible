@@ -67,8 +67,8 @@ const makeStyles = (theme: any) => ({
     marginBottom: spacing.md,
   },
   row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,

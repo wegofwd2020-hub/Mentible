@@ -6,7 +6,6 @@ import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
-import { adminClient } from "@/api/adminClient";
 import { resolveBaseUrl } from "@/api/client";
 
 interface InterventionConfig {
@@ -202,17 +201,17 @@ const makeStyles = (palette: Palette) => ({
     marginBottom: spacing.md,
   },
   title: {
-    ...typography.h2,
+    fontSize: typography.sizeXl,
     color: palette.text,
     marginBottom: spacing.xs,
   },
   sub: {
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     color: palette.textSecondary,
     marginBottom: spacing.lg,
   },
   label: {
-    ...typography.label,
+    fontSize: typography.sizeSm,
     color: palette.text,
     marginBottom: spacing.xs,
   },
@@ -226,7 +225,7 @@ const makeStyles = (palette: Palette) => ({
     backgroundColor: palette.background,
   },
   hint: {
-    ...typography.caption,
+    fontSize: typography.sizeXs,
     color: palette.textSecondary,
     marginTop: spacing.xs,
   },
@@ -234,7 +233,7 @@ const makeStyles = (palette: Palette) => ({
     backgroundColor: palette.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
   buttonDisabled: {
@@ -242,11 +241,11 @@ const makeStyles = (palette: Palette) => ({
   },
   buttonText: {
     color: "white",
-    ...typography.bodyBold,
+    fontSize: typography.sizeSm,
   },
   error: {
     color: palette.error,
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: `${palette.error}15`,
@@ -254,7 +253,7 @@ const makeStyles = (palette: Palette) => ({
   },
   success: {
     color: palette.success,
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: `${palette.success}15`,
