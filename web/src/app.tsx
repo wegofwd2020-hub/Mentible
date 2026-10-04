@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Navigation } from "@/components/Navigation";
 import CommonProjectsPage from "@/pages/trust/common";
 import CommonProjectDetailPage from "@/pages/trust/common/[id]";
@@ -57,25 +58,31 @@ export default function App() {
           <Route
             path="/trust/projects"
             element={
-              <AppLayout>
-                <TrustProjectsPage />
-              </AppLayout>
+              <ProtectedRoute>
+                <AppLayout>
+                  <TrustProjectsPage />
+                </AppLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/trust/projects/:id"
             element={
-              <AppLayout>
-                <TrustProjectDetailPage />
-              </AppLayout>
+              <ProtectedRoute>
+                <AppLayout>
+                  <TrustProjectDetailPage />
+                </AppLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/trust/reviews"
             element={
-              <AppLayout>
-                <ReviewsPage />
-              </AppLayout>
+              <ProtectedRoute>
+                <AppLayout>
+                  <ReviewsPage />
+                </AppLayout>
+              </ProtectedRoute>
             }
           />
           <Route
@@ -89,9 +96,11 @@ export default function App() {
           <Route
             path="/settings"
             element={
-              <AppLayout>
-                <SettingsPage />
-              </AppLayout>
+              <ProtectedRoute>
+                <AppLayout>
+                  <SettingsPage />
+                </AppLayout>
+              </ProtectedRoute>
             }
           />
         </Routes>

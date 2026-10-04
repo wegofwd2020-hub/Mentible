@@ -5,11 +5,16 @@ import { AuthError } from "@supabase/supabase-js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, signAsGuest } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleGuestMode = () => {
+    signAsGuest();
+    navigate("/trust/common");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +128,7 @@ export default function LoginPage() {
 
         <div className="mt-4">
           <button
-            onClick={() => navigate("/trust/common")}
+            onClick={handleGuestMode}
             className="w-full px-4 py-2 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition"
           >
             Continue as guest
