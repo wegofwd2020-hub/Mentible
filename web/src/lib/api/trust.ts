@@ -172,4 +172,47 @@ export async function inviteReviewer(
   );
 }
 
+export async function approveVersion(
+  versionId: string,
+  token: string,
+): Promise<{ id: string; action: string; approved_at: string }> {
+  return trustFetch<{ id: string; action: string; approved_at: string }>(
+    `/versions/${encodeURIComponent(versionId)}/approvals`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+      token,
+    },
+  );
+}
+
+export async function rejectVersion(
+  versionId: string,
+  feedback: string,
+  token: string,
+): Promise<{ id: string; action: string }> {
+  return trustFetch<{ id: string; action: string }>(
+    `/versions/${encodeURIComponent(versionId)}/feedback`,
+    {
+      method: "POST",
+      body: JSON.stringify({ content: feedback }),
+      token,
+    },
+  );
+}
+
+export async function withdrawApproval(
+  versionId: string,
+  token: string,
+): Promise<{ id: string; action: string }> {
+  return trustFetch<{ id: string; action: string }>(
+    `/versions/${encodeURIComponent(versionId)}/approvals/withdraw`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+      token,
+    },
+  );
+}
+
 export { ApiError };

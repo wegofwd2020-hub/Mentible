@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { syncSession, getProject, ProjectDetail, Membership } from "@/lib/api/trust";
+import { syncSession, getProject, approveVersion, withdrawApproval, ProjectDetail, Membership } from "@/lib/api/trust";
+import { Toast } from "@/components/Toast";
 
 interface ReviewProject {
   membership: Membership;
@@ -14,7 +15,7 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -46,17 +47,55 @@ export default function ReviewsPage() {
     load();
   }, [token]);
 
-  const approveVersion = async (artifactId: string, versionId: string) => {
+  const handleApprove = async (versionId: string) => {
     if (!token) return;
     setApproving(versionId);
     try {
-      // TODO: Call POST /api/v1/trust/artifacts/{artifactId}/versions/{versionId}/approve
-      // For now, show toast
-      setToast("Version approved! (API not yet wired)");
-      setTimeout(() => setToast(null), 3000);
+      await approveVersion(versionId, token);
+      setToast({ message: "Version approved ✓", type: "success" });
+      // Reload reviews
+      const sync = await syncSession(token);
+      const reviewerProjects = sync.memberships.filter((m) => m.role === "reviewer");
+      const details = await Promise.all(
+        reviewerProjects.map(async (m) => {
+          try {
+            const detail = await getProject(m.project_id, token);
+            return { membership: m, detail };
+          } catch (e) {
+            return { membership: m, detail: null };
+          }
+        }),
+      );
+      setReviews(details);
     } catch (e) {
-      setToast(`Error: ${e instanceof Error ? e.message : "Failed to approve"}`);
-      setTimeout(() => setToast(null), 3000);
+      setToast({ message: e instanceof Error ? e.message : "Failed to approve", type: "error" });
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  const handleWithdraw = async (versionId: string) => {
+    if (!token) return;
+    setApproving(versionId);
+    try {
+      await withdrawApproval(versionId, token);
+      setToast({ message: "Approval withdrawn", type: "success" });
+      // Reload reviews
+      const sync = await syncSession(token);
+      const reviewerProjects = sync.memberships.filter((m) => m.role === "reviewer");
+      const details = await Promise.all(
+        reviewerProjects.map(async (m) => {
+          try {
+            const detail = await getProject(m.project_id, token);
+            return { membership: m, detail };
+          } catch (e) {
+            return { membership: m, detail: null };
+          }
+        }),
+      );
+      setReviews(details);
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to withdraw", type: "error" });
     } finally {
       setApproving(null);
     }
@@ -76,9 +115,11 @@ export default function ReviewsPage() {
       <h1 className="text-3xl font-bold mb-6 mt-4">Projects to Review</h1>
 
       {toast && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded">
-          {toast}
-        </div>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
       {loading && <div className="text-center py-8">Loading...</div>}
@@ -152,7 +193,7 @@ export default function ReviewsPage() {
 
                             {!version.is_validated && (
                               <button
-                                onClick={() => approveVersion(artifact.id, version.id)}
+                                onClick={() => handleApprove(version.id)}
                                 disabled={approving === version.id}
                                 className="ml-4 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
                               >
@@ -160,7 +201,16 @@ export default function ReviewsPage() {
                               </button>
                             )}
                             {version.is_validated && (
-                              <span className="ml-4 text-xs text-green-600 font-semibold">Approved</span>
+                              <div className="ml-4 flex gap-2 items-center">
+                                <span className="text-xs text-green-600 font-semibold">Approved</span>
+                                <button
+                                  onClick={() => handleWithdraw(version.id)}
+                                  disabled={approving === version.id}
+                                  className="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  {approving === version.id ? "Withdrawing..." : "Withdraw"}
+                                </button>
+                              </div>
                             )}
                           </div>
                         )),
