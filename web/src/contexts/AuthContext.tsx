@@ -40,10 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Check for guest token first
-        const guestToken = localStorage.getItem("sb-mentible-app-guest-token");
-        if (guestToken) {
-          setToken(guestToken);
+        // Check for guest mode first
+        const guestMode = localStorage.getItem("sb-mentible-app-guest-token");
+        if (guestMode) {
+          setToken(null);
           setIsGuest(true);
           return;
         }
@@ -125,11 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signAsGuest = () => {
-    const guestToken = `guest_${Date.now()}`;
-    setToken(guestToken);
+    setToken(null);
     setUser(null);
     setIsGuest(true);
-    localStorage.setItem("sb-mentible-app-guest-token", guestToken);
+    localStorage.setItem("sb-mentible-app-guest-token", "true");
   };
 
   const signOut = async () => {
