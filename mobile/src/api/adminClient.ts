@@ -252,6 +252,39 @@ export async function deleteFeedback(token: string, id: string): Promise<void> {
   await adminFetch<null>(`/feedback/${encodeURIComponent(id)}`, token, { method: "DELETE" });
 }
 
+// Live intervention retry config (ADR-037 analytics follow-up). GET returns the
+// current values; PATCH takes only the fields being changed and returns `updated`.
+export interface InterventionConfig {
+  intervention_retry_interval_days: number;
+  max_intervention_attempts: number;
+  note: string;
+}
+
+export interface InterventionConfigUpdate {
+  intervention_retry_interval_days?: number;
+  max_intervention_attempts?: number;
+}
+
+export interface InterventionConfigUpdateResult {
+  message: string;
+  updated: Partial<InterventionConfigUpdate>;
+  updated_by: string;
+}
+
+export async function getInterventionConfig(token: string): Promise<InterventionConfig> {
+  return (await adminFetch<InterventionConfig>("/analytics/intervention-config", token)) as InterventionConfig;
+}
+
+export async function updateInterventionConfig(
+  token: string,
+  updates: InterventionConfigUpdate,
+): Promise<InterventionConfigUpdateResult> {
+  return (await adminFetch<InterventionConfigUpdateResult>("/analytics/intervention-config", token, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  })) as InterventionConfigUpdateResult;
+}
+
 export interface WelcomeEmailResult {
   sent: boolean;
   detail: string;
