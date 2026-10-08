@@ -40,7 +40,7 @@ export default function InterventionConfigScreen() {
       setRetryInterval(String(data.intervention_retry_interval_days));
       setMaxAttempts(String(data.max_intervention_attempts));
     } catch (e) {
-      setError(e instanceof ApiError ? e.userMessage() : "Couldn't load config.");
+      setError(describeError(e, "Couldn't load config."));
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export default function InterventionConfigScreen() {
       );
       setSuccess("Config updated (live, no restart needed).");
     } catch (e) {
-      setError(e instanceof ApiError ? e.userMessage() : "Couldn't save config.");
+      setError(describeError(e, "Couldn't save config."));
     } finally {
       setSaving(false);
     }
@@ -168,6 +168,13 @@ export default function InterventionConfigScreen() {
       )}
     </PageContainer>
   );
+}
+
+// Surface the HTTP status with the message. The generic "Something went wrong"
+// hides whether the failure was a server error (500) or a rejected request.
+function describeError(e: unknown, fallback: string): string {
+  if (e instanceof ApiError) return `${e.userMessage()} (HTTP ${e.status})`;
+  return fallback;
 }
 
 const makeStyles = (palette: Palette) => ({
