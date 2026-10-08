@@ -7,7 +7,7 @@ import os
 import asyncpg
 import structlog
 
-from config import settings
+from backend.config import settings
 
 from . import config_repo
 
