@@ -6,13 +6,13 @@ import { useAccount } from "@/hooks/useAccount";
 import { PageContainer } from "@/components/PageContainer";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useTheme, useThemedStyles } from "@/theme";
-import { adminClient } from "@/api/adminClient";
-
-interface InterventionConfig {
-  intervention_retry_interval_days: number;
-  max_intervention_attempts: number;
-  note: string;
-}
+import {
+  getInterventionConfig,
+  updateInterventionConfig,
+  type InterventionConfig,
+  type InterventionConfigUpdate,
+} from "@/api/adminClient";
+import { ApiError } from "@/api/client";
 
 export default function InterventionConfigScreen() {
   const router = useRouter();
@@ -35,19 +35,12 @@ export default function InterventionConfigScreen() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        "https://mambakkam.net/mentible-api/api/v1/admin/analytics/intervention-config",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = (await response.json()) as InterventionConfig;
+      const data = await getInterventionConfig(accessToken);
       setConfig(data);
       setRetryInterval(String(data.intervention_retry_interval_days));
       setMaxAttempts(String(data.max_intervention_attempts));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load config.");
+      setError(e instanceof ApiError ? e.userMessage() : "Couldn't load config.");
     } finally {
       setLoading(false);
     }
@@ -59,7 +52,7 @@ export default function InterventionConfigScreen() {
     setError(null);
     setSuccess(null);
 
-    const updates: Record<string, number> = {};
+    const updates: InterventionConfigUpdate = {};
     if (retryInterval && retryInterval !== String(config?.intervention_retry_interval_days)) {
       const val = parseInt(retryInterval, 10);
       if (isNaN(val) || val < 1) {
@@ -86,22 +79,7 @@ export default function InterventionConfigScreen() {
     }
 
     try {
-      const response = await fetch(
-        "https://mambakkam.net/mentible-api/api/v1/admin/analytics/intervention-config",
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
-        }
-      );
-      if (!response.ok) {
-        const errData = (await response.json()) as { detail?: string };
-        throw new Error(errData.detail || `HTTP ${response.status}`);
-      }
-      const result = (await response.json()) as InterventionConfig & { updated: Record<string, number> };
+      const result = await updateInterventionConfig(accessToken, updates);
       setConfig((prev) =>
         prev
           ? {
@@ -115,7 +93,7 @@ export default function InterventionConfigScreen() {
       );
       setSuccess("Config updated (live, no restart needed).");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't save config.");
+      setError(e instanceof ApiError ? e.userMessage() : "Couldn't save config.");
     } finally {
       setSaving(false);
     }
