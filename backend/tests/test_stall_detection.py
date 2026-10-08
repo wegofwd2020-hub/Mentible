@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+
+import pytest
 
 from backend.src.analytics.models import StallReason
 from backend.src.analytics.stall import detect_stall

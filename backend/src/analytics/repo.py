@@ -83,7 +83,7 @@ async def upsert_journey_state(
             stalled_at, stall_reason, intervention_status, resumed_at,
             intervention_sent_at, customer_response_type, intervention_attempt_count,
             updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 0), now())
         ON CONFLICT (user_id) DO UPDATE SET
             current_journey_stage = EXCLUDED.current_journey_stage,
             stage_status = EXCLUDED.stage_status,

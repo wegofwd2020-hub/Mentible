@@ -1,8 +1,9 @@
 """intervention response tracking — journey analytics sub-project 3"""
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from alembic import op
 
 revision = "0032"
 down_revision = "0030"

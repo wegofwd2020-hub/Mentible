@@ -1,6 +1,7 @@
 """Integration tests: journey evaluator + stall detection (sub-project 2)."""
 
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
+
 from backend.src.analytics.journey import evaluate_journey_state
 from backend.src.analytics.models import JourneyStage, StageStatus, StallReason
 

@@ -1,8 +1,9 @@
 """Tests for journey response detection to interventions (sub-project 3)."""
 
 from datetime import UTC, datetime, timedelta
+
 from backend.src.analytics.journey import evaluate_journey_state
-from backend.src.analytics.models import JourneyStage, StageStatus, CustomerResponseType
+from backend.src.analytics.models import CustomerResponseType
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -94,8 +95,12 @@ def test_multiple_meaningful_actions_after_intervention():
         _event("signup_completed", T0),
         _event("meaningful_action_completed", T0 + timedelta(days=1), action_type="save"),
         # intervention sent at T0 + 8 days
-        _event("meaningful_action_completed", T0 + timedelta(days=9), action_type="view"),  # doesn't count
-        _event("meaningful_action_completed", T0 + timedelta(days=10), action_type="approve"),  # counts
+        _event(
+            "meaningful_action_completed", T0 + timedelta(days=9), action_type="view"
+        ),  # doesn't count
+        _event(
+            "meaningful_action_completed", T0 + timedelta(days=10), action_type="approve"
+        ),  # counts
     ]
 
     result = evaluate_journey_state(

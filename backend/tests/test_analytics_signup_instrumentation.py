@@ -14,9 +14,7 @@ import pytest_asyncio
 
 from backend.src.accounts.deps import _record_signup_completed
 from backend.src.analytics import repo as analytics_repo
-from backend.src.analytics.journey import evaluate_journey_state
 from backend.src.analytics.models import EventName, JourneyStage, StageStatus
-from backend.src.analytics.schemas import EventIn
 
 DSN = os.environ.get("DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set")

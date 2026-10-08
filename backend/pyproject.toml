@@ -24,6 +24,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "T20"]
 "src/core/owner_cli.py" = ["T20"]  # CLI — stdout is its interface (ADR-018 owner CLI)
+"scripts/*.py" = ["T20"]  # one-off operator scripts — stdout is their progress output
 "src/trust/*_repo.py" = ["S608"]  # static column constants, not injection vectors
 "src/sync/repo.py" = ["S608"]  # static column constants, not injection vectors
 

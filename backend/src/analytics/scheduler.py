@@ -74,4 +74,4 @@ def daily_stall_rate_check(self) -> dict:
     except Exception as e:
         logger.error(f"daily_stall_rate_check task failed: {e}", exc_info=True)
         # Retry up to 3 times with exponential backoff
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+        raise self.retry(exc=e, countdown=60, max_retries=3) from e

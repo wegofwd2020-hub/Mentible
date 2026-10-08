@@ -7,9 +7,10 @@ Sub-project: UX analytics (journey analytics phase 2)
 ADR: TBD
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from alembic import op
 
 revision = "0035"
 down_revision = "0034"
@@ -27,9 +28,7 @@ def upgrade() -> None:
         sa.Column("current_journey_stage", sa.VARCHAR(50), nullable=False),
         sa.Column("stage_status", sa.VARCHAR(50), nullable=False),
         sa.Column("last_meaningful_event", sa.VARCHAR(255), nullable=True),
-        sa.Column(
-            "last_meaningful_event_at", sa.DateTime(timezone=True), nullable=True
-        ),
+        sa.Column("last_meaningful_event_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("stalled_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("stall_reason", sa.VARCHAR(255), nullable=True),
         # Intervention tracking (per-project)
@@ -52,9 +51,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "user_id", "project_id", name="uq_project_journey_state_user_project"
-        ),
+        sa.UniqueConstraint("user_id", "project_id", name="uq_project_journey_state_user_project"),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["account.id"],

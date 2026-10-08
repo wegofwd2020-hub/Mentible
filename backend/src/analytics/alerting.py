@@ -6,12 +6,12 @@ Daily scheduled job calculates stall rate; alerts ops if threshold exceeded.
 from __future__ import annotations
 
 import logging
-import structlog
 from dataclasses import dataclass
 from uuid import uuid4
 
 import asyncpg
 import httpx
+import structlog
 
 from backend.config import settings
 from backend.src.analytics.models import DeviceClass, EventName
@@ -31,9 +31,7 @@ class StallRateMetric:
     stall_rate_pct: float
 
 
-async def calculate_stall_rate(
-    conn: asyncpg.Connection, days_active: int = 30
-) -> StallRateMetric:
+async def calculate_stall_rate(conn: asyncpg.Connection, days_active: int = 30) -> StallRateMetric:
     """Calculate overall stall rate across all active users.
 
     Active users = accounts created within `days_active` days.

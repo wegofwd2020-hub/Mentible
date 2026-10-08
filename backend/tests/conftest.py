@@ -73,6 +73,28 @@ async def client(fake_redis):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _isolated_rate_limit_redis():
+    """Give every test its own in-memory Redis for the shared `get_redis` dependency.
+
+    The rate limiter (core/rate_limit.py) depends on core/redis_dep.get_redis. Without
+    an override it talks to the real REDIS_URL, so per-IP windows accumulate across the
+    whole session and later tests hit 429. Sync tests (TestClient) use this too, so the
+    fake is synchronous to construct and not bound to any event loop.
+    """
+    from backend.main import app
+    from backend.src.core.redis_dep import get_redis as core_get_redis
+
+    fake = fakeredis.aioredis.FakeRedis(decode_responses=False)
+
+    async def _override_redis():
+        return fake
+
+    app.dependency_overrides[core_get_redis] = _override_redis
+    yield
+    app.dependency_overrides.pop(core_get_redis, None)
+
+
 @pytest.fixture
 def known_test_api_key() -> str:
     """A fake but plausibly-shaped Anthropic key used by leak tests.

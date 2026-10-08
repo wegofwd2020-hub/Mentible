@@ -10,9 +10,7 @@ import pytest
 
 from backend.main import app
 from backend.src.accounts.deps import require_active_user
-from backend.src.accounts.models import Account
 from backend.src.analytics.models import DeviceClass, EventName, JourneyStage
-from backend.src.analytics.schemas import EventIn, PrivacyViolation
 from backend.src.auth.principal import Principal
 from backend.src.db.deps import get_conn
 

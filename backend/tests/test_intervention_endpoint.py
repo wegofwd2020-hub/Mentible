@@ -1,7 +1,5 @@
 """Tests for intervention endpoint (sub-project 3)."""
 
-import pytest
-
 
 def test_send_interventions_endpoint_requires_super_admin():
     """POST /interventions/send-stalled is gated on require_super_admin."""
@@ -27,8 +25,9 @@ def test_send_interventions_request_schema_has_optional_user_id():
 
 def test_send_interventions_response_includes_sent_count():
     """SendInterventionsResponse has sent_count, dry_run, user_id."""
-    from backend.src.analytics.router import SendInterventionsResponse
     from uuid import uuid4
+
+    from backend.src.analytics.router import SendInterventionsResponse
 
     user_id = uuid4()
     resp = SendInterventionsResponse(sent_count=5, dry_run=False, user_id=user_id)

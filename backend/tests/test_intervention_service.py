@@ -1,8 +1,6 @@
 """Tests for InterventionService (sub-project 3)."""
 
-import pytest
 from backend.src.analytics.models import StallReason
-from backend.src.analytics.intervention import InterventionService
 from backend.src.email.html_templates import (
     REMINDER_1_TEMPLATES,
     REMINDER_2_TEMPLATES,
@@ -51,9 +49,7 @@ def test_html_template_subjects_distinct_per_tier():
         (3, REMINDER_3_TEMPLATES),
     ]:
         subjects = [t.subject for t in templates.values()]
-        assert len(subjects) == len(set(subjects)), (
-            f"Tier {tier}: duplicate subjects found"
-        )
+        assert len(subjects) == len(set(subjects)), f"Tier {tier}: duplicate subjects found"
 
 
 def test_html_templates_contextual_to_stall_reason():
@@ -82,10 +78,9 @@ def test_all_html_templates_include_cta():
         (3, REMINDER_3_TEMPLATES),
     ]:
         for reason, template in templates.items():
-            combined = (template.subject + template.html_body).lower()
-            assert ("href" in template.html_body and "app_url" in template.html_body) or \
-                   "mailto" in template.html_body, \
-                   f"Tier {tier}, {reason}: missing CTA link"
+            assert (
+                "href" in template.html_body and "app_url" in template.html_body
+            ) or "mailto" in template.html_body, f"Tier {tier}, {reason}: missing CTA link"
 
 
 def test_get_html_email_template_by_attempt():

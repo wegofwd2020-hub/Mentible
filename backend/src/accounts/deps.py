@@ -18,10 +18,11 @@ stopped by a suspend; gating generation is a separate, still-open decision.
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import asyncpg
 import structlog
 from fastapi import Depends, HTTPException, Request, status
-from uuid import uuid4
 
 from backend.src.accounts import repo
 from backend.src.analytics import repo as analytics_repo

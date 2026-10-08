@@ -18,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.analytics.journey import evaluate_journey_state
 from src.analytics.repo import (
-    get_events_for_user,
     get_events_for_project,
+    get_events_for_user,
     upsert_journey_state,
     upsert_project_journey_state,
 )
@@ -28,6 +28,7 @@ from src.analytics.repo import (
 async def backfill(from_date: str, to_date: str) -> None:
     """Backfill journey state for all users with events in date range."""
     import os
+
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise ValueError("DATABASE_URL not set in environment")
@@ -85,9 +86,7 @@ async def backfill(from_date: str, to_date: str) -> None:
             # Evaluate per-project journey state
             for proj in projects:
                 project_id = UUID(str(proj["project_id"]))  # Convert asyncpg UUID to Python UUID
-                project_events = await get_events_for_project(
-                    conn, user_id, project_id
-                )
+                project_events = await get_events_for_project(conn, user_id, project_id)
                 project_event_dicts = [dict(e) for e in project_events]
 
                 if project_event_dicts:
