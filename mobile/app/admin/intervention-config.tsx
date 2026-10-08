@@ -177,17 +177,19 @@ const makeStyles = (palette: Palette) => ({
     marginBottom: spacing.md,
   },
   title: {
-    ...typography.h2,
+    fontSize: typography.sizeXl,
+    fontWeight: "700" as const,
     color: palette.text,
     marginBottom: spacing.xs,
   },
   sub: {
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     color: palette.textSecondary,
     marginBottom: spacing.lg,
   },
   label: {
-    ...typography.label,
+    fontSize: typography.sizeSm,
+    fontWeight: "600" as const,
     color: palette.text,
     marginBottom: spacing.xs,
   },
@@ -201,7 +203,7 @@ const makeStyles = (palette: Palette) => ({
     backgroundColor: palette.background,
   },
   hint: {
-    ...typography.caption,
+    fontSize: typography.sizeXs,
     color: palette.textSecondary,
     marginTop: spacing.xs,
   },
@@ -209,7 +211,7 @@ const makeStyles = (palette: Palette) => ({
     backgroundColor: palette.primary,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
   buttonDisabled: {
@@ -217,11 +219,12 @@ const makeStyles = (palette: Palette) => ({
   },
   buttonText: {
     color: "white",
-    ...typography.bodyBold,
+    fontSize: typography.sizeMd,
+    fontWeight: "600" as const,
   },
   error: {
     color: palette.error,
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: `${palette.error}15`,
@@ -229,7 +232,7 @@ const makeStyles = (palette: Palette) => ({
   },
   success: {
     color: palette.success,
-    ...typography.body2,
+    fontSize: typography.sizeSm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: `${palette.success}15`,

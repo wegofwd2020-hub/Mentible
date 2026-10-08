@@ -22,7 +22,7 @@ interface StalledUser {
 const makeStyles = (theme: any) => ({
   title: {
     fontSize: 24,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: theme.text,
     marginBottom: spacing.md,
   },
@@ -41,7 +41,7 @@ const makeStyles = (theme: any) => ({
   },
   email: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     color: theme.text,
     marginBottom: spacing.xs,
   },
@@ -51,13 +51,13 @@ const makeStyles = (theme: any) => ({
     marginBottom: spacing.xs,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     marginTop: spacing.sm,
   },
   badge: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     color: theme.error,
   },
   button: {
@@ -68,19 +68,19 @@ const makeStyles = (theme: any) => ({
   },
   buttonText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     color: "#fff",
   },
   errorText: {
     color: theme.error,
     fontSize: 14,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.lg,
   },
   emptyText: {
     color: theme.textSecondary,
     fontSize: 14,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.lg,
   },
 });
