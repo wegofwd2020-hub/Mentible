@@ -64,6 +64,8 @@ const USER = {
   device_count: 0,
   credentials: [],
   devices: [],
+  active_provider_id: null,
+  provider_changes: [],
 };
 
 beforeEach(() => {

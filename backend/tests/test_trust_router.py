@@ -1563,12 +1563,18 @@ def test_manual_edit_topic_version_unknown_topic_404():
         owner = f"o-{uuid.uuid4()}"
         _as(owner, f"{owner}@x.z")
         pid, _iid = _project_with_toc_topic(c)
-        # t1 exists in the toc but no version has ever been created for it
+        # A topic that is not in the project TOC at all is rejected.
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/topics/not-in-toc/versions",
+            json={"content": {"sections": []}},
+        )
+        assert r.status_code == 404
+        # t1 IS in the toc with no version yet: the first manual version is allowed (6604e68).
         r = c.post(
             f"/api/v1/trust/projects/{pid}/topics/t1/versions",
             json={"content": {"sections": []}},
         )
-        assert r.status_code == 404
+        assert r.status_code == 200
 
 
 def test_topic_feedback_records_revision_note_and_appears_in_version_detail():

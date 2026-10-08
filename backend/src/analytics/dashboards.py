@@ -294,15 +294,6 @@ async def get_completion_funnel(
 
     Shows where users drop off in the journey sequence.
     """
-    # Stage order for funnel (manually defined since it's a sequence)
-    stage_order = [
-        "discover_join",
-        "create_first_value",
-        "refine_validate",
-        "finish_pay",
-        "return_advocate",
-    ]
-
     query = """
     WITH stage_users AS (
       SELECT

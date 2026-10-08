@@ -19,12 +19,14 @@ from backend.src.analytics.models import JourneyStage, StallReason
 
 class Event(TypedDict, total=False):
     """Event dict shape (at minimum; sub-projects may add fields)."""
+
     event_name: str
     occurred_at: datetime
 
 
 class StallResult(NamedTuple):
     """Result of stall detection."""
+
     is_stalled: bool
     stall_reason: StallReason | None
 
@@ -132,7 +134,11 @@ def _check_invite_unresponded(
     time_since_invite = current_time - latest_invite["occurred_at"]
 
     # Check for any reviewer responses after the invite
-    response_events = [e for e in events if e["event_name"] == "review_completed" and e["occurred_at"] > latest_invite["occurred_at"]]
+    response_events = [
+        e
+        for e in events
+        if e["event_name"] == "review_completed" and e["occurred_at"] > latest_invite["occurred_at"]
+    ]
 
     if not response_events and time_since_invite > timedelta(days=10):
         return StallReason.INVITE_UNRESPONDED

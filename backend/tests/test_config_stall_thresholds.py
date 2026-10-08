@@ -1,8 +1,5 @@
 """Test stall detection configuration loading."""
 
-import os
-import pytest
-
 
 def test_stall_thresholds_loaded_from_env(monkeypatch):
     """Stall thresholds are loaded from environment variables."""
@@ -20,11 +17,12 @@ def test_stall_thresholds_loaded_from_env(monkeypatch):
     monkeypatch.setenv("STALL_THRESHOLD_FINISH_PAY", "15")
     monkeypatch.setenv("STALL_THRESHOLD_RETURN_ADVOCATE", "20")
 
-    # Re-import to get fresh settings
-    import importlib
-    import backend.config as config_module
-    importlib.reload(config_module)
-    settings = config_module.settings
+    # Build a fresh Settings from the patched env. Don't reload backend.config: that
+    # rebinds the module-level `settings` that other modules already hold, and the
+    # stale-vs-new object split breaks later tests that monkeypatch it.
+    from backend.config import Settings
+
+    settings = Settings()  # type: ignore[call-arg]
 
     assert settings.stall_threshold_discover_join == 6
     assert settings.stall_threshold_create_first_value == 8

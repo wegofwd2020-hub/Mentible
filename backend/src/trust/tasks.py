@@ -70,14 +70,17 @@ log = get_logger("trust.tasks")
 
 
 async def _record_generation_failed(
-    conn: asyncpg.Connection, *, job_id: uuid.UUID, recorded_by_sub: str, provider_id: str, error_code: str
+    conn: asyncpg.Connection,
+    *,
+    job_id: uuid.UUID,
+    recorded_by_sub: str,
+    provider_id: str,
+    error_code: str,
 ) -> None:
     """Record generation_failed event and advance journey state on generation failure.
     Catches exceptions to avoid blocking the generation task on analytics failure."""
     try:
-        acct = await accounts_repo.get_or_create_account(
-            conn, idp_sub=recorded_by_sub, email=None
-        )
+        acct = await accounts_repo.get_or_create_account(conn, idp_sub=recorded_by_sub, email=None)
         event = EventIn(
             event_name=EventName.GENERATION_FAILED,
             session_id=str(job_id),
@@ -666,9 +669,7 @@ async def _run_version(
                     device_class=DeviceClass.DESKTOP,
                     properties={
                         "outcome": "success",
-                        "output_word_count": sum(
-                            len(sec["body"].split()) for sec in sections
-                        ),
+                        "output_word_count": sum(len(sec["body"].split()) for sec in sections),
                         "model": resolved_model,
                         "provider_id": provider_id,
                         "input_tokens": out.total_input_tokens,

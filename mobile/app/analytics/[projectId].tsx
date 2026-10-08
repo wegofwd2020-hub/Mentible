@@ -49,13 +49,13 @@ interface ProjectUXAnalytics {
 const makeStyles = (theme: any) => ({
   title: {
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: theme.text,
     marginBottom: spacing.lg,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     color: theme.text,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
@@ -67,8 +67,8 @@ const makeStyles = (theme: any) => ({
     marginBottom: spacing.md,
   },
   row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
@@ -80,9 +80,9 @@ const makeStyles = (theme: any) => ({
   },
   rowValue: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "600" as const,
     color: theme.text,
-    textAlign: "right",
+    textAlign: "right" as const,
   },
   stalledRow: {
     backgroundColor: theme.card,
@@ -92,7 +92,7 @@ const makeStyles = (theme: any) => ({
   },
   email: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "500" as const,
     color: theme.text,
     marginBottom: spacing.xs,
   },
@@ -103,13 +103,13 @@ const makeStyles = (theme: any) => ({
   errorText: {
     color: theme.error,
     fontSize: 14,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.lg,
   },
   emptyText: {
     color: theme.textSecondary,
     fontSize: 14,
-    textAlign: "center",
+    textAlign: "center" as const,
     marginTop: spacing.lg,
   },
 });

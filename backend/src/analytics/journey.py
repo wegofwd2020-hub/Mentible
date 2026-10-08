@@ -7,7 +7,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from backend.src.analytics.models import JourneyStage, StageStatus, StallReason, CustomerResponseType
+from backend.src.analytics.models import (
+    CustomerResponseType,
+    JourneyStage,
+    StageStatus,
+    StallReason,
+)
 from backend.src.analytics.stall import detect_stall
 
 _QUALIFYING_ACTION_TYPES = {"edit", "save", "approve", "continue"}
@@ -62,6 +67,7 @@ def evaluate_journey_state(
 
     if current_time is None:
         from datetime import UTC
+
         current_time = datetime.now(UTC)
 
     stage_index = 0  # discover_join
@@ -120,7 +126,8 @@ def evaluate_journey_state(
     if intervention_sent_at is not None:
         # Check if user took meaningful action after intervention was sent
         meaningful_actions_after_intervention = [
-            e for e in events
+            e
+            for e in events
             if e["event_name"] == "meaningful_action_completed"
             and _is_meaningful_action(e)
             and e["occurred_at"] > intervention_sent_at

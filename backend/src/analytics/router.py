@@ -151,7 +151,9 @@ async def send_interventions(
         """Check if user is due for retry intervention."""
         if force or journey["intervention_status"] == "not_started":
             return True
-        if journey["intervention_status"] != "in_progress" or not journey.get("intervention_sent_at"):
+        if journey["intervention_status"] != "in_progress" or not journey.get(
+            "intervention_sent_at"
+        ):
             return False
         days_since_last = (datetime.now(UTC) - journey["intervention_sent_at"]).days
         return days_since_last >= retry_interval
@@ -165,7 +167,7 @@ async def send_interventions(
             raise HTTPException(404, "User not found")
         if not journey.get("stalled_at"):
             raise HTTPException(400, "User not stalled")
-        if not _should_retry(journey, body.force if hasattr(body, 'force') else False):
+        if not _should_retry(journey, body.force if hasattr(body, "force") else False):
             raise HTTPException(400, f"Not due for retry (interval: {retry_interval} days)")
 
         if not body.dry_run:
@@ -192,8 +194,8 @@ async def send_interventions(
                AND (j.intervention_status = 'not_started'
                     OR (j.intervention_status = 'in_progress'
                         AND j.intervention_sent_at IS NOT NULL
-                        AND (NOW() AT TIME ZONE 'UTC' - j.intervention_sent_at) >= INTERVAL '1 day' * %s))"""
-            , (retry_interval,)
+                        AND (NOW() AT TIME ZONE 'UTC' - j.intervention_sent_at) >= INTERVAL '1 day' * %s))""",
+            (retry_interval,),
         )
 
         for row in stalled_users:

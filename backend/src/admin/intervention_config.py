@@ -8,6 +8,7 @@ import asyncpg
 import structlog
 
 from config import settings
+
 from . import config_repo
 
 log = structlog.get_logger(__name__)
@@ -30,7 +31,9 @@ async def load_intervention_config(conn: asyncpg.Connection) -> None:
         # Only use DB values if env vars not explicitly set
         if "INTERVENTION_RETRY_INTERVAL_DAYS" not in os.environ:
             if "intervention_retry_interval_days" in db_values:
-                _cache["intervention_retry_interval_days"] = int(db_values["intervention_retry_interval_days"])
+                _cache["intervention_retry_interval_days"] = int(
+                    db_values["intervention_retry_interval_days"]
+                )
 
         if "MAX_INTERVENTION_ATTEMPTS" not in os.environ:
             if "max_intervention_attempts" in db_values:

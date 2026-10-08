@@ -14,7 +14,6 @@ import asyncpg
 import httpx
 
 from backend.config import settings
-from backend.src.analytics.email_templates import get_email_template
 from backend.src.analytics.models import DeviceClass, EventName, StallReason
 from backend.src.analytics.repo import record_event, upsert_journey_state
 from backend.src.analytics.schemas import EventIn

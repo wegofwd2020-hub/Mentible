@@ -191,7 +191,9 @@ async def revenuecat_webhook(request: Request) -> dict:
                         device_class=DeviceClass.DESKTOP,
                         properties={
                             "plan_id": plan.id,
-                            "transaction_id": payload.get("event", {}).get("transaction_id", "unknown"),
+                            "transaction_id": payload.get("event", {}).get(
+                                "transaction_id", "unknown"
+                            ),
                         },
                     )
                     await analytics_repo.record_event(conn, event=event, user_id=account.id)

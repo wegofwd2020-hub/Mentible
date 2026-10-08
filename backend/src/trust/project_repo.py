@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-import asyncpg
 import structlog
 
 from backend.src.analytics import repo as analytics_repo
@@ -86,7 +85,9 @@ async def create_project(
         # Actually, since the insert has already happened, count will be >= 1. We emit the event if count == 2.
         if count == 2:
             # Get the account row to associate with the event.
-            account_row = await conn.fetchrow("SELECT idp_sub FROM account WHERE id = $1", owner_account_id)
+            account_row = await conn.fetchrow(
+                "SELECT idp_sub FROM account WHERE id = $1", owner_account_id
+            )
             if account_row:
                 event = EventIn(
                     event_name=EventName.SECOND_PROJECT_CREATED,

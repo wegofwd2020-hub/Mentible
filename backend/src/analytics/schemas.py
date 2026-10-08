@@ -115,9 +115,7 @@ class TTFRRowSchema(BaseModel):
 
     stall_reason: str = Field(..., description="Stall reason enum value")
     responded_count: int = Field(..., ge=0, description="Users who responded")
-    p50_seconds: int | None = Field(
-        None, ge=0, description="Median response time in seconds"
-    )
+    p50_seconds: int | None = Field(None, ge=0, description="Median response time in seconds")
     p95_seconds: int | None = Field(
         None, ge=0, description="95th percentile response time in seconds"
     )
@@ -156,9 +154,7 @@ class RetryEffectivenessRowSchema(BaseModel):
     attempt_count: int = Field(..., ge=1, description="Attempt number (1, 2, ...)")
     attempts_made: int = Field(..., ge=0, description="Number of interventions at this attempt")
     resumed: int = Field(..., ge=0, description="Users who resumed at this attempt")
-    success_rate_pct: float = Field(
-        ..., ge=0.0, le=100.0, description="Success rate percentage"
-    )
+    success_rate_pct: float = Field(..., ge=0.0, le=100.0, description="Success rate percentage")
 
 
 class StageMetricRowSchema(BaseModel):
@@ -208,10 +204,14 @@ class ProjectBottleneckRowSchema(BaseModel):
     journey_stage: str = Field(..., description="Journey stage enum value")
     total_users_at_stage: int = Field(..., ge=0, description="Total users at this stage in project")
     stalled_count: int = Field(..., ge=0, description="Users who stalled at this stage")
-    stall_rate_pct: float = Field(..., ge=0.0, le=100.0, description="Dropout rate at this stage (%)")
+    stall_rate_pct: float = Field(
+        ..., ge=0.0, le=100.0, description="Dropout rate at this stage (%)"
+    )
     avg_hours_before_stall: float | None = Field(None, ge=0, description="Avg hours before stall")
     intervention_sent_count: int = Field(..., ge=0, description="Intervention emails sent")
-    resumed_after_intervention_count: int = Field(..., ge=0, description="Resumed after intervention")
+    resumed_after_intervention_count: int = Field(
+        ..., ge=0, description="Resumed after intervention"
+    )
     re_engagement_rate_pct: float | None = Field(
         None, ge=0.0, le=100.0, description="% who resumed after intervention"
     )
@@ -293,9 +293,18 @@ class DashboardResponseSchema(BaseModel):
                         "p95_seconds": 86400,
                     }
                 ],
-                "response_rate": {"response_rate": 0.65, "no_response_count": 35, "total_interventions": 100},
+                "response_rate": {
+                    "response_rate": 0.65,
+                    "no_response_count": 35,
+                    "total_interventions": 100,
+                },
                 "retry_effectiveness": [
-                    {"attempt_count": 1, "attempts_made": 100, "resumed": 60, "success_rate_pct": 60.0}
+                    {
+                        "attempt_count": 1,
+                        "attempts_made": 100,
+                        "resumed": 60,
+                        "success_rate_pct": 60.0,
+                    }
                 ],
                 "stall_by_stage": [
                     {
@@ -312,12 +321,8 @@ class DashboardResponseSchema(BaseModel):
     re_engagement: list[ReEngagementRowSchema] = Field(
         ..., description="Re-engagement rate by stall reason (sorted by rate DESC)"
     )
-    ttfr: list[TTFRRowSchema] = Field(
-        ..., description="TTFR distribution by stall reason"
-    )
-    response_rate: ResponseRateMetricSchema = Field(
-        ..., description="Overall response rate metric"
-    )
+    ttfr: list[TTFRRowSchema] = Field(..., description="TTFR distribution by stall reason")
+    response_rate: ResponseRateMetricSchema = Field(..., description="Overall response rate metric")
     retry_effectiveness: list[RetryEffectivenessRowSchema] = Field(
         ..., description="Retry effectiveness by attempt count (sorted by attempt ASC)"
     )

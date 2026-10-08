@@ -40,6 +40,8 @@ PyJWT>=2.9,<3
 # asyncpg is the runtime driver (CLAUDE.md rule 6); alembic owns schema migrations.
 asyncpg>=0.30,<0.32
 alembic>=1.13,<2
+# alembic/env.py runs an async engine (sqlalchemy.ext.asyncio), which needs greenlet.
+greenlet>=3.0,<4
 
 # Shared multi-provider LLM seam (ADR-012) — the provider seam lives in its own
 # (public) package now, not vendored. The [anthropic] extra pulls the SDK below.

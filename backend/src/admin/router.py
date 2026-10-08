@@ -436,7 +436,7 @@ async def get_intervention_config(
     return InterventionConfigResponse(
         intervention_retry_interval_days=get_intervention_retry_interval_days(),
         max_intervention_attempts=get_max_intervention_attempts(),
-        note="Update via PATCH endpoint below (live, no restart needed)"
+        note="Update via PATCH endpoint below (live, no restart needed)",
     )
 
 
@@ -462,7 +462,7 @@ async def update_intervention_config(
     if body.intervention_retry_interval_days is None and body.max_intervention_attempts is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Must provide at least one of: intervention_retry_interval_days, max_intervention_attempts"
+            detail="Must provide at least one of: intervention_retry_interval_days, max_intervention_attempts",
         )
 
     try:

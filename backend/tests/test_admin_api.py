@@ -325,8 +325,12 @@ def test_welcome_email_requires_super_admin():
 def test_admin_detail_includes_provider_changes(admin_client):
     """Admin detail view includes active_provider_id and provider_changes history."""
     # User adds two providers
-    admin_client.put(f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local", "status": "valid"})
-    admin_client.put(f"{ACCOUNT}/credentials/openai", json={"source": "device_local", "status": "valid"})
+    admin_client.put(
+        f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local", "status": "valid"}
+    )
+    admin_client.put(
+        f"{ACCOUNT}/credentials/openai", json={"source": "device_local", "status": "valid"}
+    )
 
     detail = admin_client.get(f"{ADMIN}/users/{TARGET}").json()
 

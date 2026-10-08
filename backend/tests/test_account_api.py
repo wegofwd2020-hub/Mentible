@@ -110,7 +110,9 @@ def test_requires_auth_without_override():
 
 def test_put_credential_logs_provider_change(client):
     """Adding a new credential logs 'added' action."""
-    r = client.put(f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local", "status": "valid"})
+    r = client.put(
+        f"{ACCOUNT}/credentials/anthropic", json={"source": "device_local", "status": "valid"}
+    )
     assert r.status_code == 200
 
     # Verify the change was logged by fetching admin detail.
@@ -134,6 +136,6 @@ def test_set_active_provider(client):
     assert r.status_code == 204
 
     # Verify it persists
-    account = client.get(ACCOUNT).json()
+    client.get(ACCOUNT)
     # Note: AccountView doesn't include active_provider_id yet (only admin detail does)
     # This test verifies the endpoint works; admin detail tests verify visibility.

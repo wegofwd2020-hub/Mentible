@@ -1,10 +1,10 @@
 """Tests for dashboard queries (sub-project 4)."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
+import pytest
 
 from backend.src.analytics.dashboards import (
     ReEngagementRow,
@@ -12,11 +12,6 @@ from backend.src.analytics.dashboards import (
     RetryEffectivenessRow,
     StageMetricRow,
     TTFRRow,
-    get_re_engagement_by_reason,
-    get_response_rate,
-    get_retry_effectiveness,
-    get_stall_by_stage,
-    get_ttfr_distribution,
 )
 
 
@@ -189,10 +184,8 @@ def test_pydantic_schema_response_rate():
     assert schema.response_rate == 0.75
     # Rate must be 0-1
     try:
-        ResponseRateMetricSchema(
-            response_rate=1.5, no_response_count=0, total_interventions=100
-        )
-        assert False, "Should reject rate > 1.0"
+        ResponseRateMetricSchema(response_rate=1.5, no_response_count=0, total_interventions=100)
+        raise AssertionError("Should reject rate > 1.0")
     except ValueError:
         pass
 
@@ -292,11 +285,6 @@ def test_endpoint_schema_validation():
     """DashboardResponseSchema validates endpoint responses."""
     from backend.src.analytics.schemas import (
         DashboardResponseSchema,
-        ReEngagementRowSchema,
-        ResponseRateMetricSchema,
-        RetryEffectivenessRowSchema,
-        StageMetricRowSchema,
-        TTFRRowSchema,
     )
 
     # Simulate endpoint response
@@ -511,12 +499,13 @@ def test_dataclass_ttfr_row():
 
 def test_dataclass_response_rate_metric():
     """ResponseRateMetric dataclass calculation."""
-    metric = ResponseRateMetric(
-        response_rate=0.75, no_response_count=25, total_interventions=100
-    )
+    metric = ResponseRateMetric(response_rate=0.75, no_response_count=25, total_interventions=100)
     # Verify consistency: (100 - 25) / 100 = 0.75
     assert metric.response_rate == 0.75
-    assert metric.no_response_count + (metric.total_interventions * metric.response_rate) == metric.total_interventions
+    assert (
+        metric.no_response_count + (metric.total_interventions * metric.response_rate)
+        == metric.total_interventions
+    )
 
 
 def test_dataclass_retry_effectiveness_row():

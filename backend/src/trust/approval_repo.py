@@ -8,7 +8,6 @@ never by mutating or removing the original 'approve'.
 
 from __future__ import annotations
 
-import asyncpg
 import structlog
 
 from backend.src.analytics import repo as analytics_repo
