@@ -22,6 +22,20 @@ from backend.src.email.sender import send_html_email
 logger = logging.getLogger(__name__)
 
 
+def coerce_stall_reason(value: object) -> StallReason:
+    """Normalise a stored stall reason to the enum.
+
+    journey_state holds plain strings, and rows written by older code are
+    uppercase (e.g. NO_MEANINGFUL_ACTION). Unknown values fall back to UNKNOWN.
+    """
+    if isinstance(value, StallReason):
+        return value
+    try:
+        return StallReason(str(value).lower())
+    except ValueError:
+        return StallReason.UNKNOWN
+
+
 class InterventionService:
     """Send intervention emails to stalled users; track response data."""
 
@@ -51,6 +65,8 @@ class InterventionService:
             - Emits 'followup_email_sent' or 'followup_email_failed' event
             - Updates journey_state: intervention_sent_at = now, intervention_status = in_progress (if success)
         """
+        stall_reason = coerce_stall_reason(stall_reason)
+
         # 1. Select template by stall_reason + attempt_count (escalating)
         attempt_count = (journey_state_dict.get("intervention_attempt_count", 0) or 0) + 1
         email_template = get_html_email_template(stall_reason, attempt_count)
@@ -80,8 +96,10 @@ class InterventionService:
                     session_id="backend-intervention",
                     device_class=DeviceClass.DESKTOP,
                     properties={
+                        # No recipient email here: analytics properties reject
+                        # email-like keys (PII guard), which silently dropped
+                        # this event on every send.
                         "stall_reason": stall_reason.value,
-                        "recipient_email": email,
                     },
                 ),
                 user_id=user_id,
