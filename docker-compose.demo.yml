@@ -117,6 +117,14 @@ services:
       ZEPTOMAIL_TOKEN: ${ZEPTOMAIL_TOKEN:-}
       ZEPTOMAIL_FROM: ${ZEPTOMAIL_FROM:-feedback@kaundinyalabs.com}
       FEEDBACK_TO: ${FEEDBACK_TO:-support@kaundinyalabs.com}
+      # Intervention email provider: zeptomail (default) or smtp (Gmail app password).
+      # Without these passthroughs, SMTP_* set in .env.demo never reach the container.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-zeptomail}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - mentible-artifacts:/data/artifacts
       - mentible-audio:/data/audio
@@ -288,6 +296,14 @@ services:
       ZEPTOMAIL_TOKEN: ${ZEPTOMAIL_TOKEN:-}
       ZEPTOMAIL_FROM: ${ZEPTOMAIL_FROM:-feedback@kaundinyalabs.com}
       FEEDBACK_TO: ${FEEDBACK_TO:-support@kaundinyalabs.com}
+      # Intervention email provider: zeptomail (default) or smtp (Gmail app password).
+      # Without these passthroughs, SMTP_* set in .env.demo never reach the container.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-zeptomail}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       # Journey Analytics: stall-rate alert config (Sub-Project 5A)
       STALL_RATE_THRESHOLD: ${STALL_RATE_THRESHOLD:-20.0}
       OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-ops@kaundinyalabs.com}
