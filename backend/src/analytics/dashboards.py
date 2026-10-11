@@ -187,8 +187,8 @@ class StalledUserRow:
 
     user_id: str
     email: str
-    project_id: str
-    project_name: str
+    project_id: str | None
+    project_name: str | None
     journey_stage: str
     stalled_at: str  # ISO timestamp
     days_stalled: int
@@ -364,26 +364,27 @@ async def get_stalled_users(
 
 
 async def get_global_stalled_users(conn: asyncpg.Connection) -> list[StalledUserRow]:
-    """Get all stalled users across all projects (super-admin dashboard).
+    """Get all users currently stalled, system-wide (super-admin dashboard).
 
-    For ops: "who is stuck and needs help?" (system-wide view).
+    Reads user-level journey_state, the table stall detection writes to. The
+    project-level table is per-project and is empty until events carry a
+    project_id, so it cannot back this view. Project fields are None here.
     Sorted by days_stalled descending (worst offenders first).
     """
     query = """
     SELECT
-      pjs.user_id::TEXT,
+      j.user_id::TEXT,
       a.email,
-      pjs.project_id::TEXT,
-      p.name as project_name,
-      pjs.current_journey_stage as journey_stage,
-      pjs.stalled_at::TEXT,
-      EXTRACT(DAY FROM NOW() - pjs.stalled_at)::INT as days_stalled,
-      pjs.intervention_attempt_count,
-      pjs.intervention_sent_at::TEXT
-    FROM project_journey_state pjs
-    JOIN account a ON pjs.user_id = a.id
-    JOIN project p ON pjs.project_id = p.id
-    WHERE pjs.stalled_at IS NOT NULL
+      NULL::TEXT AS project_id,
+      NULL::TEXT AS project_name,
+      j.current_journey_stage AS journey_stage,
+      j.stalled_at::TEXT,
+      EXTRACT(DAY FROM NOW() - j.stalled_at)::INT AS days_stalled,
+      j.intervention_attempt_count,
+      j.intervention_sent_at::TEXT AS last_intervention_sent_at
+    FROM journey_state j
+    JOIN account a ON j.user_id = a.id
+    WHERE j.stalled_at IS NOT NULL
     ORDER BY days_stalled DESC
     """
     rows = await conn.fetch(query)
