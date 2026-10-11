@@ -72,11 +72,11 @@ async def test_single_user_at_cap_is_refused(monkeypatch, sent_calls, max_attemp
     async def fake_journey(conn, user_id):
         return _journey(attempts=3)
 
-    async def fake_account(conn, user_id):
+    async def fake_account(conn, *, account_id):  # keyword-only, like the real repo fn
         return _account()
 
     monkeypatch.setattr(analytics_router, "get_journey_state", fake_journey)
-    monkeypatch.setattr(analytics_router.accounts_repo, "get_account", fake_account)
+    monkeypatch.setattr(analytics_router.accounts_repo, "get_account_by_id", fake_account)
 
     body = analytics_router.SendInterventionsRequest(user_id=uuid4())
     with pytest.raises(HTTPException) as exc:
@@ -91,11 +91,11 @@ async def test_single_user_below_cap_is_sent(monkeypatch, sent_calls, max_attemp
     async def fake_journey(conn, user_id):
         return _journey(attempts=2)
 
-    async def fake_account(conn, user_id):
+    async def fake_account(conn, *, account_id):  # keyword-only, like the real repo fn
         return _account()
 
     monkeypatch.setattr(analytics_router, "get_journey_state", fake_journey)
-    monkeypatch.setattr(analytics_router.accounts_repo, "get_account", fake_account)
+    monkeypatch.setattr(analytics_router.accounts_repo, "get_account_by_id", fake_account)
 
     body = analytics_router.SendInterventionsRequest(user_id=uuid4())
     resp = await analytics_router.send_interventions(body, principal=None, conn=_FakeConn())
