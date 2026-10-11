@@ -17,7 +17,7 @@ from backend.config import settings
 from backend.src.analytics.models import DeviceClass, EventName, StallReason
 from backend.src.analytics.repo import record_event, upsert_journey_state
 from backend.src.analytics.schemas import EventIn
-from backend.src.email.html_templates import get_html_email_template
+from backend.src.email.html_templates import get_html_email_template, render_html_body
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,7 @@ class InterventionService:
 
         # 2. Render email
         subject = email_template.subject
-        html_body = email_template.html_body.format(
-            app_url=app_url,
-        )
+        html_body = render_html_body(email_template.html_body, app_url)
 
         # 3. Send via ZeptoMail
         send_success = False
