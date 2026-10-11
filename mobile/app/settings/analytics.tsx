@@ -94,6 +94,8 @@ export default function SettingsAnalyticsScreen() {
   const [users, setUsers] = useState<StalledUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Super-admin only
   const isAdmin = account?.is_super_admin === true;
@@ -136,8 +138,33 @@ export default function SettingsAnalyticsScreen() {
   };
 
   const handleResendIntervention = async (userId: string) => {
-    // TODO: Call backend to re-send intervention for this user
-    console.log("Re-send intervention for user:", userId);
+    if (!accessToken || resendingId) return;
+    setResendingId(userId);
+    setNotice(null);
+    try {
+      const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || "";
+      const response = await fetch(
+        `${apiBase}/api/v1/analytics/interventions/send-stalled`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || `Send failed (${response.status})`);
+      }
+      setNotice(data.sent_count > 0 ? "Reminder sent." : "No reminder sent.");
+      await fetchStalledUsers();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Send failed");
+    } finally {
+      setResendingId(null);
+    }
   };
 
   // Super-admin gate
@@ -176,6 +203,7 @@ export default function SettingsAnalyticsScreen() {
       <Text style={styles.subtitle}>
         {users.length} user{users.length === 1 ? "" : "s"} stuck in projects
       </Text>
+      {notice && <Text style={styles.subtitle}>{notice}</Text>}
 
       {users.length === 0 ? (
         <Text style={styles.emptyText}>No stalled users</Text>
@@ -216,9 +244,12 @@ export default function SettingsAnalyticsScreen() {
                 </Text>
                 <Pressable
                   style={styles.button}
+                  disabled={resendingId !== null}
                   onPress={() => handleResendIntervention(item.user_id)}
                 >
-                  <Text style={styles.buttonText}>Re-send</Text>
+                  <Text style={styles.buttonText}>
+                    {resendingId === item.user_id ? "Sending…" : "Re-send"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
