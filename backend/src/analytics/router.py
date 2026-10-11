@@ -137,15 +137,20 @@ async def send_interventions(
         Count of emails sent (or would-be sent if dry_run=true)
 
     Sends to users with intervention_status=not_started, or to in_progress users if
-    intervention_retry_interval_days has elapsed since last send.
+    intervention_retry_interval_days has elapsed since last send. Users who have
+    already received max_intervention_attempts emails are never sent to.
     """
     from datetime import UTC, datetime
 
-    from backend.src.admin.intervention_config import get_intervention_retry_interval_days
+    from backend.src.admin.intervention_config import (
+        get_intervention_retry_interval_days,
+        get_max_intervention_attempts,
+    )
 
     service = InterventionService()
     sent_count = 0
     retry_interval = get_intervention_retry_interval_days()
+    max_attempts = get_max_intervention_attempts()
 
     def _should_retry(journey: dict, force: bool = False) -> bool:
         """Check if user is due for retry intervention."""
@@ -167,6 +172,10 @@ async def send_interventions(
             raise HTTPException(404, "User not found")
         if not journey.get("stalled_at"):
             raise HTTPException(400, "User not stalled")
+        if (journey.get("intervention_attempt_count") or 0) >= max_attempts:
+            raise HTTPException(
+                400, f"Attempt cap reached ({max_attempts} max; raise it in intervention config)"
+            )
         if not _should_retry(journey, body.force if hasattr(body, "force") else False):
             raise HTTPException(400, f"Not due for retry (interval: {retry_interval} days)")
 
@@ -187,15 +196,19 @@ async def send_interventions(
         )
     else:
         # Send to all users due for intervention
+        # Attempt cap (max_intervention_attempts) is enforced here: users who have
+        # already received the maximum number of intervention emails are excluded.
         stalled_users = await conn.fetch(
             """SELECT a.id, a.email FROM account a
                JOIN journey_state j ON a.id = j.user_id
                WHERE j.stalled_at IS NOT NULL
+               AND j.intervention_attempt_count < $2
                AND (j.intervention_status = 'not_started'
                     OR (j.intervention_status = 'in_progress'
                         AND j.intervention_sent_at IS NOT NULL
-                        AND (NOW() AT TIME ZONE 'UTC' - j.intervention_sent_at) >= INTERVAL '1 day' * %s))""",
-            (retry_interval,),
+                        AND (NOW() AT TIME ZONE 'UTC' - j.intervention_sent_at) >= INTERVAL '1 day' * $1))""",
+            retry_interval,
+            max_attempts,
         )
 
         for row in stalled_users:
