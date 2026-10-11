@@ -593,6 +593,16 @@ REMINDER_3_TEMPLATES = {
 }
 
 
+def render_html_body(html_body: str, app_url: str) -> str:
+    """Fill the {app_url} placeholder.
+
+    Plain replace, not str.format: the templates contain literal CSS braces
+    (e.g. `body { margin: 0 }`), which str.format treats as placeholders and
+    raises KeyError on.
+    """
+    return html_body.replace("{app_url}", app_url)
+
+
 def get_html_email_template(stall_reason: StallReason, attempt_count: int) -> HtmlEmailTemplate:
     """Select HTML email template by stall reason + attempt number (1, 2, or 3).
 
