@@ -167,7 +167,7 @@ async def send_interventions(
     if body.user_id:
         # Send to one user
         journey = await get_journey_state(conn, body.user_id)
-        account = await accounts_repo.get_account(conn, body.user_id)
+        account = await accounts_repo.get_account_by_id(conn, account_id=body.user_id)
 
         if not journey or not account:
             raise HTTPException(404, "User not found")
