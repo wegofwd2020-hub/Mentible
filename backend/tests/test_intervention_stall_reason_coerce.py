@@ -7,6 +7,7 @@ import pytest
 from backend.src.analytics import intervention as intervention_mod
 from backend.src.analytics.intervention import InterventionService, coerce_stall_reason
 from backend.src.analytics.models import StallReason
+from backend.src.email import sender as sender_mod
 
 
 @pytest.mark.parametrize(
@@ -50,7 +51,7 @@ async def test_send_with_string_stall_reason_does_not_raise(monkeypatch):
         emitted.append(event.properties)
 
     monkeypatch.setattr(intervention_mod, "record_event", fake_record_event)
-    monkeypatch.setattr(intervention_mod.httpx, "AsyncClient", _FakeClient)
+    monkeypatch.setattr(sender_mod.httpx, "AsyncClient", _FakeClient)
 
     sent = await InterventionService.send_intervention_for_user(
         conn=object(),
