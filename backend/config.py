@@ -124,6 +124,15 @@ class Settings(BaseSettings):
     zeptomail_from: str = Field(default="feedback@kaundinyalabs.com")
     feedback_to: str = Field(default="support@kaundinyalabs.com")
     zeptomail_base_url: str = Field(default="https://api.zeptomail.com/v1.1")
+    # Outgoing intervention email provider: "zeptomail" (default) or "smtp".
+    # SMTP uses a Gmail account + app password (2-step verification required).
+    email_provider: str = Field(default="zeptomail")
+    smtp_host: str = Field(default="smtp.gmail.com")
+    smtp_port: int = Field(default=587)
+    smtp_user: str | None = Field(default=None)
+    smtp_password: str | None = Field(default=None)  # Gmail app password; never log
+    smtp_from: str | None = Field(default=None)  # defaults to smtp_user
+    intervention_subject_prefix: str = Field(default="from Mentible: ")
     # Sender for the admin-triggered welcome email. Defaults to the same
     # ZeptoMail-verified sender as feedback (`feedback@…`) — `hello@…` was NOT
     # a verified sender and ZeptoMail 500'd it. Override via WELCOME_FROM only

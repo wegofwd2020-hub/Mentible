@@ -11,13 +11,13 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import asyncpg
-import httpx
 
 from backend.config import settings
 from backend.src.analytics.models import DeviceClass, EventName, StallReason
 from backend.src.analytics.repo import record_event, upsert_journey_state
 from backend.src.analytics.schemas import EventIn
 from backend.src.email.html_templates import get_html_email_template, render_html_body
+from backend.src.email.sender import send_html_email
 
 logger = logging.getLogger(__name__)
 
@@ -59,31 +59,13 @@ class InterventionService:
         subject = email_template.subject
         html_body = render_html_body(email_template.html_body, app_url)
 
-        # 3. Send via ZeptoMail
-        send_success = False
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    f"{settings.zeptomail_base_url}/email",
-                    headers={
-                        "Authorization": settings.zeptomail_token,
-                    },
-                    json={
-                        "from": {"address": settings.zeptomail_from, "name": "Mentible"},
-                        "to": [{"email_address": {"address": email}}],
-                        "subject": subject,
-                        "htmlbody": html_body,
-                        "reply_to": {"address": settings.feedback_to},
-                    },
-                )
-                send_success = resp.status_code == 200
-                if not send_success:
-                    logger.warning(
-                        f"ZeptoMail returned {resp.status_code} for user {user_id}: {resp.text[:200]}"
-                    )
-        except Exception as e:
-            logger.warning(f"ZeptoMail send exception for user {user_id}: {e}")
-            send_success = False
+        # 3. Send via the configured provider (ZeptoMail or SMTP)
+        send_success = await send_html_email(
+            to=email,
+            subject=f"{settings.intervention_subject_prefix}{subject}",
+            html_body=html_body,
+            reply_to=settings.feedback_to,
+        )
 
         # 4. Emit event (always, even on send failure)
         try:
