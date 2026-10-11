@@ -10,8 +10,8 @@ import { useTheme, useThemedStyles } from "@/theme";
 interface StalledUser {
   user_id: string;
   email: string;
-  project_id: string;
-  project_name: string;
+  project_id: string | null;
+  project_name: string | null;
   journey_stage: string;
   stalled_at: string;
   days_stalled: number;
@@ -188,7 +188,7 @@ export default function SettingsAnalyticsScreen() {
               <Text style={styles.email}>{item.email}</Text>
               <Text style={styles.detail}>
                 Project: <Text style={{ fontWeight: "600" }}>
-                  {item.project_name}
+                  {item.project_name ?? "—"}
                 </Text>
               </Text>
               <Text style={styles.detail}>

@@ -12,6 +12,7 @@ from backend.src.accounts import repo as accounts_repo
 from backend.src.accounts.deps import require_active_user
 from backend.src.analytics.dashboards import (
     get_completion_funnel,
+    get_global_stalled_users,
     get_project_bottlenecks,
     get_re_engagement_by_reason,
     get_response_rate,
@@ -385,7 +386,7 @@ async def get_stalled_users_global(
     Returns: email, project, stage, days_stalled, last_accessed, last_reminder_sent.
     Sorted by days_stalled descending (worst offenders first).
     """
-    stalled_users = await get_stalled_users(conn, project_id=None, stage=None)
+    stalled_users = await get_global_stalled_users(conn)
 
     return {
         "stalled_users": [
