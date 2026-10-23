@@ -10,7 +10,7 @@ export const NAV = {
   howItWorks: "How it works",
   formats: "Formats",
   trust: "Trust",
-  pricing: "Pricing",
+  pricing: "Pilot",
   library: "Library",
   // The authoring home (route is still `books`); "Studio" pairs with Library
   // and removes the old Books/Library ambiguity (both read as "shelves").

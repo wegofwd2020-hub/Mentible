@@ -37,5 +37,5 @@ export const MARKETING_LINKS: { label: string; anchor: string }[] = [
   { label: NAV.howItWorks, anchor: "how-it-works" },
   { label: NAV.formats, anchor: "formats" },
   { label: NAV.trust, anchor: "trust" },
-  { label: NAV.pricing, anchor: "pricing" },
+  { label: NAV.pricing, anchor: "pilot" },
 ];

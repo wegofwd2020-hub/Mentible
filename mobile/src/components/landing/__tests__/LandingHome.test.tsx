@@ -16,8 +16,8 @@ test("hero shows headline, accent word, and honest subhead", () => {
 });
 
 test("approval card is labeled an Example and shows provenance", () => {
-  const { getByText } = render(<LandingHome />);
-  expect(getByText(/Example/i)).toBeTruthy();
+  const { getByText, getAllByText } = render(<LandingHome />);
+  expect(getAllByText(/Example/i).length).toBeGreaterThan(0);
   expect(getByText(/never hide who signed off/i)).toBeTruthy();
 });
 
