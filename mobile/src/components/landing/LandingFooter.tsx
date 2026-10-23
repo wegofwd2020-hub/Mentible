@@ -43,6 +43,7 @@ const make = (c: Palette) => ({
     borderTopWidth: 1,
     borderColor: c.border,
     paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
     gap: spacing.xs,
   },
   operator: { fontSize: typography.sizeSm, color: c.text, fontWeight: "600" as const },
