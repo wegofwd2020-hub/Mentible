@@ -29,7 +29,7 @@ export function ApprovalCardExample(): React.JSX.Element {
       </View>
       <Text style={styles.title}>Stormwater practice guide — Ch. 3, §2</Text>
       <Text style={styles.meta}>
-        Revision 4 · approved by Dr. R. Patel (named expert) · recorded 12 Aug 2026
+        Revision 4 · approved by Dr. Jane Example (illustrative named expert) · recorded 12 Aug 2026
       </Text>
       <View style={styles.rows}>
         {ROWS.map(([label, desc, value]) => (

@@ -6,6 +6,7 @@ import { ApprovalCardExample } from "./ApprovalCardExample";
 import { Phases } from "./Phases";
 import { Formats } from "./Formats";
 import { PilotCTA } from "./PilotCTA";
+import { LandingFooter } from "./LandingFooter";
 import { setAnchorScroller, getSectionOffset } from "./landingScroll";
 import { useTheme, useThemedStyles } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -61,6 +62,7 @@ export function LandingHome(): React.JSX.Element {
           <Phases />
           <Formats />
           <PilotCTA />
+          <LandingFooter />
         </View>
       </ScrollView>
     </View>

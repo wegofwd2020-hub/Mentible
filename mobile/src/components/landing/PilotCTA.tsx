@@ -11,7 +11,7 @@ export function PilotCTA(): React.JSX.Element {
   const s = useThemedStyles(make);
   const router = useRouter();
   return (
-    <View style={s.section} {...sectionAnchor("pricing")}>
+    <View style={s.section} {...sectionAnchor("pilot")}>
       <Card style={s.card}>
         <Text style={s.heading}>Publish your first asset in a focused sprint.</Text>
         <Text style={s.body}>

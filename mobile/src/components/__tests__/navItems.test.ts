@@ -6,6 +6,6 @@ test("Home is a nav tab and leads the order", () => {
 });
 
 test("marketing links map labels to Home-section anchors", () => {
-  expect(MARKETING_LINKS.map((l) => l.anchor)).toEqual(["how-it-works", "formats", "trust", "pricing"]);
+  expect(MARKETING_LINKS.map((l) => l.anchor)).toEqual(["how-it-works", "formats", "trust", "pilot"]);
   expect(MARKETING_LINKS[0].label).toBe("How it works");
 });
