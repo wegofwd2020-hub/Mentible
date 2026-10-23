@@ -19,8 +19,8 @@ export interface ProviderGuide {
 
 export const COST_LABEL: Record<ProviderCost, string> = {
   paid: "Paid",
-  free: "Free",
-  "free-tier": "Free tier",
+  free: "Free to start",
+  "free-tier": "Free to start",
 };
 
 export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
@@ -56,7 +56,7 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
     consoleUrl: "https://console.groq.com/keys",
     consoleLabel: "console.groq.com",
     cost: "free",
-    costNote: "Free — fast open models, no card required. Great for trying Mentible; output is draft-grade.",
+    costNote: "Free to start — fast open models, no card required. Great for trying Mentible; output is draft-grade.",
     steps: [
       "Open console.groq.com and sign up (Google or GitHub works).",
       "Go to API Keys → Create API Key.",
@@ -68,7 +68,7 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
     consoleUrl: "https://openrouter.ai/keys",
     consoleLabel: "openrouter.ai",
     cost: "free-tier",
-    costNote: "Free model variants available (paid models too) — one key, many models. Output is draft-grade.",
+    costNote: "Free to start: model variants available (paid models too) — one key, many models. Output is draft-grade.",
     steps: [
       "Open openrouter.ai and sign up or log in.",
       "Go to Keys → Create Key.",
@@ -81,7 +81,7 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
     consoleUrl: "https://aistudio.google.com/app/apikey",
     consoleLabel: "aistudio.google.com",
     cost: "free-tier",
-    costNote: "Free tier via Google AI Studio (rate-limited). Output is draft-grade.",
+    costNote: "Free to start via Google AI Studio (rate-limited). Output is draft-grade.",
     steps: [
       "Open aistudio.google.com and sign in with a Google account.",
       "Click Get API key → Create API key.",

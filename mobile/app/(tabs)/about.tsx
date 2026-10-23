@@ -15,7 +15,7 @@ import { DEFAULT_GENERATION_PARAMS } from "@/types/generationParams";
 // is the only literal (backend groq_default_model — one-line update if it moves).
 // NOT hardcoded to a single model like the old "claude-sonnet-4-6" which silently
 // drifted when the default changed.
-const DEFAULT_MODEL_LABEL = `Qwen 3.8 · ${providerInfo(DEFAULT_GENERATION_PARAMS.provider).label} — or your own key`;
+const DEFAULT_MODEL_LABEL = `${providerInfo(DEFAULT_GENERATION_PARAMS.provider).label}. Change provider by adding your own API key.`;
 
 // About screen — brand blurb + app facts. Scaffolded content; refine as needed.
 export default function AboutScreen() {
@@ -176,7 +176,14 @@ const makeStyles = (c: Palette) => ({
   body: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
   row: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
   rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
-  rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "500" as const },
+  rowValue: {
+    fontSize: typography.sizeSm,
+    color: c.text,
+    fontWeight: "500" as const,
+    flexShrink: 1,
+    textAlign: "right" as const,
+    marginLeft: spacing.sm,
+  },
   contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "500" as const },
   libRow: {
     flexDirection: "row" as const,

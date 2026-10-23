@@ -42,7 +42,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "steps",
         steps: [
           "Optional: sign in to sync your library across devices — or keep reading without an account.",
-          "Add a provider API key in Settings. Claude (Anthropic) is recommended for finished books; free tiers exist if you just want to try it. Your key stays on your device.",
+          "Add a provider API key in Settings. Claude (Anthropic) is recommended for finished books; free-to-start options exist if you just want to try it. Your key stays on your device.",
           "In Books, start a New Book and structure its table of contents.",
           "Generate — each topic is written with math, diagrams and tables, scoped by level and depth.",
           "Save the finished book to your Library to read or export.",
@@ -126,7 +126,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Want to try it free? Groq, Google Gemini and OpenRouter all have free tiers (output is draft-grade). Anthropic (Claude) gives the best quality for finished books but is paid.",
+        text: "Want to try it free? Groq, Google Gemini and OpenRouter all offer free-to-start access (output is draft-grade). Anthropic (Claude) gives the best quality for finished books but is paid.",
       },
       { kind: "defs", defs: providerKeyDefs() },
       {
@@ -153,7 +153,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "By default Mentible writes with a free, fast model (Llama 3.3, via Groq) — no API key needed. It's great for drafting; output is draft-grade, which is why you review and (for validated work) approve it before it counts.",
+        text: "By default Mentible writes with a free-to-start, fast model (Llama 3.3, via Groq) — no API key needed. It's great for drafting; output is draft-grade, which is why you review and (for validated work) approve it before it counts.",
       },
       {
         kind: "text",

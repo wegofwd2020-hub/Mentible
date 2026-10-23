@@ -35,27 +35,27 @@ export const PROVIDERS: ProviderInfo[] = [
   // ── Free providers (BYOK — get a free key from the vendor) ──────────────────
   {
     id: "groq",
-    label: "Groq (free)",
+    label: "Groq (free to start)",
     keyPrefix: "gsk_",
     keyHint: "gsk_...",
     tier: "experimental",
-    note: "Free & fast (open models). Get a key at console.groq.com. Conformance not yet measured — draft-grade.",
+    note: "Free to start, fast (open models). Get a key at console.groq.com. Conformance not yet measured — draft-grade.",
   },
   {
     id: "openrouter",
-    label: "OpenRouter (free models)",
+    label: "OpenRouter (free to start)",
     keyPrefix: "sk-or-",
     keyHint: "sk-or-...",
     tier: "experimental",
-    note: "Free model variants available. Get a key at openrouter.ai. Conformance not yet measured — draft-grade.",
+    note: "Free to start: model variants available. Get a key at openrouter.ai. Conformance not yet measured — draft-grade.",
   },
   {
     id: "gemini",
-    label: "Google Gemini (free tier)",
+    label: "Google Gemini (free to start)",
     keyPrefix: "", // Google keys are AIza… — no sk- prefix
     keyHint: "AIza...",
     tier: "experimental",
-    note: "Free tier via Google AI Studio (aistudio.google.com). Conformance not yet measured — draft-grade.",
+    note: "Free to start via Google AI Studio (aistudio.google.com). Conformance not yet measured — draft-grade.",
   },
 ];
 
