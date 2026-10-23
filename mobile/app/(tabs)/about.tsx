@@ -176,7 +176,14 @@ const makeStyles = (c: Palette) => ({
   body: { fontSize: typography.sizeSm, color: c.textSecondary, lineHeight: 21 },
   row: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
   rowLabel: { fontSize: typography.sizeSm, color: c.textMuted },
-  rowValue: { fontSize: typography.sizeSm, color: c.text, fontWeight: "500" as const },
+  rowValue: {
+    fontSize: typography.sizeSm,
+    color: c.text,
+    fontWeight: "500" as const,
+    flexShrink: 1,
+    textAlign: "right" as const,
+    marginLeft: spacing.sm,
+  },
   contactValue: { fontSize: typography.sizeSm, color: c.primary, fontWeight: "500" as const },
   libRow: {
     flexDirection: "row" as const,
