@@ -25,7 +25,7 @@ from .draft_prompt import build_draft_prompt
 # Friendly engine names for user-facing failure copy (kept minimal on purpose — the
 # client's provider registry holds the full labels; this is just for error text).
 _ENGINE_DISPLAY = {
-    "groq": "The free Groq engine",
+    "groq": "The free-to-start Groq engine",
     "anthropic": "Claude (Anthropic)",
     "openai": "OpenAI",
     "gemini": "Google Gemini",
@@ -49,7 +49,7 @@ def token_limit_message(provider_id: str, exc: Exception) -> str | None:
     if provider_id == "groq":
         if is_too_large:
             return (
-                f"{engine} couldn't fit this request. Its free tier allows about 8,000 "
+                f"{engine} couldn't fit this request. Its free-to-start tier allows about 8,000 "
                 "tokens per minute — your sources plus the generated reply combined — and "
                 "this is over that. Switch the engine to your own key in Settings → "
                 "Engine, or shorten or split the sources."

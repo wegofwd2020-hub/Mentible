@@ -34,9 +34,10 @@ describe("UsageMeterPill", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("renders no bar and shows 'unlimited' when allowance_micros is 0", () => {
+  it("renders no bar and shows the free-to-start badge when allowance_micros is 0", () => {
     render(<UsageMeterPill status={makeStatus({ allowance_micros: 0 })} />);
-    expect(screen.getByText(/unlimited/i)).toBeTruthy();
+    expect(screen.getByText("Free to start with Groq · Bring your own key for other models")).toBeTruthy();
+    expect(screen.queryByText(/Managed Unlimited/)).toBeNull();
     expect(screen.queryByTestId("usage-meter-bar")).toBeNull();
   });
 

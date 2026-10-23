@@ -34,7 +34,7 @@ export function UsageMeterPill({ status }: { status: ManagedStatus }): React.JSX
   const used = formatUsd(usage.cost_micros);
   const label =
     level === "unlimited"
-      ? `${entitlement.plan_display} · ${used} · unlimited`
+      ? "Free to start with Groq · Bring your own key for other models"
       : `${entitlement.plan_display} · ${used} / ${formatUsd(allowanceMicros ?? 0)}`;
 
   return (

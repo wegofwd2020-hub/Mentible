@@ -85,7 +85,7 @@ describe("AboutScreen", () => {
     render(<AboutScreen />);
     expect(screen.queryByText("claude-sonnet-4-6")).toBeNull();
     // Reflects the free managed default + BYOK, sourced from the seam.
-    expect(screen.getByText(/Groq.*or your own key/i)).toBeTruthy();
+    expect(screen.getByText(/Groq.*Change provider by adding your own API key/i)).toBeTruthy();
   });
 
   it("uses the SME/managed framing in the blurb, not the old self-learner/Anthropic-key copy", () => {
