@@ -69,6 +69,7 @@ export function UsageMeterPill({ status }: { status: ManagedStatus }): React.JSX
 const makeStyles = (c: Palette) => ({
   pill: {
     flexDirection: "row" as const,
+    flexShrink: 1,
     alignItems: "center" as const,
     gap: 8,
     paddingHorizontal: 10,
@@ -84,6 +85,7 @@ const makeStyles = (c: Palette) => ({
   label: {
     fontSize: 12,
     color: c.textMuted,
+    flexShrink: 1,
   },
   labelWarn: {
     color: c.warning,
