@@ -1,6 +1,6 @@
 # ADR-043 — Services-led stays the launch model; the self-serve payments launch is superseded
 
-**Status:** **Accepted (2026-10-24) — drafted for owner sign-off.** Becomes Accepted when the decision-maker signs it.
+**Status:** **Accepted (2026-10-24).**
 **Decision-maker:** Sivakumar Mambakkam
 **Supersedes:** the self-serve launch plan in `02-mentible-payments` (the paid-subscription launch on 1 Nov 2026, the 30-day card-backed trial, checkout, and the cancel/re-enable lifecycle as a launch commitment). It does **not** supersede ADR-039 itself; ADR-039 Option A is reaffirmed and extended here.
 **Relates to:** ADR-037 (D3 services-led revenue), ADR-039 (monetization sequencing, Option A), ADR-005 (money model; managed-key vault and BYOK), ADR-014 (credential model), ADR-020 (super-admin operator tier), ADR-022 (account deletion)
