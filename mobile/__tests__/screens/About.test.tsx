@@ -16,6 +16,26 @@ function flattenStyle(style: unknown): Record<string, unknown> {
 }
 
 describe("AboutScreen", () => {
+  it("shows the services-led prices (ADR-037 D3) and no self-serve plans (ADR-043)", () => {
+    render(<AboutScreen />);
+    expect(screen.getByText("Work with us")).toBeTruthy();
+    expect(screen.getByText("$250")).toBeTruthy();
+    expect(screen.getByText("$1,500")).toBeTruthy();
+    expect(screen.getByText("$2,500–$5,000")).toBeTruthy();
+    expect(screen.queryByText(/\/month/)).toBeNull();
+    expect(screen.queryByText(/Starter|Creator/)).toBeNull();
+  });
+
+  it("mailto-links the work-with-us inquiry", () => {
+    const spy = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined as never);
+    render(<AboutScreen />);
+    fireEvent.press(screen.getByLabelText(`Email ${BRAND_CONTACT} about working with us`));
+    expect(spy).toHaveBeenCalledWith(
+      `mailto:${BRAND_CONTACT}?subject=${encodeURIComponent(`${BRAND_NAME} — work with us`)}`,
+    );
+    spy.mockRestore();
+  });
+
   it("renders the section eyebrows via the Label primitive (uppercase, never bold)", () => {
     render(<AboutScreen />);
     for (const text of ["About this app", "Privacy"]) {
