@@ -42,6 +42,30 @@ export default function AboutScreen() {
       </Text>
 
       <View style={styles.section}>
+        <Label tone="secondary">Work with us</Label>
+        <Card style={styles.cardInner}>
+          <Text style={styles.body}>
+            Paid, fixed-scope engagements. Each one is invoiced directly; there is no
+            subscription.
+          </Text>
+          <Row label="Discovery" value="$250" styles={styles} />
+          <Row label="Founding Expert Sprint (30 days)" value="$1,500" styles={styles} />
+          <Row label="Team Knowledge Pilot" value="$2,500–$5,000" styles={styles} />
+          <Pressable
+            style={styles.row}
+            onPress={() =>
+              Linking.openURL(`mailto:${BRAND_CONTACT}?subject=${encodeURIComponent(`${BRAND_NAME} — work with us`)}`)
+            }
+            accessibilityRole="link"
+            accessibilityLabel={`Email ${BRAND_CONTACT} about working with us`}
+          >
+            <Text style={styles.rowLabel}>Get in touch</Text>
+            <Text style={styles.contactValue}>Send an email</Text>
+          </Pressable>
+        </Card>
+      </View>
+
+      <View style={styles.section}>
         <Label tone="secondary">About this app</Label>
         <Card style={styles.cardInner}>
           <Row label="App" value={BRAND_NAME} styles={styles} />
