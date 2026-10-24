@@ -49,7 +49,7 @@ Self-serve is reopened by a new ADR, not by a decision in a spec or a chat. That
 ## Open items for the owner
 
 - **[OPEN] Revival trigger threshold** (see above).
-- **[OPEN] Free-tier limits** (2 projects, about 20 generations a month, per ADR-037 D3): confirm whether they are enforced in code.
+- **Free-tier limits** (ADR-037 D3): 2 projects, and 20 generations per rolling 30 days. Enforced in code for projects (`backend/src/trust/router.py`) and for generations on the trust generate endpoints. **[OPEN]** The older `/api/v1/generate` and `/api/v1/derivatives/post` routes check only the managed spend allowance, not the generation count. Decide whether they should share the count.
 - **[OPEN] Client access for paying engagements:** confirm the admin grant process and who may issue it.
 - **[OPEN] Status of the payments spec's Stripe plan:** keep the file as an archived design, or move it to `docs/proposals/` with a deferred banner.
 - **[OPEN] Trial promise:** the spec's 30-day card-backed trial appears nowhere else in the product. Confirm no public copy promises it.
