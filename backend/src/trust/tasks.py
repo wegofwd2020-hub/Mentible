@@ -59,7 +59,12 @@ from . import (
     topic_repo,
 )
 from .access import project_id_for_artifact, project_id_for_version
-from .generate import draft_output_to_sections, generate_draft, token_limit_message
+from .generate import (
+    default_model_for,
+    draft_output_to_sections,
+    generate_draft,
+    token_limit_message,
+)
 from .generate_topic import generate_topic_draft
 from .grounding import generate_grounding
 from .originality import generate_originality
@@ -264,7 +269,7 @@ async def _run(
                 await _write_status(r, job_id, "failed", error="no sources for this topic")
                 return
 
-            resolved_model = model or settings.anthropic_default_model
+            resolved_model = model or default_model_for(provider_id)
             await _write_status(
                 r, job_id, "running"
             )  # phase: queued -> running (foreground progress)
@@ -529,7 +534,7 @@ async def _run_version(
                 )
                 return
 
-            resolved_model = model or settings.anthropic_default_model
+            resolved_model = model or default_model_for(provider_id)
             await _write_status(
                 r, job_id, "running"
             )  # phase: queued -> running (foreground progress)
@@ -827,7 +832,7 @@ async def _run_suggest(
             )
             return
 
-        resolved_model = model or settings.anthropic_default_model
+        resolved_model = model or default_model_for(provider_id)
         await _write_status(r, job_id, "running")  # phase: queued -> running
         try:
             out = await asyncio.to_thread(
@@ -1041,7 +1046,7 @@ async def _run_book(
 
         all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
         inputs_by_id = {str(i.id): i for i in all_inputs}
-        resolved_model = model or settings.anthropic_default_model
+        resolved_model = model or default_model_for(provider_id)
 
         # `total` was frozen at submit time (`len(missing)` as of the submit
         # request); if the TOC changed before this worker picked the job up,
@@ -1294,7 +1299,7 @@ async def _run_grounding_check(
             sections = (v.content or {}).get("sections", [])
             sources = await project_repo.list_inputs(conn, project_id=project_id)
 
-            resolved_model = model or settings.anthropic_default_model
+            resolved_model = model or default_model_for(provider_id)
             await _write_status(
                 r, job_id, "running"
             )  # phase: queued -> running (foreground progress)
@@ -1509,7 +1514,7 @@ async def _run_originality_check(
             sections = (v.content or {}).get("sections", [])
             sources = await project_repo.list_inputs(conn, project_id=project_id)
 
-            resolved_model = model or settings.anthropic_default_model
+            resolved_model = model or default_model_for(provider_id)
             await _write_status(r, job_id, "running")
             try:
                 report, in_tok, out_tok = await asyncio.to_thread(
