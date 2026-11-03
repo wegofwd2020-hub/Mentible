@@ -49,6 +49,7 @@ from .access import (
     project_id_for_version,
     require_project_access,
 )
+from .generate import default_model_for
 from .quality import version_quality
 from .tasks import (
     cited_content_hash,
@@ -609,7 +610,7 @@ async def generate_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -684,7 +685,7 @@ async def grounding_check_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -756,7 +757,7 @@ async def grounding_check_topic_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -832,7 +833,7 @@ async def originality_check_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -899,7 +900,7 @@ async def originality_check_topic_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -1177,7 +1178,7 @@ async def suggest_project_toc(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -1324,7 +1325,7 @@ async def generate_topic_version(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "managed allowance exhausted; try again later or add your own key",
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job_id = uuid.uuid4()
 
@@ -1388,7 +1389,7 @@ async def get_generate_book_estimate(
     missing = book_gen.missing_topics(p, existing_topic_ids)
     all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
     inputs_by_id = {str(i.id): i for i in all_inputs}
-    resolved_model = model or settings.anthropic_default_model
+    resolved_model = model or default_model_for(provider_id)
     est = book_gen.estimate(missing, inputs_by_id, provider_id, resolved_model)
 
     # Managed-eligible callers get their remaining headroom; BYOK/ineligible
@@ -1491,7 +1492,7 @@ async def submit_generate_book(
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
             )
-    model = body.model or settings.anthropic_default_model
+    model = body.model or default_model_for(body.provider_id)
 
     job = await generation_job_repo.create(
         conn, project_id=project_id, total=len(missing), created_by_sub=principal.sub

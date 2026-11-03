@@ -65,6 +65,12 @@ def token_limit_message(provider_id: str, exc: Exception) -> str | None:
     return None
 
 
+def default_model_for(provider_id: str) -> str:
+    return (
+        settings.groq_default_model if provider_id == "groq" else settings.anthropic_default_model
+    )
+
+
 # Groq free-tier budgeting knobs. The tokens/minute limit is input+output
 # COMBINED, so a large prompt eats into the output we can ask for. Estimate input
 # tokens conservatively (fewer chars-per-token ⇒ higher estimate ⇒ safer under the
