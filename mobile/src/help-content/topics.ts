@@ -122,7 +122,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible is bring-your-own-key (BYOK): you connect your own LLM account and are billed by that provider directly. Your key is stored in your device's secure storage and sent per request — never logged or stored on a server. You can add more than one provider and switch between them in Settings.",
+        text: "Mentible is bring-your-own-key (BYOK): you connect your own LLM account and are billed by that provider directly. Your key is stored in your device's secure storage and sent per request — never logged or stored on a server. Keys don't sync: on a new device or browser you'll need to add your key again. You can add more than one provider and switch between them in Settings.",
       },
       {
         kind: "text",
