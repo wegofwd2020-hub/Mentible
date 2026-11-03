@@ -158,7 +158,8 @@ export default function AccountScreen() {
           />
         </View>
         <Text style={styles.hint}>
-          Which providers you have a key for. Keys themselves stay on your device (BYOK).
+          Keys are saved only on the device where you added them — they don't sync. On another
+          device, add the key there again. Your account only records which providers you've set up.
         </Text>
         {PROVIDERS.map((p) => {
           const cred = credBy.get(p.id);

@@ -139,6 +139,9 @@ export function ProviderKeyForm({
       ) : (
         <Text style={styles.noKeyText}>No key saved</Text>
       )}
+      <Text style={styles.noKeyText}>
+        Saved on this device only. Keys don't sync to your other devices.
+      </Text>
 
       <View style={styles.keyLabelRow}>
         <Text style={styles.keyLabel}>API key</Text>
