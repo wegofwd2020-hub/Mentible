@@ -225,4 +225,25 @@ describe("BookMetadataModal — export pills + actions", () => {
     expect(screen.getByText("EPUB")).toBeTruthy();
     expect(screen.getByText("PDF")).toBeTruthy();
   });
+
+  it("shows the cover artwork at the top of the panel when a cover is given", () => {
+    render(
+      <BookMetadataModal
+        visible
+        book={null}
+        meta={{ title: "Art Book" }}
+        coverUri="data:image/jpeg;base64,/9j/THUMB"
+        onRead={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Cover: Art Book")).toBeTruthy();
+  });
+
+  it("shows no cover block when there is no artwork or thumbnail", () => {
+    render(
+      <BookMetadataModal visible book={null} meta={{ title: "Plain" }} onRead={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.queryByLabelText("Cover: Plain")).toBeNull();
+  });
 });

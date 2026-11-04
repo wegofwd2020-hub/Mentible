@@ -12,6 +12,7 @@ import { useTheme, useThemedStyles } from "@/theme";
 import type { Book } from "@/types/book";
 import { Ionicons } from "@expo/vector-icons";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
+import { BookCover } from "@/components/BookCover";
 import type { BookExportStatus } from "@/storage/exportStatus";
 import type { PublishedFormats } from "@/lib/trackedExport";
 
@@ -129,6 +130,8 @@ export interface BookMetadataModalProps {
   exportStatus?: BookExportStatus;
   published?: PublishedFormats;
   reviewCount?: number;
+  // Cover artwork shown at the top of the panel (shelf is spines-only).
+  coverUri?: string;
   onRead: () => void;
   // Action buttons render only when their handler is provided, so the sidebar
   // degrades gracefully (and this change stays additive for callers).
@@ -150,6 +153,7 @@ export function BookMetadataModal({
   exportStatus,
   published,
   reviewCount,
+  coverUri,
   onRead,
   onMove,
   onManage,
@@ -170,6 +174,11 @@ export function BookMetadataModal({
     <View style={styles.overlay} pointerEvents="box-none">
       <View style={styles.scrim} pointerEvents="none" />
       <View style={styles.sidebar}>
+        {coverUri ? (
+          <View style={styles.coverWrap}>
+            <BookCover title={rows.name} size="large" coverUri={coverUri} />
+          </View>
+        ) : null}
         <Text style={styles.title} numberOfLines={3}>
           {rows.name}
         </Text>
@@ -230,6 +239,7 @@ export function BookMetadataModal({
 }
 
 const makeStyles = (c: Palette) => ({
+  coverWrap: { alignSelf: "flex-start" as const, marginBottom: spacing.md },
   // Full-screen, touch-transparent layer that the panel + scrim live in.
   overlay: { ...StyleSheet.absoluteFillObject },
   // Faint scrim over the shelf — visual separation only (never blocks taps).
