@@ -56,4 +56,25 @@ describe("book HTML cannot reference remote or local resources", () => {
     const out = render("Look: SBQTRUSTEDDIAGRAM0END and SBQ0D0END");
     expect(out).toContain("SBQTRUSTEDDIAGRAM0END");
   });
+
+  it("removes CSS-escaped and comment-split url() forms", () => {
+    const escaped = render('<svg><rect fill="u\\72l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    const commented = render('<svg><rect fill="u/**/rl(http://10.0.0.5/q.svg#a)" width="5" height="5"/></svg>');
+    expect(escaped).not.toContain("10.0.0.5");
+    expect(commented).not.toContain("10.0.0.5");
+  });
+
+  it("does not throw on out-of-range CSS escapes and still removes a fetch behind one", () => {
+    expect(() => render('<svg><rect fill="\\FFFFFF" width="5" height="5"/></svg>')).not.toThrow();
+    expect(() => render('<svg><rect fill="\\D800" width="5" height="5"/></svg>')).not.toThrow();
+    const out = render('<svg><rect fill="\\FFFFFFu\\72l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    expect(out).not.toContain("10.0.0.5");
+  });
+
+  it("removes url() split by whitespace or escapes", () => {
+    const spaced = render('<svg><rect fill="u r l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    const escapedSpace = render('<svg><rect fill="u\\72 \\6c(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    expect(spaced).not.toContain("10.0.0.5");
+    expect(escapedSpace).not.toContain("10.0.0.5");
+  });
 });
