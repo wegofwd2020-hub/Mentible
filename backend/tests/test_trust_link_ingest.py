@@ -203,3 +203,67 @@ def test_message_names_only_bad_links_and_none_when_clean():
     msg = unresolved_link_message([good, bad])
     assert '"RAG intro"' in msg and '"Good"' not in msg
     assert "re-add" in msg
+
+
+@pytest.mark.asyncio
+async def test_compressed_body_refused():
+    def handler(request):
+        return httpx.Response(
+            200, headers={"content-type": "text/plain", "content-encoding": "gzip"}, content=b"x"
+        )
+
+    with pytest.raises(LinkIngestError, match="compressed"):
+        await fetch_link_text(PUBLIC, http_client=_client(handler))
+
+
+@pytest.mark.asyncio
+async def test_declared_oversize_refused_before_body_read(monkeypatch):
+    monkeypatch.setattr(link_ingest, "MAX_BYTES", 100)
+
+    def handler(request):
+        return httpx.Response(
+            200, headers={"content-type": "text/plain", "content-length": "5000"}, content=b"a"
+        )
+
+    with pytest.raises(LinkIngestError, match="too large"):
+        await fetch_link_text(PUBLIC, http_client=_client(handler))
+
+
+@pytest.mark.asyncio
+async def test_identity_encoding_requested():
+    seen = {}
+
+    def handler(request):
+        seen["ae"] = request.headers.get("accept-encoding")
+        return httpx.Response(200, headers={"content-type": "text/plain"}, content=b"ok")
+
+    await fetch_link_text(PUBLIC, http_client=_client(handler))
+    assert seen["ae"] == "identity"
+
+
+@pytest.mark.asyncio
+async def test_overall_deadline_enforced(monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(link_ingest, "FETCH_DEADLINE_S", 0.05)
+
+    def handler(request):
+        async def slow():
+            await asyncio.sleep(1)
+            yield b"late"
+
+        return httpx.Response(
+            200, headers={"content-type": "text/plain"}, stream=_AsyncStream(slow())
+        )
+
+    with pytest.raises(LinkIngestError, match="too long"):
+        await fetch_link_text(PUBLIC, http_client=_client(handler))
+
+
+class _AsyncStream(httpx.AsyncByteStream):
+    def __init__(self, gen):
+        self._gen = gen
+
+    async def __aiter__(self):
+        async for chunk in self._gen:
+            yield chunk

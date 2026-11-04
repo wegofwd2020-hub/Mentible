@@ -34,6 +34,7 @@ MAX_BYTES = 2_000_000
 MAX_CHARS = 150_000
 MAX_REDIRECTS = 3
 _TIMEOUT = httpx.Timeout(10.0)
+FETCH_DEADLINE_S = 15.0  # total budget across redirects + body read
 _ALLOWED_TYPES = ("text/html", "text/plain")
 _USER_AGENT = "Mentible-SourceIngest/1.0"
 
@@ -180,10 +181,25 @@ async def _validate_url(url: str) -> None:
 
 
 async def fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None = None) -> str:
-    """Return the readable text of `url`, or raise LinkIngestError."""
+    """Return the readable text of `url`, or raise LinkIngestError.
+
+    Wraps the whole fetch (all redirect hops and the body read) in one deadline,
+    so a slow-drip response cannot hold the request open past FETCH_DEADLINE_S.
+    """
+    try:
+        async with asyncio.timeout(FETCH_DEADLINE_S):
+            return await _fetch_link_text(url, http_client=http_client)
+    except TimeoutError as e:
+        raise LinkIngestError("link took too long to read") from e
+
+
+async def _fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None) -> str:
     current = url.strip()
     owns_client = http_client is None
-    client = http_client or httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=False)
+    # trust_env=False: proxy env vars must not redirect the fetch past our address checks.
+    client = http_client or httpx.AsyncClient(
+        timeout=_TIMEOUT, follow_redirects=False, trust_env=False
+    )
     try:
         for _hop in range(MAX_REDIRECTS + 1):
             await _validate_url(current)
@@ -191,7 +207,12 @@ async def fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None = N
                 async with client.stream(
                     "GET",
                     current,
-                    headers={"User-Agent": _USER_AGENT, "Accept": "text/html,text/plain;q=0.9"},
+                    # identity only: we cap the raw bytes, so a compressed body could expand past the cap.
+                    headers={
+                        "User-Agent": _USER_AGENT,
+                        "Accept": "text/html,text/plain;q=0.9",
+                        "Accept-Encoding": "identity",
+                    },
                 ) as resp:
                     if resp.status_code in (301, 302, 303, 307, 308):
                         location = resp.headers.get("location")
@@ -204,6 +225,12 @@ async def fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None = N
                     ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
                     if ctype not in _ALLOWED_TYPES:
                         raise LinkIngestError("link is not an HTML or plain-text page")
+                    encoding = resp.headers.get("content-encoding", "identity").strip().lower()
+                    if encoding not in ("", "identity"):
+                        raise LinkIngestError("link sent a compressed body, which is not supported")
+                    declared = resp.headers.get("content-length")
+                    if declared is not None and declared.isdigit() and int(declared) > MAX_BYTES:
+                        raise LinkIngestError("page is too large to ingest")
                     body = bytearray()
                     async for chunk in resp.aiter_bytes():
                         body.extend(chunk)
