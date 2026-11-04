@@ -82,8 +82,8 @@ describe("renderMarkdown — void-element XHTML normalisation", () => {
   });
 
   it("self-closes raw <img> and <hr>", () => {
-    const out = r('A <img src="x.png"> and a rule<hr>done');
-    expect(out).toContain('<img src="x.png"/>');
+    const out = r('A <img src="data:image/png;base64,iVBORw0KGgo="> and a rule<hr>done');
+    expect(out).toContain('<img src="data:image/png;base64,iVBORw0KGgo="/>');
     expect(out).toContain("<hr/>");
   });
 

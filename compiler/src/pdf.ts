@@ -188,7 +188,7 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
   const wm = watermarkText(book.metadata);
   const watermarkCss = wm ? watermarkPageCss(wm) : "";
 
-  return dropRemoteResources(`<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${escapeHtml(lang)}">
 <head>
 <meta charset="utf-8"/>
@@ -209,7 +209,7 @@ ${answersHtml}
 ${glossaryHtml}
 </body>
 </html>
-`);
+`;
 }
 
 // CSS Paged Media stylesheet (resolved by Vivliostyle). The TOC page numbers
@@ -222,20 +222,6 @@ ${glossaryHtml}
 // discipline as css.ts — no faux-bold).
 const PDF_SANS = '"Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif';
 const DISPLAY = PDF_SANS;
-// The PDF renderer fetches whatever a book references. Only inline data: URIs
-// may be loaded, so image-like tags pointing anywhere else are dropped (no
-// network access from the server while rendering).
-export function dropRemoteResources(html: string): string {
-  return html.replace(/<(img|image|source|link|iframe|video|audio|embed|object)\b[^>]*>/gi, (tag) => {
-    const refs = [...tag.matchAll(/\b(?:src|href|xlink:href|data|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)];
-    const remote = refs.some((m) => {
-      const v = (m[1] ?? m[2] ?? m[3] ?? "").trim();
-      return v !== "" && !/^data:/i.test(v) && !v.startsWith("#");
-    });
-    return remote ? "" : tag;
-  });
-}
-
 function pdfCss(): string {
   return `
   ${SOURCE_SERIF_FONTFACE}

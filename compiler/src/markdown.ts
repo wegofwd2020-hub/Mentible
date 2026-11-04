@@ -13,6 +13,30 @@ import { escapeHtml } from "./html";
 // renderMarkdown() call instead of paying that cost per ```svg block.
 const purify = DOMPurify(new JSDOM("").window);
 
+// Book text is untrusted: marked passes raw HTML through verbatim, and the
+// renderer then fetches whatever URL it finds. Every URL-bearing attribute is
+// therefore checked here. Only inline data: images, audio and video may load; an <a href> may
+// keep a plain http(s) link (a link is clicked, never fetched). Everything else
+// is removed, so nothing reachable from book text can make the renderer or a
+// reader fetch another address.
+const URL_ATTRS = new Set([
+  "src", "href", "xlink:href", "poster", "background", "data", "action", "formaction",
+  "srcset", "codebase", "cite", "longdesc", "usemap", "manifest", "icon", "lowsrc", "dynsrc",
+]);
+purify.addHook("uponSanitizeAttribute", (node, data) => {
+  const name = (data.attrName ?? "").toLowerCase();
+  if (!URL_ATTRS.has(name)) return;
+  const value = (data.attrValue ?? "").trim();
+  // Images other than SVG (SVG can carry active content), plus audio and video.
+  if (/^data:(image\/(?!svg)[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+);base64,[a-z0-9+/=\s]*$/i.test(value)) return;
+  if (name === "href" && node.nodeName === "A" && /^https?:\/\//i.test(value)) return;
+  data.keepAttr = false;
+});
+const BOOK_HTML_RULES = {
+  FORBID_TAGS: ["style", "link", "meta", "base", "iframe", "frame", "frameset", "object", "embed", "form"],
+  FORBID_ATTR: ["style"],
+};
+
 // Render a markdown string to a self-contained HTML fragment with:
 //  - maths pre-rendered to MathML (KaTeX, output:"mathml") — no runtime JS, no CDN
 //  - ```mermaid blocks delegated to the DiagramRenderer
@@ -26,6 +50,7 @@ const purify = DOMPurify(new JSDOM("").window);
 // shared global renderer state.
 export function renderMarkdown(md: string | null | undefined, diagrams: DiagramRenderer): string {
   const m = new Marked();
+  const trustedDiagrams: string[] = [];
   // strict:false — render best-effort and don't warn on quirks in LLM-authored
   // LaTeX (e.g. a stray en-dash inside math); throwOnError:false keeps a bad
   // expression from failing the whole compile.
@@ -36,7 +61,12 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
       // than positional args (was `code(code, infostring)` etc. on marked@9).
       code({ text, lang }: Tokens.Code): string {
         const language = (lang ?? "").trim().split(/\s+/)[0];
-        if (language === "mermaid") return diagrams.render(text);
+        if (language === "mermaid") {
+          // Our own diagram output: kept verbatim (including its comment markers) by
+          // swapping it for a plain token until the book HTML has been sanitised.
+          trustedDiagrams.push(diagrams.render(text));
+          return `SBQTRUSTEDDIAGRAM${trustedDiagrams.length - 1}END`;
+        }
         if (language === "svg") {
           // Inline the LLM-authored SVG so SMIL/CSS animation works — mirror
           // the mobile reader (mobile/src/reader/sanitize.ts / markdown.ts).
@@ -101,7 +131,10 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
   // markdown-*syntax* cases; a literal "<br>" the model typed slips straight
   // through. EPUB3 content docs are parsed as XML, where a bare <br> is a fatal
   // "mismatched tag" error — so normalise here. Idempotent on already-closed tags.
-  return html.replace(
+  const sanitized = purify
+    .sanitize(html, BOOK_HTML_RULES)
+    .replace(/SBQTRUSTEDDIAGRAM(\d+)END/g, (_m, i: string) => trustedDiagrams[Number(i)] ?? "");
+  return sanitized.replace(
     /(<(?:br|hr|img|input|col|area|base|embed|source|track|wbr|meta|link)\b[^>]*?)\s*\/?>/gi,
     "$1/>",
   );
