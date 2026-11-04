@@ -1,4 +1,4 @@
-import { buildPdfHtml, orderedChapters } from "../src/pdf";
+import { buildPdfHtml, dropRemoteResources, orderedChapters } from "../src/pdf";
 import { EmptyBookError } from "../src/epub";
 import type { Book, GeneratedTopic, LessonOutput, QuizSet } from "../src/types";
 
@@ -164,11 +164,27 @@ describe("buildPdfHtml — typography & numbering CSS", () => {
     expect(figcaptionRule![0]).not.toContain("#555"); // old neutral gray caption color
   });
 
-  it("cannot let a book title close the <style> element", () => {
+  it("cannot let a book title close the <style> element (title is escaped and kept out of the CSS)", () => {
     const evil = { ...book(), title: "X</style><script>alert(1)</script>" } as Book;
     const out = buildPdfHtml(evil);
     expect(out).not.toContain("</style><script>");
     expect(out).not.toContain("<script>alert");
-    expect(out).toContain("\\3C ");
+    expect(out).toContain('<div class="book-running">X&lt;/style&gt;&lt;script&gt;');
+    expect(out).toContain("string(booktitle)");
+  });
+
+  it("drops image-like tags that point anywhere except an inline data URI", () => {
+    const html =
+      '<p><img src="http://169.254.169.254/latest/meta-data/"/></p>' +
+      '<img src=\'file:///etc/passwd\'/>' +
+      '<svg><image href="http://10.0.0.5/x.png"/></svg>' +
+      '<img src="data:image/png;base64,iVBORw0KGgo="/>' +
+      '<a href="https://example.com">link</a>';
+    const out = dropRemoteResources(html);
+    expect(out).not.toContain("169.254");
+    expect(out).not.toContain("file:///");
+    expect(out).not.toContain("10.0.0.5");
+    expect(out).toContain('src="data:image/png;base64,iVBORw0KGgo="');
+    expect(out).toContain('<a href="https://example.com">'); // links do not fetch anything
   });
 });

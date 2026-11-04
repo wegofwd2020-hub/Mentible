@@ -188,15 +188,16 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
   const wm = watermarkText(book.metadata);
   const watermarkCss = wm ? watermarkPageCss(wm) : "";
 
-  return `<!DOCTYPE html>
+  return dropRemoteResources(`<!DOCTYPE html>
 <html lang="${escapeHtml(lang)}">
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(book.title)}</title>
-<style>${pdfCss(book.title)}
+<style>${pdfCss()}
 ${watermarkCss}</style>
 </head>
 <body>
+<div class="book-running">${escapeHtml(book.title)}</div>
 ${coverPage}
 ${colophonPage}
 ${toc}
@@ -208,7 +209,7 @@ ${answersHtml}
 ${glossaryHtml}
 </body>
 </html>
-`;
+`);
 }
 
 // CSS Paged Media stylesheet (resolved by Vivliostyle). The TOC page numbers
@@ -221,19 +222,21 @@ ${glossaryHtml}
 // discipline as css.ts — no faux-bold).
 const PDF_SANS = '"Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif';
 const DISPLAY = PDF_SANS;
-// Quote a value for use as a CSS string inside the <style> element. Escapes
-// backslash, quote and newlines, and writes < and > as CSS hex escapes so the
-// value can never close the <style> element (HTML reads raw text until </style>).
-function cssString(value: string): string {
-  return `"${value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/[\r\n]+/g, " ")
-    .replace(/</g, "\\3C ")
-    .replace(/>/g, "\\3E ")}"`;
+// The PDF renderer fetches whatever a book references. Only inline data: URIs
+// may be loaded, so image-like tags pointing anywhere else are dropped (no
+// network access from the server while rendering).
+export function dropRemoteResources(html: string): string {
+  return html.replace(/<(img|image|source|link|iframe|video|audio|embed|object)\b[^>]*>/gi, (tag) => {
+    const refs = [...tag.matchAll(/\b(?:src|href|xlink:href|data|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)];
+    const remote = refs.some((m) => {
+      const v = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+      return v !== "" && !/^data:/i.test(v) && !v.startsWith("#");
+    });
+    return remote ? "" : tag;
+  });
 }
 
-function pdfCss(bookTitle: string): string {
+function pdfCss(): string {
   return `
   ${SOURCE_SERIF_FONTFACE}
   @page {
@@ -251,7 +254,7 @@ function pdfCss(bookTitle: string): string {
     }
     @bottom-left { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
     @bottom-center {
-      content: ${cssString(bookTitle)}; font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
       text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm;
     }
     @bottom-right { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
@@ -334,6 +337,8 @@ function pdfCss(bookTitle: string): string {
   .glossary dd { margin: 0.1em 0 0.4em 0; color: #333; break-inside: avoid; }
 
   .chapter, .quizzes, .answers { break-before: page; }
+  /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
+  .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
   /* Running header text: each chapter, quiz/answer/glossary/contents section names itself. */
   .chapter > h1:first-child, .quizzes > h1, .answers > h1, .glossary > h1,
   nav.toc > h1, nav.floatlist > h1 { string-set: chapter content(text); }
