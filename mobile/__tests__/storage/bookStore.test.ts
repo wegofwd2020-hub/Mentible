@@ -137,6 +137,17 @@ describe("bookStore", () => {
     expect(loaded?.chapterQuizzes).toEqual({ c1: quiz });
   });
 
+  it("indexes the shelf thumbnail but never the full cover artwork", async () => {
+    const book = makeBook("b1", "Art Book");
+    book.metadata = { coverImage: "data:image/jpeg;base64,FULLSIZE", coverThumb: "data:image/jpeg;base64,THUMB" };
+    await saveBook(book);
+    const [meta] = await loadBookIndex();
+    expect(meta.coverThumb).toBe("data:image/jpeg;base64,THUMB");
+    expect(JSON.stringify(meta)).not.toContain("FULLSIZE");
+    // The full book still keeps the full-size artwork for the exported cover.
+    expect((await loadBook("b1"))?.metadata?.coverImage).toBe("data:image/jpeg;base64,FULLSIZE");
+  });
+
   it("puts the most recently saved book first and dedups by id", async () => {
     await saveBook(makeBook("b1", "First"));
     await saveBook(makeBook("b2", "Second"));

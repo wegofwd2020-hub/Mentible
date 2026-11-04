@@ -233,6 +233,8 @@ export interface BookMetadata {
   // Full-bleed cover artwork as a data: URI (JPEG/PNG/WebP, ~1600px wide, EXIF
   // stripped). The compiler draws the cover over it. Max ~5 MB before resize.
   coverImage?: string;
+  // Small copy of coverImage (~360px JPEG) for the "Your books" shelf.
+  coverThumb?: string;
   subjects?: string[];
   // Free-form author tags for in-app organisation + future search (ADR-027 D7).
   // App-only: distinct from `subjects`/dc:subject and NOT yet emitted to EPUB
@@ -337,4 +339,6 @@ export interface BookMeta {
   // Inline vector cover (BookMetadata.coverSvg), surfaced in the index so the
   // shelf can render a real cover without loading each full book.
   coverSvg?: string;
+  // Small cover thumbnail (BookMetadata.coverThumb), surfaced in the index.
+  coverThumb?: string;
 }

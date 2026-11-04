@@ -103,9 +103,10 @@ describe("BookEditor — description + tags (ADR-027 D7)", () => {
 
 describe("BookEditor — cover artwork", () => {
   const ART = "data:image/jpeg;base64,/9j/AAAA";
+  const THUMB = "data:image/jpeg;base64,/9j/THUMB";
 
-  it("choosing artwork saves it into metadata.coverImage", async () => {
-    mockPickCoverArtwork.mockResolvedValue(ART);
+  it("choosing artwork saves the full image and the shelf thumbnail", async () => {
+    mockPickCoverArtwork.mockResolvedValue({ coverImage: ART, coverThumb: THUMB });
     const onSaved = jest.fn();
     const { getByLabelText } = render(
       <BookEditor bookId={null} initialTitle="T" initialToc={TOC} onSaved={onSaved} />,
@@ -114,7 +115,9 @@ describe("BookEditor — cover artwork", () => {
     await waitFor(() => expect(getByLabelText("Cover artwork preview")).toBeTruthy());
     fireEvent.press(getByLabelText("Save book"));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect((onSaved.mock.calls[0][0] as Book).metadata?.coverImage).toBe(ART);
+    const meta = (onSaved.mock.calls[0][0] as Book).metadata;
+    expect(meta?.coverImage).toBe(ART);
+    expect(meta?.coverThumb).toBe(THUMB);
   });
 
   it("cancelling the picker keeps the current artwork", async () => {
@@ -134,11 +137,13 @@ describe("BookEditor — cover artwork", () => {
     });
     const onSaved = jest.fn();
     const { getByLabelText } = render(
-      <BookEditor bookId="b1" initialTitle="T" initialToc={TOC} initialCoverImage={ART} onSaved={onSaved} />,
+      <BookEditor bookId="b1" initialTitle="T" initialToc={TOC} initialCoverImage={ART} initialCoverThumb={THUMB} onSaved={onSaved} />,
     );
     fireEvent.press(getByLabelText("Remove cover artwork"));
     fireEvent.press(getByLabelText("Save book"));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect((onSaved.mock.calls[0][0] as Book).metadata?.coverImage).toBeUndefined();
+    const meta = (onSaved.mock.calls[0][0] as Book).metadata;
+    expect(meta?.coverImage).toBeUndefined();
+    expect(meta?.coverThumb).toBeUndefined();
   });
 });
