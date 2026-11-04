@@ -30,7 +30,9 @@ export const STYLESHEET = `
     color: #1a1a1a;
     background: #faf8f3; /* warm ivory ground (Anthropic-leaning, calmer than pure white) */
     font-family: ${SERIF};
-    line-height: 1.7; /* more air */
+    line-height: 1.45; /* book leading (matches the PDF) */
+    text-align: justify;
+    hyphens: auto;
     margin: 0;
     padding: 1em;
     counter-reset: figure table;
@@ -43,7 +45,11 @@ export const STYLESHEET = `
   h2 { font-size: 1.3em; margin: 1.2em 0 0.4em; }
   h3 { font-size: 1.1em; margin: 1em 0 0.3em; color: ${STUDIO.ink}; }
   h4 { font-size: 1em; margin: 0.8em 0 0.2em; }
-  p { margin: 0.6em 0; }
+  h1, h2, h3, h4, h5, h6, th, td, caption, figcaption { text-align: left; hyphens: manual; }
+  /* Textbook paragraphs: first-line indent, no space between paragraphs. */
+  p { margin: 0; text-indent: 1.3em; orphans: 3; widows: 3; }
+  h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, figure + p, blockquote + p,
+  ul + p, ol + p, table + p, pre + p, dl + p, div + p, p:first-child { text-indent: 0; }
   ul, ol { padding-left: 1.4em; margin: 0.5em 0; }
   li { margin: 0.25em 0; }
   a { color: ${STUDIO.gold}; }
@@ -146,6 +152,8 @@ export const KDP_STYLESHEET = `
   body {
     color: #1a1a1a;
     background: #faf8f3; /* warm ivory ground (Anthropic-leaning, calmer than pure white) */
+    text-align: justify;
+    hyphens: auto;
     margin: 0;
     padding: 1em;
     counter-reset: figure table;
@@ -161,7 +169,11 @@ export const KDP_STYLESHEET = `
   h2 { font-size: 1.3em; margin: 1.2em 0 0.4em; }
   h3 { font-size: 1.1em; margin: 1em 0 0.3em; color: ${STUDIO.ink}; }
   h4 { font-size: 1em; margin: 0.8em 0 0.2em; }
-  p { margin: 0.6em 0; }
+  h1, h2, h3, h4, h5, h6, th, td, caption, figcaption { text-align: left; hyphens: manual; }
+  /* Textbook paragraphs: first-line indent, no space between paragraphs. */
+  p { margin: 0; text-indent: 1.3em; orphans: 3; widows: 3; }
+  h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, figure + p, blockquote + p,
+  ul + p, ol + p, table + p, pre + p, dl + p, div + p, p:first-child { text-indent: 0; }
   ul, ol { padding-left: 1.4em; margin: 0.5em 0; }
   li { margin: 0.25em 0; }
   a { color: ${STUDIO.gold}; }
