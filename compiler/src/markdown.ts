@@ -45,8 +45,14 @@ purify.addHook("uponSanitizeAttribute", (node, data) => {
     // any url() that is not a local #fragment is removed from every attribute.
     // The raw and the decoded value must both pass; a mismatch drops the attribute.
     const decoded = cssDecoded(raw);
+    // Whitespace and backslashes removed, comments removed: catches u r l ( forms.
+    const squashed = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/[\s\\]/g, "");
     const mentionsUrl = (v: string) => /url\s*\(/i.test(v);
-    if ((mentionsUrl(raw) || mentionsUrl(decoded)) && !(LOCAL_CSS_URL.test(raw) && LOCAL_CSS_URL.test(decoded))) {
+    // Any escape next to a parenthesis is refused outright: no legitimate SVG
+    // paint, filter or style value needs one.
+    const escapedCall = raw.includes("\\") && raw.includes("(");
+    const localOnly = LOCAL_CSS_URL.test(raw) && LOCAL_CSS_URL.test(decoded);
+    if (escapedCall || (!localOnly && (/url\(/i.test(squashed) || mentionsUrl(raw) || mentionsUrl(decoded)))) {
       data.keepAttr = false;
       return;
     }

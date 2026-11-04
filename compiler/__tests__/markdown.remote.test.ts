@@ -70,4 +70,11 @@ describe("book HTML cannot reference remote or local resources", () => {
     const out = render('<svg><rect fill="\\FFFFFFu\\72l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
     expect(out).not.toContain("10.0.0.5");
   });
+
+  it("removes url() split by whitespace or escapes", () => {
+    const spaced = render('<svg><rect fill="u r l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    const escapedSpace = render('<svg><rect fill="u\\72 \\6c(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    expect(spaced).not.toContain("10.0.0.5");
+    expect(escapedSpace).not.toContain("10.0.0.5");
+  });
 });
