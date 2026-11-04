@@ -166,5 +166,9 @@ describe("learning objectives block", () => {
       sections: [{ heading: "H", body_markdown: "Body." }], key_takeaways: ["k"], further_reading: [] } as unknown as Parameters<typeof renderLesson>[0];
     expect(renderLesson(lesson, new PassthroughDiagramRenderer())).not.toContain("Learning objectives");
   });
+  it("omits the key takeaways block when the lesson has none", () => {
+    const lesson = { topic: "T", level: "intro", language: "en", synopsis: "S.", learning_objectives: ["o"],
+      sections: [{ heading: "H", body_markdown: "Body." }], key_takeaways: [], further_reading: [] } as unknown as Parameters<typeof renderLesson>[0];
+    expect(renderLesson(lesson, new PassthroughDiagramRenderer())).not.toContain("Key takeaways");
+  });
 });
-
