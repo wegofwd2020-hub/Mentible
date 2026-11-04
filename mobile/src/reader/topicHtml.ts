@@ -40,7 +40,10 @@ function renderLesson(lesson: LessonOutput): string {
     h += md(stripDupHeading(s.body_markdown, s.heading));
   }
   h += DIVIDER;
-  h += `<div class="takeaways"><h3>Key takeaways</h3><ul>${li(lesson.key_takeaways)}</ul></div>`;
+  // Shown only when the lesson has takeaways (trust-built topics have none).
+  if (lesson.key_takeaways?.length) {
+    h += `<div class="takeaways"><h3>Key takeaways</h3><ul>${li(lesson.key_takeaways)}</ul></div>`;
+  }
   if (lesson.further_reading?.length) {
     h += `<div class="further"><h3>Further reading</h3><ul>${li(lesson.further_reading)}</ul></div>`;
   }
