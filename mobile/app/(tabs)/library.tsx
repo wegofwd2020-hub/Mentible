@@ -80,7 +80,7 @@ function DemoLibrary() {
             accessibilityRole="button"
             accessibilityLabel={`Read: ${item.title}`}
           >
-            <BookCover title={item.title} coverSvg={item.coverSvg} />
+            <BookCover title={item.title} coverUri={item.coverThumb} coverSvg={item.coverSvg} />
             <Text style={styles.demoTileTitle} numberOfLines={2}>{item.title}</Text>
             <Text style={styles.demoTileMeta}>{item.unitCount} topics</Text>
           </Pressable>

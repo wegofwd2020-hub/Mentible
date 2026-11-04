@@ -16,6 +16,7 @@ interface Props {
   initialToc: StructuredTOC;
   initialAuthor?: string;
   initialCoverImage?: string;
+  initialCoverThumb?: string;
   initialDescription?: string;
   initialTags?: string[];
   // Preserve the original creation time when editing an existing book.
@@ -35,6 +36,7 @@ export function BookEditor({
   initialToc,
   initialAuthor,
   initialCoverImage,
+  initialCoverThumb,
   initialDescription,
   initialTags,
   createdAt,
@@ -46,6 +48,7 @@ export function BookEditor({
   const [toc, setToc] = useState<StructuredTOC>(initialToc);
   const [author, setAuthor] = useState(initialAuthor ?? "");
   const [coverImage, setCoverImage] = useState<string | undefined>(initialCoverImage);
+  const [coverThumb, setCoverThumb] = useState<string | undefined>(initialCoverThumb);
   const [artworkBusy, setArtworkBusy] = useState(false);
   const [artworkError, setArtworkError] = useState<string | null>(null);
   const [description, setDescription] = useState(initialDescription ?? "");
@@ -58,8 +61,12 @@ export function BookEditor({
     setArtworkBusy(true);
     setArtworkError(null);
     try {
-      const uri = await pickCoverArtwork();
-      if (uri) setCoverImage(uri); // null = user cancelled; keep the current artwork
+      const art = await pickCoverArtwork();
+      if (art) {
+        // null = user cancelled; keep the current artwork
+        setCoverImage(art.coverImage);
+        setCoverThumb(art.coverThumb);
+      }
     } catch (e) {
       setArtworkError(e instanceof Error ? e.message : "Could not add that image.");
     } finally {
@@ -90,6 +97,7 @@ export function BookEditor({
           ...(existing?.metadata ?? {}),
           author: author.trim() || undefined,
           coverImage,
+          coverThumb,
           description: description.trim() || undefined,
           tags: parseTags(tagsText),
         },
@@ -149,7 +157,10 @@ export function BookEditor({
         {coverImage ? (
           <Pressable
             style={styles.artworkBtn}
-            onPress={() => setCoverImage(undefined)}
+            onPress={() => {
+              setCoverImage(undefined);
+              setCoverThumb(undefined);
+            }}
             accessibilityRole="button"
             accessibilityLabel="Remove cover artwork"
           >

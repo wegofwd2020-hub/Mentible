@@ -98,6 +98,7 @@ function toMeta(book: Book): BookMeta {
     generatedCount: generatedTopicIds(book).length,
     ...(book.source ? { source: book.source } : {}),
     ...(book.metadata?.coverSvg ? { coverSvg: book.metadata.coverSvg } : {}),
+    ...(book.metadata?.coverThumb ? { coverThumb: book.metadata.coverThumb } : {}),
   };
 }
 
