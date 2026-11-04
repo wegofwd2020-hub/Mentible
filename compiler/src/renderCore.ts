@@ -24,7 +24,10 @@ export function renderLesson(lesson: LessonOutput, diagrams: DiagramRenderer): s
   let h = "";
   h += `<h1>${escapeHtml(lesson.topic)}</h1>`;
   h += `<p class="synopsis">${escapeHtml(lesson.synopsis)}</p>`;
-  h += `<div class="objectives"><h3>Learning objectives</h3><ul>${li(lesson.learning_objectives)}</ul></div>`;
+  // Shown only when the lesson has objectives (trust-built topics have none).
+  if (lesson.learning_objectives?.length) {
+    h += `<div class="objectives"><h3>Learning objectives</h3><ul>${li(lesson.learning_objectives)}</ul></div>`;
+  }
   for (const s of lesson.sections ?? []) {
     h += DIVIDER;
     h += `<h2>${escapeHtml(s.heading)}</h2>`;

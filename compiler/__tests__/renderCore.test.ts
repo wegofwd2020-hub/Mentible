@@ -159,3 +159,12 @@ describe("escapeHtml", () => {
     expect(escapeHtml(null)).toBe("");
   });
 });
+
+describe("learning objectives block", () => {
+  it("is omitted when the lesson has no objectives", () => {
+    const lesson = { topic: "T", level: "intro", language: "en", synopsis: "S.", learning_objectives: [],
+      sections: [{ heading: "H", body_markdown: "Body." }], key_takeaways: ["k"], further_reading: [] } as unknown as Parameters<typeof renderLesson>[0];
+    expect(renderLesson(lesson, new PassthroughDiagramRenderer())).not.toContain("Learning objectives");
+  });
+});
+
