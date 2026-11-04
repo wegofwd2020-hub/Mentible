@@ -120,6 +120,9 @@ export interface BookMetadata {
   language?: string; // dc:language + package xml:lang (default "en")
   description?: string; // dc:description
   coverSvg?: string; // in-app shelf cover (mobile BookCover); compiler ignores it
+  // Full-bleed cover artwork as a data: URI (JPEG/PNG/WebP, ~1600px wide). When set,
+  // the cover is drawn over this image instead of the generated night-sky scene.
+  coverImage?: string;
   subjects?: string[]; // dc:subject (repeatable)
   rights?: string; // dc:rights (verbatim copyright/licence line)
   date?: string; // dc:date (publication; ISO date or year)

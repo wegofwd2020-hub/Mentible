@@ -2,6 +2,7 @@
 // feature here requires a topic with the matching featureKey (see
 // __tests__/help/coverage.test.ts).
 export const FEATURES = [
+  { key: "cover-artwork", label: "Cover artwork (your own cover image)" },
   { key: "generation", label: "Generating a book" },
   { key: "reading", label: "Reading a book" },
   { key: "provider-keys", label: "Provider API keys (BYOK)" },

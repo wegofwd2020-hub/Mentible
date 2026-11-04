@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { XMLValidator } from "fast-xml-parser";
-import { buildCoverSvg, buildCoverSvgRaster, buildCoverXhtml, coverInputForBook } from "../src/cover";
+import { buildCoverSvg, buildCoverSvgRaster, buildCoverXhtml, coverInputForBook, safeCoverArtwork } from "../src/cover";
 import { compileEpub } from "../src/epub";
 import { STUDIO } from "../src/tokens";
 import type { Book } from "../src/types";
@@ -194,5 +194,58 @@ describe("compileEpub — cover wiring", () => {
     const svg = await zip.file("OEBPS/cover.svg")!.async("string");
     expect(XMLValidator.validate(svg)).toBe(true);
     expect(svg).toContain("Spec-Driven");
+  });
+});
+
+describe("cover artwork (metadata.coverImage)", () => {
+  const ART = "data:image/jpeg;base64,/9j/AAAA";
+
+  it("without artwork the generated night-sky scene is kept", () => {
+    const svg = buildCoverSvg({ title: "Plain" });
+    expect(svg).not.toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).toContain("url(#cvTop)");
+    expect(svg).toContain(`fill="${STUDIO.navy}"`);
+  });
+
+  it("with artwork the image fills the page full-bleed behind a scrim, text turns white", () => {
+    const svg = buildCoverSvg({ title: "Art Book", artwork: ART });
+    expect(svg).toContain(`href="${ART}"`);
+    expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).toContain('fill="url(#cvScrim)"');
+    expect(svg).not.toContain("url(#cvTop)");
+    expect(svg).toContain('fill="#ffffff"');
+    expect(XMLValidator.validate(svg)).toBe(true);
+  });
+
+  it("coverInputForBook passes metadata.coverImage through as artwork", () => {
+    const input = coverInputForBook(bookWith({ metadata: { coverImage: ART } }));
+    expect(input.artwork).toBe(ART);
+    expect(coverInputForBook(bookWith()).artwork).toBeUndefined();
+  });
+
+  it("the raster cover embeds the artwork and still validates", () => {
+    const svg = buildCoverSvgRaster({ title: "Art Book", artwork: ART });
+    expect(svg).toContain(`href="${ART}"`);
+    expect(XMLValidator.validate(svg)).toBe(true);
+  });
+});
+
+describe("cover artwork is validated before it reaches the renderer", () => {
+  it("accepts only inline base64 jpeg/png/webp data URIs", () => {
+    expect(safeCoverArtwork("data:image/jpeg;base64,/9j/AAAA")).toBe("data:image/jpeg;base64,/9j/AAAA");
+    expect(safeCoverArtwork("data:image/png;base64,iVBORw0KGgo=")).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(safeCoverArtwork("http://169.254.169.254/latest/meta-data/")).toBeUndefined();
+    expect(safeCoverArtwork("file:///etc/passwd")).toBeUndefined();
+    expect(safeCoverArtwork('data:image/png;base64,AA"/><script>x()</script>')).toBeUndefined();
+    expect(safeCoverArtwork("data:image/svg+xml;base64,PHN2Zy8+")).toBeUndefined();
+  });
+
+  it("a remote or breakout artwork value never reaches the SVG", () => {
+    const remote = buildCoverSvg({ title: "T", artwork: "http://169.254.169.254/x" });
+    expect(remote).not.toContain("169.254");
+    expect(remote).not.toContain('preserveAspectRatio="xMidYMid slice"');
+    const breakout = buildCoverSvg({ title: "T", artwork: 'data:image/png;base64,AA"/><script>x()</script>' });
+    expect(breakout).not.toContain("<script>");
+    expect(breakout).not.toContain('preserveAspectRatio="xMidYMid slice"');
   });
 });

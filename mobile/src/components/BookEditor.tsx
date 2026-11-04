@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
+import { pickCoverArtwork } from "@/lib/pickCoverArtwork";
 import { TopicTreeEditor } from "@/components/TopicTreeEditor";
 import { loadBook, saveBook } from "@/storage/bookStore";
 import { loadDefaultParams } from "@/storage/settingsStore";
@@ -13,6 +14,8 @@ interface Props {
   bookId: string | null; // null → create a new book on save
   initialTitle: string;
   initialToc: StructuredTOC;
+  initialAuthor?: string;
+  initialCoverImage?: string;
   initialDescription?: string;
   initialTags?: string[];
   // Preserve the original creation time when editing an existing book.
@@ -30,6 +33,8 @@ export function BookEditor({
   bookId,
   initialTitle,
   initialToc,
+  initialAuthor,
+  initialCoverImage,
   initialDescription,
   initialTags,
   createdAt,
@@ -39,11 +44,28 @@ export function BookEditor({
   const styles = useThemedStyles(makeStyles);
   const [title, setTitle] = useState(initialTitle);
   const [toc, setToc] = useState<StructuredTOC>(initialToc);
+  const [author, setAuthor] = useState(initialAuthor ?? "");
+  const [coverImage, setCoverImage] = useState<string | undefined>(initialCoverImage);
+  const [artworkBusy, setArtworkBusy] = useState(false);
+  const [artworkError, setArtworkError] = useState<string | null>(null);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [tagsText, setTagsText] = useState(formatTags(initialTags));
   const [saving, setSaving] = useState(false);
 
   const canSave = title.trim().length > 0 && toc.subjects.length > 0 && !saving;
+
+  const handleChooseArtwork = async () => {
+    setArtworkBusy(true);
+    setArtworkError(null);
+    try {
+      const uri = await pickCoverArtwork();
+      if (uri) setCoverImage(uri); // null = user cancelled; keep the current artwork
+    } catch (e) {
+      setArtworkError(e instanceof Error ? e.message : "Could not add that image.");
+    } finally {
+      setArtworkBusy(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -66,6 +88,8 @@ export function BookEditor({
         generationParams,
         metadata: {
           ...(existing?.metadata ?? {}),
+          author: author.trim() || undefined,
+          coverImage,
           description: description.trim() || undefined,
           tags: parseTags(tagsText),
         },
@@ -88,6 +112,52 @@ export function BookEditor({
         placeholderTextColor={theme.textMuted}
         accessibilityLabel="Book title"
       />
+
+      <Text style={styles.label}>Author</Text>
+      <TextInput
+        style={styles.tagsInput}
+        value={author}
+        onChangeText={setAuthor}
+        placeholder="Author name (optional)"
+        placeholderTextColor={theme.textMuted}
+        accessibilityLabel="Book author"
+      />
+
+      <Text style={styles.label}>Cover artwork</Text>
+      {coverImage ? (
+        <Image
+          source={{ uri: coverImage }}
+          style={styles.artworkPreview}
+          resizeMode="cover"
+          accessibilityLabel="Cover artwork preview"
+        />
+      ) : (
+        <Text style={styles.artworkHint}>No artwork yet. The cover uses the generated design.</Text>
+      )}
+      <View style={styles.artworkRow}>
+        <Pressable
+          style={styles.artworkBtn}
+          onPress={handleChooseArtwork}
+          disabled={artworkBusy}
+          accessibilityRole="button"
+          accessibilityLabel={coverImage ? "Replace cover artwork" : "Choose cover artwork"}
+        >
+          <Text style={styles.artworkBtnText}>
+            {artworkBusy ? "Loading…" : coverImage ? "Replace artwork" : "Choose artwork"}
+          </Text>
+        </Pressable>
+        {coverImage ? (
+          <Pressable
+            style={styles.artworkBtn}
+            onPress={() => setCoverImage(undefined)}
+            accessibilityRole="button"
+            accessibilityLabel="Remove cover artwork"
+          >
+            <Text style={styles.artworkBtnText}>Remove</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {artworkError ? <Text style={styles.artworkError}>{artworkError}</Text> : null}
 
       <Text style={styles.label}>Description</Text>
       <TextInput
@@ -169,6 +239,24 @@ const makeStyles = (c: Palette) => ({
     color: c.text,
     fontSize: typography.sizeMd,
   },
+  artworkPreview: {
+    width: 120,
+    height: 180,
+    borderRadius: radius.sm,
+    borderColor: c.border,
+    borderWidth: 1,
+  },
+  artworkHint: { fontSize: typography.sizeSm, color: c.textMuted },
+  artworkRow: { flexDirection: "row" as const, gap: spacing.sm },
+  artworkBtn: {
+    borderColor: c.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  artworkBtnText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "600" as const },
+  artworkError: { color: c.error, fontSize: typography.sizeSm },
   saveBtn: {
     backgroundColor: c.primary,
     borderRadius: radius.md,

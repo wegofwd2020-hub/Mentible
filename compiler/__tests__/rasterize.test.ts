@@ -28,6 +28,8 @@ it("rasterizeEachIsolated isolates a single item's failure — the batch still r
     }),
     screenshot: jest.fn(async () => new Uint8Array([1, 2, 3])),
     evaluate: jest.fn(async () => undefined),
+    setRequestInterception: jest.fn(async () => {}),
+    on: jest.fn(),
     close: jest.fn(async () => {}),
   }));
   let i = 0;
@@ -45,4 +47,35 @@ it("rasterizeEachIsolated isolates a single item's failure — the batch still r
   // the failing item's page was still obtained (before the $ throw), so its
   // page.close() is still attempted (best-effort cleanup, no page leak).
   expect(pages[1].close).toHaveBeenCalledTimes(1);
+});
+
+// Renderer SSRF guard: the server's Chromium may only load inline data: URIs.
+it("blocks every non-data network request while rasterising", async () => {
+  type FakeBrowser = Parameters<typeof rasterizeEachIsolated>[0];
+  const page = {
+    setViewport: jest.fn(async () => {}),
+    setContent: jest.fn(async () => {}),
+    $: jest.fn(async () => null),
+    screenshot: jest.fn(async () => new Uint8Array([1])),
+    evaluate: jest.fn(async () => undefined),
+    setRequestInterception: jest.fn(async () => {}),
+    on: jest.fn(),
+    close: jest.fn(async () => {}),
+  };
+  const browser = {
+    newPage: jest.fn(async () => page),
+    close: jest.fn(async () => {}),
+  } as unknown as FakeBrowser;
+  await rasterizeEachIsolated(browser, ["<svg/>"], 100, false);
+
+  expect(page.setRequestInterception).toHaveBeenCalledWith(true);
+  const handler = (page.on.mock.calls[0] as unknown[])[1] as (r: unknown) => void;
+  const make = (url: string) => ({ url: () => url, continue: jest.fn(async () => {}), abort: jest.fn(async () => {}) });
+  const internal = make("http://169.254.169.254/latest/meta-data/");
+  const inline = make("data:image/png;base64,iVBORw0KGgo=");
+  handler(internal);
+  handler(inline);
+  expect(internal.abort).toHaveBeenCalled();
+  expect(internal.continue).not.toHaveBeenCalled();
+  expect(inline.continue).toHaveBeenCalled();
 });

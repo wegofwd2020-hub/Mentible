@@ -143,6 +143,8 @@ function SavedBookScreenInner() {
               initialTitle={book.title}
               initialToc={book.toc}
               createdAt={book.createdAt}
+              initialAuthor={book.metadata?.author}
+              initialCoverImage={book.metadata?.coverImage}
               initialDescription={book.metadata?.description}
               initialTags={book.metadata?.tags}
               onSaved={() => router.replace("/books")}
