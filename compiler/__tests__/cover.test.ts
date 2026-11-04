@@ -196,3 +196,36 @@ describe("compileEpub — cover wiring", () => {
     expect(svg).toContain("Spec-Driven");
   });
 });
+
+describe("cover artwork (metadata.coverImage)", () => {
+  const ART = "data:image/jpeg;base64,/9j/AAAA";
+
+  it("without artwork the generated night-sky scene is kept", () => {
+    const svg = buildCoverSvg({ title: "Plain" });
+    expect(svg).not.toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).toContain("url(#cvTop)");
+    expect(svg).toContain(`fill="${STUDIO.navy}"`);
+  });
+
+  it("with artwork the image fills the page full-bleed behind a scrim, text turns white", () => {
+    const svg = buildCoverSvg({ title: "Art Book", artwork: ART });
+    expect(svg).toContain(`href="${ART}"`);
+    expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).toContain('fill="url(#cvScrim)"');
+    expect(svg).not.toContain("url(#cvTop)");
+    expect(svg).toContain('fill="#ffffff"');
+    expect(XMLValidator.validate(svg)).toBe(true);
+  });
+
+  it("coverInputForBook passes metadata.coverImage through as artwork", () => {
+    const input = coverInputForBook(bookWith({ metadata: { coverImage: ART } }));
+    expect(input.artwork).toBe(ART);
+    expect(coverInputForBook(bookWith()).artwork).toBeUndefined();
+  });
+
+  it("the raster cover embeds the artwork and still validates", () => {
+    const svg = buildCoverSvgRaster({ title: "Art Book", artwork: ART });
+    expect(svg).toContain(`href="${ART}"`);
+    expect(XMLValidator.validate(svg)).toBe(true);
+  });
+});

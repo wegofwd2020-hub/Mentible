@@ -230,6 +230,9 @@ export interface BookMetadata {
   // safe (inline attributes only — no <style>/CSS/gradients) so it renders on
   // native as well as web. Distinct from the compiler's EPUB/PDF cover.
   coverSvg?: string;
+  // Full-bleed cover artwork as a data: URI (JPEG/PNG/WebP, ~1600px wide, EXIF
+  // stripped). The compiler draws the cover over it. Max ~5 MB before resize.
+  coverImage?: string;
   subjects?: string[];
   // Free-form author tags for in-app organisation + future search (ADR-027 D7).
   // App-only: distinct from `subjects`/dc:subject and NOT yet emitted to EPUB

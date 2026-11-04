@@ -39,6 +39,7 @@ export interface CoverInput {
   author?: string; // byline, e.g. "Sridhar Parthasarathy"
   brand?: string; // footer wordmark, default "MENTIBLE"
   edition?: string; // "DRAFT" or "v1.0 · First Edition" (ADR-008)
+  artwork?: string; // full-bleed cover image as a data: URI (metadata.coverImage)
 }
 
 // Split "Main (Sub)" or "Main: Sub" into a big main title + a smaller subtitle.
@@ -110,79 +111,9 @@ function starField(count: number): string {
 }
 
 // The bare <svg> (viewBox only — the host sizes it). Used inline in both targets.
-export function buildCoverSvg(input: CoverInput): string {
-  const brand = input.brand ?? "MENTIBLE";
-  const parsed = splitTitle(input.title);
-  const subtitle = input.subtitle ?? parsed.sub;
-
-  // Cover styling: sans-serif main title, ampersand, kept to a single line.
-  const mainText = parsed.main.replace(/\s+and\s+/gi, " & ");
-  const main = fitTitle(mainText, [124, 112, 100, 90, 80], 1);
-  const mainLH = Math.round(main.size * 1.06);
-  const titleTop = 1716;
-  const titleBottom = titleTop + (main.lines.length - 1) * mainLH;
-
-  let y = titleBottom + 86;
-  let subBlock = "";
-  if (subtitle) {
-    const sub = fitTitle(subtitle, [60, 54, 48, 42], 2);
-    const subLH = Math.round(sub.size * 1.12);
-    // accent rule sits to the left of the first subtitle line
-    subBlock =
-      `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="${STUDIO.gold}"/>` +
-      `<text fill="${STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="700">` +
-      tspans(sub.lines, MARGIN_L + 130, y, subLH) +
-      `</text>`;
-    y += (sub.lines.length - 1) * subLH + 96;
-  }
-
-  let taglineBlock = "";
-  if (input.tagline) {
-    taglineBlock =
-      `<text x="${MARGIN_L + 6}" y="${y}" fill="${STUDIO.navy}" font-family="${SERIF}" ` +
-      `font-size="56" font-weight="500" font-style="italic">${escapeHtml(input.tagline)}</text>`;
-    y += 104;
-  }
-
-  // Author byline ("by <name>") below the title block. Serif, indigo, prominent
-  // but smaller than the subtitle. Omitted when no author is supplied.
-  let authorBlock = "";
-  if (input.author) {
-    authorBlock =
-      `<text x="${MARGIN_L + 6}" y="${y}" fill="${STUDIO.navy}" font-family="${SERIF}" ` +
-      `font-size="60" font-weight="700">${escapeHtml("by " + input.author)}</text>`;
-    y += 90;
-  }
-
-  // Edition / draft stamp (ADR-008): "DRAFT" in red, or "v1.0 · First Edition".
-  let editionBlock = "";
-  if (input.edition) {
-    const draft = input.edition === "DRAFT";
-    editionBlock =
-      `<text x="${MARGIN_L + 6}" y="${y}" fill="${draft ? "#b91c1c" : STUDIO.gold}" font-family="${SANS}" ` +
-      `font-size="36" letter-spacing="2" font-weight="800">${escapeHtml(input.edition)}</text>`;
-  }
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
-  <defs>
-    <linearGradient id="cvTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${STUDIO.navyLuminous}"/>
-      <stop offset="0.6" stop-color="${STUDIO.navy}"/>
-      <stop offset="1" stop-color="#05070E"/>
-    </linearGradient>
-    <linearGradient id="cvMark" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="${STUDIO.goldBright}"/>
-      <stop offset="1" stop-color="${STUDIO.goldSoft}"/>
-    </linearGradient>
-    <filter id="cvGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="${STUDIO.goldBright}" flood-opacity="0.5"/>
-    </filter>
-    <radialGradient id="cvBand" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="${STUDIO.navySoft}" stop-opacity="0.30"/>
-      <stop offset="0.45" stop-color="${STUDIO.navySoft}" stop-opacity="0.13"/>
-      <stop offset="1" stop-color="${STUDIO.navy}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+// The original night-sky scene + constellation (used when no artwork is set).
+function defaultBackdrop(): string {
+  return `
   <rect width="${VW}" height="${SPLIT_Y}" fill="url(#cvTop)"/>
   <ellipse cx="800" cy="800" rx="1180" ry="250" fill="url(#cvBand)" transform="rotate(-25 800 800)"/>
   ${starField(150)}
@@ -209,14 +140,107 @@ export function buildCoverSvg(input: CoverInput): string {
     <circle cx="0" cy="0" r="92" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="5"/>
     <circle cx="0" cy="0" r="40" fill="#ffffff" fill-opacity="0.18"/>
   </g>
-  <text fill="${STUDIO.navy}" font-family="${DISPLAY}" font-size="${main.size}" font-weight="500" font-synthesis="none" letter-spacing="-1">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
+`;
+}
+
+export function buildCoverSvg(input: CoverInput): string {
+  const brand = input.brand ?? "MENTIBLE";
+  // Ink for text sitting on the cover: navy on the light page, white over artwork.
+  const ink = input.artwork ? "#ffffff" : STUDIO.navy;
+  const parsed = splitTitle(input.title);
+  const subtitle = input.subtitle ?? parsed.sub;
+
+  // Cover styling: sans-serif main title, ampersand, kept to a single line.
+  const mainText = parsed.main.replace(/\s+and\s+/gi, " & ");
+  const main = fitTitle(mainText, [124, 112, 100, 90, 80], 1);
+  const mainLH = Math.round(main.size * 1.06);
+  const titleTop = 1716;
+  const titleBottom = titleTop + (main.lines.length - 1) * mainLH;
+
+  let y = titleBottom + 86;
+  let subBlock = "";
+  if (subtitle) {
+    const sub = fitTitle(subtitle, [60, 54, 48, 42], 2);
+    const subLH = Math.round(sub.size * 1.12);
+    // accent rule sits to the left of the first subtitle line
+    subBlock =
+      `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="${STUDIO.gold}"/>` +
+      `<text fill="${input.artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="700">` +
+      tspans(sub.lines, MARGIN_L + 130, y, subLH) +
+      `</text>`;
+    y += (sub.lines.length - 1) * subLH + 96;
+  }
+
+  let taglineBlock = "";
+  if (input.tagline) {
+    taglineBlock =
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="${ink}" font-family="${SERIF}" ` +
+      `font-size="56" font-weight="500" font-style="italic">${escapeHtml(input.tagline)}</text>`;
+    y += 104;
+  }
+
+  // Author byline ("by <name>") below the title block. Serif, indigo, prominent
+  // but smaller than the subtitle. Omitted when no author is supplied.
+  let authorBlock = "";
+  if (input.author) {
+    authorBlock =
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="${ink}" font-family="${SERIF}" ` +
+      `font-size="60" font-weight="700">${escapeHtml("by " + input.author)}</text>`;
+    y += 90;
+  }
+
+  // Edition / draft stamp (ADR-008): "DRAFT" in red, or "v1.0 · First Edition".
+  let editionBlock = "";
+  if (input.edition) {
+    const draft = input.edition === "DRAFT";
+    editionBlock =
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="${draft ? "#b91c1c" : input.artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SANS}" ` +
+      `font-size="36" letter-spacing="2" font-weight="800">${escapeHtml(input.edition)}</text>`;
+  }
+
+  // Artwork replaces the night-sky scene: the image fills the page and a navy
+  // scrim keeps the light title block readable. Without artwork the scene is
+  // unchanged.
+  const backdrop = input.artwork
+    ? `<image href="${input.artwork}" xlink:href="${input.artwork}" x="0" y="0" width="${VW}" height="${VH}" preserveAspectRatio="xMidYMid slice"/>` +
+      `<rect width="${VW}" height="${VH}" fill="url(#cvScrim)"/>`
+    : defaultBackdrop();
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(input.title)}">
+  <defs>
+    <linearGradient id="cvScrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${STUDIO.navy}" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="${STUDIO.navy}" stop-opacity="0.15"/>
+      <stop offset="0.6" stop-color="${STUDIO.navy}" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="${STUDIO.navy}" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="cvTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${STUDIO.navyLuminous}"/>
+      <stop offset="0.6" stop-color="${STUDIO.navy}"/>
+      <stop offset="1" stop-color="#05070E"/>
+    </linearGradient>
+    <linearGradient id="cvMark" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="${STUDIO.goldBright}"/>
+      <stop offset="1" stop-color="${STUDIO.goldSoft}"/>
+    </linearGradient>
+    <filter id="cvGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="${STUDIO.goldBright}" flood-opacity="0.5"/>
+    </filter>
+    <radialGradient id="cvBand" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="${STUDIO.navySoft}" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="${STUDIO.navySoft}" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="${STUDIO.navy}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  ${backdrop}
+  <text fill="${ink}" font-family="${DISPLAY}" font-size="${main.size}" font-weight="500" font-synthesis="none" letter-spacing="-1">${tspans(main.lines, MARGIN_L, titleTop, mainLH)}</text>
   ${subBlock}
   ${taglineBlock}
   ${authorBlock}
   ${editionBlock}
   <line x1="${MARGIN_L}" y1="2392" x2="${MARGIN_R}" y2="2392" stroke="${STUDIO.goldSoft}" stroke-width="2"/>
   <image href="${MENTIBLE_LOGO_DATA_URI}" xlink:href="${MENTIBLE_LOGO_DATA_URI}" x="${MARGIN_L}" y="2404" width="88" height="84"/>
-  <text x="${MARGIN_L + 110}" y="2466" fill="${STUDIO.navy}" font-family="${SANS}" font-size="42" letter-spacing="7" font-weight="700">${escapeHtml(brand)}</text>
+  <text x="${MARGIN_L + 110}" y="2466" fill="${ink}" font-family="${SANS}" font-size="42" letter-spacing="7" font-weight="700">${escapeHtml(brand)}</text>
 </svg>`;
 }
 
@@ -364,5 +388,6 @@ export function coverInputForBook(book: Book): CoverInput {
     tagline,
     author: book.metadata?.author,
     edition: editionLabel(book.metadata) || undefined,
+    artwork: book.metadata?.coverImage,
   };
 }

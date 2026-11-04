@@ -3,6 +3,22 @@ import { providerKeyDefs } from "./providerDefs";
 
 export const HELP_TOPICS: HelpTopic[] = [
   {
+    id: "cover-artwork",
+    title: "Add cover artwork",
+    featureKey: "cover-artwork",
+    keywords: ["cover", "artwork", "image", "picture", "cover page", "upload", "photo", "background"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Open a book's editor and find Cover artwork. Choose artwork to pick a picture from your photo library. The picture is resized, stripped of location data, and shown full-bleed behind the title on the cover page. Remove takes it off and brings back the generated design. Save the book to keep your change.",
+      },
+      {
+        kind: "text",
+        text: "Use JPEG, PNG or WebP images up to 5 MB. Choose a picture that is light enough, or dark enough, for white title text to stay readable.",
+      },
+    ],
+  },
+  {
     id: "home-and-nav",
     title: "Home & navigation",
     featureKey: "landing-home",

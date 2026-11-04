@@ -11,6 +11,11 @@ jest.mock("../../src/storage/bookStore", () => ({
   loadBook: (...args: unknown[]) => mockLoadBook(...args),
 }));
 
+const mockPickCoverArtwork = jest.fn();
+jest.mock("../../src/lib/pickCoverArtwork", () => ({
+  pickCoverArtwork: (...args: unknown[]) => mockPickCoverArtwork(...args),
+}));
+
 const TOC: StructuredTOC = {
   subjects: [{ subject_label: "S", units: [{ id: "u1", title: "T", subtopics: [], prerequisites: [] }] }],
 };
@@ -93,5 +98,47 @@ describe("BookEditor — description + tags (ADR-027 D7)", () => {
         tags: ["ai", "product"], // de-duped
       }),
     );
+  });
+});
+
+describe("BookEditor — cover artwork", () => {
+  const ART = "data:image/jpeg;base64,/9j/AAAA";
+
+  it("choosing artwork saves it into metadata.coverImage", async () => {
+    mockPickCoverArtwork.mockResolvedValue(ART);
+    const onSaved = jest.fn();
+    const { getByLabelText } = render(
+      <BookEditor bookId={null} initialTitle="T" initialToc={TOC} onSaved={onSaved} />,
+    );
+    fireEvent.press(getByLabelText("Choose cover artwork"));
+    await waitFor(() => expect(getByLabelText("Cover artwork preview")).toBeTruthy());
+    fireEvent.press(getByLabelText("Save book"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect((onSaved.mock.calls[0][0] as Book).metadata?.coverImage).toBe(ART);
+  });
+
+  it("cancelling the picker keeps the current artwork", async () => {
+    mockPickCoverArtwork.mockResolvedValue(null);
+    const { getByLabelText } = render(
+      <BookEditor bookId={null} initialTitle="T" initialToc={TOC} initialCoverImage={ART} onSaved={jest.fn()} />,
+    );
+    fireEvent.press(getByLabelText("Replace cover artwork"));
+    await waitFor(() => expect(mockPickCoverArtwork).toHaveBeenCalled());
+    expect(getByLabelText("Cover artwork preview")).toBeTruthy();
+  });
+
+  it("removing artwork saves without coverImage", async () => {
+    mockLoadBook.mockResolvedValue({
+      id: "b1", title: "T", toc: TOC, createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z", metadata: { coverImage: ART }, generationParams: {},
+    });
+    const onSaved = jest.fn();
+    const { getByLabelText } = render(
+      <BookEditor bookId="b1" initialTitle="T" initialToc={TOC} initialCoverImage={ART} onSaved={onSaved} />,
+    );
+    fireEvent.press(getByLabelText("Remove cover artwork"));
+    fireEvent.press(getByLabelText("Save book"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect((onSaved.mock.calls[0][0] as Book).metadata?.coverImage).toBeUndefined();
   });
 });
