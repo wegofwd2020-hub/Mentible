@@ -90,7 +90,7 @@ describe("buildPdfHtml — textbook layout", () => {
   });
 
   it("renders chapters with lesson content (math as MathML)", () => {
-    expect(html).toContain('<section class="chapter" id="ch-001">');
+    expect(html).toContain('<section class="chapter first-chapter" id="ch-001">');
     expect(html).toContain("<math"); // KaTeX MathML
   });
 

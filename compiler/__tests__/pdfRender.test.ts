@@ -38,7 +38,7 @@ it("builds the textbook HTML and hands it to the PDF engine", async () => {
   const bytes = await compilePdf(book(), { pdf: fake });
   expect(new TextDecoder().decode(bytes)).toContain("%PDF");
   expect(fake.html).toContain('target-counter(attr(href url), page)'); // page-numbered TOC
-  expect(fake.html).toContain('<section class="chapter" id="ch-001">');
+  expect(fake.html).toContain('<section class="chapter first-chapter" id="ch-001">');
 });
 
 it("pre-renders diagrams to SVG before layout when a Mermaid renderer is given", async () => {
