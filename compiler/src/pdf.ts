@@ -99,7 +99,8 @@ function watermarkPageCss(text: string): string {
     `text-anchor="middle" textLength="150" lengthAdjust="spacingAndGlyphs" ` +
     `transform="rotate(-45 105 150)">${escapeHtml(text)}</text></svg>`;
   const uri = "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
-  return `@page { background-image: url("${uri}"); background-position: center center; background-repeat: no-repeat; }`;
+  const bg = `background-image: url("${uri}"); background-position: center center; background-repeat: no-repeat;`;
+  return ["@page", "@page :left", "@page :right", "@page front"].map((sel) => `${sel} { ${bg} }`).join("\n");
 }
 
 export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
@@ -113,12 +114,13 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
   const figs: FloatRef[] = [];
   const tbls: FloatRef[] = [];
   const chaptersHtml = chapters
-    .map((c) => {
+    .map((c, idx) => {
       let body = renderLesson(c.topic.lesson, diagrams);
       if (c.topic.tutorial) body += renderTutorial(c.topic.tutorial, diagrams);
       const tableCaps = (c.topic.lesson as { table_captions?: string[] }).table_captions ?? [];
       body = numberFloats(body, c.number, figs, tbls, tableCaps);
-      return `<section class="chapter" id="${c.id}">${body}</section>`;
+      const first = idx === 0 ? " first-chapter" : "";
+      return `<section class="chapter${first}" id="${c.id}">${body}</section>`;
     })
     .join("");
 
@@ -181,7 +183,8 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
         `</dl></section>`
       : "";
 
-  const coverPage = `<section class="cover-page">${buildCoverSvg(coverInputForBook(book))}</section>`;
+  // The running-title element sits inside the cover so it creates no blank page before it.
+  const coverPage = `<section class="cover-page"><div class="book-running">${escapeHtml(book.title)}</div>${buildCoverSvg(coverInputForBook(book))}</section>`;
   const colophonPage = colophonSection(book);
   const lang = book.metadata?.language || "en";
 
@@ -197,7 +200,6 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
 ${watermarkCss}</style>
 </head>
 <body>
-<div class="book-running">${escapeHtml(book.title)}</div>
 ${coverPage}
 ${colophonPage}
 ${toc}
@@ -225,30 +227,52 @@ const DISPLAY = PDF_SANS;
 function pdfCss(): string {
   return `
   ${SOURCE_SERIF_FONTFACE}
-  @page {
-    size: A4;
-    margin: 26mm 22mm 24mm; /* more air (Anthropic-leaning); also spreads content toward the ~50pp target */
-    background: #faf8f3; /* warm ivory ground */
-    @top-left {
-      content: string(chapter); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
-      text-align: left; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm;
-    }
+  /* Trim 7.5 x 9.25 in. Gutter (inside margin) is wider than the outside margin. */
+  @page { size: 190.5mm 234.95mm; background: #faf8f3; }
+  @page :left { margin: 22mm 26mm 24mm 20mm; }   /* verso: gutter on the right */
+  @page :right { margin: 22mm 20mm 24mm 26mm; }  /* recto: gutter on the left */
+  /* Verso: page number outside (left), book title. Recto: chapter title, page number outside (right). */
+  @page :left {
+    @top-left { content: counter(page); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: left; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
     @top-center { content: ""; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
-    @top-right {
-      content: counter(page); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
-      text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm;
-    }
+    @top-right { content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      font-style: italic; text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+  }
+  @page :right {
+    @top-left { content: string(chapter, first-except); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: left; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+    @top-center { content: ""; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+    @top-right { content: counter(page); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+  }
+  /* Footer on every body page: book title, centred. */
+  @page :left {
     @bottom-left { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
-    @bottom-center {
-      content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
-      text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm;
-    }
+    @bottom-center { content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
     @bottom-right { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
+  }
+  @page :right {
+    @bottom-left { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
+    @bottom-center { content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
+    @bottom-right { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
+  }
+  /* Front matter (contents, lists, colophon): roman page numbers, no running heads. */
+  @page front {
+    size: 190.5mm 234.95mm; background: #faf8f3; margin: 22mm 23mm 24mm 23mm;
+    @top-right { content: counter(page, lower-roman); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+    @bottom-center { content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
   }
   html {
     font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
-    font-size: 11pt;
-    line-height: 1.66;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    text-align: justify;
+    hyphens: auto;
     color: #111;
     counter-reset: figure table;
   }
@@ -262,7 +286,11 @@ function pdfCss(): string {
   h1 { font-size: 1.6em; margin: 0 0 0.45em; }
   h2 { font-size: 1.25em; margin: 1.1em 0 0.35em; }
   h3 { font-size: 1.08em; margin: 0.9em 0 0.25em; color: ${STUDIO.ink}; }
-  p { margin: 0.62em 0; orphans: 2; widows: 2; }
+  h1, h2, h3, h4, h5, h6, th, td, caption, figcaption { text-align: left; hyphens: manual; }
+  /* Textbook paragraphs: first-line indent, no space between paragraphs. */
+  p { margin: 0; text-indent: 1.3em; orphans: 3; widows: 3; }
+  h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, figure + p, blockquote + p,
+  ul + p, ol + p, table + p, pre + p, dl + p, div + p, p:first-child { text-indent: 0; }
   ul, ol { padding-left: 1.4em; }
   code { font-family: "Courier New", monospace; font-size: 0.9em; background: #f3f3f3; padding: 0 0.2em; }
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
@@ -287,9 +315,9 @@ function pdfCss(): string {
 
   /* Cover: its own page (no @page margin). The SVG (5:8) fills the full A4
      height edge-to-edge; its narrower width centres with slim side margins. */
-  @page cover { margin: 0; }
+  @page cover { size: 190.5mm 234.95mm; margin: 0; }
   .cover-page { page: cover; break-after: page; text-align: center; background: ${STUDIO.navy}; }
-  .cover-page svg { display: inline-block; height: 297mm; width: 185.6mm; }
+  .cover-page svg { display: block; margin: 0 auto; height: 234.95mm; width: 146.8mm; }
 
   .colophon { break-after: page; text-align: center; }
   .colophon h1 { margin-top: 40mm; font-size: 1.4em; }
@@ -322,7 +350,9 @@ function pdfCss(): string {
   }
   .glossary dd { margin: 0.1em 0 0.4em 0; color: #333; break-inside: avoid; }
 
-  .chapter, .quizzes, .answers { break-before: page; }
+  .chapter, .quizzes, .answers { break-before: right; }
+  .first-chapter { counter-reset: page 1; }
+  .colophon, nav.toc, nav.floatlist { page: front; }
   /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
   .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
   /* Running header text: each chapter, quiz/answer/glossary/contents section names itself. */
