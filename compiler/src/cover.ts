@@ -32,6 +32,16 @@ const SERIF = "'Source Serif 4', Georgia, 'Times New Roman', 'Liberation Serif',
 const DISPLAY = "'Playfair Display', 'Source Serif 4', Georgia, serif";
 const SANS = "'Helvetica Neue', 'Liberation Sans', Arial, sans-serif";
 
+// Cover artwork is user-supplied and ends up inside SVG that headless Chromium
+// renders on the server. Accept ONLY an inline base64 raster data URI; anything
+// else (remote URLs that Chromium would fetch, or text that could break out of
+// the attribute) is dropped so the cover falls back to the generated design.
+const ARTWORK_DATA_URI = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+export function safeCoverArtwork(value: string | undefined): string | undefined {
+  if (!value || !ARTWORK_DATA_URI.test(value)) return undefined;
+  return value;
+}
+
 export interface CoverInput {
   title: string;
   subtitle?: string; // defaults to the title's parenthetical / colon tail
@@ -145,8 +155,9 @@ function defaultBackdrop(): string {
 
 export function buildCoverSvg(input: CoverInput): string {
   const brand = input.brand ?? "MENTIBLE";
+  const artwork = safeCoverArtwork(input.artwork);
   // Ink for text sitting on the cover: navy on the light page, white over artwork.
-  const ink = input.artwork ? "#ffffff" : STUDIO.navy;
+  const ink = artwork ? "#ffffff" : STUDIO.navy;
   const parsed = splitTitle(input.title);
   const subtitle = input.subtitle ?? parsed.sub;
 
@@ -165,7 +176,7 @@ export function buildCoverSvg(input: CoverInput): string {
     // accent rule sits to the left of the first subtitle line
     subBlock =
       `<rect x="${MARGIN_L + 6}" y="${y - 44}" width="96" height="12" rx="6" fill="${STUDIO.gold}"/>` +
-      `<text fill="${input.artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="700">` +
+      `<text fill="${artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SERIF}" font-size="${sub.size}" font-weight="700">` +
       tspans(sub.lines, MARGIN_L + 130, y, subLH) +
       `</text>`;
     y += (sub.lines.length - 1) * subLH + 96;
@@ -194,15 +205,15 @@ export function buildCoverSvg(input: CoverInput): string {
   if (input.edition) {
     const draft = input.edition === "DRAFT";
     editionBlock =
-      `<text x="${MARGIN_L + 6}" y="${y}" fill="${draft ? "#b91c1c" : input.artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SANS}" ` +
+      `<text x="${MARGIN_L + 6}" y="${y}" fill="${draft ? "#b91c1c" : artwork ? STUDIO.goldBright : STUDIO.gold}" font-family="${SANS}" ` +
       `font-size="36" letter-spacing="2" font-weight="800">${escapeHtml(input.edition)}</text>`;
   }
 
   // Artwork replaces the night-sky scene: the image fills the page and a navy
   // scrim keeps the light title block readable. Without artwork the scene is
   // unchanged.
-  const backdrop = input.artwork
-    ? `<image href="${input.artwork}" xlink:href="${input.artwork}" x="0" y="0" width="${VW}" height="${VH}" preserveAspectRatio="xMidYMid slice"/>` +
+  const backdrop = artwork
+    ? `<image href="${artwork}" xlink:href="${artwork}" x="0" y="0" width="${VW}" height="${VH}" preserveAspectRatio="xMidYMid slice"/>` +
       `<rect width="${VW}" height="${VH}" fill="url(#cvScrim)"/>`
     : defaultBackdrop();
 

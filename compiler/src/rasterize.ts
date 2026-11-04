@@ -12,8 +12,15 @@ interface PuppeteerPage {
   $(sel: string): Promise<PuppeteerEl | null>;
   screenshot(opts: ScreenshotOpts): Promise<Uint8Array>;
   evaluate<T>(fn: string | ((...a: unknown[]) => T), ...args: unknown[]): Promise<T>;
+  setRequestInterception(value: boolean): Promise<void>;
+  on(event: "request", cb: (req: PuppeteerRequest) => void): void;
   emulateMediaFeatures?(features: { name: string; value: string }[]): Promise<void>;
   close(): Promise<void>;
+}
+interface PuppeteerRequest {
+  url(): string;
+  continue(): Promise<void>;
+  abort(): Promise<void>;
 }
 interface PuppeteerEl {
   screenshot(opts: ScreenshotOpts): Promise<Uint8Array>;
@@ -40,6 +47,17 @@ async function launchBrowser(): Promise<PuppeteerBrowser> {
   return puppeteer.launch(launch);
 }
 
+// The shell is fully local. Block every network request so markup in a cover or
+// diagram cannot make the server's Chromium fetch an internal or remote URL
+// (SSRF). Only inline data: URIs (embedded images/fonts) are allowed through.
+async function blockNetwork(page: PuppeteerPage): Promise<void> {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    if (req.url().startsWith("data:")) void req.continue();
+    else void req.abort();
+  });
+}
+
 function shellHtml(inner: string, width: number): string {
   return (
     `<!DOCTYPE html><html><body style="margin:0">` +
@@ -50,6 +68,7 @@ function shellHtml(inner: string, width: number): string {
 }
 
 async function shotSvg(page: PuppeteerPage, svg: string, width: number, omitBackground: boolean): Promise<Buffer> {
+  await blockNetwork(page);
   await page.setViewport({ width, height: 2000, deviceScaleFactor: 2 });
   await page.setContent(shellHtml(svg, width));
   const el = await page.$("#target");
@@ -82,6 +101,7 @@ export async function rasterizeToPng(input: {
 }
 
 async function shotJpeg(page: PuppeteerPage, svg: string, width: number, quality: number): Promise<Buffer> {
+  await blockNetwork(page);
   await page.setViewport({ width, height: 2000, deviceScaleFactor: 2 });
   await page.setContent(shellHtml(svg, width));
   const el = await page.$("#target");
