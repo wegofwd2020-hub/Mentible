@@ -148,7 +148,7 @@ function SavedBookScreenInner() {
               initialCoverThumb={book.metadata?.coverThumb}
               initialDescription={book.metadata?.description}
               initialTags={book.metadata?.tags}
-              onSaved={() => router.replace("/books")}
+              onSaved={() => router.replace("/library")}
             />
 
             <Pressable

@@ -153,7 +153,7 @@ function NewBookScreenInner() {
               bookId={null}
               initialTitle={title.trim() || "Untitled book"}
               initialToc={ensureTopicIds(toc)}
-              onSaved={() => router.replace("/books")}
+              onSaved={() => router.replace("/library")}
             />
           </PageContainer>
         </ScrollView>
