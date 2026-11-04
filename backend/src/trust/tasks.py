@@ -67,6 +67,7 @@ from .generate import (
 )
 from .generate_topic import generate_topic_draft
 from .grounding import generate_grounding
+from .link_ingest import unresolved_link_message
 from .originality import generate_originality
 from .toc_suggest import suggest_toc, toc_output_to_view
 from .toc_util import find_toc_topic
@@ -267,6 +268,11 @@ async def _run(
             sources = [inputs_by_id[sid] for sid in topic_source_ids if sid in inputs_by_id]
             if not sources:
                 await _write_status(r, job_id, "failed", error="no sources for this topic")
+                return
+            # Fail loudly rather than let the prompt silently drop a link with no text.
+            unresolved = unresolved_link_message(sources)
+            if unresolved:
+                await _write_status(r, job_id, "failed", error=unresolved)
                 return
 
             resolved_model = model or default_model_for(provider_id)
@@ -532,6 +538,17 @@ async def _run_version(
                 await _write_status(
                     r, job_id, "failed", error="add at least one source before generating a draft"
                 )
+                return
+            unresolved = unresolved_link_message(sources)
+            if unresolved:
+                await _record_generation_failed(
+                    conn,
+                    job_id=job_id,
+                    recorded_by_sub=recorded_by_sub,
+                    provider_id=provider_id,
+                    error_code="unresolved_link_source",
+                )
+                await _write_status(r, job_id, "failed", error=unresolved)
                 return
 
             resolved_model = model or default_model_for(provider_id)
@@ -1096,6 +1113,9 @@ async def _run_book(
                 sources = [inputs_by_id[sid] for sid in topic_source_ids if sid in inputs_by_id]
                 if not sources:
                     raise ValueError("no sources for this topic")
+                unresolved = unresolved_link_message(sources)
+                if unresolved:
+                    raise ValueError(unresolved)
 
                 out = await asyncio.to_thread(
                     generate_topic_draft,

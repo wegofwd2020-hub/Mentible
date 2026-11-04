@@ -34,6 +34,7 @@ from . import (
     feedback_repo,
     generation_job_repo,
     grounding_repo,
+    link_ingest,
     membership_repo,
     originality_repo,
     project_repo,
@@ -219,14 +220,25 @@ async def add_project_input(
 ) -> schemas.ProjectInputOut:
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
+    content, source_ref = body.content, body.source_ref
+    if body.kind == "link":
+        # Resolve the page now, so generation grounds on its text rather than the bare URL.
+        url = (body.source_ref or body.content).strip()
+        try:
+            content = await link_ingest.fetch_link_text(url)
+        except link_ingest.LinkIngestError as e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, f"Couldn't read that link: {e}"
+            ) from e
+        source_ref = url
     try:
         i = await project_repo.add_input(
             conn,
             project_id=project_id,
             kind=body.kind,
             title=body.title,
-            content=body.content,
-            source_ref=body.source_ref,
+            content=content,
+            source_ref=source_ref,
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from e
