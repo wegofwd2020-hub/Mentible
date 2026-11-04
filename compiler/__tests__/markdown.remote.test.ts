@@ -63,4 +63,11 @@ describe("book HTML cannot reference remote or local resources", () => {
     expect(escaped).not.toContain("10.0.0.5");
     expect(commented).not.toContain("10.0.0.5");
   });
+
+  it("does not throw on out-of-range CSS escapes and still removes a fetch behind one", () => {
+    expect(() => render('<svg><rect fill="\\FFFFFF" width="5" height="5"/></svg>')).not.toThrow();
+    expect(() => render('<svg><rect fill="\\D800" width="5" height="5"/></svg>')).not.toThrow();
+    const out = render('<svg><rect fill="\\FFFFFFu\\72l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    expect(out).not.toContain("10.0.0.5");
+  });
 });

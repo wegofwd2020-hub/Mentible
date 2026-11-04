@@ -29,17 +29,29 @@ const URL_ATTRS = new Set([
 function cssDecoded(value: string): string {
   return value
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\\([0-9a-f]{1,6})\s?/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16) || 0xfffd))
+    .replace(/\\([0-9a-f]{1,6})\s?/gi, (_m, hex: string) => {
+      // Out-of-range or surrogate code points would make fromCodePoint throw.
+      const cp = parseInt(hex, 16);
+      return String.fromCodePoint(cp === 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff) ? 0xfffd : cp);
+    })
     .replace(/\\([\s\S])/g, "$1");
 }
 
+const LOCAL_CSS_URL = /^\s*url\(\s*["']?#[^)"']*["']?\s*\)\s*$/i;
 purify.addHook("uponSanitizeAttribute", (node, data) => {
-  const raw = data.attrValue ?? "";
-  // CSS url() can fetch too (SVG paint and filter attributes, style text), so
-  // any url() that is not a local #fragment is removed from every attribute.
-  const decoded = cssDecoded(raw);
-  if (/url\s*\(/i.test(decoded) && !/^\s*url\(\s*["']?#[^)"']*["']?\s*\)\s*$/i.test(decoded)) {
-    data.keepAttr = false;
+  try {
+    const raw = data.attrValue ?? "";
+    // CSS url() can fetch too (SVG paint and filter attributes, style text), so
+    // any url() that is not a local #fragment is removed from every attribute.
+    // The raw and the decoded value must both pass; a mismatch drops the attribute.
+    const decoded = cssDecoded(raw);
+    const mentionsUrl = (v: string) => /url\s*\(/i.test(v);
+    if ((mentionsUrl(raw) || mentionsUrl(decoded)) && !(LOCAL_CSS_URL.test(raw) && LOCAL_CSS_URL.test(decoded))) {
+      data.keepAttr = false;
+      return;
+    }
+  } catch {
+    data.keepAttr = false; // fail closed: anything that cannot be checked is removed
     return;
   }
   const name = (data.attrName ?? "").toLowerCase();
