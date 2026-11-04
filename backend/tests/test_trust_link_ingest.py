@@ -15,6 +15,20 @@ def _client(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False)
 
 
+async def _run(url, client):
+    """Test seam: swap the pinned-client factory for one call, then restore it.
+
+    Production never passes a client; only the factory is replaced, so the
+    connect-time guard is still in the path whenever a pinned transport is used.
+    """
+    original = link_ingest._make_client
+    link_ingest._make_client = lambda: client
+    try:
+        return await fetch_link_text(url)
+    finally:
+        link_ingest._make_client = original
+
+
 def test_extract_text_drops_script_style_nav_and_keeps_blocks():
     html = (
         "<html><head><title>T</title><style>p{}</style></head><body>"
@@ -45,7 +59,7 @@ async def test_fetch_returns_extracted_text():
             content=b"<html><body><p>Vector stores hold embeddings.</p></body></html>",
         )
 
-    text = await fetch_link_text(PUBLIC, http_client=_client(handler))
+    text = await _run(PUBLIC, _client(handler))
     assert text == "Vector stores hold embeddings."
 
 
@@ -56,7 +70,7 @@ async def test_plain_text_passes_through():
             200, headers={"content-type": "text/plain"}, content=b"line one\n\nline two"
         )
 
-    assert await fetch_link_text(PUBLIC, http_client=_client(handler)) == "line one\n\nline two"
+    assert await _run(PUBLIC, _client(handler)) == "line one\n\nline two"
 
 
 @pytest.mark.asyncio
@@ -82,7 +96,7 @@ async def test_non_public_or_unsafe_urls_refused_before_any_request(url):
         return httpx.Response(200, content=b"x")
 
     with pytest.raises(LinkIngestError):
-        await fetch_link_text(url, http_client=_client(handler))
+        await _run(url, _client(handler))
     assert calls == []
 
 
@@ -92,7 +106,7 @@ async def test_redirect_to_private_address_is_refused():
         return httpx.Response(302, headers={"location": "http://127.0.0.1/secret"})
 
     with pytest.raises(LinkIngestError, match="non-public"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -102,7 +116,7 @@ async def test_redirect_chain_within_limit_followed():
             return httpx.Response(301, headers={"location": "/final"})
         return httpx.Response(200, headers={"content-type": "text/plain"}, content=b"landed")
 
-    assert await fetch_link_text(PUBLIC, http_client=_client(handler)) == "landed"
+    assert await _run(PUBLIC, _client(handler)) == "landed"
 
 
 @pytest.mark.asyncio
@@ -111,7 +125,7 @@ async def test_too_many_redirects_refused():
         return httpx.Response(302, headers={"location": "/loop"})
 
     with pytest.raises(LinkIngestError, match="too many redirects"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -120,7 +134,7 @@ async def test_http_error_status_refused():
         return httpx.Response(404, headers={"content-type": "text/html"}, content=b"nope")
 
     with pytest.raises(LinkIngestError, match="HTTP 404"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -129,7 +143,7 @@ async def test_non_text_content_type_refused():
         return httpx.Response(200, headers={"content-type": "application/pdf"}, content=b"%PDF")
 
     with pytest.raises(LinkIngestError, match="not an HTML or plain-text"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -140,7 +154,7 @@ async def test_oversized_body_refused(monkeypatch):
         return httpx.Response(200, headers={"content-type": "text/plain"}, content=b"a" * 500)
 
     with pytest.raises(LinkIngestError, match="too large"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -151,7 +165,7 @@ async def test_page_with_no_visible_text_refused():
         )
 
     with pytest.raises(LinkIngestError, match="no readable text"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -160,7 +174,7 @@ async def test_transport_error_message_does_not_leak_url():
         raise httpx.ConnectError("boom " + str(request.url))
 
     with pytest.raises(LinkIngestError) as exc:
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
     assert "93.184.216.34" not in str(exc.value)
 
 
@@ -213,7 +227,7 @@ async def test_compressed_body_refused():
         )
 
     with pytest.raises(LinkIngestError, match="compressed"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -226,7 +240,7 @@ async def test_declared_oversize_refused_before_body_read(monkeypatch):
         )
 
     with pytest.raises(LinkIngestError, match="too large"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 @pytest.mark.asyncio
@@ -237,7 +251,7 @@ async def test_identity_encoding_requested():
         seen["ae"] = request.headers.get("accept-encoding")
         return httpx.Response(200, headers={"content-type": "text/plain"}, content=b"ok")
 
-    await fetch_link_text(PUBLIC, http_client=_client(handler))
+    await _run(PUBLIC, _client(handler))
     assert seen["ae"] == "identity"
 
 
@@ -257,7 +271,7 @@ async def test_overall_deadline_enforced(monkeypatch):
         )
 
     with pytest.raises(LinkIngestError, match="too long"):
-        await fetch_link_text(PUBLIC, http_client=_client(handler))
+        await _run(PUBLIC, _client(handler))
 
 
 class _AsyncStream(httpx.AsyncByteStream):
@@ -267,3 +281,91 @@ class _AsyncStream(httpx.AsyncByteStream):
     async def __aiter__(self):
         async for chunk in self._gen:
             yield chunk
+
+
+# --- DNS rebinding: the connect must dial only a validated address -----------
+
+import asyncio  # noqa: E402
+import socket  # noqa: E402
+
+import httpcore  # noqa: E402
+
+
+class _RecordingInner:
+    """Stands in for the real network backend; records every address dialed."""
+
+    def __init__(self):
+        self.dialed: list[str] = []
+
+    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        self.dialed.append(host)
+        raise httpcore.ConnectError("refused")
+
+    async def sleep(self, seconds):
+        return None
+
+
+def _pinned_client(resolve, inner):
+    backend = link_ingest._PinnedPublicBackend(inner=inner, resolve=resolve)
+    return httpx.AsyncClient(
+        transport=link_ingest._PinnedPublicTransport(backend), follow_redirects=False
+    )
+
+
+def _fake_getaddrinfo(addresses):
+    async def fake(host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 0)) for ip in addresses]
+
+    return fake
+
+
+@pytest.mark.asyncio
+async def test_rebinding_second_answer_never_dialed():
+    # First lookup answers public, a second lookup would answer private.
+    answers = iter([["93.184.216.34"], ["10.0.0.5"]])
+    lookups = []
+
+    async def resolve(host):
+        lookups.append(host)
+        return next(answers)
+
+    inner = _RecordingInner()
+    with pytest.raises(LinkIngestError):
+        await _run("https://rebind.example/page", _pinned_client(resolve, inner))
+    assert lookups == ["rebind.example"]  # resolved exactly once
+    assert inner.dialed == ["93.184.216.34"]  # dialed the validated address only
+
+
+@pytest.mark.asyncio
+async def test_mixed_answers_refuse_whole_host_without_dialing(monkeypatch):
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(loop, "getaddrinfo", _fake_getaddrinfo(["93.184.216.34", "10.0.0.5"]))
+    inner = _RecordingInner()
+    backend = link_ingest._PinnedPublicBackend(inner=inner)  # real resolver path
+    async with httpx.AsyncClient(transport=link_ingest._PinnedPublicTransport(backend)) as client:
+        with pytest.raises(LinkIngestError, match="non-public"):
+            await _run("https://mixed.example/", client)
+    assert inner.dialed == []
+
+
+@pytest.mark.asyncio
+async def test_loopback_name_refused_without_dialing(monkeypatch):
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(loop, "getaddrinfo", _fake_getaddrinfo(["127.0.0.1"]))
+    inner = _RecordingInner()
+    backend = link_ingest._PinnedPublicBackend(inner=inner)
+    async with httpx.AsyncClient(transport=link_ingest._PinnedPublicTransport(backend)) as client:
+        with pytest.raises(LinkIngestError, match="non-public"):
+            await _run("https://loopback.example/", client)
+    assert inner.dialed == []
+
+
+@pytest.mark.asyncio
+async def test_connect_falls_back_to_next_validated_address():
+    async def resolve(host):
+        return ["93.184.216.34", "93.184.216.35"]
+
+    inner = _RecordingInner()
+    with pytest.raises(LinkIngestError, match="could not fetch"):
+        await _run("https://two.example/", _pinned_client(resolve, inner))
+    assert inner.dialed == ["93.184.216.34", "93.184.216.35"]

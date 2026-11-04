@@ -14,9 +14,12 @@ Hardening (the URL is user-supplied, so treat it as hostile):
 - 10 s timeout, 2 MB body cap, text/html or text/plain only.
 - Error messages never echo the URL or the page body.
 
-Known limit: the DNS check and the connect are two steps, so a hostile DNS
-server could rebind between them. Closing that needs connecting to the
-pre-resolved IP, which is a follow-up.
+DNS rebinding: the address check runs inside the connect itself
+(`_PinnedPublicBackend.connect_tcp`). It resolves the host once, refuses the
+connection if any address is non-public, and dials only a validated IP. The
+name is never looked up a second time, so a hostile DNS answer cannot swap in
+a private address. TLS still verifies the certificate against the original
+hostname (httpcore's default SNI), so HTTPS stays correct.
 """
 
 from __future__ import annotations
@@ -28,7 +31,12 @@ import socket
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
+import httpcore
 import httpx
+
+# Private import: httpx 0.27 exposes no public hook for a network backend, and
+# the default backend is the one httpx itself would use. Pinned with httpcore 1.0.9.
+from httpcore._backends.auto import AutoBackend
 
 MAX_BYTES = 2_000_000
 MAX_CHARS = 150_000
@@ -151,22 +159,92 @@ def _assert_public(ip_text: str) -> None:
         raise LinkIngestError("link points to a non-public address")
 
 
-async def _assert_public_host(host: str) -> None:
+def _literal_ip(host: str) -> str | None:
     try:
-        ipaddress.ip_address(host)
+        return str(ipaddress.ip_address(host))
     except ValueError:
-        pass
-    else:
-        _assert_public(host)
-        return
+        return None
+
+
+async def _resolve_public(host: str) -> list[str]:
+    """Resolve `host` once and return its addresses, all of which must be public."""
+    literal = _literal_ip(host)
+    if literal is not None:
+        _assert_public(literal)
+        return [literal]
     try:
         infos = await asyncio.get_running_loop().getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise LinkIngestError("could not resolve the link's host") from e
-    if not infos:
+    addresses = [info[4][0] for info in infos]
+    if not addresses:
         raise LinkIngestError("could not resolve the link's host")
-    for info in infos:
-        _assert_public(info[4][0])
+    for address in addresses:
+        _assert_public(address)  # any private answer refuses the whole host
+    return addresses
+
+
+class _PinnedPublicBackend(httpcore.AsyncNetworkBackend):
+    """Connect-time SSRF guard: resolve, validate, then dial a validated IP only.
+
+    httpcore calls `connect_tcp` for every new connection (and so for every
+    redirect hop). The lookup and the dial happen here, once, so there is no
+    window between check and connect for DNS to change the answer.
+    """
+
+    def __init__(self, *, inner=None, resolve=_resolve_public) -> None:
+        self._inner = inner or AutoBackend()
+        self._resolve = resolve
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options=None,
+    ):
+        last_error: Exception | None = None
+        for address in await self._resolve(host):
+            try:
+                return await self._inner.connect_tcp(
+                    address,
+                    port,
+                    timeout=timeout,
+                    local_address=local_address,
+                    socket_options=socket_options,
+                )
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as e:
+                last_error = e  # try the next validated address
+        raise last_error or httpcore.ConnectError("no address to connect to")
+
+    async def connect_unix_socket(self, path, timeout=None, socket_options=None):
+        raise httpcore.ConnectError("unix sockets are not allowed for link fetches")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _PinnedPublicTransport(httpx.AsyncHTTPTransport):
+    """httpx transport whose connection pool uses `_PinnedPublicBackend`."""
+
+    def __init__(self, backend: _PinnedPublicBackend) -> None:
+        super().__init__(trust_env=False)
+        # httpx 0.27 builds its own pool with no backend argument. Replace it with
+        # one that uses ours, keeping the same certificate verification.
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(trust_env=False),
+            network_backend=backend,
+        )
+
+
+def _make_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        transport=_PinnedPublicTransport(_PinnedPublicBackend()),
+        timeout=_TIMEOUT,
+        follow_redirects=False,
+        trust_env=False,
+    )
 
 
 async def _validate_url(url: str) -> None:
@@ -177,29 +255,30 @@ async def _validate_url(url: str) -> None:
         raise LinkIngestError("link has no host")
     if parts.username is not None or parts.password is not None:
         raise LinkIngestError("links with embedded credentials are not supported")
-    await _assert_public_host(parts.hostname)
+    # Literal IPs are refused up front. Hostnames are checked at connect time.
+    if _literal_ip(parts.hostname) is not None:
+        _assert_public(parts.hostname)
 
 
-async def fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None = None) -> str:
+async def fetch_link_text(url: str) -> str:
     """Return the readable text of `url`, or raise LinkIngestError.
 
+    Always uses the pinned client: there is no caller-supplied client, so the
+    connect-time address guard cannot be bypassed from outside this module.
     Wraps the whole fetch (all redirect hops and the body read) in one deadline,
     so a slow-drip response cannot hold the request open past FETCH_DEADLINE_S.
     """
     try:
         async with asyncio.timeout(FETCH_DEADLINE_S):
-            return await _fetch_link_text(url, http_client=http_client)
+            return await _fetch_link_text(url)
     except TimeoutError as e:
         raise LinkIngestError("link took too long to read") from e
 
 
-async def _fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None) -> str:
+async def _fetch_link_text(url: str) -> str:
     current = url.strip()
-    owns_client = http_client is None
-    # trust_env=False: proxy env vars must not redirect the fetch past our address checks.
-    client = http_client or httpx.AsyncClient(
-        timeout=_TIMEOUT, follow_redirects=False, trust_env=False
-    )
+    # trust_env=False (in _make_client): proxy env vars cannot route past the address guard.
+    client = _make_client()
     try:
         for _hop in range(MAX_REDIRECTS + 1):
             await _validate_url(current)
@@ -249,5 +328,4 @@ async def _fetch_link_text(url: str, *, http_client: httpx.AsyncClient | None) -
             return text[:MAX_CHARS]
         raise LinkIngestError("too many redirects")
     finally:
-        if owns_client:
-            await client.aclose()
+        await client.aclose()
