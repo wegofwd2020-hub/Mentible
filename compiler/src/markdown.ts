@@ -1,5 +1,6 @@
 import { Marked, type Tokens } from "marked";
 import markedKatex from "marked-katex-extension";
+import { randomUUID } from "node:crypto";
 import DOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
 import type { DiagramRenderer } from "./diagrams";
@@ -24,6 +25,13 @@ const URL_ATTRS = new Set([
   "srcset", "codebase", "cite", "longdesc", "usemap", "manifest", "icon", "lowsrc", "dynsrc",
 ]);
 purify.addHook("uponSanitizeAttribute", (node, data) => {
+  const raw = data.attrValue ?? "";
+  // CSS url() can fetch too (SVG paint and filter attributes, style text), so
+  // any url() that is not a local #fragment is removed from every attribute.
+  if (/url\s*\(/i.test(raw) && !/^\s*url\(\s*["']?#[^)"']*["']?\s*\)\s*$/i.test(raw)) {
+    data.keepAttr = false;
+    return;
+  }
   const name = (data.attrName ?? "").toLowerCase();
   if (!URL_ATTRS.has(name)) return;
   const value = (data.attrValue ?? "").trim();
@@ -51,6 +59,8 @@ const BOOK_HTML_RULES = {
 export function renderMarkdown(md: string | null | undefined, diagrams: DiagramRenderer): string {
   const m = new Marked();
   const trustedDiagrams: string[] = [];
+  // Per-call random token: book text cannot guess it, so it cannot ask for a diagram.
+  const placeholderPrefix = `SBQ${randomUUID().replace(/-/g, "")}D`;
   // strict:false — render best-effort and don't warn on quirks in LLM-authored
   // LaTeX (e.g. a stray en-dash inside math); throwOnError:false keeps a bad
   // expression from failing the whole compile.
@@ -65,7 +75,7 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
           // Our own diagram output: kept verbatim (including its comment markers) by
           // swapping it for a plain token until the book HTML has been sanitised.
           trustedDiagrams.push(diagrams.render(text));
-          return `SBQTRUSTEDDIAGRAM${trustedDiagrams.length - 1}END`;
+          return `${placeholderPrefix}${trustedDiagrams.length - 1}END`;
         }
         if (language === "svg") {
           // Inline the LLM-authored SVG so SMIL/CSS animation works — mirror
@@ -133,7 +143,7 @@ export function renderMarkdown(md: string | null | undefined, diagrams: DiagramR
   // "mismatched tag" error — so normalise here. Idempotent on already-closed tags.
   const sanitized = purify
     .sanitize(html, BOOK_HTML_RULES)
-    .replace(/SBQTRUSTEDDIAGRAM(\d+)END/g, (_m, i: string) => trustedDiagrams[Number(i)] ?? "");
+    .replace(new RegExp(`${placeholderPrefix}(\\d+)END`, "g"), (_m, i: string) => trustedDiagrams[Number(i)] ?? "");
   return sanitized.replace(
     /(<(?:br|hr|img|input|col|area|base|embed|source|track|wbr|meta|link)\b[^>]*?)\s*\/?>/gi,
     "$1/>",

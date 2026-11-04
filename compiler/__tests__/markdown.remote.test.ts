@@ -41,4 +41,19 @@ describe("book HTML cannot reference remote or local resources", () => {
     const out = render('```svg\n<svg xmlns="http://www.w3.org/2000/svg"><image href="http://10.0.0.5/x.png"/></svg>\n```');
     expect(out).not.toContain("10.0.0.5");
   });
+
+  it("removes CSS url() that points anywhere except a local #fragment", () => {
+    const out = render('<svg><rect fill="url(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    expect(out).not.toContain("10.0.0.5");
+  });
+
+  it("keeps a local #fragment url()", () => {
+    const out = render('<svg><defs><linearGradient id="g"/></defs><rect fill="url(#g)" width="5" height="5"/></svg>');
+    expect(out).toContain('fill="url(#g)"');
+  });
+
+  it("does not let book text ask for a diagram by guessing the placeholder", () => {
+    const out = render("Look: SBQTRUSTEDDIAGRAM0END and SBQ0D0END");
+    expect(out).toContain("SBQTRUSTEDDIAGRAM0END");
+  });
 });
