@@ -21,7 +21,6 @@ COMMIT="${COMMIT:?set COMMIT to the 40-char commit on main to deploy}"
 EXPECTED_SHA="${EXPECTED_SHA:?set EXPECTED_SHA to the sha256 of that commit archive}"
 [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "COMMIT must be a full 40-char sha"; exit 1; }
 
-ARCHIVE="/tmp/mentible-${COMMIT:0:7}.tgz"
 LIVE=/opt/mentible
 NEW=/opt/mentible-new
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -58,11 +57,14 @@ trap rollback ERR
 [ "$(id -u)" -eq 0 ] || die "run as root"
 
 log "1) Fetch and verify the commit archive"
-if [ ! -f "$ARCHIVE" ]; then
-  curl -fsSL --proto '=https' -o "$ARCHIVE.part" \
-    "https://codeload.github.com/$REPO/tar.gz/$COMMIT"
-  mv "$ARCHIVE.part" "$ARCHIVE"
-fi
+# Private, root-owned work dir: nothing else on the box can swap the file
+# between the checksum check and the extract below. Always a fresh download.
+WORK="$(mktemp -d /root/mentible-deploy.XXXXXX)"
+chmod 700 "$WORK"
+ARCHIVE="$WORK/src.tgz"
+curl -fsSL --proto '=https' -o "$ARCHIVE" \
+  "https://codeload.github.com/$REPO/tar.gz/$COMMIT"
+[ "$(stat -c %u "$ARCHIVE")" -eq 0 ] || die "archive is not owned by root"
 GOT_SHA="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
 [ "$GOT_SHA" = "$EXPECTED_SHA" ] || die "checksum mismatch: got $GOT_SHA"
 echo "checksum ok"
@@ -123,4 +125,5 @@ echo "public /account (expect 401 without a token):"
 curl -s -o /dev/null -w '%{http_code}\n' https://mambakkam.net/mentible-api/api/v1/account || true
 
 SWAPPED=0
+rm -rf "$WORK"
 log "DONE. Previous tree kept at $OLD; delete it once the new build is confirmed healthy."
