@@ -5,7 +5,6 @@ import { escapeHtml } from "./html";
 import { PassthroughDiagramRenderer, type DiagramRenderer } from "./diagrams";
 import { EmptyBookError } from "./epub";
 import { SOURCE_SERIF_FONTFACE } from "./fonts";
-import { PLAYFAIR_FONTFACE } from "./playfairFont";
 import { BRAND, STUDIO } from "./tokens";
 import { buildCoverSvg, coverInputForBook } from "./cover";
 import { colophonSection } from "./colophon";
@@ -194,10 +193,11 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(book.title)}</title>
-<style>${PDF_CSS}
+<style>${pdfCss()}
 ${watermarkCss}</style>
 </head>
 <body>
+<div class="book-running">${escapeHtml(book.title)}</div>
 ${coverPage}
 ${colophonPage}
 ${toc}
@@ -220,15 +220,30 @@ ${glossaryHtml}
 // EPUB, so the two export targets stay visually in lock-step. Playfair Display
 // is embedded here too (single weight 500 + font-synthesis:none, same
 // discipline as css.ts — no faux-bold).
-const DISPLAY = "'Playfair Display', Georgia, 'Times New Roman', serif";
-const PDF_CSS = `
+const PDF_SANS = '"Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif';
+const DISPLAY = PDF_SANS;
+function pdfCss(): string {
+  return `
   ${SOURCE_SERIF_FONTFACE}
-  ${PLAYFAIR_FONTFACE}
   @page {
     size: A4;
-    margin: 24mm 22mm; /* more air (Anthropic-leaning); also spreads content toward the ~50pp target */
+    margin: 26mm 22mm 24mm; /* more air (Anthropic-leaning); also spreads content toward the ~50pp target */
     background: #faf8f3; /* warm ivory ground */
-    @bottom-center { content: counter(page); font-size: 9pt; color: #777; }
+    @top-left {
+      content: string(chapter); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: left; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm;
+    }
+    @top-center { content: ""; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
+    @top-right {
+      content: counter(page); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm;
+    }
+    @bottom-left { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
+    @bottom-center {
+      content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
+      text-align: center; border-top: 0.5pt solid #bbb; padding-top: 2mm;
+    }
+    @bottom-right { content: ""; border-top: 0.5pt solid #bbb; padding-top: 2mm; }
   }
   html {
     font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
@@ -239,8 +254,8 @@ const PDF_CSS = `
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: ${DISPLAY};
-    font-weight: 500;
-    font-synthesis: none; /* only 400/500 are embedded — no faux-bold */
+    font-weight: 700;
+    font-synthesis: none; /* real bold face (Nimbus Sans Bold), no faux-bold */
     break-after: avoid;   /* keep a heading with the content that follows it */
     break-inside: avoid;
   }
@@ -259,11 +274,14 @@ const PDF_CSS = `
     caption-side: top; text-align: left; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
   }
-  .diagram { text-align: center; margin: 1.1em 0; break-inside: avoid; break-before: avoid; }
+  .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; }
+  .diagram svg, .diagram img {
+    display: block; box-sizing: border-box; max-width: 100%; max-height: 84mm; width: auto; height: auto;
+    border: 1px solid #b8b8b8; background: #fff; padding: 3mm;
+  }
   .diagram svg { max-width: 100%; max-height: 84mm; width: auto; height: auto; }
   .diagram figcaption {
-    font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
-    font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.3em;
+    font-family: ${PDF_SANS}; font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.3em; text-align: left;
   }
   .fnum { font-weight: 800; color: ${STUDIO.gold}; }
 
@@ -305,6 +323,11 @@ const PDF_CSS = `
   .glossary dd { margin: 0.1em 0 0.4em 0; color: #333; break-inside: avoid; }
 
   .chapter, .quizzes, .answers { break-before: page; }
+  /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
+  .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
+  /* Running header text: each chapter, quiz/answer/glossary/contents section names itself. */
+  .chapter > h1:first-child, .quizzes > h1, .answers > h1, .glossary > h1,
+  nav.toc > h1, nav.floatlist > h1 { string-set: chapter content(text); }
   .synopsis { font-style: italic; color: #444; margin: 0.6em 0 0.95em; }
   .objectives, .takeaways, .further, .mistakes, .examples { background: #f6f8fa; padding: 0.7em 0.95em; margin: 0.9em 0; break-inside: avoid; }
   .objectives ul, .takeaways ul, .further ul { margin: 0.3em 0; }
@@ -332,3 +355,4 @@ const PDF_CSS = `
   .answer { margin: 0.4em 0; break-inside: avoid; }
   .answer-key { color: #1a6b1a; }
 `;
+}

@@ -130,13 +130,12 @@ describe("buildPdfHtml — textbook layout", () => {
 
 describe("buildPdfHtml — typography & numbering CSS", () => {
   const html = buildPdfHtml(book());
-  it("uses Playfair headings (Studio P4, matching the EPUB) and per-chapter float numbering + list styles", () => {
+  it("uses Nimbus Sans bold headings (body stays serif) and per-chapter float numbering + list styles", () => {
     const headingRule = html.match(/h1,\s*h2,\s*h3,\s*h4,\s*h5,\s*h6\s*\{[^}]*\}/);
     expect(headingRule).not.toBeNull();
-    expect(headingRule![0]).toMatch(/font-family:\s*'Playfair Display'/);
-    expect(headingRule![0]).toContain("font-weight: 500");
+    expect(headingRule![0]).toMatch(/font-family:\s*"Nimbus Sans"/);
+    expect(headingRule![0]).toContain("font-weight: 700");
     expect(headingRule![0]).toContain("font-synthesis: none");
-    expect(headingRule![0]).not.toContain("Nimbus Sans"); // old sans-serif headings gone (Nimbus Sans stays elsewhere, e.g. th)
     expect(html).toContain(".toc-part"); // Part labels in the grouped TOC
     expect(html).toContain("nav.floatlist"); // List of Figures / List of Tables
     expect(html).toContain(".fnum"); // figure/table number styling
@@ -164,4 +163,14 @@ describe("buildPdfHtml — typography & numbering CSS", () => {
     expect(figcaptionRule![0]).toContain("#8A6A22"); // STUDIO.gold, matching css.ts .diagram figcaption
     expect(figcaptionRule![0]).not.toContain("#555"); // old neutral gray caption color
   });
+
+  it("cannot let a book title close the <style> element (title is escaped and kept out of the CSS)", () => {
+    const evil = { ...book(), title: "X</style><script>alert(1)</script>" } as Book;
+    const out = buildPdfHtml(evil);
+    expect(out).not.toContain("</style><script>");
+    expect(out).not.toContain("<script>alert");
+    expect(out).toContain('<div class="book-running">X&lt;/style&gt;&lt;script&gt;');
+    expect(out).toContain("string(booktitle)");
+  });
+
 });

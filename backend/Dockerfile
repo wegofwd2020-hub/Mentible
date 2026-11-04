@@ -51,7 +51,7 @@ RUN node --version
 # rather than crash (see export/pdf_meta.py).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
-      chromium fonts-liberation fonts-noto fonts-noto-color-emoji \
+      chromium fonts-liberation fonts-urw-base35 fonts-noto fonts-noto-color-emoji \
       poppler-utils \
       libnss3 libatk-bridge2.0-0 libgbm1 libasound2 libxkbcommon0 \
       libxdamage1 libxcomposite1 libxrandr2 libgtk-3-0 \
