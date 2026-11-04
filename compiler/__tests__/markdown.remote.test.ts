@@ -56,4 +56,11 @@ describe("book HTML cannot reference remote or local resources", () => {
     const out = render("Look: SBQTRUSTEDDIAGRAM0END and SBQ0D0END");
     expect(out).toContain("SBQTRUSTEDDIAGRAM0END");
   });
+
+  it("removes CSS-escaped and comment-split url() forms", () => {
+    const escaped = render('<svg><rect fill="u\\72l(http://10.0.0.5/p.svg#a)" width="5" height="5"/></svg>');
+    const commented = render('<svg><rect fill="u/**/rl(http://10.0.0.5/q.svg#a)" width="5" height="5"/></svg>');
+    expect(escaped).not.toContain("10.0.0.5");
+    expect(commented).not.toContain("10.0.0.5");
+  });
 });

@@ -24,11 +24,21 @@ const URL_ATTRS = new Set([
   "src", "href", "xlink:href", "poster", "background", "data", "action", "formaction",
   "srcset", "codebase", "cite", "longdesc", "usemap", "manifest", "icon", "lowsrc", "dynsrc",
 ]);
+// Undo CSS comments and escapes before looking for url(), so forms such as
+// u\72l( or u/**/rl( cannot hide a fetch from the check below.
+function cssDecoded(value: string): string {
+  return value
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\\([0-9a-f]{1,6})\s?/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16) || 0xfffd))
+    .replace(/\\([\s\S])/g, "$1");
+}
+
 purify.addHook("uponSanitizeAttribute", (node, data) => {
   const raw = data.attrValue ?? "";
   // CSS url() can fetch too (SVG paint and filter attributes, style text), so
   // any url() that is not a local #fragment is removed from every attribute.
-  if (/url\s*\(/i.test(raw) && !/^\s*url\(\s*["']?#[^)"']*["']?\s*\)\s*$/i.test(raw)) {
+  const decoded = cssDecoded(raw);
+  if (/url\s*\(/i.test(decoded) && !/^\s*url\(\s*["']?#[^)"']*["']?\s*\)\s*$/i.test(decoded)) {
     data.keepAttr = false;
     return;
   }
