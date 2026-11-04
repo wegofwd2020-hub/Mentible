@@ -424,6 +424,7 @@ function EpubLibrary() {
         book={selectedBook}
         meta={selected ? { title: selected.title, compiledAt: selected.compiledAt } : null}
         loading={loadingBook}
+        coverUri={selectedBook?.metadata?.coverThumb ?? selected?.coverUri}
         exportStatus={selected ? exportStatus[selected.id] : undefined}
         published={selected ? published[selected.id] : undefined}
         reviewCount={selected ? counts[selected.id] : undefined}
