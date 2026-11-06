@@ -33,11 +33,12 @@ async def test_add_upload_input_inserts_kind_upload_with_storage_and_hash():
         title="Kolam interview",
         storage_path="/var/audio/abc.mp3",
         content_hash="deadbeef",
+        byte_size=19,
     )
     sql, args = conn.calls[0]
-    assert "storage_path" in sql and "content_hash" in sql
+    assert "storage_path" in sql and "content_hash" in sql and "byte_size" in sql
     assert "'upload'" in sql  # kind is a SQL literal
-    assert args == ("p1", "Kolam interview", "/var/audio/abc.mp3", "deadbeef")
+    assert args == ("p1", "Kolam interview", "/var/audio/abc.mp3", "deadbeef", 19)
     assert row.kind == "upload"
     assert row.storage_path == "/var/audio/abc.mp3"
     assert row.content_hash == "deadbeef"

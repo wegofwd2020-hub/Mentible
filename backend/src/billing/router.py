@@ -125,7 +125,7 @@ async def get_plan_status(
     account = await accounts_repo.get_or_create_account(
         conn, idp_sub=principal.sub, email=principal.email
     )
-    ps = await quota.plan_status(conn, account_id=account.id, sub=principal.sub)
+    ps = await quota.plan_status(conn, account_id=account.id)
     return PlanStatusView(
         is_pro=ps.is_pro,
         caps={

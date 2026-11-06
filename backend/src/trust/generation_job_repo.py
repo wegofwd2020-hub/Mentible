@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from .models import GenerationJob
 
-_COLS = "id, project_id, kind, status, total, done, failed_topic_ids, created_by_sub, created_at"
+_COLS = (
+    "id, project_id, kind, status, total, done, failed_topic_ids, created_by_sub, created_at, "
+    "planned_topic_ids"
+)
 
 
 def _row(r) -> GenerationJob:
@@ -16,19 +19,25 @@ def _row(r) -> GenerationJob:
         failed_topic_ids=list(r["failed_topic_ids"]),
         created_by_sub=r["created_by_sub"],
         created_at=r["created_at"],
+        planned_topic_ids=(
+            list(r["planned_topic_ids"]) if r["planned_topic_ids"] is not None else None
+        ),
     )
 
 
-async def create(conn, *, project_id, total, created_by_sub) -> GenerationJob:
+async def create(
+    conn, *, project_id, total, created_by_sub, planned_topic_ids=None
+) -> GenerationJob:
     r = await conn.fetchrow(
         f"""
-        INSERT INTO generation_job (project_id, status, total, created_by_sub)
-        VALUES ($1, 'queued', $2, $3)
+        INSERT INTO generation_job (project_id, status, total, created_by_sub, planned_topic_ids)
+        VALUES ($1, 'queued', $2, $3, $4)
         RETURNING {_COLS}
         """,
         project_id,
         total,
         created_by_sub,
+        planned_topic_ids,
     )
     return _row(r)
 

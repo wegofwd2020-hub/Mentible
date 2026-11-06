@@ -17,11 +17,12 @@ from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import pytest
+from fastapi import HTTPException
 
 from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.billing import access, eligibility, entitlement_repo, quota
-from backend.src.trust import artifact_repo, project_repo, topic_repo
+from backend.src.trust import project_repo
 
 DSN = os.environ.get("DATABASE_URL", "")
 db = pytest.mark.skipif(not DSN, reason="DATABASE_URL not set (no account DB)")
@@ -120,72 +121,59 @@ async def test_count_projects(conn):
 
 @db
 @pytest.mark.asyncio
-async def test_count_generations_sums_topic_and_artifact_versions(conn):
+async def test_charge_generation_records_and_counts_per_account(conn):
+    """Every generation route writes one `generation_event`; the count is per account."""
     acct = await _account(conn)
     other = await _account(conn)
-    p = await project_repo.create_project(conn, owner_account_id=acct.id, title="P")
     since = datetime.now(UTC) - timedelta(days=1)
 
-    # Two topic_version rows by acct.sub.
-    await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t1",
-        title="T1",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=acct.idp_sub,
-    )
-    await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t2",
-        title="T2",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=acct.idp_sub,
-    )
-    # One artifact_version row by acct.sub.
-    art = await artifact_repo.create_artifact(
-        conn, project_id=p.id, role="cornerstone", format="book"
-    )
-    await artifact_repo.create_version(
-        conn, artifact_id=art.id, content={"y": 1}, created_by_sub=acct.idp_sub
-    )
-    # A row by a different sub — must not count.
-    await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t3",
-        title="T3",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=other.idp_sub,
-    )
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    await quota.charge_generation(conn, account_id=acct.id, route="derivative")
+    await quota.charge_generation(conn, account_id=acct.id, route="trust")
+    await quota.charge_generation(conn, account_id=other.id, route="generate")
 
-    assert await quota.count_generations(conn, acct.idp_sub, since) == 3
-    assert await quota.count_generations(conn, other.idp_sub, since) == 1
+    assert await quota.count_generations(conn, acct.id, since) == 3
+    assert await quota.count_generations(conn, other.id, since) == 1
 
 
 @db
 @pytest.mark.asyncio
 async def test_count_generations_excludes_outside_window(conn):
     acct = await _account(conn)
-    p = await project_repo.create_project(conn, owner_account_id=acct.id, title="P")
-    tv = await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t1",
-        title="T1",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=acct.idp_sub,
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    row_at = await conn.fetchval(
+        "SELECT created_at FROM generation_event WHERE account_id = $1", acct.id
     )
-    # A window starting after the row was created excludes it.
-    future_since = tv.created_at + timedelta(days=1)
-    assert await quota.count_generations(conn, acct.idp_sub, future_since) == 0
-    past_since = tv.created_at - timedelta(days=1)
-    assert await quota.count_generations(conn, acct.idp_sub, past_since) == 1
+    # A window starting after the event excludes it; one starting before includes it.
+    assert await quota.count_generations(conn, acct.id, row_at + timedelta(days=1)) == 0
+    assert await quota.count_generations(conn, acct.id, row_at - timedelta(days=1)) == 1
+
+
+@db
+@pytest.mark.asyncio
+async def test_charge_generation_402_at_free_cap(conn, monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 2)
+    acct = await _account(conn)
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    with pytest.raises(HTTPException) as exc:
+        await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    assert exc.value.status_code == 402
+    # The refused attempt was not recorded.
+    since = datetime.now(UTC) - timedelta(days=1)
+    assert await quota.count_generations(conn, acct.id, since) == 2
+
+
+@db
+@pytest.mark.asyncio
+async def test_charge_generation_pro_never_refused_but_recorded(conn, monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 1)
+    acct = await _account(conn)
+    await _grant_entitlement(conn, acct.id)
+    for _ in range(3):
+        await quota.charge_generation(conn, account_id=acct.id, route="generate")
+    since = datetime.now(UTC) - timedelta(days=1)
+    assert await quota.count_generations(conn, acct.id, since) == 3
 
 
 # ── plan_status ──────────────────────────────────────────────────────────────
@@ -201,7 +189,7 @@ async def test_plan_status_free_under_cap(conn, monkeypatch):
     acct = await _account(conn)
     await project_repo.create_project(conn, owner_account_id=acct.id, title="P1")
 
-    ps = await quota.plan_status(conn, account_id=acct.id, sub=acct.idp_sub)
+    ps = await quota.plan_status(conn, account_id=acct.id)
     assert ps.is_pro is False
     assert ps.projects == 1
     assert ps.at_project_cap is False
@@ -216,18 +204,10 @@ async def test_plan_status_free_at_cap(conn, monkeypatch):
     monkeypatch.setattr(eligibility, "_MANAGED_SUBS", frozenset())
     monkeypatch.setattr(eligibility, "_MANAGED_EMAILS", frozenset())
     acct = await _account(conn)
-    p = await project_repo.create_project(conn, owner_account_id=acct.id, title="P1")
-    await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t1",
-        title="T1",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=acct.idp_sub,
-    )
+    await project_repo.create_project(conn, owner_account_id=acct.id, title="P1")
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
 
-    ps = await quota.plan_status(conn, account_id=acct.id, sub=acct.idp_sub)
+    ps = await quota.plan_status(conn, account_id=acct.id)
     assert ps.is_pro is False
     assert ps.at_project_cap is True
     assert ps.at_generation_cap is True
@@ -240,19 +220,11 @@ async def test_plan_status_pro_never_at_cap(conn, monkeypatch):
     monkeypatch.setattr(settings, "free_max_generations", 1)
     acct = await _account(conn)
     await _grant_entitlement(conn, acct.id)
-    p = await project_repo.create_project(conn, owner_account_id=acct.id, title="P1")
+    await project_repo.create_project(conn, owner_account_id=acct.id, title="P1")
     await project_repo.create_project(conn, owner_account_id=acct.id, title="P2")
-    await topic_repo.create_topic_version(
-        conn,
-        project_id=p.id,
-        topic_id="t1",
-        title="T1",
-        source_ids=[],
-        content={"x": 1},
-        created_by_sub=acct.idp_sub,
-    )
+    await quota.charge_generation(conn, account_id=acct.id, route="generate")
 
-    ps = await quota.plan_status(conn, account_id=acct.id, sub=acct.idp_sub)
+    ps = await quota.plan_status(conn, account_id=acct.id)
     assert ps.is_pro is True
     assert ps.projects == 2
     assert ps.at_project_cap is False

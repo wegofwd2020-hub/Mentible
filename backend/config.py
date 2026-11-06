@@ -180,6 +180,9 @@ class Settings(BaseSettings):
     free_max_projects: int = Field(default=2, ge=0)
     free_max_generations: int = Field(default=20, ge=0)
     free_gen_window_days: int = Field(default=30, ge=1)
+    # Free-plan stored-audio cap (disk-safety guard, not billing): total bytes of uploaded
+    # audio per account. Pro is not capped here. Raise this with a subscription tier later.
+    free_max_upload_bytes: int = Field(default=500 * 1024 * 1024, ge=1)
 
     # ── Account store (ADR-014 D2/D8) — Supabase Postgres via asyncpg ──────────
     # The account + per-provider credential-set DB. OPTIONAL, like identity: empty

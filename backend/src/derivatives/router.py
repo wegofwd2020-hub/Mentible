@@ -29,7 +29,7 @@ from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing import access, pricing, usage_repo
+from backend.src.billing import access, pricing, quota, usage_repo
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
@@ -71,6 +71,22 @@ from backend.src.trust.access import ProjectAccessError, require_project_access
 
 router = APIRouter(prefix="/api/v1/derivatives", tags=["derivatives"])
 log = get_logger("derivatives")
+
+
+async def _charge_derivative(request: Request, principal: Principal | None) -> None:
+    """Free generations cap (shared counter, ADR-037 D3 / ADR-043) for a derivative.
+
+    Called by each handler AFTER every validation and access check (key, managed
+    allowance, topic-version access), right before the generation runs — so a refused
+    request records nothing. Authed callers only: anonymous has no account to count."""
+    db = getattr(request.app.state, "db", None)
+    if db is None or principal is None:
+        return
+    async with db.acquire() as conn:
+        acct = await accounts_repo.get_or_create_account(
+            conn, idp_sub=principal.sub, email=principal.email
+        )
+        await quota.charge_generation(conn, account_id=acct.id, route="derivative")
 
 
 async def _resolve_key_and_source(
@@ -227,6 +243,7 @@ async def make_post(
     else:
         api_key = body.api_key
 
+    await _charge_derivative(request, principal)
     model = body.model or settings.anthropic_default_model
 
     try:
@@ -310,6 +327,7 @@ async def make_card(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     # --- generate + render ---
     try:
@@ -412,6 +430,7 @@ async def make_carousel(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     try:
         frames = await asyncio.to_thread(
@@ -519,6 +538,7 @@ async def make_animated(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     # --- generate + render ---
     try:
@@ -628,6 +648,7 @@ async def make_audio(
     api_key, model, source_text, _source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
     # _resolve_key_and_source falls back to settings.anthropic_default_model
     # when body.model is omitted, regardless of provider_id — wrong here
     # since AudioRequest defaults to the TTS-only "openai" provider. Re-

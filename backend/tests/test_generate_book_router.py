@@ -8,6 +8,7 @@ import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.config import settings
 from backend.main import app
 from backend.src.accounts.deps import require_active_user
 from backend.src.auth.principal import Principal
@@ -219,3 +220,81 @@ def test_latest_generation_job_returns_most_recent_and_null_when_none():
 
         latest = c.get(f"/api/v1/trust/projects/{pid}/generation-jobs/latest").json()
         assert latest["id"] == first["job_id"]
+
+
+# ── Free generations cap: a whole book is one generation per topic ───────────
+# A fan-out job produces len(missing) topics, so it is charged len(missing) generations,
+# all-or-nothing, after every validation (a refused book records nothing).
+
+
+async def _generation_events(sub: str) -> int:
+    conn = await asyncpg.connect(DSN)
+    try:
+        return await conn.fetchval(
+            "SELECT count(*) FROM generation_event ge JOIN account a ON a.id = ge.account_id "
+            "WHERE a.idp_sub = $1",
+            sub,
+        )
+    finally:
+        await conn.close()
+
+
+def test_book_charges_one_generation_per_missing_topic(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 20)
+    with TestClient(app) as c:
+        owner = f"bk-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc(c, [("u1", True), ("u2", True), ("u3", True)])
+        with patch("backend.src.trust.router.generate_book_task.delay"):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/generate-book",
+                json={"api_key": "sk-ant-" + "e" * 20},
+            )
+        assert r.status_code == 202, r.text
+        assert r.json()["total"] == 3
+        assert asyncio.run(_generation_events(owner)) == 3
+
+
+def test_book_over_cap_is_refused_and_records_nothing(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 2)
+    with TestClient(app) as c:
+        owner = f"bk-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc(c, [("u1", True), ("u2", True), ("u3", True)])
+        with patch("backend.src.trust.router.generate_book_task.delay") as mock_delay:
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/generate-book",
+                json={"api_key": "sk-ant-" + "e" * 20},
+            )
+        assert r.status_code == 402, r.text
+        assert "upgrade to Pro" in r.json()["detail"]
+        mock_delay.assert_not_called()
+        assert asyncio.run(_generation_events(owner)) == 0
+
+
+def _planned_topics(job_id: str):
+    async def _q():
+        conn = await asyncpg.connect(DSN)
+        try:
+            return await conn.fetchval(
+                "SELECT planned_topic_ids FROM generation_job WHERE id = $1", uuid.UUID(job_id)
+            )
+        finally:
+            await conn.close()
+
+    return asyncio.run(_q())
+
+
+def test_submit_freezes_the_charged_topic_list(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 20)
+    with TestClient(app) as c:
+        owner = f"pl-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc(c, [("u1", True), ("u2", True), ("u3", True)])
+        with patch("backend.src.trust.router.generate_book_task.delay"):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/generate-book",
+                json={"api_key": "sk-ant-" + "e" * 20},
+            )
+        assert r.status_code == 202, r.text
+        assert sorted(_planned_topics(r.json()["job_id"])) == ["u1", "u2", "u3"]

@@ -425,6 +425,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "free-tier-limits",
+    title: "Free-plan limits & your counter",
+    featureKey: "free-tier-limits",
+    keywords: ["free", "limit", "limits", "cap", "quota", "counter", "generations", "used", "20", "30 days", "upgrade", "pro", "projects", "allowance"],
+    blocks: [
+      {
+        kind: "text",
+        text: "On the Free plan you can start 2 projects and generate 20 things (topics, drafts, cards, carousels, animated cards and books) in any rolling 30 days. Every generation counts the same, whichever screen you start it from.",
+      },
+      {
+        kind: "text",
+        text: "The top bar shows your count as \"x/20 free\" once you're signed in. When you reach 20, the next generation is refused with a message that says so. Nothing is charged or half-created, and the counter goes back down as older generations fall outside the 30-day window.",
+      },
+      {
+        kind: "text",
+        text: "Uploaded interview audio counts against a separate 500 MB storage limit on the Free plan. Transcribing doesn't use up your generations. When you reach the limit, delete an upload to make room.",
+      },
+      {
+        kind: "text",
+        text: "Pro removes both caps. There's no self-serve checkout yet, so Pro is granted by the operator — tap Upgrade on the Usage screen to contact us. Generations you make with your own API key count toward the same allowance once you're signed in; anonymous use on this device is not counted.",
+      },
+    ],
+  },
+  {
     id: "attach-figures",
     title: "Add figures to a topic",
     featureKey: "figures",

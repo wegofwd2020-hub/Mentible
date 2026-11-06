@@ -438,3 +438,62 @@ def test_generate_book_task_wraps_run_book_via_asyncio_run():
     assert calls["provider_id"] == "anthropic"
     assert calls["managed"] is False
     assert str(calls["job_id"]) == "11111111-1111-1111-1111-111111111111"
+
+
+# ── 0. The worker generates only the topics the submit charged ───────────────
+
+
+async def test_worker_generates_only_the_charged_topics(conn, fake_redis):
+    # u1 has a version; u2 and u3 are missing. The submit charged only u2 (planned =
+    # ["u2"]); the worker must not expand to u3 even though the TOC still lists it.
+    pid, _source_ids = await _project_with_toc(conn)
+    job = await generation_job_repo.create(
+        conn,
+        project_id=pid,
+        total=1,
+        created_by_sub="owner-sub",
+        planned_topic_ids=["u2"],
+    )
+    await _seed_byok_envelope(fake_redis, job.id)
+
+    with patch(
+        "backend.src.trust.tasks.generate_topic_draft",
+        side_effect=lambda **kw: _draft(kw["topic_title"]),
+    ) as mock_gen:
+        await trust_tasks._run_book(
+            job_id=job.id,
+            project_id=pid,
+            provider_id="anthropic",
+            model="m",
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert mock_gen.call_count == 1  # only u2 — u3 was never charged
+    done = await generation_job_repo.get(conn, job_id=job.id)
+    assert done.total == 1
+    assert done.done == 1
+    versions = await topic_repo.list_topic_versions(conn, project_id=pid)
+    assert {v.topic_id for v in versions} == {"u1", "u2"}
+
+
+async def test_legacy_job_without_planned_list_still_recomputes(conn, fake_redis):
+    # planned_topic_ids NULL = a job created before migration 0041: unchanged behaviour.
+    pid, _source_ids = await _project_with_toc(conn)
+    job_id = await _make_job(conn, project_id=pid, total=2)
+    await _seed_byok_envelope(fake_redis, job_id)
+
+    with patch(
+        "backend.src.trust.tasks.generate_topic_draft",
+        side_effect=lambda **kw: _draft(kw["topic_title"]),
+    ) as mock_gen:
+        await trust_tasks._run_book(
+            job_id=job_id,
+            project_id=pid,
+            provider_id="anthropic",
+            model="m",
+            managed=False,
+            recorded_by_sub="owner-sub",
+        )
+
+    assert mock_gen.call_count == 2  # u2 and u3, from the live TOC

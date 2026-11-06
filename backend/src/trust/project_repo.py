@@ -167,18 +167,21 @@ async def add_input(
     return _input(r)
 
 
-async def add_upload_input(conn, *, project_id, title, storage_path, content_hash) -> ProjectInput:
+async def add_upload_input(
+    conn, *, project_id, title, storage_path, content_hash, byte_size=None
+) -> ProjectInput:
     """Persist an uploaded binary source (e.g. an interview audio file) as a
     kind='upload' input carrying its on-disk path + content hash. Unlike
     `add_input`, this sets storage_path/content_hash (the columns text sources
     leave null)."""
     r = await conn.fetchrow(
-        f"INSERT INTO project_input (project_id, kind, title, storage_path, content_hash) "
-        f"VALUES ($1,'upload',$2,$3,$4) RETURNING {_I}",
+        f"INSERT INTO project_input (project_id, kind, title, storage_path, content_hash, "
+        f"byte_size) VALUES ($1,'upload',$2,$3,$4,$5) RETURNING {_I}",
         project_id,
         title,
         storage_path,
         content_hash,
+        byte_size,
     )
     return _input(r)
 
@@ -211,11 +214,22 @@ async def delete_input(conn, *, input_id) -> None:
     await conn.execute("DELETE FROM project_input WHERE id = $1", input_id)
 
 
+async def list_upload_storage_paths(conn, *, project_id) -> list[str]:
+    """On-disk paths of every uploaded audio file in a project (kind='upload')."""
+    rows = await conn.fetch(
+        "SELECT storage_path FROM project_input "
+        "WHERE project_id = $1 AND kind = 'upload' AND storage_path IS NOT NULL",
+        project_id,
+    )
+    return [r["storage_path"] for r in rows]
+
+
 async def delete_project(conn, *, project_id) -> None:
     """Hard-delete a project. Every child (inputs, artifacts, versions, feedback,
     approvals, memberships, invitations, topic_versions) references project with
     ON DELETE CASCADE (migrations 0009/0010), so this one statement wipes the
-    whole tree. On-disk audio blobs are NOT removed (harmless orphans)."""
+    whole tree. On-disk audio blobs are NOT removed here; the router deletes them using
+    `list_upload_storage_paths`, taken before this call."""
     await conn.execute("DELETE FROM project WHERE id = $1", project_id)
 
 

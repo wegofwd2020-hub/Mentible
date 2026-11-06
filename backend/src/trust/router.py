@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import redis.asyncio as redis
@@ -110,19 +109,23 @@ def _resolve_approver(
 
 
 async def _enforce_generation_cap(
-    conn: asyncpg.Connection, account: Account, principal: Principal
+    conn: asyncpg.Connection, account: Account, principal: Principal, *, count: int = 1
 ) -> None:
-    """402 when a Free-plan account is at/over the rolling generations cap.
-    Pro accounts are never capped. Placed before any job/envelope is created
-    on the 3 trust generate submits (T2 — the server-side gate)."""
-    if await is_pro(conn, account_id=account.id):
-        return
-    since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
-    if await quota.count_generations(conn, principal.sub, since) >= settings.free_max_generations:
-        raise quota.pro_required(
-            f"Free plan is limited to {settings.free_max_generations} generations "
-            f"per {settings.free_gen_window_days} days — upgrade to Pro."
-        )
+    """Shared Free generations cap (ADR-037 D3 / ADR-043), enforced + recorded by
+    `quota.charge_generation`. 402 before any job/envelope is created; Pro accounts are
+    never refused. `count` > 1 for fan-out jobs (one generation per topic)."""
+    await quota.charge_generation(conn, account_id=account.id, route="trust", count=count)
+
+
+def _remove_audio_file(path: str) -> None:
+    """Delete one stored audio file. A missing file is fine; anything else is logged, not
+    raised (the DB change has already been made)."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        log.warning("audio_file_remove_failed")
 
 
 @router.post("/session/sync", response_model=schemas.SessionSyncOut)
@@ -283,7 +286,6 @@ async def transcribe_upload(
     `generate_version`."""
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     stt_provider = provider_id or settings.stt_default_provider
     if stt_provider not in STT_REGISTRY:
@@ -326,21 +328,40 @@ async def transcribe_upload(
                 "managed allowance exhausted; try again later or add your own key",
             )
 
+    # Transcription is NOT counted against the Free generations cap (decided 2026-11-06):
+    # Free users transcribe with their own speech key, so it costs us nothing.
+
     # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
     content_hash = hashlib.sha256(audio_bytes).hexdigest()
-    os.makedirs(settings.audio_upload_dir, exist_ok=True)
     storage_path = os.path.join(settings.audio_upload_dir, f"{uuid.uuid4()}{ext}")
-    with open(storage_path, "wb") as fh:
-        fh.write(audio_bytes)
 
-    # Raw audio -> project_input(kind='upload'); transcript -> artifact.
-    src = await project_repo.add_upload_input(
-        conn,
-        project_id=project_id,
-        title=title or (file.filename or "Interview audio"),
-        storage_path=storage_path,
-        content_hash=content_hash,
-    )
+    # The Free storage cap is checked, the file written, and the input row inserted under one
+    # per-account lock in one transaction. A concurrent upload waits here and then sees this
+    # row's bytes, so two uploads can't both pass the cap. If anything fails after the file is
+    # written, the transaction rolls back and the file is removed.
+    written = False
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"upload:{account.id}")
+            await quota.check_upload_storage(conn, account_id=account.id, incoming=len(audio_bytes))
+            os.makedirs(settings.audio_upload_dir, exist_ok=True)
+            with open(storage_path, "wb") as fh:
+                fh.write(audio_bytes)
+            written = True
+
+            # Raw audio -> project_input(kind='upload'); transcript -> artifact.
+            src = await project_repo.add_upload_input(
+                conn,
+                project_id=project_id,
+                title=title or (file.filename or "Interview audio"),
+                storage_path=storage_path,
+                content_hash=content_hash,
+                byte_size=len(audio_bytes),
+            )
+    except BaseException:
+        if written:
+            _remove_audio_file(storage_path)
+        raise
     artifact = await artifact_repo.create_artifact(
         conn,
         project_id=project_id,
@@ -439,7 +460,12 @@ async def delete_project_input(
             status.HTTP_409_CONFLICT,
             "This source is cited by an approved draft — unapprove that draft first to remove the source.",
         )
+    # Read the stored file path first: deleting the row must also free the audio on disk,
+    # or repeated upload-and-delete would grow storage without bound.
+    doomed = await project_repo.get_input(conn, input_id=input_id)
     await project_repo.delete_input(conn, input_id=input_id)
+    if doomed is not None and doomed.storage_path:
+        _remove_audio_file(doomed.storage_path)
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -450,11 +476,16 @@ async def delete_project(
 ) -> None:
     """Owner-only hard delete of a project and everything under it (inputs,
     artifacts, versions, transcripts, feedback, approvals, memberships) via DB
-    ON DELETE CASCADE. Irreversible. On-disk audio blobs are left as harmless
-    orphans."""
+    ON DELETE CASCADE. Irreversible. Every uploaded audio file the project owned is
+    removed from disk too."""
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
+    # The cascade removes the rows, not the audio files, so collect the paths first and
+    # delete the files after the rows are gone.
+    upload_paths = await project_repo.list_upload_storage_paths(conn, project_id=project_id)
     await project_repo.delete_project(conn, project_id=project_id)
+    for path in upload_paths:
+        _remove_audio_file(path)
 
 
 @router.post("/artifacts/{artifact_id}/versions", response_model=schemas.VersionOut)
@@ -589,7 +620,6 @@ async def generate_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -624,6 +654,7 @@ async def generate_version(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
@@ -1157,7 +1188,6 @@ async def suggest_project_toc(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1192,6 +1222,7 @@ async def suggest_project_toc(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
@@ -1297,7 +1328,6 @@ async def generate_topic_version(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1339,6 +1369,7 @@ async def generate_topic_version(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
@@ -1473,7 +1504,6 @@ async def submit_generate_book(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1506,8 +1536,17 @@ async def submit_generate_book(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    # One generation per topic the fan-out will produce, all-or-nothing, charged after
+    # every validation and before the job row exists (a refused book records nothing).
+    await _enforce_generation_cap(conn, account, principal, count=len(missing))
+
     job = await generation_job_repo.create(
-        conn, project_id=project_id, total=len(missing), created_by_sub=principal.sub
+        conn,
+        project_id=project_id,
+        total=len(missing),
+        created_by_sub=principal.sub,
+        # The exact topics charged above; the worker generates only these.
+        planned_topic_ids=[str(u.get("id")) for u in missing],
     )
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no

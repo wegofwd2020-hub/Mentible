@@ -402,6 +402,7 @@ async def test_managed_under_cap_proceeds(
     from backend.main import app
     from backend.src.accounts import repo as accounts_repo
     from backend.src.billing import access as access_mod
+    from backend.src.billing import quota
 
     class _Acct:
         id = uuid.uuid4()
@@ -418,6 +419,13 @@ async def test_managed_under_cap_proceeds(
     monkeypatch.setattr(accounts_repo, "get_or_create_account", _get_or_create)
     monkeypatch.setattr(access_mod, "resolve_managed_access", _resolve)
     monkeypatch.setattr(access_mod, "over_cap", _under)
+
+    async def _no_charge(conn, **kw):
+        # The shared Free counter has its own tests (test_billing_quota.py); this one is
+        # about the managed allowance, and the fake pool has no transaction support.
+        return None
+
+    monkeypatch.setattr(quota, "charge_generation", _no_charge)
     app.state.db = _FakePool()
     try:
         with patch(

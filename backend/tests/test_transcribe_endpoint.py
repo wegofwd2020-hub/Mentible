@@ -96,3 +96,95 @@ def test_transcribe_does_not_log_the_byok_key(known_test_api_key, capsys):
             )
     captured = capsys.readouterr()
     assert known_test_api_key not in (captured.out + captured.err)
+
+
+def test_transcribe_is_not_counted_against_the_free_generation_cap(
+    known_test_api_key, _audio_dir, monkeypatch
+):
+    """Transcription is outside the Free generations cap (decided 2026-11-06): at a zero
+    cap a valid upload still queues, and the audio is stored."""
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay") as mock_delay:
+            resp = c.post(
+                f"/api/v1/trust/projects/{pid}/transcribe",
+                files={"file": ("kolam.mp3", io.BytesIO(b"ID3fake-audio-bytes"), "audio/mpeg")},
+                data={"language": "ta", "api_key": known_test_api_key},
+            )
+    assert resp.status_code == 202, resp.text
+    mock_delay.assert_called_once()
+    assert len(list(_audio_dir.iterdir())) == 1
+
+
+def _upload(c, pid, payload: bytes, api_key):
+    return c.post(
+        f"/api/v1/trust/projects/{pid}/transcribe",
+        files={"file": ("kolam.mp3", io.BytesIO(payload), "audio/mpeg")},
+        data={"language": "ta", "api_key": api_key},
+    )
+
+
+def test_transcribe_refused_over_free_storage_cap_writes_no_file(
+    known_test_api_key, _audio_dir, monkeypatch
+):
+    monkeypatch.setattr(settings, "free_max_upload_bytes", 10)
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay") as mock_delay:
+            resp = _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key)
+    assert resp.status_code == 402, resp.text
+    assert "MB of uploaded audio" in resp.json()["detail"]
+    mock_delay.assert_not_called()
+    assert list(_audio_dir.iterdir()) == []
+
+
+def test_transcribe_storage_cap_counts_earlier_uploads(known_test_api_key, _audio_dir, monkeypatch):
+    # 19-byte payloads: the first fits under a 30-byte cap, the second would total 38.
+    monkeypatch.setattr(settings, "free_max_upload_bytes", 30)
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay"):
+            first = _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key)
+            second = _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key)
+    assert first.status_code == 202, first.text
+    assert second.status_code == 402, second.text
+    assert len(list(_audio_dir.iterdir())) == 1
+
+
+def test_deleting_an_upload_frees_its_audio_file(known_test_api_key, _audio_dir):
+    import asyncio
+
+    import asyncpg
+
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay"):
+            resp = _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key)
+        assert resp.status_code == 202, resp.text
+        assert len(list(_audio_dir.iterdir())) == 1
+
+        async def _input_id():
+            conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+            try:
+                return await conn.fetchval(
+                    "SELECT id FROM project_input WHERE project_id = $1 AND kind = 'upload'",
+                    uuid.UUID(pid),
+                )
+            finally:
+                await conn.close()
+
+        input_id = asyncio.run(_input_id())
+        assert c.delete(f"/api/v1/trust/inputs/{input_id}").status_code == 204
+    assert list(_audio_dir.iterdir()) == []
+
+
+def test_deleting_a_project_frees_its_audio_files(known_test_api_key, _audio_dir):
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay"):
+            assert _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key).status_code == 202
+            assert _upload(c, pid, b"ID3more-audio-bytes", known_test_api_key).status_code == 202
+        assert len(list(_audio_dir.iterdir())) == 2
+        assert c.delete(f"/api/v1/trust/projects/{pid}").status_code == 204
+    assert list(_audio_dir.iterdir()) == []

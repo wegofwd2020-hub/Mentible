@@ -14,6 +14,12 @@ jest.mock("@/hooks/useManagedStatus", () => ({
   useManagedStatus: () => ({ status: mockStatus, loading: false }),
 }));
 
+// Free-tier counter source. null = signed out / unknown (no counter shown).
+let mockPlan: unknown = null;
+jest.mock("@/hooks/useBillingPlan", () => ({
+  useBillingPlan: () => ({ plan: mockPlan, loading: false }),
+}));
+
 const mockLoadDefaultParams = jest.fn();
 jest.mock("@/storage/settingsStore", () => ({
   loadDefaultParams: () => mockLoadDefaultParams(),
@@ -37,6 +43,7 @@ const ENTITLED = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockStatus = null;
+  mockPlan = null;
   mockLoadDefaultParams.mockResolvedValue({ provider: "anthropic" });
   mockSummary.mockReturnValue({ totalInputTokens: 1200, totalOutputTokens: 300 });
 });
@@ -63,4 +70,31 @@ it("tapping opens the Usage screen", async () => {
   await waitFor(() => expect(screen.getByText(/Claude/)).toBeTruthy());
   fireEvent.press(screen.getByLabelText(/open usage/));
   expect(mockPush).toHaveBeenCalledWith("/usage");
+});
+
+const FREE_PLAN = {
+  is_pro: false,
+  caps: { max_projects: 2, max_generations: 20, gen_window_days: 30 },
+  usage: { projects: 1, generations: 3 },
+  at_project_cap: false,
+  at_generation_cap: false,
+  features: [],
+};
+
+it("shows the Free generation counter for a signed-in Free user", async () => {
+  mockPlan = FREE_PLAN;
+  render(<ChromeUsageMeter />);
+  await waitFor(() => expect(screen.getByText("3/20 free")).toBeTruthy());
+});
+
+it("hides the Free generation counter for Pro and signed-out users", async () => {
+  mockPlan = { ...FREE_PLAN, is_pro: true };
+  const { unmount } = render(<ChromeUsageMeter />);
+  await waitFor(() => expect(screen.getByText(/Claude/)).toBeTruthy());
+  expect(screen.queryByText(/free$/)).toBeNull();
+  unmount();
+  mockPlan = null;
+  render(<ChromeUsageMeter />);
+  await waitFor(() => expect(screen.getByText(/Claude/)).toBeTruthy());
+  expect(screen.queryByText(/free$/)).toBeNull();
 });
