@@ -26,7 +26,7 @@ from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing import access
+from backend.src.billing import access, quota
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.core.byok_envelope import encrypt_api_key, parse_master_key
 from backend.src.core.log_redaction import get_logger
@@ -150,6 +150,16 @@ async def submit_generate(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="an api_key is required for this request",
             )
+
+    # ── 2b. Free generations cap (shared counter, ADR-037 D3 / ADR-043) ──────
+    # Authed callers only: an anonymous BYOK submit has no account to count against.
+    # Runs after the idempotency check, so a client retry is never charged twice.
+    if db_pool is not None and principal is not None:
+        async with db_pool.acquire() as conn:
+            account = await accounts_repo.get_or_create_account(
+                conn, idp_sub=principal.sub, email=principal.email
+            )
+            await quota.charge_generation(conn, account_id=account.id, route="generate")
 
     # ── 3. Fresh job ─────────────────────────────────────────────────────────
     job_id = uuid.uuid4()

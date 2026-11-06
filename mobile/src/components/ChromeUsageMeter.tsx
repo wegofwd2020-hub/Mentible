@@ -5,6 +5,7 @@ import { UsageMeterPill } from "@/components/UsageMeterPill";
 import { providerInfo } from "@/constants/providers";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useManagedStatus } from "@/hooks/useManagedStatus";
+import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { loadDefaultParams } from "@/storage/settingsStore";
 import { listUsage, summarizeUsage } from "@/storage/usageStore";
 import { useThemedStyles } from "@/theme";
@@ -44,6 +45,8 @@ export function ChromeUsageMeter({
   const router = useRouter();
   const styles = useThemedStyles(makeStyles);
   const { status } = useManagedStatus();
+  // Free-tier generation counter (server-sourced; null ⇒ signed out / unknown → show nothing).
+  const { plan } = useBillingPlan();
   const [engine, setEngine] = useState<string>("");
   const [deviceTokens, setDeviceTokens] = useState(0);
 
@@ -84,6 +87,14 @@ export function ChromeUsageMeter({
           ⚙ {engine || "…"}
         </Text>
       </View>
+      {plan && !plan.is_pro ? (
+        <Text
+          style={[styles.tokens, plan.at_generation_cap && styles.capReached]}
+          accessibilityLabel={`${plan.usage.generations} of ${plan.caps.max_generations} free generations used in the last ${plan.caps.gen_window_days} days`}
+        >
+          {plan.usage.generations}/{plan.caps.max_generations} free
+        </Text>
+      ) : null}
       {managed && status ? (
         <UsageMeterPill status={status} />
       ) : (
@@ -111,4 +122,5 @@ const makeStyles = (c: Palette) => ({
   },
   engineText: { color: c.textSecondary, fontSize: typography.sizeXs, fontWeight: "600" as const },
   tokens: { color: c.textMuted, fontSize: typography.sizeXs },
+  capReached: { color: c.warning, fontWeight: "700" as const },
 });

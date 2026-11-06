@@ -29,7 +29,7 @@ from backend.config import settings
 from backend.src.accounts import repo as accounts_repo
 from backend.src.auth.deps import optional_user
 from backend.src.auth.principal import Principal
-from backend.src.billing import access, pricing, usage_repo
+from backend.src.billing import access, pricing, quota, usage_repo
 from backend.src.billing.eligibility import is_managed_eligible
 from backend.src.billing.vault import get_managed_key
 from backend.src.core.log_redaction import get_logger
@@ -92,6 +92,14 @@ async def _resolve_key_and_source(
     key/access failure (400/429 managed; 401/404/403 topic-version), exactly
     as the inline block this replaces did.
     """
+    # Free generations cap (shared counter, ADR-037 D3 / ADR-043) — authed callers only.
+    _db = getattr(request.app.state, "db", None)
+    if _db is not None and principal is not None:
+        async with _db.acquire() as conn:
+            _acct = await accounts_repo.get_or_create_account(
+                conn, idp_sub=principal.sub, email=principal.email
+            )
+            await quota.charge_generation(conn, account_id=_acct.id, route="derivative")
     managed = body.api_key is None
     if managed:
         db_pool = getattr(request.app.state, "db", None)
@@ -194,6 +202,14 @@ async def make_post(
             detail="a reference image requires the Anthropic provider",
         )
 
+    # Free generations cap (shared counter, ADR-037 D3 / ADR-043) — authed callers only.
+    _db = getattr(request.app.state, "db", None)
+    if _db is not None and principal is not None:
+        async with _db.acquire() as conn:
+            _acct = await accounts_repo.get_or_create_account(
+                conn, idp_sub=principal.sub, email=principal.email
+            )
+            await quota.charge_generation(conn, account_id=_acct.id, route="derivative")
     managed = body.api_key is None
     if managed:
         db_pool = getattr(request.app.state, "db", None)

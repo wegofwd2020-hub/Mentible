@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import redis.asyncio as redis
@@ -112,17 +111,10 @@ def _resolve_approver(
 async def _enforce_generation_cap(
     conn: asyncpg.Connection, account: Account, principal: Principal
 ) -> None:
-    """402 when a Free-plan account is at/over the rolling generations cap.
-    Pro accounts are never capped. Placed before any job/envelope is created
-    on the 3 trust generate submits (T2 — the server-side gate)."""
-    if await is_pro(conn, account_id=account.id):
-        return
-    since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
-    if await quota.count_generations(conn, principal.sub, since) >= settings.free_max_generations:
-        raise quota.pro_required(
-            f"Free plan is limited to {settings.free_max_generations} generations "
-            f"per {settings.free_gen_window_days} days — upgrade to Pro."
-        )
+    """Shared Free generations cap (ADR-037 D3 / ADR-043), enforced + recorded by
+    `quota.charge_generation`. 402 before any job/envelope is created; Pro accounts are
+    never refused. Used by the trust generate submits (T2)."""
+    await quota.charge_generation(conn, account_id=account.id, route="trust")
 
 
 @router.post("/session/sync", response_model=schemas.SessionSyncOut)

@@ -1,10 +1,9 @@
-"""Free/Pro usage counts + plan status (T1 foundation, ADR-005/037).
+"""Free/Pro usage counts, plan status, and the shared Free generations counter.
 
-Computes — never enforces (that's T2) — where an account stands against the Free
-caps: how many `project` rows it owns, and how many generations (`topic_version` +
-`artifact_version` rows it authored) it's produced in the rolling Free window. Pro
-accounts (`access.is_pro`) are never at a cap; the caps exist only to describe the
-Free tier.
+Caps: 2 projects owned, and 20 generations per rolling 30 days (ADR-037 D3 / ADR-043).
+`charge_generation` enforces the generation cap (402) and records each generation in
+`generation_event` in one atomic step; every generation route calls it. Pro accounts
+(`access.is_pro`) are never refused. Project caps are enforced in the trust router.
 """
 
 from __future__ import annotations
@@ -55,25 +54,50 @@ async def count_projects(conn: asyncpg.Connection, account_id: UUID) -> int:
     )
 
 
-async def count_generations(conn: asyncpg.Connection, sub: str, since: datetime) -> int:
-    """Generations = per-topic drafts (`topic_version`) + artifact versions
-    (`artifact_version`) the account authored, since `since`. A single query so the
-    two counts are consistent as of one read."""
+async def count_generations(conn: asyncpg.Connection, account_id: UUID, since: datetime) -> int:
+    """Generations the account started since `since`, from the shared `generation_event`
+    counter (written by every generation route — see `charge_generation`)."""
     return await conn.fetchval(
-        "SELECT (SELECT count(*) FROM topic_version WHERE created_by_sub = $1 AND created_at >= $2)"
-        "     + (SELECT count(*) FROM artifact_version WHERE created_by_sub = $1 AND created_at >= $2)",
-        sub,
+        "SELECT count(*) FROM generation_event WHERE account_id = $1 AND created_at >= $2",
+        account_id,
         since,
     )
 
 
-async def plan_status(conn: asyncpg.Connection, *, account_id: UUID, sub: str) -> PlanStatus:
+async def charge_generation(conn: asyncpg.Connection, *, account_id: UUID, route: str) -> None:
+    """Enforce the Free generations cap and record one generation, atomically.
+
+    Called by every generation entry point, after its idempotency check and before any job
+    or envelope is created. Pro accounts are never refused, but their generations are still
+    recorded so the counter stays truthful.
+
+    A per-account transaction advisory lock serialises concurrent submits, so two requests
+    racing at 19 cannot both pass the check.
+    """
+    async with conn.transaction():
+        await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", str(account_id))
+        if not await is_pro(conn, account_id=account_id):
+            since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
+            used = await count_generations(conn, account_id, since)
+            if used >= settings.free_max_generations:
+                raise pro_required(
+                    f"Free plan is limited to {settings.free_max_generations} generations "
+                    f"per {settings.free_gen_window_days} days — upgrade to Pro."
+                )
+        await conn.execute(
+            "INSERT INTO generation_event (account_id, route) VALUES ($1, $2)",
+            account_id,
+            route,
+        )
+
+
+async def plan_status(conn: asyncpg.Connection, *, account_id: UUID) -> PlanStatus:
     """The account's Free/Pro status: caps, current usage, and whether it's at
     either cap. Pro accounts are never at a cap regardless of usage."""
     pro = await is_pro(conn, account_id=account_id)
     since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
     projects = await count_projects(conn, account_id)
-    generations = await count_generations(conn, sub, since)
+    generations = await count_generations(conn, account_id, since)
     feats = await account_features(conn, account_id=account_id)
     return PlanStatus(
         is_pro=pro,

@@ -360,3 +360,38 @@ def test_sync_export_cover_never_gated_even_for_free_user(monkeypatch):
         r = c.post("/api/v1/export?format=cover", content=_BOOK)
         assert r.status_code != 402
         assert r.status_code == 200, r.text
+
+
+# ── Gate 4: shared generations cap on the legacy /generate route ───────────
+# Authed BYOK submits count against the same rolling counter as trust (ADR-043 open
+# item, decided: share the count). Anonymous submits have no account and stay ungated.
+
+
+def _generate_body(api_key=_KEY):
+    return {
+        "request_id": str(uuid.uuid4()),
+        "topic": "Photosynthesis",
+        "level": "student",
+        "api_key": api_key,
+        "provider_id": "anthropic",
+    }
+
+
+def test_legacy_generate_402_at_free_gen_cap(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    sub = f"g-{uuid.uuid4()}"
+    with TestClient(app) as c:
+        app.dependency_overrides[optional_user] = lambda: Principal(
+            sub=sub, email=f"{sub}@x.z", issuer="test", is_super_admin=False
+        )
+        r = c.post("/api/v1/generate", json=_generate_body())
+        assert r.status_code == 402, r.text
+        assert "upgrade to Pro" in r.json()["detail"]
+
+
+def test_legacy_generate_anonymous_not_gated(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    with TestClient(app) as c:
+        app.dependency_overrides.pop(optional_user, None)
+        r = c.post("/api/v1/generate", json=_generate_body())
+        assert r.status_code != 402, r.text
