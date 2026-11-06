@@ -117,6 +117,17 @@ async def _enforce_generation_cap(
     await quota.charge_generation(conn, account_id=account.id, route="trust", count=count)
 
 
+def _remove_audio_file(path: str) -> None:
+    """Delete one stored audio file. A missing file is fine; anything else is logged, not
+    raised (the DB change has already been made)."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        log.warning("audio_file_remove_failed")
+
+
 @router.post("/session/sync", response_model=schemas.SessionSyncOut)
 async def session_sync(
     principal: Principal = Depends(require_active_user),
@@ -320,25 +331,37 @@ async def transcribe_upload(
     # Transcription is NOT counted against the Free generations cap (decided 2026-11-06):
     # Free users transcribe with their own speech key, so it costs us nothing.
 
-    # Free-plan stored-audio cap, checked before anything touches disk.
-    await quota.check_upload_storage(conn, account_id=account.id, incoming=len(audio_bytes))
-
     # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
     content_hash = hashlib.sha256(audio_bytes).hexdigest()
-    os.makedirs(settings.audio_upload_dir, exist_ok=True)
     storage_path = os.path.join(settings.audio_upload_dir, f"{uuid.uuid4()}{ext}")
-    with open(storage_path, "wb") as fh:
-        fh.write(audio_bytes)
 
-    # Raw audio -> project_input(kind='upload'); transcript -> artifact.
-    src = await project_repo.add_upload_input(
-        conn,
-        project_id=project_id,
-        title=title or (file.filename or "Interview audio"),
-        storage_path=storage_path,
-        content_hash=content_hash,
-        byte_size=len(audio_bytes),
-    )
+    # The Free storage cap is checked, the file written, and the input row inserted under one
+    # per-account lock in one transaction. A concurrent upload waits here and then sees this
+    # row's bytes, so two uploads can't both pass the cap. If anything fails after the file is
+    # written, the transaction rolls back and the file is removed.
+    written = False
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"upload:{account.id}")
+            await quota.check_upload_storage(conn, account_id=account.id, incoming=len(audio_bytes))
+            os.makedirs(settings.audio_upload_dir, exist_ok=True)
+            with open(storage_path, "wb") as fh:
+                fh.write(audio_bytes)
+            written = True
+
+            # Raw audio -> project_input(kind='upload'); transcript -> artifact.
+            src = await project_repo.add_upload_input(
+                conn,
+                project_id=project_id,
+                title=title or (file.filename or "Interview audio"),
+                storage_path=storage_path,
+                content_hash=content_hash,
+                byte_size=len(audio_bytes),
+            )
+    except BaseException:
+        if written:
+            _remove_audio_file(storage_path)
+        raise
     artifact = await artifact_repo.create_artifact(
         conn,
         project_id=project_id,
@@ -442,12 +465,7 @@ async def delete_project_input(
     doomed = await project_repo.get_input(conn, input_id=input_id)
     await project_repo.delete_input(conn, input_id=input_id)
     if doomed is not None and doomed.storage_path:
-        try:
-            os.remove(doomed.storage_path)
-        except FileNotFoundError:
-            pass
-        except OSError:
-            log.warning("upload_file_remove_failed", input_id=str(input_id))
+        _remove_audio_file(doomed.storage_path)
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -458,11 +476,16 @@ async def delete_project(
 ) -> None:
     """Owner-only hard delete of a project and everything under it (inputs,
     artifacts, versions, transcripts, feedback, approvals, memberships) via DB
-    ON DELETE CASCADE. Irreversible. On-disk audio blobs are left as harmless
-    orphans."""
+    ON DELETE CASCADE. Irreversible. Every uploaded audio file the project owned is
+    removed from disk too."""
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
+    # The cascade removes the rows, not the audio files, so collect the paths first and
+    # delete the files after the rows are gone.
+    upload_paths = await project_repo.list_upload_storage_paths(conn, project_id=project_id)
     await project_repo.delete_project(conn, project_id=project_id)
+    for path in upload_paths:
+        _remove_audio_file(path)
 
 
 @router.post("/artifacts/{artifact_id}/versions", response_model=schemas.VersionOut)

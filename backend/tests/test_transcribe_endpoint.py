@@ -177,3 +177,14 @@ def test_deleting_an_upload_frees_its_audio_file(known_test_api_key, _audio_dir)
         input_id = asyncio.run(_input_id())
         assert c.delete(f"/api/v1/trust/inputs/{input_id}").status_code == 204
     assert list(_audio_dir.iterdir()) == []
+
+
+def test_deleting_a_project_frees_its_audio_files(known_test_api_key, _audio_dir):
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay"):
+            assert _upload(c, pid, b"ID3fake-audio-bytes", known_test_api_key).status_code == 202
+            assert _upload(c, pid, b"ID3more-audio-bytes", known_test_api_key).status_code == 202
+        assert len(list(_audio_dir.iterdir())) == 2
+        assert c.delete(f"/api/v1/trust/projects/{pid}").status_code == 204
+    assert list(_audio_dir.iterdir()) == []
