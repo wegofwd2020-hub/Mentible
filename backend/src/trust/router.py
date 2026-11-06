@@ -317,6 +317,10 @@ async def transcribe_upload(
                 "managed allowance exhausted; try again later or add your own key",
             )
 
+    # Charge only once the upload is fully validated and before anything touches disk, so
+    # a refused request (402) leaves no orphaned audio file behind.
+    await _enforce_generation_cap(conn, account, principal)
+
     # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
     content_hash = hashlib.sha256(audio_bytes).hexdigest()
     os.makedirs(settings.audio_upload_dir, exist_ok=True)
@@ -325,7 +329,6 @@ async def transcribe_upload(
         fh.write(audio_bytes)
 
     # Raw audio -> project_input(kind='upload'); transcript -> artifact.
-    await _enforce_generation_cap(conn, account, principal)
     src = await project_repo.add_upload_input(
         conn,
         project_id=project_id,

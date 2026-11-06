@@ -96,3 +96,22 @@ def test_transcribe_does_not_log_the_byok_key(known_test_api_key, capsys):
             )
     captured = capsys.readouterr()
     assert known_test_api_key not in (captured.out + captured.err)
+
+
+def test_transcribe_refused_at_free_cap_writes_no_audio_file(
+    known_test_api_key, _audio_dir, monkeypatch
+):
+    """The Free cap is charged before the audio touches disk: a 402 on a fully valid
+    upload must leave the upload directory empty (no orphaned file)."""
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    with TestClient(app) as c:
+        pid = _new_owned_project(c)
+        with patch("backend.src.trust.router.transcribe_task.delay") as mock_delay:
+            resp = c.post(
+                f"/api/v1/trust/projects/{pid}/transcribe",
+                files={"file": ("kolam.mp3", io.BytesIO(b"ID3fake-audio-bytes"), "audio/mpeg")},
+                data={"language": "ta", "api_key": known_test_api_key},
+            )
+    assert resp.status_code == 402, resp.text
+    mock_delay.assert_not_called()
+    assert list(_audio_dir.iterdir()) == []
