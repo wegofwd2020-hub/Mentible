@@ -275,7 +275,6 @@ async def transcribe_upload(
     `generate_version`."""
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     stt_provider = provider_id or settings.stt_default_provider
     if stt_provider not in STT_REGISTRY:
@@ -326,6 +325,7 @@ async def transcribe_upload(
         fh.write(audio_bytes)
 
     # Raw audio -> project_input(kind='upload'); transcript -> artifact.
+    await _enforce_generation_cap(conn, account, principal)
     src = await project_repo.add_upload_input(
         conn,
         project_id=project_id,
@@ -581,7 +581,6 @@ async def generate_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "artifact not found")
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -616,6 +615,7 @@ async def generate_version(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
@@ -1149,7 +1149,6 @@ async def suggest_project_toc(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1184,6 +1183,7 @@ async def suggest_project_toc(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
@@ -1289,7 +1289,6 @@ async def generate_topic_version(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1331,6 +1330,7 @@ async def generate_topic_version(
             )
     model = body.model or default_model_for(body.provider_id)
 
+    await _enforce_generation_cap(conn, account, principal)
     job_id = uuid.uuid4()
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no

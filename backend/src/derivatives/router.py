@@ -73,6 +73,22 @@ router = APIRouter(prefix="/api/v1/derivatives", tags=["derivatives"])
 log = get_logger("derivatives")
 
 
+async def _charge_derivative(request: Request, principal: Principal | None) -> None:
+    """Free generations cap (shared counter, ADR-037 D3 / ADR-043) for a derivative.
+
+    Called by each handler AFTER every validation and access check (key, managed
+    allowance, topic-version access), right before the generation runs — so a refused
+    request records nothing. Authed callers only: anonymous has no account to count."""
+    db = getattr(request.app.state, "db", None)
+    if db is None or principal is None:
+        return
+    async with db.acquire() as conn:
+        acct = await accounts_repo.get_or_create_account(
+            conn, idp_sub=principal.sub, email=principal.email
+        )
+        await quota.charge_generation(conn, account_id=acct.id, route="derivative")
+
+
 async def _resolve_key_and_source(
     body: CardRequest | CarouselRequest | AnimatedRequest | AudioRequest,
     request: Request,
@@ -92,14 +108,6 @@ async def _resolve_key_and_source(
     key/access failure (400/429 managed; 401/404/403 topic-version), exactly
     as the inline block this replaces did.
     """
-    # Free generations cap (shared counter, ADR-037 D3 / ADR-043) — authed callers only.
-    _db = getattr(request.app.state, "db", None)
-    if _db is not None and principal is not None:
-        async with _db.acquire() as conn:
-            _acct = await accounts_repo.get_or_create_account(
-                conn, idp_sub=principal.sub, email=principal.email
-            )
-            await quota.charge_generation(conn, account_id=_acct.id, route="derivative")
     managed = body.api_key is None
     if managed:
         db_pool = getattr(request.app.state, "db", None)
@@ -202,14 +210,6 @@ async def make_post(
             detail="a reference image requires the Anthropic provider",
         )
 
-    # Free generations cap (shared counter, ADR-037 D3 / ADR-043) — authed callers only.
-    _db = getattr(request.app.state, "db", None)
-    if _db is not None and principal is not None:
-        async with _db.acquire() as conn:
-            _acct = await accounts_repo.get_or_create_account(
-                conn, idp_sub=principal.sub, email=principal.email
-            )
-            await quota.charge_generation(conn, account_id=_acct.id, route="derivative")
     managed = body.api_key is None
     if managed:
         db_pool = getattr(request.app.state, "db", None)
@@ -243,6 +243,7 @@ async def make_post(
     else:
         api_key = body.api_key
 
+    await _charge_derivative(request, principal)
     model = body.model or settings.anthropic_default_model
 
     try:
@@ -326,6 +327,7 @@ async def make_card(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     # --- generate + render ---
     try:
@@ -428,6 +430,7 @@ async def make_carousel(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     try:
         frames = await asyncio.to_thread(
@@ -535,6 +538,7 @@ async def make_animated(
     api_key, model, source_text, source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
 
     # --- generate + render ---
     try:
@@ -644,6 +648,7 @@ async def make_audio(
     api_key, model, source_text, _source_label = await _resolve_key_and_source(
         body, request, principal
     )
+    await _charge_derivative(request, principal)
     # _resolve_key_and_source falls back to settings.anthropic_default_model
     # when body.model is omitted, regardless of provider_id — wrong here
     # since AudioRequest defaults to the TTS-only "openai" provider. Re-

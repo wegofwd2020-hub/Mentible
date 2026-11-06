@@ -395,3 +395,52 @@ def test_legacy_generate_anonymous_not_gated(monkeypatch):
         app.dependency_overrides.pop(optional_user, None)
         r = c.post("/api/v1/generate", json=_generate_body())
         assert r.status_code != 402, r.text
+
+
+# ── Validation order: a request that fails validation records no generation ──
+# With the cap at 0, a charge that ran too early would return 402. These assert the
+# real validation error comes back instead, which proves the charge runs after it.
+
+
+def test_transcribe_bad_file_422_not_402_at_free_gen_cap(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    with TestClient(app) as c:
+        owner = f"v-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        r = c.post(
+            f"/api/v1/trust/projects/{pid}/transcribe",
+            files={"file": ("notes.txt", b"not audio", "text/plain")},
+            data={"api_key": _KEY},
+        )
+        assert r.status_code == 422, r.text
+
+
+def test_generate_version_no_sources_422_not_402_at_free_gen_cap(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    with TestClient(app) as c:
+        owner = f"v-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid = c.post("/api/v1/trust/projects", json={"title": "P", "topic": "t"}).json()["id"]
+        art = c.post(
+            f"/api/v1/trust/projects/{pid}/artifacts",
+            json={"role": "cornerstone", "format": "guide"},
+        ).json()
+        r = c.post(f"/api/v1/trust/artifacts/{art['id']}/versions/generate", json={"api_key": _KEY})
+        assert r.status_code == 422, r.text
+
+
+def test_derivative_unknown_topic_version_404_not_402_at_free_gen_cap(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 0)
+    sub = f"d-{uuid.uuid4()}"
+    with TestClient(app) as c:
+        _as_export_principal(sub, f"{sub}@x.z")
+        r = c.post(
+            "/api/v1/derivatives/card",
+            json={
+                "api_key": _KEY,
+                "provider_id": "anthropic",
+                "topic_version_id": str(uuid.uuid4()),
+            },
+        )
+        assert r.status_code == 404, r.text
