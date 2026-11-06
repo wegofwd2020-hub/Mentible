@@ -109,12 +109,12 @@ def _resolve_approver(
 
 
 async def _enforce_generation_cap(
-    conn: asyncpg.Connection, account: Account, principal: Principal
+    conn: asyncpg.Connection, account: Account, principal: Principal, *, count: int = 1
 ) -> None:
     """Shared Free generations cap (ADR-037 D3 / ADR-043), enforced + recorded by
     `quota.charge_generation`. 402 before any job/envelope is created; Pro accounts are
-    never refused. Used by the trust generate submits (T2)."""
-    await quota.charge_generation(conn, account_id=account.id, route="trust")
+    never refused. `count` > 1 for fan-out jobs (one generation per topic)."""
+    await quota.charge_generation(conn, account_id=account.id, route="trust", count=count)
 
 
 @router.post("/session/sync", response_model=schemas.SessionSyncOut)
@@ -1465,7 +1465,6 @@ async def submit_generate_book(
     """
     account = await _account(conn, principal)
     await _require_role(conn, account, project_id, allow=("owner",))
-    await _enforce_generation_cap(conn, account, principal)
 
     p = await project_repo.get_project(conn, project_id=project_id)
     if p is None:
@@ -1497,6 +1496,10 @@ async def submit_generate_book(
                 status.HTTP_400_BAD_REQUEST, "an api_key is required for this request"
             )
     model = body.model or default_model_for(body.provider_id)
+
+    # One generation per topic the fan-out will produce, all-or-nothing, charged after
+    # every validation and before the job row exists (a refused book records nothing).
+    await _enforce_generation_cap(conn, account, principal, count=len(missing))
 
     job = await generation_job_repo.create(
         conn, project_id=project_id, total=len(missing), created_by_sub=principal.sub

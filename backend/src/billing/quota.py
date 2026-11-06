@@ -64,8 +64,14 @@ async def count_generations(conn: asyncpg.Connection, account_id: UUID, since: d
     )
 
 
-async def charge_generation(conn: asyncpg.Connection, *, account_id: UUID, route: str) -> None:
-    """Enforce the Free generations cap and record one generation, atomically.
+async def charge_generation(
+    conn: asyncpg.Connection, *, account_id: UUID, route: str, count: int = 1
+) -> None:
+    """Enforce the Free generations cap and record `count` generations, atomically.
+
+    `count` > 1 is for fan-out jobs (a whole book = one generation per missing topic). The
+    charge is all-or-nothing: if `used + count` would exceed the cap, nothing is recorded
+    and the request is refused with 402.
 
     Called by every generation entry point, after its idempotency check and before any job
     or envelope is created. Pro accounts are never refused, but their generations are still
@@ -79,15 +85,17 @@ async def charge_generation(conn: asyncpg.Connection, *, account_id: UUID, route
         if not await is_pro(conn, account_id=account_id):
             since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
             used = await count_generations(conn, account_id, since)
-            if used >= settings.free_max_generations:
+            if used + count > settings.free_max_generations:
                 raise pro_required(
                     f"Free plan is limited to {settings.free_max_generations} generations "
                     f"per {settings.free_gen_window_days} days — upgrade to Pro."
                 )
         await conn.execute(
-            "INSERT INTO generation_event (account_id, route) VALUES ($1, $2)",
+            "INSERT INTO generation_event (account_id, route) "
+            "SELECT $1, $2 FROM generate_series(1, $3)",
             account_id,
             route,
+            count,
         )
 
 
