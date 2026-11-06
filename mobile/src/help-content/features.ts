@@ -28,6 +28,7 @@ export const FEATURES = [
   { key: "project-fields", label: "New Project fields (Title, Topic, Audience, Goal)" },
   { key: "word-export", label: "Word (.docx) export" },
   { key: "kdp-export", label: "Export for Kindle (KDP)" },
+  { key: "work-with-us", label: "Paid services (Discovery, Sprint, Pilot)" },
   { key: "publish-pack", label: "Download a publish pack for retailers" },
   { key: "epub2-export", label: "EPUB 2 export (max compatibility)" },
   { key: "grounding-report", label: "Quality report (coverage, readability & grounding)" },

@@ -425,6 +425,33 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "work-with-us",
+    title: "Paid services — work with us",
+    featureKey: "work-with-us",
+    keywords: ["services", "work with us", "consulting", "discovery", "sprint", "pilot", "hire", "engagement", "price", "pricing", "team", "expert", "invoice"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Besides the app, Mentible offers paid, fixed-scope engagements to help you turn your expertise into validated knowledge. Each one is invoiced directly — there is no subscription.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Discovery", def: "$250." },
+          { term: "Founding Expert Sprint (30 days)", def: "$1,500." },
+          { term: "Team Knowledge Pilot", def: "$2,500–$5,000." },
+        ],
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the About tab from the account menu.",
+          "Under Work with us, tap Get in touch to send an email about the engagement you want.",
+        ],
+      },
+    ],
+  },
+  {
     id: "attach-figures",
     title: "Add figures to a topic",
     featureKey: "figures",
