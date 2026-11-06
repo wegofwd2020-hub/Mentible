@@ -167,18 +167,21 @@ async def add_input(
     return _input(r)
 
 
-async def add_upload_input(conn, *, project_id, title, storage_path, content_hash) -> ProjectInput:
+async def add_upload_input(
+    conn, *, project_id, title, storage_path, content_hash, byte_size=None
+) -> ProjectInput:
     """Persist an uploaded binary source (e.g. an interview audio file) as a
     kind='upload' input carrying its on-disk path + content hash. Unlike
     `add_input`, this sets storage_path/content_hash (the columns text sources
     leave null)."""
     r = await conn.fetchrow(
-        f"INSERT INTO project_input (project_id, kind, title, storage_path, content_hash) "
-        f"VALUES ($1,'upload',$2,$3,$4) RETURNING {_I}",
+        f"INSERT INTO project_input (project_id, kind, title, storage_path, content_hash, "
+        f"byte_size) VALUES ($1,'upload',$2,$3,$4,$5) RETURNING {_I}",
         project_id,
         title,
         storage_path,
         content_hash,
+        byte_size,
     )
     return _input(r)
 

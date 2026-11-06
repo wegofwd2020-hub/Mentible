@@ -118,3 +118,27 @@ async def plan_status(conn: asyncpg.Connection, *, account_id: UUID) -> PlanStat
         at_generation_cap=(not pro) and generations >= settings.free_max_generations,
         features=tuple(sorted(feats)),
     )
+
+
+async def check_upload_storage(
+    conn: asyncpg.Connection, *, account_id: UUID, incoming: int
+) -> None:
+    """Free-plan stored-audio cap (disk-safety guard). 402 if adding `incoming` bytes would
+    push the account's uploaded audio over `free_max_upload_bytes`. Pro is never refused.
+
+    Checked before the file is written, so a refused upload leaves nothing on disk. Two
+    concurrent uploads can each pass before either is recorded, so the cap can overshoot
+    by one file; accepted for a guard this coarse."""
+    if await is_pro(conn, account_id=account_id):
+        return
+    used = await conn.fetchval(
+        "SELECT COALESCE(SUM(i.byte_size), 0) FROM project_input i "
+        "JOIN project p ON p.id = i.project_id "
+        "WHERE p.owner_account_id = $1 AND i.kind = 'upload'",
+        account_id,
+    )
+    if used + incoming > settings.free_max_upload_bytes:
+        mb = settings.free_max_upload_bytes // (1024 * 1024)
+        raise pro_required(
+            f"Free plan stores up to {mb} MB of uploaded audio. Delete an upload or upgrade to Pro."
+        )

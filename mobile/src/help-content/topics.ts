@@ -440,6 +440,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
+        text: "Uploaded interview audio counts against a separate 500 MB storage limit on the Free plan. Transcribing doesn't use up your generations. When you reach the limit, delete an upload to make room.",
+      },
+      {
+        kind: "text",
         text: "Pro removes both caps. There's no self-serve checkout yet, so Pro is granted by the operator — tap Upgrade on the Usage screen to contact us. Generations you make with your own API key count toward the same allowance once you're signed in; anonymous use on this device is not counted.",
       },
     ],

@@ -320,6 +320,9 @@ async def transcribe_upload(
     # Transcription is NOT counted against the Free generations cap (decided 2026-11-06):
     # Free users transcribe with their own speech key, so it costs us nothing.
 
+    # Free-plan stored-audio cap, checked before anything touches disk.
+    await quota.check_upload_storage(conn, account_id=account.id, incoming=len(audio_bytes))
+
     # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
     content_hash = hashlib.sha256(audio_bytes).hexdigest()
     os.makedirs(settings.audio_upload_dir, exist_ok=True)
@@ -334,6 +337,7 @@ async def transcribe_upload(
         title=title or (file.filename or "Interview audio"),
         storage_path=storage_path,
         content_hash=content_hash,
+        byte_size=len(audio_bytes),
     )
     artifact = await artifact_repo.create_artifact(
         conn,
@@ -433,7 +437,17 @@ async def delete_project_input(
             status.HTTP_409_CONFLICT,
             "This source is cited by an approved draft — unapprove that draft first to remove the source.",
         )
+    # Read the stored file path first: deleting the row must also free the audio on disk,
+    # or repeated upload-and-delete would grow storage without bound.
+    doomed = await project_repo.get_input(conn, input_id=input_id)
     await project_repo.delete_input(conn, input_id=input_id)
+    if doomed is not None and doomed.storage_path:
+        try:
+            os.remove(doomed.storage_path)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            log.warning("upload_file_remove_failed", input_id=str(input_id))
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
