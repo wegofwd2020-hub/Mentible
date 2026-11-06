@@ -317,9 +317,8 @@ async def transcribe_upload(
                 "managed allowance exhausted; try again later or add your own key",
             )
 
-    # Charge only once the upload is fully validated and before anything touches disk, so
-    # a refused request (402) leaves no orphaned audio file behind.
-    await _enforce_generation_cap(conn, account, principal)
+    # Transcription is NOT counted against the Free generations cap (decided 2026-11-06):
+    # Free users transcribe with their own speech key, so it costs us nothing.
 
     # Store the audio on disk (one file per upload) + hash for dedupe/provenance.
     content_hash = hashlib.sha256(audio_bytes).hexdigest()
