@@ -270,3 +270,31 @@ def test_book_over_cap_is_refused_and_records_nothing(monkeypatch):
         assert "upgrade to Pro" in r.json()["detail"]
         mock_delay.assert_not_called()
         assert asyncio.run(_generation_events(owner)) == 0
+
+
+def _planned_topics(job_id: str):
+    async def _q():
+        conn = await asyncpg.connect(DSN)
+        try:
+            return await conn.fetchval(
+                "SELECT planned_topic_ids FROM generation_job WHERE id = $1", uuid.UUID(job_id)
+            )
+        finally:
+            await conn.close()
+
+    return asyncio.run(_q())
+
+
+def test_submit_freezes_the_charged_topic_list(monkeypatch):
+    monkeypatch.setattr(settings, "free_max_generations", 20)
+    with TestClient(app) as c:
+        owner = f"pl-{uuid.uuid4()}"
+        _as(owner, f"{owner}@x.z")
+        pid, _iid = _project_with_toc(c, [("u1", True), ("u2", True), ("u3", True)])
+        with patch("backend.src.trust.router.generate_book_task.delay"):
+            r = c.post(
+                f"/api/v1/trust/projects/{pid}/generate-book",
+                json={"api_key": "sk-ant-" + "e" * 20},
+            )
+        assert r.status_code == 202, r.text
+        assert sorted(_planned_topics(r.json()["job_id"])) == ["u1", "u2", "u3"]

@@ -1060,6 +1060,12 @@ async def _run_book(
         existing_versions = await topic_repo.list_topic_versions(conn, project_id=project_id)
         existing = {tv.topic_id for tv in existing_versions}
         missing = book_gen.missing_topics(p, existing)
+        # Bound the run to the topics the submit CHARGED (ADR-043). A TOC edit after submit
+        # must not expand the run into uncharged generations. NULL = legacy job: keep the
+        # recompute above.
+        if job.planned_topic_ids is not None:
+            planned = set(job.planned_topic_ids)
+            missing = [u for u in missing if str(u.get("id")) in planned]
 
         all_inputs = await project_repo.list_inputs(conn, project_id=project_id)
         inputs_by_id = {str(i.id): i for i in all_inputs}

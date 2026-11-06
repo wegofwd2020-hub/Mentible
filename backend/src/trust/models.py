@@ -166,6 +166,8 @@ class GenerationJob:
     failed_topic_ids: list[str]
     created_by_sub: str
     created_at: datetime | None
+    # Topic ids the submit charged. None = legacy job (pre-0041): the worker recomputes.
+    planned_topic_ids: list[str] | None = None
 
 
 @dataclass(frozen=True)

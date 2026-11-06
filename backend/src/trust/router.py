@@ -1505,7 +1505,12 @@ async def submit_generate_book(
     await _enforce_generation_cap(conn, account, principal, count=len(missing))
 
     job = await generation_job_repo.create(
-        conn, project_id=project_id, total=len(missing), created_by_sub=principal.sub
+        conn,
+        project_id=project_id,
+        total=len(missing),
+        created_by_sub=principal.sub,
+        # The exact topics charged above; the worker generates only these.
+        planned_topic_ids=[str(u.get("id")) for u in missing],
     )
 
     # BYOK only — encrypt + store the per-job envelope. Managed jobs store no
