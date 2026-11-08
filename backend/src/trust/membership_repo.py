@@ -44,13 +44,31 @@ async def invite(conn, *, project_id, email, invited_by_sub, role="reviewer") ->
     return _invitation(r)
 
 
-async def revoke(conn, *, project_id, email) -> None:
-    await conn.execute(
+async def revoke(conn, *, project_id, email) -> bool:
+    """Stop future redeems for this email. Returns True if an active invite was
+    revoked; False if there was no active invite (already revoked or never sent)."""
+    row = await conn.fetchrow(
         "UPDATE project_invitation SET revoked_at = now() "
-        "WHERE project_id = $1 AND invited_email = $2",
+        "WHERE project_id = $1 AND invited_email = $2 AND revoked_at IS NULL "
+        "RETURNING id",
         project_id,
         email.lower(),
     )
+    return row is not None
+
+
+async def remove_member(conn, *, project_id, email) -> bool:
+    """Delete the materialized membership for the account registered under this
+    email. Returns True if a membership row was removed. Access is decided per
+    request by `require_project_access`, so removal takes effect immediately."""
+    row = await conn.fetchrow(
+        "DELETE FROM project_membership pm USING account a "
+        "WHERE pm.account_id = a.id AND pm.project_id = $1 AND lower(a.email) = $2 "
+        "RETURNING pm.account_id",
+        project_id,
+        email.lower(),
+    )
+    return row is not None
 
 
 async def list_invitations(conn, *, project_id) -> list[Invitation]:
