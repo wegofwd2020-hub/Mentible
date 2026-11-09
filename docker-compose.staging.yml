@@ -1,0 +1,202 @@
+# =============================================================================
+# docker-compose.staging.yml — Staging stack for testing before the production
+# VPS refresh. Mirrors docker-compose.demo.yml but runs on localhost with its own
+# Postgres, Redis, and containers, so it cannot collide with dev or production.
+#
+# Run as:
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging \
+#     up -d --build --remove-orphans
+#
+# The `migrate` service runs `alembic upgrade head` once before the API and worker
+# start, so every deploy applies pending migrations. Check it with:
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging \
+#     logs migrate
+#
+# .env.staging must set:
+#   BYOK_MASTER_KEY=<64 hex chars from openssl rand -hex 32>
+#   SYSTEM_OWNER_SECRET=<64 hex chars from openssl rand -hex 32>
+#   DATABASE_URL=postgresql://user:pass@staging-db:5432/mentible_staging
+#   OIDC_ISSUER=<your Supabase issuer>
+#
+# Project name comes from the directory, so the volumes below stay mentible_*.
+# =============================================================================
+
+x-app-image: &app-image
+  image: mentible-backend:staging
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+
+# Environment shared by the API, worker, and migrate service.
+x-app-env: &app-env
+  APP_ENV: staging
+  LOG_LEVEL: INFO
+  REDIS_URL: redis://redis:6379/0
+  BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?set BYOK_MASTER_KEY in .env.staging}
+  SYSTEM_OWNER_SECRET: ${SYSTEM_OWNER_SECRET:?set SYSTEM_OWNER_SECRET in .env.staging}
+  ANTHROPIC_DEFAULT_MODEL: claude-sonnet-4-6
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.staging}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_AUDIENCE: ${OIDC_AUDIENCE:-authenticated}
+  SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
+  SUPER_ADMIN_SUBS: ${SUPER_ADMIN_SUBS:-}
+  MANAGED_GROQ_API_KEY: ${MANAGED_GROQ_API_KEY:-}
+  MANAGED_ANTHROPIC_API_KEY: ${MANAGED_ANTHROPIC_API_KEY:-}
+  GROQ_MAX_OUTPUT_TOKENS: ${GROQ_MAX_OUTPUT_TOKENS:-5000}
+  GROQ_TPM_LIMIT: ${GROQ_TPM_LIMIT:-8000}
+  MANAGED_PLAN_EMAILS: ${MANAGED_PLAN_EMAILS:-}
+  MANAGED_PLAN_SUBS: ${MANAGED_PLAN_SUBS:-}
+  MANAGED_ACCOUNT_SPEND_CEILING_MICROS: ${MANAGED_ACCOUNT_SPEND_CEILING_MICROS:-0}
+  FREE_MAX_PROJECTS: ${FREE_MAX_PROJECTS:-2}
+  FREE_MAX_GENERATIONS: ${FREE_MAX_GENERATIONS:-20}
+  FREE_GEN_WINDOW_DAYS: ${FREE_GEN_WINDOW_DAYS:-30}
+  ARTIFACT_STORE_DIR: /data/artifacts
+  AUDIO_UPLOAD_DIR: /data/audio
+  MANAGED_SARVAM_API_KEY: ${MANAGED_SARVAM_API_KEY:-}
+  STT_DEFAULT_PROVIDER: ${STT_DEFAULT_PROVIDER:-groq}
+  ZEPTOMAIL_TOKEN: ${ZEPTOMAIL_TOKEN:-}
+  ZEPTOMAIL_FROM: ${ZEPTOMAIL_FROM:-feedback@kaundinyalabs.com}
+  FEEDBACK_TO: ${FEEDBACK_TO:-support@kaundinyalabs.com}
+
+x-app-volumes: &app-volumes
+  - mentible-staging-artifacts:/data/artifacts
+  - mentible-staging-audio:/data/audio
+
+services:
+  staging-db:
+    image: postgres:15-alpine
+    container_name: mentible-staging-db
+    restart: always
+    environment:
+      POSTGRES_DB: mentible_staging
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # localhost:5434 avoids clashing with a local postgres on 5432
+      - '127.0.0.1:5434:5432'
+    volumes:
+      - mentible-staging-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    container_name: mentible-staging-redis
+    restart: always
+    # Only reachable inside the compose network, not published to the host
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 96M
+
+  migrate:
+    <<: *app-image
+    container_name: mentible-staging-migrate
+    restart: 'no'
+    working_dir: /app/backend
+    command: ['alembic', 'upgrade', 'head']
+    environment: *app-env
+    depends_on:
+      staging-db:
+        condition: service_healthy
+
+  api:
+    <<: *app-image
+    container_name: mentible-staging-api
+    restart: always
+    ports:
+      # Staging is 127.0.0.1:8093, separate from dev (8001) and production (8092)
+      - '127.0.0.1:8093:8000'
+    environment: *app-env
+    volumes: *app-volumes
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 1536M
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  celery-worker:
+    <<: *app-image
+    container_name: mentible-staging-celery-worker
+    restart: always
+    command:
+      [
+        'celery',
+        '-A',
+        'backend.src.core.celery_app',
+        'worker',
+        '--loglevel=INFO',
+        '--concurrency=2',
+      ]
+    environment: *app-env
+    volumes: *app-volumes
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  celery-beat:
+    # Default Celery beat scheduler, same as production. Periodic tasks are defined
+    # in code (analytics/tasks.py), so no Django scheduler is needed.
+    <<: *app-image
+    container_name: mentible-staging-celery-beat
+    restart: always
+    command: ['celery', '-A', 'backend.src.core.celery_app', 'beat', '--loglevel=INFO']
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+  mentible-staging-db:
+  mentible-staging-artifacts:
+  mentible-staging-audio:
