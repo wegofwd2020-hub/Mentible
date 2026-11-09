@@ -131,6 +131,32 @@ def test_revoke_unknown_email_is_404():
         assert _revoke(c, pid, f"nobody-{uuid.uuid4()}@x.z").status_code == 404
 
 
+def test_revoke_cuts_access_after_expert_email_changes():
+    """Regression: membership used to match the account's *current* email. If the
+    expert's sign-in email changed after redeem, revoking the original invite left
+    their access in place. Membership is now linked to the invited email."""
+    with TestClient(app) as c:
+        owner, pid = _owner_project(c)
+        invited = f"rv-{uuid.uuid4()}@x.z"
+        expert_sub = f"rv-{uuid.uuid4()}"
+        _invite(c, pid, invited)
+        _as(expert_sub, invited)
+        c.post("/api/v1/trust/session/sync")  # redeem under the invited email
+        _as(expert_sub, invited)
+        assert c.get(f"/api/v1/trust/projects/{pid}").status_code == 200
+
+        # Same IdP subject, new sign-in email: the account email follows it.
+        changed = f"rv2-{uuid.uuid4()}@x.z"
+        _as(expert_sub, changed)
+        c.post("/api/v1/trust/session/sync")
+
+        _as(owner, f"{owner}@x.z")
+        assert _revoke(c, pid, invited).status_code == 204
+
+        _as(expert_sub, changed)
+        assert c.get(f"/api/v1/trust/projects/{pid}").status_code == 403
+
+
 def test_revoke_is_case_insensitive():
     with TestClient(app) as c:
         owner, pid = _owner_project(c)
