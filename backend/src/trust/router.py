@@ -6,7 +6,7 @@ import uuid
 
 import asyncpg
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from backend.config import settings
 
@@ -1000,6 +1000,33 @@ async def invite_expert(
         role=inv.role,
         revoked_at=inv.revoked_at,
     )
+
+
+@router.delete("/projects/{project_id}/invitations", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_expert(
+    project_id: uuid.UUID,
+    email: str = Query(..., min_length=3, max_length=320),
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> None:
+    """Owner-only: revoke an expert's invitation AND remove their access.
+
+    Both steps run in one transaction: the invite is marked revoked (so a future
+    /session/sync cannot re-materialize membership) and any existing membership
+    for that email is deleted (so the expert loses access on their next request).
+    404 when there was neither an active invite nor a membership to remove."""
+    account = await _account(conn, principal)
+    await _require_role(conn, account, project_id, allow=("owner",))
+    normalized = email.strip().lower()
+    async with conn.transaction():
+        invite_revoked = await membership_repo.revoke(conn, project_id=project_id, email=normalized)
+        member_removed = await membership_repo.remove_member(
+            conn, project_id=project_id, email=normalized
+        )
+    if not invite_revoked and not member_removed:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no active invitation or membership for that email"
+        )
 
 
 @router.get("/projects", response_model=list[schemas.ProjectSummaryOut])

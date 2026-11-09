@@ -44,13 +44,35 @@ async def invite(conn, *, project_id, email, invited_by_sub, role="reviewer") ->
     return _invitation(r)
 
 
-async def revoke(conn, *, project_id, email) -> None:
-    await conn.execute(
+async def revoke(conn, *, project_id, email) -> bool:
+    """Stop future redeems for this email. Returns True if an active invite was
+    revoked; False if there was no active invite (already revoked or never sent)."""
+    row = await conn.fetchrow(
         "UPDATE project_invitation SET revoked_at = now() "
-        "WHERE project_id = $1 AND invited_email = $2",
+        "WHERE project_id = $1 AND invited_email = $2 AND revoked_at IS NULL "
+        "RETURNING id",
         project_id,
         email.lower(),
     )
+    return row is not None
+
+
+async def remove_member(conn, *, project_id, email) -> bool:
+    """Delete the membership(s) that were created from an invite to this email.
+
+    Matches the invited email recorded at redeem (migration 0043). Rows that predate
+    that column (invited_email NULL) fall back to the account's current email. Returns
+    True if a membership row was removed. Access is decided per request by
+    `require_project_access`, so removal takes effect immediately."""
+    row = await conn.fetchrow(
+        "DELETE FROM project_membership pm USING account a "
+        "WHERE pm.account_id = a.id AND pm.project_id = $1 AND ("
+        "  pm.invited_email = $2 OR (pm.invited_email IS NULL AND lower(a.email) = $2)"
+        ") RETURNING pm.account_id",
+        project_id,
+        email.lower(),
+    )
+    return row is not None
 
 
 async def list_invitations(conn, *, project_id) -> list[Invitation]:
@@ -79,12 +101,18 @@ async def redeem_invitations_for(conn, *, account_id, email) -> list[Membership]
         email.lower(),
     )
     for row in invited:
+        # Record the invite email that created the membership. The account's email can
+        # change later, so revoke must not depend on it. COALESCE keeps any link already
+        # recorded on an existing row.
         await conn.execute(
-            "INSERT INTO project_membership (project_id, account_id, role) "
-            "VALUES ($1,$2,$3) ON CONFLICT (project_id, account_id) DO NOTHING",
+            "INSERT INTO project_membership (project_id, account_id, role, invited_email) "
+            "VALUES ($1,$2,$3,$4) "
+            "ON CONFLICT (project_id, account_id) DO UPDATE SET "
+            "invited_email = COALESCE(project_membership.invited_email, EXCLUDED.invited_email)",
             row["project_id"],
             account_id,
             row["role"],
+            email.lower(),
         )
     if not invited:
         return []
