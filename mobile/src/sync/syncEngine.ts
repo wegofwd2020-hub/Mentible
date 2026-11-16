@@ -24,7 +24,7 @@ import { sealEpubBytesWeb, openEpubBytesWeb } from "@/crypto/epubCrypto";
 import { sealEpubFileNative, openEpubFileNative } from "@/crypto/epubFileCrypto";
 import * as syncClient from "@/sync/syncClient";
 import { ApiError } from "@/api/client";
-import { saveLMK, loadLMK } from "@/sync/lmkStore";
+import { saveLMK, loadLMK, clearLMK } from "@/sync/lmkStore";
 import { loadBookIndex, loadBook, saveBook, deleteBook as deleteLocalBook } from "@/storage/bookStore";
 import * as epubLibrary from "@/storage/epubLibrary";
 import * as shelfStore from "@/storage/shelfStore";
@@ -691,6 +691,17 @@ export function runSyncExclusive(token: string): Promise<SyncResult> {
 
 export async function getLastSyncedAt(): Promise<string | null> {
   return AsyncStorage.getItem(LAST_SYNCED_KEY);
+}
+
+// Lost-recovery-key recovery (ADR-014 O4): wipes the account's cloud sync data,
+// then clears this device's sync state so the next Enable issues a fresh
+// keyset and recovery key. Every local book then looks "never synced", so the
+// first sync after re-enabling pushes the whole library again. Local books and
+// the local EPUB library are never deleted here.
+export async function resetCloudSync(token: string): Promise<void> {
+  await syncClient.resetSyncData(token);
+  await clearLMK();
+  await AsyncStorage.multiRemove([SHADOW_KEY, EPUB_SHADOW_KEY, LAST_SYNCED_KEY]);
 }
 
 // A cheap, read-only sibling of `syncNow` for a status badge/UI: "is there

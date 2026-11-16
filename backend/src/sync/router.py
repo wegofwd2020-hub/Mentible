@@ -426,3 +426,29 @@ async def put_shelves(
     )
     log.info("sync_shelves_put", ciphertext_bytes=len(ciphertext))
     return schemas.ShelvesOut.from_repo(s)
+
+
+# ── account reset (ADR-014 recovery gap) ────────────────────────────────────
+#
+# Wipes this account's cloud sync data so a new keyset (and new recovery key)
+# can be issued. Local books on the device are never touched. Destructive, so
+# the caller must send the literal confirmation token; anything else is 400.
+_RESET_PHRASE = "delete-all-synced-data"
+
+
+@router.delete(
+    "/data",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(enforce_rate_limit)],
+)
+async def reset_sync_data(
+    confirm: str = "",
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> dict[str, int]:
+    if confirm != _RESET_PHRASE:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "confirmation required")
+    account = await _account(conn, principal)
+    counts = await repo.wipe_sync_data(conn, owner_account_id=account.id)
+    log.info("sync_data_reset", **counts)
+    return counts

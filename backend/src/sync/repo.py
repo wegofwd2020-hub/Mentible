@@ -490,3 +490,29 @@ async def upsert_shelves(
         client_version,
     )
     return _shelves(row)
+
+
+# ── account reset (hard delete) ──────────────────────────────────────────────
+#
+# Used by `DELETE /sync/data`. Unlike the soft `tombstone_*` deletes above, this
+# removes the rows outright: the keyset (so a new recovery key can be issued)
+# and every encrypted book/epub/shelves blob for the account. Soft tombstones
+# would let a device that still holds the old shadow treat the server delete
+# as "remove locally", so the reset must leave no rows behind to reconcile.
+async def wipe_sync_data(conn: asyncpg.Connection, *, owner_account_id: Any) -> dict[str, int]:
+    """Hard-deletes this account's sync keyset and all synced rows in one
+    transaction. Returns per-table row counts (metadata only, no content)."""
+    # One literal statement per table (no string building), so there is no
+    # interpolated SQL to get wrong.
+    statements = {
+        "synced_book": "DELETE FROM synced_book WHERE owner_account_id = $1",
+        "synced_epub": "DELETE FROM synced_epub WHERE owner_account_id = $1",
+        "synced_shelves": "DELETE FROM synced_shelves WHERE owner_account_id = $1",
+        "sync_keyset": "DELETE FROM sync_keyset WHERE owner_account_id = $1",
+    }
+    counts: dict[str, int] = {}
+    async with conn.transaction():
+        for name, sql in statements.items():
+            status_text = await conn.execute(sql, owner_account_id)
+            counts[name] = int(status_text.rsplit(" ", 1)[-1])
+    return counts
