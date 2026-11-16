@@ -18,6 +18,7 @@ import {
   runSyncExclusive,
   syncStatus,
   getLastSyncedAt,
+  resetCloudSync,
   SyncLockedError,
   SyncKeysetExistsError,
   type SyncStatus,
@@ -202,6 +203,35 @@ export function LibrarySync(): React.JSX.Element | null {
     await copyText(recoveryKey);
   }
 
+  // Lost-recovery-key reset: wipes the cloud copy (not local books), then drops
+  // back to the Enable screen so a new recovery key is issued and saved.
+  function onResetCloud() {
+    if (!token) return;
+    Alert.alert(
+      "Reset cloud sync?",
+      "This permanently deletes your synced library copy in the cloud. Your books on this device are kept. Afterwards you'll get a new recovery key, and the next sync re-uploads this device's library.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete cloud copy",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await resetCloudSync(token);
+              setPhase("locked");
+              Alert.alert("Cloud sync reset", "Tap Enable cloud sync to get a new recovery key.");
+            } catch (e) {
+              Alert.alert("Reset failed", e instanceof Error ? e.message : "Please try again.");
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   async function onUnlock() {
     if (!token || !unlockKey.trim()) return;
     setBusy(true);
@@ -320,6 +350,14 @@ export function LibrarySync(): React.JSX.Element | null {
             disabled={busy || !token}
             style={styles.btn}
           />
+          <Text
+            style={styles.link}
+            onPress={onResetCloud}
+            accessibilityRole="button"
+            accessibilityLabel="Reset cloud sync"
+          >
+            Lost your recovery key? Reset cloud sync
+          </Text>
         </>
       )}
     </View>

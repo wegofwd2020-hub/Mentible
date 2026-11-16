@@ -592,6 +592,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "When you enable sync you get a one-time recovery key. Save it. It's the ONLY way to unlock sync on a new device, and we can't recover it for you. Your exported EPUB/PDF is your fallback if you lose it.",
       },
       {
+        kind: "text",
+        text: "Lost the recovery key? On a device that's already syncing, open Settings → Sync and tap \"Reset cloud sync\". This deletes the encrypted cloud copy of your library (your books on this device are kept). Then enable sync again to get a new key and sync this device's library back up.",
+      },
+      {
         kind: "steps",
         steps: [
           "On your first device, open Settings → Sync and tap \"Enable cloud sync\". Copy and save the recovery key it shows once.",

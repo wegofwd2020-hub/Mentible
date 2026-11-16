@@ -134,6 +134,21 @@ export async function deleteBook(token: string, bookId: string): Promise<void> {
   }
 }
 
+// Hard-wipes this account's cloud sync data (keyset + every encrypted book,
+// epub and shelves blob). Destructive and irreversible; the server requires
+// the literal confirmation phrase. Local books on the device are untouched.
+export async function resetSyncData(token: string): Promise<void> {
+  const res = await authedFetch(
+    `/sync/data?confirm=${encodeURIComponent("delete-all-synced-data")}`,
+    token,
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+}
+
 // ── EPUBs (ADR-014 increment 2.1) ───────────────────────────────────────────
 // The epub payload (potentially tens of MB) travels as a CIPHERTEXT-ONLY
 // octet-stream body — no framing. The GCM tag and the (tiny) encrypted meta

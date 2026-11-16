@@ -299,3 +299,28 @@ def test_no_ciphertext_or_key_bytes_in_logs(capsys):
     # `captured.out` rather than our `buffer`. Check `combined`, the same
     # superset the leak assertions above use.
     assert "log-probe" in combined
+
+
+def test_reset_requires_confirmation_phrase_400():
+    sub = f"sk-{uuid.uuid4()}"
+    asyncio.run(_make_account(sub))
+    _as(sub)
+    with TestClient(app) as c:
+        assert c.delete(f"{SYNC}/data").status_code == 400
+        assert c.delete(f"{SYNC}/data", params={"confirm": "yes"}).status_code == 400
+
+
+def test_reset_wipes_keyset_then_new_keyset_allowed():
+    sub = f"sk-{uuid.uuid4()}"
+    asyncio.run(_make_account(sub))
+    _as(sub)
+    with TestClient(app) as c:
+        assert c.put(f"{SYNC}/keyset", json=_keyset_body(b"before-reset")).status_code == 200
+        assert c.put(f"{SYNC}/keyset", json=_keyset_body(b"again")).status_code == 409
+
+        res = c.delete(f"{SYNC}/data", params={"confirm": "delete-all-synced-data"})
+        assert res.status_code == 200
+        assert res.json()["sync_keyset"] == 1
+        assert c.get(f"{SYNC}/keyset").status_code == 404
+        # Keyset gone, so a fresh one is accepted without force.
+        assert c.put(f"{SYNC}/keyset", json=_keyset_body(b"after-reset")).status_code == 200
