@@ -10,15 +10,18 @@ from __future__ import annotations
 
 import json
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from wegofwd_llm.conformance import ConformanceResult, generate_validated
 from wegofwd_llm.contract import LLMRequest
 from wegofwd_llm.registry import build_provider
 
+from backend.src.core.log_redaction import get_logger
 from backend.src.generate.anthropic_caller import parse_json_response
 
 from .generate import cap_max_tokens
 from .topic_prompt import build_topic_prompt
+
+log = get_logger(__name__)
 
 _MAX_REPAIRS = 2
 # Per-topic content is one section per subtopic — a topic with several subtopics
@@ -66,6 +69,23 @@ def generate_topic_draft(
     )
 
     def _validate(text: str) -> _TopicDraft:
-        return _coerce_topic_draft(parse_json_response(text))
+        try:
+            return _coerce_topic_draft(parse_json_response(text))
+        except Exception as exc:
+            # Diagnostics only: the failure KIND and pydantic field locations, never
+            # the model text or the source content (ADR-001 / privacy).
+            locs = (
+                [list(e.get("loc", ())) for e in exc.errors()]
+                if isinstance(exc, ValidationError)
+                else []
+            )
+            log.warning(
+                "topic_draft_invalid",
+                error_type=type(exc).__name__,
+                field_locs=locs[:5],
+                response_chars=len(text),
+                finish_hint="truncated?" if not text.rstrip().endswith("}") else "complete",
+            )
+            raise
 
     return generate_validated(provider, req, _validate, max_repairs=_MAX_REPAIRS)
