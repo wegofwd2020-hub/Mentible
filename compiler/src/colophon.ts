@@ -32,7 +32,8 @@ export function colophonSection(book: Book): string {
   if (pubDate) p.push(`<p class="pubdate">${escapeHtml(pubDate)}</p>`);
   p.push("<hr/>");
   p.push(`<p class="rights">${escapeHtml(rights)}</p>`);
-  p.push(`<p class="identifier">${escapeHtml(m.identifier || book.id)}</p>`);
+  // Print only a real identifier (e.g. ISBN). Never print the internal book id.
+  if (m.identifier) p.push(`<p class="identifier">${escapeHtml(m.identifier)}</p>`);
   if (m.revisionHistory && m.revisionHistory.length) {
     const rows = m.revisionHistory
       .map(

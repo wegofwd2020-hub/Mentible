@@ -130,10 +130,17 @@ describe("buildPdfHtml — textbook layout", () => {
 
 describe("buildPdfHtml — typography & numbering CSS", () => {
   const html = buildPdfHtml(book());
-  it("uses Nimbus Sans bold headings (body stays serif) and per-chapter float numbering + list styles", () => {
+  it("front matter clears the arabic top-left folio; chapters break to next page; no counter reset", () => {
+    expect(html).toMatch(/@page front \{[\s\S]*?@top-left \{ content: none; \}/);
+    expect(html).toContain("break-before: page;");
+    expect(html).not.toContain("break-before: right");
+    expect(html).not.toContain("counter-reset: page 1");
+  });
+
+  it("uses Liberation Sans bold headings (TrueType, body stays serif) and per-chapter float numbering + list styles", () => {
     const headingRule = html.match(/h1,\s*h2,\s*h3,\s*h4,\s*h5,\s*h6\s*\{[^}]*\}/);
     expect(headingRule).not.toBeNull();
-    expect(headingRule![0]).toMatch(/font-family:\s*"Nimbus Sans"/);
+    expect(headingRule![0]).toMatch(/font-family:\s*"Liberation Sans"/);
     expect(headingRule![0]).toContain("font-weight: 700");
     expect(headingRule![0]).toContain("font-synthesis: none");
     expect(html).toContain(".toc-part"); // Part labels in the grouped TOC

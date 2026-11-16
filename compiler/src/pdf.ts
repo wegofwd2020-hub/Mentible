@@ -196,6 +196,8 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
 <head>
 <meta charset="utf-8"/>
 <title>${escapeHtml(book.title)}</title>
+${book.metadata?.author ? `<meta name="author" content="${escapeHtml(book.metadata.author)}"/>` : ""}
+${book.metadata?.description ? `<meta name="description" content="${escapeHtml(book.metadata.description)}"/>` : ""}
 <style>${pdfCss()}
 ${watermarkCss}</style>
 </head>
@@ -222,7 +224,9 @@ ${glossaryHtml}
 // EPUB, so the two export targets stay visually in lock-step. Playfair Display
 // is embedded here too (single weight 500 + font-synthesis:none, same
 // discipline as css.ts — no faux-bold).
-const PDF_SANS = '"Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif';
+// Liberation Sans first: it is TrueType, so it embeds as CID. Nimbus Sans is CFF
+// and was embedded as Type 3 (poor print/search handling).
+const PDF_SANS = '"Liberation Sans", "Helvetica Neue", Arial, sans-serif';
 const DISPLAY = PDF_SANS;
 function pdfCss(): string {
   return `
@@ -262,6 +266,8 @@ function pdfCss(): string {
   /* Front matter (contents, lists, colophon): roman page numbers, no running heads. */
   @page front {
     size: 190.5mm 234.95mm; background: #faf8f3; margin: 22mm 23mm 24mm 23mm;
+    /* Front matter shows only the roman folio: clear the arabic top-left folio inherited from :left. */
+    @top-left { content: none; }
     @top-right { content: counter(page, lower-roman); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
       text-align: right; border-bottom: 0.5pt solid #bbb; padding-bottom: 2mm; }
     @bottom-center { content: string(booktitle); font-family: ${PDF_SANS}; font-size: 8.5pt; color: #555;
@@ -279,7 +285,7 @@ function pdfCss(): string {
   h1, h2, h3, h4, h5, h6 {
     font-family: ${DISPLAY};
     font-weight: 700;
-    font-synthesis: none; /* real bold face (Nimbus Sans Bold), no faux-bold */
+    font-synthesis: none; /* real bold face (Liberation Sans Bold), no faux-bold */
     break-after: avoid;   /* keep a heading with the content that follows it */
     break-inside: avoid;
   }
@@ -296,10 +302,10 @@ function pdfCss(): string {
   pre { background: #f6f6f6; border: 1px solid #ddd; padding: 0.6em; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 0.95em; counter-increment: table; break-inside: avoid; }
   th, td { border: 1px solid #e6e0d4; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
-  th { background: ${STUDIO.gold}; color: #fff; border-color: ${STUDIO.gold}; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 700; }
+  th { background: ${STUDIO.gold}; color: #fff; border-color: ${STUDIO.gold}; font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 700; }
   tbody tr:nth-child(even) td { background: #f4f1ea; }
   caption {
-    caption-side: top; text-align: left; font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    caption-side: top; text-align: left; font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
   }
   .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; }
@@ -336,7 +342,7 @@ function pdfCss(): string {
   nav.toc a, nav.floatlist a { text-decoration: none; color: #111; }
   nav.toc a::after, nav.floatlist a::after { content: leader('.') target-counter(attr(href url), page); color: #777; }
   .toc-part {
-    font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
     font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
     color: ${STUDIO.gold}; font-size: 0.82em; margin: 1.1em 0 0.3em;
   }
@@ -345,13 +351,15 @@ function pdfCss(): string {
   .glossary { break-before: page; }
   .glossary dl { margin: 0.5em 0; }
   .glossary dt {
-    font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+    font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
     font-weight: 700; color: ${STUDIO.navy}; margin-top: 0.7em; break-after: avoid;
   }
   .glossary dd { margin: 0.1em 0 0.4em 0; color: #333; break-inside: avoid; }
 
-  .chapter, .quizzes, .answers { break-before: right; }
-  .first-chapter { counter-reset: page 1; }
+  /* Chapters start on the next page (not forced to a recto): forcing a recto left
+     blank verso pages with running heads. Page numbers run continuously from the
+     cover, so folios and Contents page numbers match the PDF page index. */
+  .chapter, .quizzes, .answers { break-before: page; }
   .colophon, nav.toc, nav.floatlist { page: front; }
   /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
   .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
@@ -379,7 +387,7 @@ function pdfCss(): string {
   .quiz-chapter { margin-bottom: 1.2em; }
   .quiz-q { margin: 0.6em 0; break-inside: avoid; }
   .quiz-qtext, .quiz-qtext p {
-    font-family: "Nimbus Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; font-weight: 600;
+    font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600;
   }
   .quiz-options { font-size: 0.9em; }
   .answer { margin: 0.4em 0; break-inside: avoid; }
