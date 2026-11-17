@@ -8,7 +8,7 @@ import type { LessonOutput, LessonSection } from "@/types/lesson";
 // NativeTopicReader on web / the WebView doc on native) that the Studio topic
 // screen and the compiled artifact use — not a second, hand-rolled renderer.
 // Pure: no I/O, no randomUUID, so it's trivial to unit-test.
-function sectionsToTopic(
+export function sectionsToTopic(
   id: string,
   title: string,
   sections: { heading: string; body: string }[],

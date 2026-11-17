@@ -314,6 +314,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "edit-a-diagram",
+    title: "Edit a diagram's source",
+    featureKey: "diagrams",
+    keywords: ["diagram", "mermaid", "mind map", "mindmap", "flowchart", "edit", "fix", "layout", "reconfigure"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Every diagram in a validated draft can be edited directly. Edits are saved as a new version, the same way Edit text works.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open a draft topic (Projects → your project → the topic).",
+          "Under “Diagrams”, tap “Edit diagram” on the one you want to change.",
+          "Change the Mermaid text. Tap “Preview” to see the result before saving.",
+          "Tap “Save diagram”. A new version is created; if the old version was approved, the new one needs re-approval.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Good to know: the text uses Mermaid syntax. If the preview shows an error, check that every label with special characters is in double quotes and that each node sits on its own line.",
+      },
+    ],
+  },
+  {
     id: "share-a-draft",
     title: "Share a draft for feedback",
     featureKey: "sharing",
