@@ -166,7 +166,19 @@ Diagrams — BALANCED direction (default; practitioner audience):
 - Use a `flowchart` (LR or TD) for processes, pipelines, decision flows and
   concept maps — one focused diagram beats a wall of prose. Add decision
   branches and loops where they genuinely clarify the logic.
-- Reach for a `sequenceDiagram` only when interaction-over-time is the point.""",
+- Reach for a `sequenceDiagram` only when interaction-over-time is the point.
+- CENTRAL ENTITY WITH PARALLEL FACETS (one hub and its partners, e.g. a deity
+  invoked alongside a central god, or a core idea and its branches): draw a
+  native Mermaid `mindmap` with the hub as `root((Centre))` and each partner as
+  a branch. Do NOT draw it as a flowchart with arrows into a hub — that renders
+  as a top-down chain, not a centre with spokes. Multi-line, indented:
+  ```mermaid
+  mindmap
+    root((Indra))
+      Agni
+      Varuna
+      Vayu
+  ```""",
     "technical": """\
 Diagrams — TECHNICAL direction (reference / engineer audience):
 - Choose the diagram type that fits the content precisely:
@@ -175,7 +187,10 @@ Diagrams — TECHNICAL direction (reference / engineer audience):
   - `stateDiagram-v2` for lifecycles (the states one thing moves through).
   - `flowchart` with `subgraph`s for architecture (components and boundaries).
 - Favour an accurate, complete diagram over a tidy one; more than one diagram in
-  a section is fine when each adds rigour.""",
+  a section is fine when each adds rigour.
+- CENTRAL ENTITY WITH PARALLEL FACETS (one hub and its partners): use a native
+  Mermaid `mindmap` with `root((Centre))` and one branch per partner, not a
+  flowchart with arrows into a hub. Do NOT draw it as a flowchart.""",
 }
 
 

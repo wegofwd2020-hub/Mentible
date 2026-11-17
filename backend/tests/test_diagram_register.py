@@ -40,9 +40,17 @@ class TestDiagramRegister:
         assert "quadrantChart" in p
         for word in ("RADIAL", "FUNNEL", "QUADRANT", "MINDMAP"):
             assert word in p
-        # ...and these native types should NOT leak into the other registers.
+        # quadrantChart should NOT leak into the other registers.
         assert "quadrantChart" not in _prompt(diagram_register="technical")
-        assert "mindmap" not in _prompt(diagram_register="balanced")
+        assert "quadrantChart" not in _prompt(diagram_register="balanced")
+
+    def test_hub_and_spoke_uses_mindmap_in_balanced_and_technical(self):
+        # Regression: a "Indra with deities around" diagram came out as a
+        # flowchart because balanced (the default) never offered mindmap.
+        for reg in ("balanced", "technical"):
+            p = _prompt(diagram_register=reg)
+            assert "root((Centre))" in p
+            assert "Do NOT draw it as a flowchart" in p
 
     def test_technical_register_offers_the_precise_types(self):
         p = _prompt(diagram_register="technical")
