@@ -30,6 +30,16 @@ export interface PdfChapter {
   topic: GeneratedTopic;
 }
 
+/**
+ * The number used to prefix a chapter's figures and tables (e.g. "4" → "Figure 4.1").
+ * An Anuvaka topic ("Anuvaka 4 — …") uses its Anuvaka number so its figures read
+ * against the section they belong to. Other topics fall back to their position.
+ */
+export function floatChapterNumber(c: Pick<PdfChapter, "number" | "title">): number {
+  const m = /\bAnuvaka\s+(\d+)\b/i.exec(c.title ?? "");
+  return m ? Number(m[1]) : c.number;
+}
+
 export function orderedChapters(book: Book): PdfChapter[] {
   const content = book.content ?? {};
   const out: PdfChapter[] = [];
@@ -118,7 +128,7 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
       let body = renderLesson(c.topic.lesson, diagrams);
       if (c.topic.tutorial) body += renderTutorial(c.topic.tutorial, diagrams);
       const tableCaps = (c.topic.lesson as { table_captions?: string[] }).table_captions ?? [];
-      body = numberFloats(body, c.number, figs, tbls, tableCaps);
+      body = numberFloats(body, floatChapterNumber(c), figs, tbls, tableCaps);
       const first = idx === 0 ? " first-chapter" : "";
       return `<section class="chapter${first}" id="${c.id}">${body}</section>`;
     })
