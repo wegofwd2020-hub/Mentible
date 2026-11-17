@@ -13,7 +13,9 @@ import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
 import { Card, Button } from "@/components/ui";
 import { TopicRenderer } from "@/components/LessonRenderer";
-import { topicVersionToTopic } from "@/lib/topicVersionToTopic";
+import { sectionsToTopic, topicVersionToTopic } from "@/lib/topicVersionToTopic";
+import { listDiagrams, replaceDiagramSource } from "@/lib/mermaidBlocks";
+import type { GeneratedTopic } from "@/types/book";
 import { describeProvenance } from "@/lib/draftProvenance";
 import { GenerateProgressBar } from "@/components/GenerateProgressBar";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
@@ -51,6 +53,11 @@ function TopicVersionViewerInner() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ heading: string; body: string; source_ids: string[] }[]>([]);
   const [saving, setSaving] = useState(false);
+  // Diagram source editor (owner/editor): one diagram at a time, edited as raw
+  // Mermaid text with an on-demand preview. Save writes a new version.
+  const [diagramEdit, setDiagramEdit] = useState<{ sectionIndex: number; blockIndex: number; source: string } | null>(null);
+  const [diagramPreview, setDiagramPreview] = useState<GeneratedTopic | null>(null);
+  const [diagramSaving, setDiagramSaving] = useState(false);
   const [grBusy, setGrBusy] = useState(false);
   const [orBusy, setOrBusy] = useState(false);
   const role = project?.my_role;
@@ -66,6 +73,12 @@ function TopicVersionViewerInner() {
   // reverts to raw code" bug). A stable reference keeps the rendered SVG.
   const builtTopic = useMemo(
     () => (topicVersion ? topicVersionToTopic(topicVersion) : null),
+    [topicVersion],
+  );
+
+  // Every ```mermaid diagram in the version's sections, addressable for editing.
+  const diagrams = useMemo(
+    () => listDiagrams(topicVersion?.content?.sections ?? []),
     [topicVersion],
   );
 
@@ -226,6 +239,57 @@ function TopicVersionViewerInner() {
       Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : "Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Owner/editor: open one diagram's Mermaid source. A validated version confirms
+  // first, same as Edit text (saving creates a new version).
+  const openDiagram = (sectionIndex: number, blockIndex: number, source: string) => {
+    const go = () => {
+      setDiagramEdit({ sectionIndex, blockIndex, source });
+      setDiagramPreview(null);
+    };
+    if (topicVersion!.is_validated) {
+      Alert.alert(
+        "Edit a validated diagram?",
+        `This creates a new version. The approval on v${topicVersion!.version_no} stays; the new version will need re-approval.`,
+        [{ text: "Cancel", style: "cancel" }, { text: "Edit", onPress: go }],
+      );
+    } else {
+      go();
+    }
+  };
+
+  const previewDiagram = () => {
+    if (!topicVersion || !diagramEdit) return;
+    const sections = replaceDiagramSource(
+      topicVersion.content?.sections ?? [],
+      diagramEdit.sectionIndex,
+      diagramEdit.blockIndex,
+      diagramEdit.source,
+    );
+    setDiagramPreview(sectionsToTopic(topicVersion.id, topicVersion.title, sections, topicVersion.created_at ?? ""));
+  };
+
+  const saveDiagram = async () => {
+    if (!topicVersion || !diagramEdit) return;
+    setDiagramSaving(true);
+    try {
+      const sections = replaceDiagramSource(
+        topicVersion.content?.sections ?? [],
+        diagramEdit.sectionIndex,
+        diagramEdit.blockIndex,
+        diagramEdit.source,
+      );
+      const v = await editTopic(topicVersion.topic_id, { sections });
+      // Navigate first, then clear edit state (same ordering as save()).
+      router.replace(`/trust/topic-version/${v.id}?projectId=${projectId}`);
+      setDiagramEdit(null);
+      setDiagramPreview(null);
+    } catch (e) {
+      Alert.alert("Couldn't save", e instanceof ApiError ? e.userMessage() : "Please try again.");
+    } finally {
+      setDiagramSaving(false);
     }
   };
 
@@ -408,6 +472,65 @@ function TopicVersionViewerInner() {
           <View style={styles.readerBody}>
             {builtTopic ? <TopicRenderer topic={builtTopic} inline /> : null}
           </View>
+        ) : null}
+        {!editing && canEdit && diagrams.length > 0 ? (
+          <Card style={styles.editRow}>
+            <Text style={styles.notesEmpty}>Diagrams</Text>
+            {diagrams.map((d) => (
+              <View key={`${d.sectionIndex}-${d.blockIndex}`} style={styles.actionsRow}>
+                <Text style={styles.noteBody}>{`Section ${d.sectionIndex + 1}, diagram ${d.blockIndex + 1}`}</Text>
+                <Button
+                  variant="ghost"
+                  label="Edit diagram"
+                  accessibilityLabel={`Edit diagram ${d.blockIndex + 1} in section ${d.sectionIndex + 1}`}
+                  onPress={() => openDiagram(d.sectionIndex, d.blockIndex, d.source)}
+                />
+              </View>
+            ))}
+          </Card>
+        ) : null}
+        {diagramEdit ? (
+          <Card style={styles.editRow}>
+            <TextInput
+              style={[styles.input, styles.bodyInput]}
+              value={diagramEdit.source}
+              onChangeText={(t) => {
+                setDiagramEdit({ ...diagramEdit, source: t });
+                setDiagramPreview(null);
+              }}
+              accessibilityLabel="Diagram source"
+              placeholder="Mermaid source"
+              placeholderTextColor={theme.textMuted}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.actionsRow}>
+              <Button variant="ghost" label="Preview" accessibilityLabel="Preview diagram" onPress={previewDiagram} />
+              <Button
+                variant="ghost"
+                label="Cancel"
+                accessibilityLabel="Cancel diagram edit"
+                onPress={() => {
+                  setDiagramEdit(null);
+                  setDiagramPreview(null);
+                }}
+              />
+              <Button
+                variant="primary"
+                label="Save diagram"
+                accessibilityLabel="Save diagram"
+                busy={diagramSaving}
+                disabled={diagramSaving}
+                onPress={saveDiagram}
+              />
+            </View>
+            {diagramPreview ? (
+              <View style={styles.readerBody}>
+                <TopicRenderer topic={diagramPreview} inline />
+              </View>
+            ) : null}
+          </Card>
         ) : null}
         {!editing && regen ? (
           <Card style={styles.editRow}>
