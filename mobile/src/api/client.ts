@@ -20,7 +20,10 @@ import { fromBase64 } from "@/storage/pickBookFile";
 // localhost so the web preview works without touching .env.local.
 export function resolveBaseUrl(): string {
   const url =
-    process.env["EXPO_PUBLIC_API_BASE_URL"] ??
+    // Dot notation on purpose: Expo's web bundler only inlines `process.env.NAME`.
+    // Bracket access (`process.env["NAME"]`) is never inlined, so the web build
+    // ignored EXPO_PUBLIC_API_BASE_URL and always fell back to localhost:8001.
+    process.env.EXPO_PUBLIC_API_BASE_URL ??
     (Platform.OS === "web" ? "http://localhost:8001" : "http://10.0.2.2:8001");
   if (Platform.OS === "web") return url.replace("10.0.2.2", "localhost");
   return url;
