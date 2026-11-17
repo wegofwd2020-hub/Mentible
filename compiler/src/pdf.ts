@@ -377,6 +377,13 @@ function pdfCss(): string {
   .chapter :where(.takeaways, .objectives, .further, .mistakes, .examples):not(:has(li, p, dd, dt, span)) {
     display: none;
   }
+  /* A section ends with a horizontal rule. At a chapter's last page the rule and its
+     margin can spill onto a blank page before the next chapter, so drop the final one. */
+  .chapter :where(section, div) > hr:last-child,
+  .chapter > hr:last-child { display: none; }
+  /* A bold label on its own line (e.g. "Anuvāka 4") must stay with the text after it,
+     so it is not left alone at the foot of a page. */
+  p:has(> strong:only-child) { break-after: avoid; }
   .colophon, nav.toc, nav.floatlist { page: front; }
   /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
   .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
