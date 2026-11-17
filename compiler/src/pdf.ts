@@ -370,6 +370,13 @@ function pdfCss(): string {
      blank verso pages with running heads. Page numbers run continuously from the
      cover, so folios and Contents page numbers match the PDF page index. */
   .chapter, .quizzes, .answers { break-before: page; }
+  /* Empty blocks left at the end of a chapter (no text, no items) are kept whole by
+     their box rules, so when a chapter fills its last page they overflow onto a
+     blank page before the next chapter. Hide them so they take no space. */
+  .chapter :where(div, p, section, ul, ol, dl, blockquote, aside):empty,
+  .chapter :where(.takeaways, .objectives, .further, .mistakes, .examples):not(:has(li, p, dd, dt, span)) {
+    display: none;
+  }
   .colophon, nav.toc, nav.floatlist { page: front; }
   /* Running footer text: the book title, taken from an HTML-escaped element (never put in CSS). */
   .book-running { string-set: booktitle content(text); height: 0; overflow: hidden; margin: 0; padding: 0; }
