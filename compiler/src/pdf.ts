@@ -318,7 +318,7 @@ function pdfCss(): string {
     caption-side: top; text-align: left; font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
   }
-  .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; }
+  .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; break-after: avoid; }
   .diagram svg, .diagram img {
     display: block; box-sizing: border-box; max-width: 100%; max-height: 150mm; width: 100%; height: auto;
     border: 1px solid #b8b8b8; background: #fff; padding: 3mm;
@@ -348,7 +348,7 @@ function pdfCss(): string {
 
   nav.toc, nav.floatlist { break-after: page; }
   nav.toc ol, nav.floatlist ol { list-style: none; padding: 0; }
-  nav.toc li, nav.floatlist li { margin: 0.35em 0; }
+  nav.toc li, nav.floatlist li { margin: 0.25em 0; }
   nav.toc a, nav.floatlist a { text-decoration: none; color: #111; }
   nav.toc a::after, nav.floatlist a::after { content: leader('.') target-counter(attr(href url), page); color: #777; }
   .toc-part {
