@@ -32,7 +32,7 @@ def build_topic_prompt(sources, topic_title, subtopics, audience, goal) -> str:
         f'You are writing the section on "{topic_title}"{ctx_line}. Using ONLY the sources below, '
         f"write one section per subtopic — subtopics: {subs}. Each section's heading is the subtopic; "
         f"its body is grounded ONLY in the sources and cites the source label(s) it draws from. Invent "
-        f"nothing beyond the sources — if a subtopic is not covered, omit its section.\n\n"
+        f"nothing beyond the sources. Include a section for EVERY subtopic: if the sources do not cover a subtopic, say plainly in its section that the sources do not cover it — never drop the section and never invent content.\n\n"
         f"{diagram_guidance}\n\n"
         f"SOURCES:\n{labelled}\n\n"
         f"Respond with ONLY valid JSON, no prose, exactly matching this schema:\n"
