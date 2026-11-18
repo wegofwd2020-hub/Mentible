@@ -5,11 +5,9 @@ no order (a hub with partners, a list of layers). The prompt asks for a mindmap
 in those cases, but the model does not reliably follow it.
 
 This pass runs on a validated lesson. It rewrites a ```mermaid flowchart as a
-native mindmap only when the flowchart is a pure tree: one root, every other
-node has exactly one parent, every node is reachable from the root, the tree
-branches (it is not a straight chain), and it has no decision diamonds,
-subgraphs or inline edge labels. Ordered pipelines, merged or cyclic graphs,
-decisions and anything it cannot parse are left unchanged.
+native mindmap when it has no decision diamonds, subgraphs or inline edge
+labels and it branches (it is not a straight chain). Merged arrows are resolved
+to a spanning tree, so some relationships are dropped. Straight chains, decisions and anything it cannot parse are left unchanged.
 """
 
 from __future__ import annotations
@@ -82,8 +80,24 @@ def _parse(source: str) -> tuple[dict[str, str], list[str], list[tuple[str, str]
     return labels, order, edges
 
 
+def _reach(start: str, children: dict[str, list[str]]) -> set[str]:
+    seen = {start}
+    stack = [start]
+    while stack:
+        for child in children[stack.pop()]:
+            if child not in seen:
+                seen.add(child)
+                stack.append(child)
+    return seen
+
+
 def mindmap_for(source: str) -> str | None:
-    """Return a mindmap for a pure-tree flowchart, or None to leave it alone."""
+    """Return a mindmap for a flowchart with no decisions, or None to leave it alone.
+
+    Merged arrows are resolved to a spanning tree: each node keeps its first
+    incoming edge, so some relationships are dropped. Nodes not reachable from
+    the chosen root are attached to the root as extra branches.
+    """
     try:
         labels, order, edges = _parse(source)
     except _Unsupported:
@@ -91,36 +105,45 @@ def mindmap_for(source: str) -> str | None:
     if len(order) < 4 or not edges:
         return None
 
-    indegree = dict.fromkeys(order, 0)
     children: dict[str, list[str]] = {n: [] for n in order}
+    indegree = dict.fromkeys(order, 0)
     for parent, child in edges:
-        indegree[child] += 1
         children[parent].append(child)
-
-    roots = [n for n in order if indegree[n] == 0]
-    if len(roots) != 1:
-        return None
-    root = roots[0]
-    if any(indegree[n] != 1 for n in order if n != root):
-        return None  # a merge (two parents) or a duplicate edge
-
-    seen = {root}
-    stack = [root]
-    while stack:
-        for child in children[stack.pop()]:
-            if child not in seen:
-                seen.add(child)
-                stack.append(child)
-    if len(seen) != len(order):
-        return None  # a cycle, unreachable from the root
+        indegree[child] += 1
 
     if max(len(children[n]) for n in order) < 2:
         return None  # a straight chain is an ordered process
 
+    # Root: prefer nodes with no incoming arrows, then the one reaching the most nodes.
+    root = max(order, key=lambda n: (indegree[n] == 0, len(_reach(n, children))))
+
+    tree: dict[str, list[str]] = {n: [] for n in order}
+    placed = {root}
+    queue = [root]
+    while queue:
+        node = queue.pop(0)
+        for child in children[node]:
+            if child not in placed:
+                placed.add(child)
+                tree[node].append(child)
+                queue.append(child)
+    for node in order:  # unreachable from the root: attach as extra branches
+        if node not in placed:
+            placed.add(node)
+            tree[root].append(node)
+            queue = [node]
+            while queue:
+                current = queue.pop(0)
+                for child in children[current]:
+                    if child not in placed:
+                        placed.add(child)
+                        tree[current].append(child)
+                        queue.append(child)
+
     out = ["mindmap", f"  root(({labels[root]}))"]
 
     def walk(node: str, indent: int) -> None:
-        for child in children[node]:
+        for child in tree[node]:
             out.append(" " * indent + f'{child}["{labels[child]}"]')
             walk(child, indent + 2)
 
