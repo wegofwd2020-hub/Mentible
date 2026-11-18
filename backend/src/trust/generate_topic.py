@@ -53,6 +53,23 @@ def _coerce_topic_draft(obj: object) -> _TopicDraft:
     return _TopicDraft.model_validate(obj)
 
 
+def check_subtopic_coverage(draft: _TopicDraft, subtopics) -> _TopicDraft:
+    """Guard against silent content loss on regeneration.
+
+    A draft must have at least one section per subtopic it was asked to write.
+    A shorter draft is rejected as invalid, so the repair loop asks for the
+    missing sections, and if it still falls short the job fails and no new topic
+    version is stored (the previous version stays).
+    """
+    expected = len(subtopics or [])
+    if expected and len(draft.sections) < expected:
+        raise ValueError(
+            f"draft has {len(draft.sections)} sections for {expected} subtopics; "
+            "write one section per subtopic"
+        )
+    return draft
+
+
 def generate_topic_draft(
     *, sources, topic_title, subtopics, audience, goal, provider_id, api_key, model
 ) -> ConformanceResult:
@@ -71,7 +88,9 @@ def generate_topic_draft(
 
     def _validate(text: str) -> _TopicDraft:
         try:
-            draft = _coerce_topic_draft(parse_json_response(text))
+            draft = check_subtopic_coverage(
+                _coerce_topic_draft(parse_json_response(text)), subtopics
+            )
             # Tree-shaped / merged flowcharts become native mindmaps (see
             # generate/diagram_shape.py). Runs inside validation, so the stored draft is the shaped one.
             draft, shaped = shape_topic_draft(draft)
