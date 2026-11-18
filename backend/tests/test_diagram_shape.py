@@ -86,11 +86,19 @@ def test_decision_diamond_is_kept():
     assert mindmap_for(DECISION) is None
 
 
-def test_inline_edge_label_is_kept():
-    assert (
-        mindmap_for("flowchart TD\n  A -- inline label --> B\n  A --> C\n  A --> D\n  A --> E\n")
-        is None
+def test_inline_edge_label_is_dropped_and_converted():
+    out = mindmap_for(
+        'flowchart TD\n  A["Hub"] -- inline label --> B["One"]\n'
+        '  A -- other label --> C["Two"]\n  A --> D["Three"]\n  A --> E["Four"]\n'
     )
+    assert out is not None
+    assert "inline label" not in out and "other label" not in out
+    assert '    B["One"]' in out.splitlines()
+
+
+def test_labelled_decision_is_still_kept():
+    src = 'flowchart TD\n  A["In"] -- yes --> B{"Ok?"}\n  B --> C["X"]\n  B --> D["Y"]\n  B --> E["Z"]\n'
+    assert mindmap_for(src) is None
 
 
 def test_subgraph_is_kept():
@@ -99,7 +107,7 @@ def test_subgraph_is_kept():
 
 def test_unparseable_is_kept():
     assert mindmap_for("sequenceDiagram\n  A->>B: hi\n") is None
-    assert mindmap_for("flowchart TD\n  A -- inline label --> B\n") is None
+    assert mindmap_for("flowchart TD\n  A -- inline label --> B\n") is None  # too small
 
 
 def test_rewrite_markdown_converts_only_convertible_fences():
