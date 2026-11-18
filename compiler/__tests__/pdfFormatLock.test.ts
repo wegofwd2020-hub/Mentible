@@ -27,6 +27,10 @@ describe("PDF format lock", () => {
     expect(html).toMatch(/\.diagram \{[^}]*break-after: avoid;/);
   });
 
+  it("keeps a paragraph with a following source-tag paragraph", () => {
+    expect(html).toMatch(/p:has\(\+ \.source-tag\) \{ break-after: avoid; \}/);
+  });
+
   it("hides empty blocks and a chapter's final rule (#621)", () => {
     expect(html).toMatch(/:where\(div, p, section, ul, ol, dl, blockquote, aside\):empty/);
     expect(html).toMatch(/\.chapter > hr:last-child/);
