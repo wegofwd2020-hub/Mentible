@@ -320,10 +320,10 @@ function pdfCss(): string {
   }
   .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; }
   .diagram svg, .diagram img {
-    display: block; box-sizing: border-box; max-width: 100%; max-height: 84mm; width: auto; height: auto;
+    display: block; box-sizing: border-box; max-width: 100%; max-height: 150mm; width: 100%; height: auto;
     border: 1px solid #b8b8b8; background: #fff; padding: 3mm;
   }
-  .diagram svg { max-width: 100%; max-height: 84mm; width: auto; height: auto; }
+  .diagram svg { max-width: 100%; max-height: 150mm; width: 100%; height: auto; }
   .diagram figcaption {
     font-family: ${PDF_SANS}; font-size: 0.85em; color: ${STUDIO.gold}; margin-top: 0.3em; text-align: left;
   }
