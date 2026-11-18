@@ -43,6 +43,7 @@ from backend.src.core.byok_envelope import decrypt_api_key, parse_master_key
 from backend.src.core.format_scan import lesson_warnings
 from backend.src.core.log_redaction import get_logger
 from backend.src.generate.anthropic_caller import parse_json_response
+from backend.src.generate.diagram_shape import shape_lesson
 from backend.src.generate.lesson_schema import LessonOutput
 from backend.src.generate.prompt_builder import build_lesson_prompt
 from backend.src.generate.quiz_prompt import build_quiz_prompt
@@ -359,6 +360,12 @@ async def run_generation(
             generate_validated, provider, req, _validate, max_repairs=_MAX_REPAIRS
         )
         output = result.parsed
+        if isinstance(output, LessonOutput):
+            # Tree-shaped flowcharts with no order become native mindmaps (see
+            # diagram_shape.py). Runs after validation, so the lesson is re-validated.
+            output, shaped = shape_lesson(output)
+            if shaped:
+                log.info("diagram_shape_converted", job_id=str(job_id), count=shaped)
         # Stamp the Content Trust Manifest (ADR-015). The seam fills provenance +
         # validation from the resolved model (which may differ from what was
         # requested) and the conformance outcome; we attach the standing BYOK data
