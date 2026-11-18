@@ -132,6 +132,12 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
       // A paragraph holding only a source tag ("[S1]", "[S1, S2]") is marked so
       // the paragraph before it can keep with it (see `source-tag` in pdfCss).
       body = body.replace(/<p>(\[S\d+(?:,\s*S\d+)*\])<\/p>/g, '<p class="source-tag">$1</p>');
+      // A figure's source tag moves inside the figure, so the figure and its tag
+      // form one unbreakable block (figure break-after is not honoured by the renderer).
+      body = body.replace(
+        /(<figure class="(?:diagram|anim-svg)"[^>]*>[\s\S]*?)<\/figure>\s*<p class="source-tag">(\[S\d+(?:,\s*S\d+)*\])<\/p>/g,
+        '$1<p class="source-tag fig-source">$2</p></figure>',
+      );
       const first = idx === 0 ? " first-chapter" : "";
       return `<section class="chapter${first}" id="${c.id}">${body}</section>`;
     })
@@ -323,6 +329,7 @@ function pdfCss(): string {
   }
   .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; break-after: avoid; }
   .source-tag { break-before: avoid; }
+  .diagram .fig-source { font-family: ${PDF_SANS}; font-size: 0.8em; color: #555; margin: 0.2em 0 0; text-align: left; }
   p:has(+ .source-tag) { break-after: avoid; }
   .diagram svg, .diagram img {
     display: block; box-sizing: border-box; max-width: 100%; max-height: 150mm; width: 100%; height: auto;
