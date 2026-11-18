@@ -194,10 +194,26 @@ Diagrams — TECHNICAL direction (reference / engineer audience):
 }
 
 
+# Shared type-selection rules, applied to every register. The model otherwise
+# defaults to `flowchart` for everything; this makes the choice explicit.
+_DIAGRAM_TYPE_SELECTION = """\
+Choose each diagram's TYPE from its content. Do NOT default to a flowchart:
+- ORDERED STEPS, a pipeline, or a decision with branches -> `flowchart`.
+- ONE CENTRAL IDEA WITH PARALLEL FACETS (a hub and its partners, a topic and
+  its branches, items grouped under headings, a parent with children) ->
+  native Mermaid `mindmap` with `root((Centre))` and indented branches.
+- CONCEPTS LINKED BY RELATIONSHIPS WITH NO ORDER (A relates to B, B informs C)
+  -> `flowchart` whose edges are labelled, e.g. `A -- informs --> B`, with no
+  sequence implied; group related concepts in `subgraph`s.
+- TWO AXES COMPARING ITEMS -> a quadrant diagram, where the register allows it.
+- INTERACTIONS OVER TIME -> `sequenceDiagram`. LIFECYCLES -> `stateDiagram-v2`.
+- A plain list of facts with no structure -> no diagram; use prose or a table."""
+
+
 def _diagram_guidelines(diagram_register: str) -> str:
     """Diagram guidance for the chosen register + the shared role contract."""
     block = _DIAGRAM_REGISTERS.get(diagram_register, _DIAGRAM_REGISTERS["balanced"])
-    return f"{block}\n\n{_DIAGRAM_ROLE_CONTRACT}"
+    return f"{_DIAGRAM_TYPE_SELECTION}\n\n{block}\n\n{_DIAGRAM_ROLE_CONTRACT}"
 
 
 # Prose-quality directive — sharpen clarity WITHOUT sacrificing coverage. Avoids
