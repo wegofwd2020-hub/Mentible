@@ -129,6 +129,9 @@ export function buildPdfHtml(book: Book, opts: PdfHtmlOptions = {}): string {
       if (c.topic.tutorial) body += renderTutorial(c.topic.tutorial, diagrams);
       const tableCaps = (c.topic.lesson as { table_captions?: string[] }).table_captions ?? [];
       body = numberFloats(body, floatChapterNumber(c), figs, tbls, tableCaps);
+      // A paragraph holding only a source tag ("[S1]", "[S1, S2]") is marked so
+      // the paragraph before it can keep with it (see `source-tag` in pdfCss).
+      body = body.replace(/<p>(\[S\d+(?:,\s*S\d+)*\])<\/p>/g, '<p class="source-tag">$1</p>');
       const first = idx === 0 ? " first-chapter" : "";
       return `<section class="chapter${first}" id="${c.id}">${body}</section>`;
     })
@@ -319,6 +322,8 @@ function pdfCss(): string {
     font-size: 0.85em; color: #555; margin-bottom: 0.3em;
   }
   .diagram { text-align: left; margin: 1.1em 0; break-inside: avoid; break-before: avoid; break-after: avoid; }
+  .source-tag { break-before: avoid; }
+  p:has(+ .source-tag) { break-after: avoid; }
   .diagram svg, .diagram img {
     display: block; box-sizing: border-box; max-width: 100%; max-height: 150mm; width: 100%; height: auto;
     border: 1px solid #b8b8b8; background: #fff; padding: 3mm;
