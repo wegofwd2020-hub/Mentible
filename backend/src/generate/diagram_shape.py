@@ -22,7 +22,8 @@ _ARROW = re.compile(r"\s*(?:-\.->|-->|==>|---)\s*(?:\|[^|]*\|\s*)?")
 _SHAPE = re.compile(r"\[\"(.*)\"\]|\[(.*)\]|\(\((.*)\)\)|\((.*)\)")
 _ID = re.compile(r"[A-Za-z_][\w-]*")
 _CLASS_SUFFIX = re.compile(r":::[\w-]+\s*$")
-_INLINE_LABEL = re.compile(r"\s+--\s+[^>]+?\s+(-->|---)")
+_MAX_LINE = 500
+_INLINE_LABEL = re.compile(r"\s+--\s+([^\s>-][^>\n]{0,200}?)\s+(-->|---)")
 
 
 class _Unsupported(Exception):
@@ -66,6 +67,8 @@ def _parse(source: str) -> tuple[dict[str, str], list[str], list[tuple[str, str]
     order: list[str] = []
     edges: list[tuple[str, str]] = []
     for raw in lines[1:]:
+        if len(raw) > _MAX_LINE:
+            raise _Unsupported  # bounded input: never parse pathological lines
         if not raw or raw.startswith("%%"):
             continue
         if re.match(r"(classDef|class|style|linkStyle)\b", raw):
@@ -73,7 +76,7 @@ def _parse(source: str) -> tuple[dict[str, str], list[str], list[tuple[str, str]
         if re.match(r"(subgraph|end|direction)\b", raw):
             raise _Unsupported
         # Labelled arrows, `A -- label --> B`: keep the arrow, drop the label.
-        raw = _INLINE_LABEL.sub(lambda m: " " + m.group(1), raw)
+        raw = _INLINE_LABEL.sub(lambda m: " " + m.group(2), raw)
         parts = _ARROW.split(raw)
         if len(parts) == 1:
             _node(raw, labels, order)  # a standalone node declaration
