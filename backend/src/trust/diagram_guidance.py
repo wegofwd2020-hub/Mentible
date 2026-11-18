@@ -25,10 +25,11 @@ DIAGRAM_GUIDANCE = (
     "  C -- Yes --> B\n"
     "  C -- No --> D[End of section]\n"
     "```\n"
-    "CENTRAL ENTITY WITH PARALLEL FACETS (one hub and its partners, e.g. a deity invoked "
-    "alongside a central god): use a native mermaid `mindmap` — `root((Centre))` on its own "
-    "line, then each partner indented beneath it on its own line — NOT a flowchart with arrows "
-    "into a hub (that renders as a top-down chain, not a centre with spokes).\n"
+    "CENTRAL IDEA WITH PARALLEL PARTS (one hub and its partners, a deity invoked alongside a "
+    "central god, a set of layers or components that make up one system, a topic and its "
+    "branches): use a native mermaid `mindmap` — `root((Centre))` on its own line, then each "
+    "part indented beneath it on its own line. Do NOT draw a list of layers or parts as a "
+    "flowchart with arrows between them unless they happen in a fixed order.\n"
     'NEVER write "[IMAGE: ...]" or a camera emoji as a placeholder — produce an actual '
     "```mermaid/```svg diagram, or write text only."
 )
