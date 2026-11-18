@@ -56,6 +56,8 @@ Vivliostyle + Chrome (`compiler/src/pdfRender.ts`).
 |---|---|
 | Each chapter starts on a new page (`break-before: page`) | clean chapter starts |
 | Empty blocks inside chapters are hidden | no blank pages at chapter ends |
+| Figures keep with the next block (`break-after: avoid`) | a figure's trailing source tag (e.g. `[S1]`) never sits alone on a page |
+| Contents list line spacing 0.25em (was 0.35em) | keeps the contents on one page when it fits |
 | A chapter's final horizontal rule is hidden | no stray rule at a page bottom |
 | `p:has(> strong:only-child)` keeps with next (`break-after: avoid`) | bold labels (e.g. "Anuvāka 4") never stranded at a page bottom |
 

@@ -24,6 +24,7 @@ describe("PDF format lock", () => {
   it("keeps the chapter page break and diagram no-split rules", () => {
     expect(html).toMatch(/\.chapter, \.quizzes, \.answers \{ break-before: page; \}/);
     expect(html).toMatch(/\.diagram \{[^}]*break-inside: avoid;/);
+    expect(html).toMatch(/\.diagram \{[^}]*break-after: avoid;/);
   });
 
   it("hides empty blocks and a chapter's final rule (#621)", () => {
