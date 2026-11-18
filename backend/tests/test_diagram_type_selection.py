@@ -16,7 +16,15 @@ def test_type_selection_rules_present_for_every_register():
         text = _diagram_guidelines(register)
         assert "Do NOT default to a flowchart" in text, register
         assert "mindmap" in text and "quadrant diagram" in text, register
-        assert "CONCEPTS LINKED BY RELATIONSHIPS" in text, register
+        assert "MUST be a native Mermaid `mindmap`" in text, register
+        assert "STEP 3" in text and "STEP 2" in text, register
+        assert "three or more spokes" in text, register
+
+
+def test_layered_structure_is_steered_to_mindmap():
+    text = _diagram_guidelines("balanced")
+    assert "a layered architecture is a mindmap" in text
+    assert "root((Five-Layer Framework))" in text
 
 
 def test_type_selection_reaches_the_lesson_prompt():

@@ -197,17 +197,45 @@ Diagrams — TECHNICAL direction (reference / engineer audience):
 # Shared type-selection rules, applied to every register. The model otherwise
 # defaults to `flowchart` for everything; this makes the choice explicit.
 _DIAGRAM_TYPE_SELECTION = """\
-Choose each diagram's TYPE from its content. Do NOT default to a flowchart:
-- ORDERED STEPS, a pipeline, or a decision with branches -> `flowchart`.
-- ONE CENTRAL IDEA WITH PARALLEL FACETS (a hub and its partners, a topic and
-  its branches, items grouped under headings, a parent with children) ->
-  native Mermaid `mindmap` with `root((Centre))` and indented branches.
-- CONCEPTS LINKED BY RELATIONSHIPS WITH NO ORDER (A relates to B, B informs C)
+Choose each diagram's TYPE from its content. Do NOT default to a flowchart.
+
+STEP 1 — ask: does the content have a fixed ORDER (steps happen one after
+another, data flows through stages, a decision branches)?
+  - YES -> `flowchart`.
+  - NO -> it is NOT a flowchart. Go to step 2.
+
+STEP 2 — ask: is there ONE central idea, layer, topic or entity with several
+parts, facets, layers or components that hang off it, or a parent with
+children? (A list of layers, a stack of components, a hub with partners, a
+topic with branches, items grouped under headings — all of these.)
+  - YES -> MUST be a native Mermaid `mindmap`, with `root((Centre))` and the
+    parts as indented branches. Do not draw these with arrows between boxes.
+    Example — a layered architecture is a mindmap, not a flowchart:
+    ```mermaid
+    mindmap
+      root((Five-Layer Framework))
+        Data Foundation
+          Ingestion and chunking
+          Governance
+        LLM Platform
+          Model selection
+          Serving
+        Operations and Integration
+        Interface and Consumption
+        System-Wide Guardrails
+    ```
+  - NO -> continue to step 3.
+  STEP 3 — ask: are these concepts linked to each other by named relationships
+  (A informs B, B constrains C) with no order and no single centre?
   -> `flowchart` whose edges are labelled, e.g. `A -- informs --> B`, with no
   sequence implied; group related concepts in `subgraph`s.
-- TWO AXES COMPARING ITEMS -> a quadrant diagram, where the register allows it.
-- INTERACTIONS OVER TIME -> `sequenceDiagram`. LIFECYCLES -> `stateDiagram-v2`.
-- A plain list of facts with no structure -> no diagram; use prose or a table."""
+  Otherwise: TWO AXES COMPARING ITEMS -> a quadrant diagram, where the register
+  allows it. INTERACTIONS OVER TIME -> `sequenceDiagram`. LIFECYCLES ->
+  `stateDiagram-v2`. A plain list of facts -> no diagram; use prose or a table.
+
+Never draw a hub with three or more spokes as a flowchart with arrows out of it.
+A layered or stacked structure is never a flowchart unless its layers happen in
+a fixed order."""
 
 
 def _diagram_guidelines(diagram_register: str) -> str:
