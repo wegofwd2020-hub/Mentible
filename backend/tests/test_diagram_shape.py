@@ -4,7 +4,12 @@ ordered, merged, decision or unparseable diagrams are left unchanged.
 
 from __future__ import annotations
 
-from backend.src.generate.diagram_shape import mindmap_for, rewrite_markdown, shape_lesson
+from backend.src.generate.diagram_shape import (
+    mindmap_for,
+    rewrite_markdown,
+    shape_lesson,
+    shape_topic_draft,
+)
 from backend.src.generate.lesson_schema import LessonOutput
 
 HUB = """flowchart TD
@@ -133,3 +138,30 @@ def test_shape_lesson_unchanged_returns_same_object():
     lesson, count = shape_lesson(original)
     assert count == 0
     assert lesson is original
+
+
+def test_shape_topic_draft_converts_body_key():
+    from backend.src.trust.generate_topic import _TopicDraft
+
+    draft = _TopicDraft.model_validate(
+        {
+            "sections": [
+                {"heading": "H", "body": f"Text.\n\n```mermaid\n{HUB}```", "sources": ["S1"]}
+            ]
+        }
+    )
+    shaped, count = shape_topic_draft(draft)
+    assert count == 1
+    assert "mindmap" in shaped.sections[0].body
+    assert shaped.sections[0].sources == ["S1"]
+
+
+def test_shape_topic_draft_unchanged_returns_same_object():
+    from backend.src.trust.generate_topic import _TopicDraft
+
+    draft = _TopicDraft.model_validate(
+        {"sections": [{"heading": "H", "body": f"```mermaid\n{CHAIN}```", "sources": []}]}
+    )
+    shaped, count = shape_topic_draft(draft)
+    assert count == 0
+    assert shaped is draft

@@ -17,6 +17,7 @@ from wegofwd_llm.registry import build_provider
 
 from backend.src.core.log_redaction import get_logger
 from backend.src.generate.anthropic_caller import parse_json_response
+from backend.src.generate.diagram_shape import shape_topic_draft
 
 from .generate import cap_max_tokens
 from .topic_prompt import build_topic_prompt
@@ -70,7 +71,13 @@ def generate_topic_draft(
 
     def _validate(text: str) -> _TopicDraft:
         try:
-            return _coerce_topic_draft(parse_json_response(text))
+            draft = _coerce_topic_draft(parse_json_response(text))
+            # Tree-shaped / merged flowcharts become native mindmaps (see
+            # generate/diagram_shape.py). Runs inside validation, so the stored draft is the shaped one.
+            draft, shaped = shape_topic_draft(draft)
+            if shaped:
+                log.info("diagram_shape_converted", count=shaped)
+            return draft
         except Exception as exc:
             # Diagnostics only: the failure KIND and pydantic field locations, never
             # the model text or the source content (ADR-001 / privacy).

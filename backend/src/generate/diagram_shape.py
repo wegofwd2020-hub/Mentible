@@ -166,19 +166,29 @@ def rewrite_markdown(markdown: str) -> tuple[str, int]:
     return _FENCE.sub(replace, markdown), count
 
 
+def _shape_model(model: Any, body_key: str) -> tuple[Any, int]:
+    """Rewrite convertible mermaid fences in each section's `body_key` text."""
+    data = model.model_dump()
+    total = 0
+    for section in data.get("sections", []):
+        body = section.get(body_key)
+        if isinstance(body, str) and "```mermaid" in body:
+            section[body_key], changed = rewrite_markdown(body)
+            total += changed
+    if total == 0:
+        return model, 0
+    return type(model).model_validate(data), total
+
+
 def shape_lesson(lesson: Any) -> tuple[Any, int]:
-    """Rewrite tree-shaped flowcharts in a validated lesson's sections.
+    """Rewrite convertible flowcharts in a lesson's `body_markdown` sections.
 
     Returns (lesson, count). The lesson is re-validated only when something changed,
     so an unchanged lesson is returned as the same object.
     """
-    data = lesson.model_dump()
-    total = 0
-    for section in data.get("sections", []):
-        body = section.get("body_markdown")
-        if isinstance(body, str) and "```mermaid" in body:
-            section["body_markdown"], changed = rewrite_markdown(body)
-            total += changed
-    if total == 0:
-        return lesson, 0
-    return type(lesson).model_validate(data), total
+    return _shape_model(lesson, "body_markdown")
+
+
+def shape_topic_draft(draft: Any) -> tuple[Any, int]:
+    """Same as shape_lesson, for trust topic drafts (sections use `body`)."""
+    return _shape_model(draft, "body")
