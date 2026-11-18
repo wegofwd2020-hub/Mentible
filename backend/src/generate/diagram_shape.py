@@ -22,6 +22,7 @@ _ARROW = re.compile(r"\s*(?:-\.->|-->|==>|---)\s*(?:\|[^|]*\|\s*)?")
 _SHAPE = re.compile(r"\[\"(.*)\"\]|\[(.*)\]|\(\((.*)\)\)|\((.*)\)")
 _ID = re.compile(r"[A-Za-z_][\w-]*")
 _CLASS_SUFFIX = re.compile(r":::[\w-]+\s*$")
+_INLINE_LABEL = re.compile(r"\s+--\s+[^>]+?\s+(-->|---)")
 
 
 class _Unsupported(Exception):
@@ -71,6 +72,8 @@ def _parse(source: str) -> tuple[dict[str, str], list[str], list[tuple[str, str]
             continue  # styling only; no effect on structure
         if re.match(r"(subgraph|end|direction)\b", raw):
             raise _Unsupported
+        # Labelled arrows, `A -- label --> B`: keep the arrow, drop the label.
+        raw = _INLINE_LABEL.sub(lambda m: " " + m.group(1), raw)
         parts = _ARROW.split(raw)
         if len(parts) == 1:
             _node(raw, labels, order)  # a standalone node declaration
