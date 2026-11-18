@@ -70,12 +70,22 @@ def test_chain_is_an_ordered_process_and_is_kept():
     assert mindmap_for(CHAIN) is None
 
 
-def test_merge_is_kept():
-    assert mindmap_for(MERGE) is None
+def test_merge_is_resolved_to_a_tree():
+    out = mindmap_for(MERGE)
+    assert out is not None
+    assert out.splitlines()[1] == "  root((Raw))"
+    assert "RAG" in out and "LLM" in out
 
 
 def test_decision_diamond_is_kept():
     assert mindmap_for(DECISION) is None
+
+
+def test_inline_edge_label_is_kept():
+    assert (
+        mindmap_for("flowchart TD\n  A -- inline label --> B\n  A --> C\n  A --> D\n  A --> E\n")
+        is None
+    )
 
 
 def test_subgraph_is_kept():
