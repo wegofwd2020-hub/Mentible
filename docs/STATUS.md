@@ -212,8 +212,12 @@ The arc: **accounts → go-live → trust → hosted web app + deploy pipeline.*
   over stdin/stdout (key-free, never logs the book).
 
 ### Mobile — React Native + Expo (Books-only)
-- Nav: **Library · Studio · Settings · Help · About** (custom `TopNavBar`; `books`
-  tab relabelled **Studio**, route unchanged).
+- Nav: **Home · Library · Projects · Reviews · Settings · Help · About** (custom
+  `TopNavBar`; `Projects`/`Reviews` omitted in the demo build). Defined in
+  `mobile/src/components/navItems.ts` (`NAV_ORDER`).
+- **Hidden from nav, routes still registered:** Shelves, **Studio** (`books` route,
+  labelled "Studio") and Publish (`posts`). Reached only by direct link. Library's
+  "Start Creating" button is the primary create entry → Projects (ADR-037).
 - Authoring flow: paste TOC → `POST /structure` → editable **topic-tree editor** →
   **generate-all** (per-topic progress) → in-app **reader** (KaTeX/Mermaid).
 - **Per-provider BYOK** keystore + **provider picker** with capability tiers
