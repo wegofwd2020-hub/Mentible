@@ -11,8 +11,8 @@
 # Safe by default. Without --deploy it only reports the live state.
 set -euo pipefail
 
-COMMIT="ecb7534559f522d0cef7280cb689865b03fe26c2"
-EXPECTED_SHA="8b6d46f270904e63ec19c09110de6ba92ce6f9e0fd69077ce9e5ac744dbf9556"
+COMMIT="0725d682a672a1b54d1210bb859b5461ea763f71"
+EXPECTED_SHA="834c2342d23289ef18e2988825e4d239077a0aee509b2267910465a4ac3e40e3"
 REPO="wegofwd2020-hub/Mentible"
 ARCHIVE_URL="https://codeload.github.com/$REPO/tar.gz/$COMMIT"
 REFRESH_URL="https://raw.githubusercontent.com/$REPO/$COMMIT/scripts/deploy/backend-refresh.sh"
