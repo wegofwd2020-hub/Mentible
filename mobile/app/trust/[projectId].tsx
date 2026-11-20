@@ -2,6 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { EngineBadge } from "@/components/EngineBadge";
+import { LimitBanner } from "@/components/LimitBanner";
 import { PageContainer } from "@/components/PageContainer";
 import { PhaseTabBar } from "@/components/PhaseTabBar";
 import { PhaseNav } from "@/components/PhaseNav";
@@ -2307,6 +2308,7 @@ function TrustProjectDetailInner() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <PageContainer>
+        <LimitBanner />
         {/* Header row: Home link + the always-on engine/token chip. This screen is a
             pushed route OUTSIDE the tab chrome, so the nav's chip isn't here — but this
             is exactly where the user generates, so surface it inline. */}

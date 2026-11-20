@@ -89,6 +89,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-diagram-flowchart", title: "Flowchart diagrams", topicId: "diagram-flowchart" },
       { id: "leaf-diagram-mindmap", title: "Mind-map diagrams", topicId: "diagram-mindmap" },
       { id: "leaf-instrument-diagrams", title: "Labelled instrument diagrams", topicId: "instrument-diagrams" },
+      { id: "leaf-plan-limits", title: "Your plan & limits", topicId: "plan-limits" },
       { id: "leaf-formats", title: "Formats & books", topicId: "formats" },
     ],
   },

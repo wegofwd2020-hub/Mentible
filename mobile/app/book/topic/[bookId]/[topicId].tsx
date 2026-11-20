@@ -11,6 +11,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { hasRenderableLesson, loadBook, saveBook, setTopicContent } from "@/storage/bookStore";
 import { loadApiKey } from "@/secure/keyStore";
 import { TopicRenderer } from "@/components/LessonRenderer";
+import { LimitBanner } from "@/components/LimitBanner";
 import { TrustBadge } from "@/components/TrustBadge";
 import { trustManifestFromTopic } from "@/lib/topicTrust";
 import { isUnitStale } from "@/lib/staleness";
@@ -216,6 +217,8 @@ export default function BookTopicScreen() {
           </Pressable>
         )}
       </View>
+
+      <LimitBanner />
 
       {panelOpen && !regenerating && (
         <View style={styles.panel}>

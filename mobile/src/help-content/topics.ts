@@ -421,6 +421,35 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "plan-limits",
+    title: "Your plan & limits",
+    featureKey: "plan-limits",
+    keywords: ["plan", "limit", "limits", "free", "pro", "quota", "cap", "generations", "projects", "storage", "token", "allowance", "upgrade", "reached"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Your plan name is shown under the usage meter at the top of the app, for example Free, Pro or a managed plan's name. When you reach a limit, a banner on the generate and regenerate screens says which limit it is and what to do.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Generations", def: "How many lessons you can generate in a rolling 30-day window on the Free plan." },
+          { term: "Projects", def: "How many projects you can own on the Free plan." },
+          { term: "Storage", def: "How much uploaded audio the Free plan keeps." },
+          { term: "Token allowance", def: "The managed plan's spending limit for this period. Your own API key in Settings still works after it's used up." },
+        ],
+      },
+      {
+        kind: "steps",
+        steps: [
+          "If the banner says a Free limit is reached, wait for the window to roll over, delete something, or upgrade to Pro.",
+          "To upgrade, tap Upgrade to Pro in the banner, or open the paywall from Settings.",
+          "If your token allowance is used up, add your own API key in Settings to keep generating, or wait for the allowance to renew.",
+        ],
+      },
+    ],
+  },
+  {
     id: "share-a-draft",
     title: "Share a draft for feedback",
     featureKey: "sharing",

@@ -126,16 +126,31 @@ async def get_plan_status(
         conn, idp_sub=principal.sub, email=principal.email
     )
     ps = await quota.plan_status(conn, account_id=account.id)
+    # Name the plan the user is on: a managed plan's display name when they hold an
+    # entitlement, else Pro or Free. Shown under the usage meter in the app chrome.
+    ent = await entitlement_repo.get_entitlement(conn, account_id=account.id)
+    managed_plan = plans.get_plan(ent.plan_id) if ent is not None else None
+    if managed_plan is not None:
+        plan_name = managed_plan.display
+    else:
+        plan_name = "Pro" if ps.is_pro else "Free"
     return PlanStatusView(
         is_pro=ps.is_pro,
+        plan_name=plan_name,
         caps={
             "max_projects": ps.max_projects,
             "max_generations": ps.max_generations,
             "gen_window_days": ps.gen_window_days,
+            "max_storage_bytes": ps.max_storage_bytes,
         },
-        usage={"projects": ps.projects, "generations": ps.generations},
+        usage={
+            "projects": ps.projects,
+            "generations": ps.generations,
+            "storage_bytes": ps.storage_bytes,
+        },
         at_project_cap=ps.at_project_cap,
         at_generation_cap=ps.at_generation_cap,
+        at_storage_cap=ps.at_storage_cap,
         features=list(ps.features),
     )
 

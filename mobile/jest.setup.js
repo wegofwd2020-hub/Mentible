@@ -53,3 +53,11 @@ jest.mock("react-native-aes-gcm-crypto", () => ({
   __esModule: true,
   default: { encryptFile: jest.fn(), decryptFile: jest.fn() },
 }));
+
+// LimitBanner reads the signed-in plan through useAuth(), which needs an
+// AuthProvider. Screen tests render without one, so stub the banner to null
+// (it renders nothing when no limit is reached anyway). Its limit rules are
+// covered directly in __tests__/billing/limits.test.ts.
+jest.mock("@/components/LimitBanner", () => ({
+  LimitBanner: () => null,
+}));

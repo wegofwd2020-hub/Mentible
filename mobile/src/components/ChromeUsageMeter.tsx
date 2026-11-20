@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { UsageMeterPill } from "@/components/UsageMeterPill";
 import { providerInfo } from "@/constants/providers";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
+import { planLabel } from "@/billing/limits";
 import { useManagedStatus } from "@/hooks/useManagedStatus";
 import { useBillingPlan } from "@/hooks/useBillingPlan";
 import { loadDefaultParams } from "@/storage/settingsStore";
@@ -74,42 +75,62 @@ export function ChromeUsageMeter({
   useFocusEffect(reload);
 
   const managed = status?.entitlement != null;
+  // "Free", "Pro" or the managed plan's name, shown under the usage meter.
+  const name = planLabel(plan);
 
   return (
     <Pressable
       onPress={() => router.push("/usage")}
       accessibilityRole="button"
       accessibilityLabel={`Engine ${engine || "unknown"} — open usage`}
-      style={[styles.row, style]}
+      style={[styles.column, style]}
     >
-      <View style={styles.enginePill}>
-        <Text style={styles.engineText} numberOfLines={1}>
-          ⚙ {engine || "…"}
-        </Text>
+      <View style={styles.row}>
+        <View style={styles.enginePill}>
+          <Text style={styles.engineText} numberOfLines={1}>
+            ⚙ {engine || "…"}
+          </Text>
+        </View>
+        {plan && !plan.is_pro ? (
+          <Text
+            style={[styles.tokens, plan.at_generation_cap && styles.capReached]}
+            accessibilityLabel={`${plan.usage.generations} of ${plan.caps.max_generations} free generations used in the last ${plan.caps.gen_window_days} days`}
+          >
+            {plan.usage.generations}/{plan.caps.max_generations} free
+          </Text>
+        ) : null}
+        {managed && status ? (
+          <UsageMeterPill status={status} />
+        ) : (
+          <Text style={styles.tokens}>{formatTokens(deviceTokens)} tok</Text>
+        )}
       </View>
-      {plan && !plan.is_pro ? (
-        <Text
-          style={[styles.tokens, plan.at_generation_cap && styles.capReached]}
-          accessibilityLabel={`${plan.usage.generations} of ${plan.caps.max_generations} free generations used in the last ${plan.caps.gen_window_days} days`}
-        >
-          {plan.usage.generations}/{plan.caps.max_generations} free
+      {name ? (
+        <Text style={styles.planName} accessibilityLabel={`Plan: ${name}`}>
+          {name}
         </Text>
       ) : null}
-      {managed && status ? (
-        <UsageMeterPill status={status} />
-      ) : (
-        <Text style={styles.tokens}>{formatTokens(deviceTokens)} tok</Text>
-      )}
     </Pressable>
   );
 }
 
 const makeStyles = (c: Palette) => ({
+  column: {
+    flexDirection: "column" as const,
+    alignItems: "flex-end" as const,
+    flexShrink: 1,
+  },
   row: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: spacing.xs,
     flexShrink: 1,
+  },
+  planName: {
+    color: c.textMuted,
+    fontSize: typography.sizeXs,
+    fontWeight: "600" as const,
+    marginTop: 1,
   },
   enginePill: {
     backgroundColor: c.surface,
