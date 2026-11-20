@@ -339,6 +339,88 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "diagram-flowchart",
+    title: "Flowchart diagrams",
+    featureKey: "diagram-flowchart",
+    keywords: ["flowchart", "flow chart", "diagram", "process", "steps", "decision", "pipeline", "mermaid", "arrow"],
+    blocks: [
+      {
+        kind: "text",
+        text: "A flowchart shows things that happen in a fixed order: steps, a decision that branches, or data moving through stages. Mentible uses a flowchart only when the order matters. If the content is one idea with parts around it, you get a mind map instead.",
+      },
+      {
+        kind: "defs",
+        defs: [
+          { term: "Concept", def: "A core idea or the subject itself." },
+          { term: "Process", def: "A step, stage or action." },
+          { term: "Decision (diamond)", def: "A question with branches, such as yes or no." },
+          { term: "Success", def: "A good outcome or a finished state." },
+          { term: "Warning", def: "A risk, pitfall or failure path." },
+        ],
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Read the flowchart from the top (TD) or the left (LR). Follow the arrows in order.",
+          "At a decision, follow the arrow labelled for the branch you're in, such as yes or no.",
+          "To change a flowchart, open the topic and tap Edit diagram, then edit the Mermaid text. Tap Preview before you save.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Good to know: flowcharts are kept small, around 4 to 9 boxes, so they stay readable on a phone. Colours come from the labels above, so you don't set them yourself.",
+      },
+    ],
+  },
+  {
+    id: "diagram-mindmap",
+    title: "Mind-map diagrams",
+    featureKey: "diagram-mindmap",
+    keywords: ["mind map", "mindmap", "diagram", "branches", "central idea", "layers", "hub", "tree", "outline"],
+    blocks: [
+      {
+        kind: "text",
+        text: "A mind map shows one central idea with its parts branching off it. Use it for a topic and its facets, a layered architecture, or a hub with several partners. It doesn't show order, so if the content has steps, you get a flowchart instead.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Find the centre (the big idea) in the centre circle.",
+          "Read each branch outward. Nested lines are the details under a branch.",
+          "To change it, open the topic, tap Edit diagram, and edit the indented Mermaid text. The mind map's root line is the centre. Tap Preview before you save.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Good to know: the mind-map text is indentation-based. Keep each branch on its own line and indent the details under their parent. A line with the wrong indent moves to a different branch.",
+      },
+    ],
+  },
+  {
+    id: "instrument-diagrams",
+    title: "Labelled instrument diagrams",
+    featureKey: "instrument-diagrams",
+    keywords: ["keyboard", "piano", "keys", "music", "instrument", "guitar", "fretboard", "chord", "svg", "diagram", "label", "hand position"],
+    blocks: [
+      {
+        kind: "text",
+        text: "In music lessons, Mentible can draw an instrument with each key or control labelled, such as a keyboard showing the note names on the keys. The drawing is made by the AI, so the key count and label positions may be a little off. Check it against your instrument before you rely on it.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open the lesson and find the instrument diagram, which appears where the lesson names the keys or controls.",
+          "Compare the labels with your instrument, and check the key count and the position of each label.",
+          "If it's wrong or missing, regenerate the topic. Each regeneration makes a new drawing.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "Good to know: this appears for topics with music words in the name, such as Music, Piano, Keyboard, Chord, Rhythm, Melody, Guitar and Octave. Note names and rhythm values are shown in tables. A computer-keyboard topic may also get a keyboard drawing.",
+      },
+    ],
+  },
+  {
     id: "share-a-draft",
     title: "Share a draft for feedback",
     featureKey: "sharing",
