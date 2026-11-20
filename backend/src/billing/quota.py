@@ -41,10 +41,13 @@ class PlanStatus:
     max_projects: int
     max_generations: int
     gen_window_days: int
+    max_storage_bytes: int
     projects: int
     generations: int
+    storage_bytes: int
     at_project_cap: bool
     at_generation_cap: bool
+    at_storage_cap: bool
     features: tuple[str, ...]
 
 
@@ -99,23 +102,37 @@ async def charge_generation(
         )
 
 
+async def storage_used(conn: asyncpg.Connection, account_id: UUID) -> int:
+    """Bytes of uploaded audio the account currently stores (the Free storage cap's usage)."""
+    return await conn.fetchval(
+        "SELECT COALESCE(SUM(i.byte_size), 0) FROM project_input i "
+        "JOIN project p ON p.id = i.project_id "
+        "WHERE p.owner_account_id = $1 AND i.kind = 'upload'",
+        account_id,
+    )
+
+
 async def plan_status(conn: asyncpg.Connection, *, account_id: UUID) -> PlanStatus:
     """The account's Free/Pro status: caps, current usage, and whether it's at
-    either cap. Pro accounts are never at a cap regardless of usage."""
+    any cap. Pro accounts are never at a cap regardless of usage."""
     pro = await is_pro(conn, account_id=account_id)
     since = datetime.now(UTC) - timedelta(days=settings.free_gen_window_days)
     projects = await count_projects(conn, account_id)
     generations = await count_generations(conn, account_id, since)
+    storage = await storage_used(conn, account_id)
     feats = await account_features(conn, account_id=account_id)
     return PlanStatus(
         is_pro=pro,
         max_projects=settings.free_max_projects,
         max_generations=settings.free_max_generations,
         gen_window_days=settings.free_gen_window_days,
+        max_storage_bytes=settings.free_max_upload_bytes,
         projects=projects,
         generations=generations,
+        storage_bytes=storage,
         at_project_cap=(not pro) and projects >= settings.free_max_projects,
         at_generation_cap=(not pro) and generations >= settings.free_max_generations,
+        at_storage_cap=(not pro) and storage >= settings.free_max_upload_bytes,
         features=tuple(sorted(feats)),
     )
 
@@ -131,12 +148,7 @@ async def check_upload_storage(
     by one file; accepted for a guard this coarse."""
     if await is_pro(conn, account_id=account_id):
         return
-    used = await conn.fetchval(
-        "SELECT COALESCE(SUM(i.byte_size), 0) FROM project_input i "
-        "JOIN project p ON p.id = i.project_id "
-        "WHERE p.owner_account_id = $1 AND i.kind = 'upload'",
-        account_id,
-    )
+    used = await storage_used(conn, account_id)
     if used + incoming > settings.free_max_upload_bytes:
         mb = settings.free_max_upload_bytes // (1024 * 1024)
         raise pro_required(

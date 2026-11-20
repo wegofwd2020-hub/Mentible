@@ -11,6 +11,7 @@ import { generatedTopicIds, loadBook, saveBook, setTopicContent } from "@/storag
 import { loadApiKey } from "@/secure/keyStore";
 import { useGenerateAll, type TopicProgress } from "@/hooks/useGenerateAll";
 import { GenerationParamsEditor } from "@/components/GenerationParamsEditor";
+import { LimitBanner } from "@/components/LimitBanner";
 import { HelpButton } from "@/help";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MAX_WIDE_WIDTH } from "@/constants/layout";
@@ -190,6 +191,7 @@ function GenerateAllScreenInner() {
       >
         {/* Controls — left sidebar on desktop, top block on mobile */}
         <View style={[styles.col, isDesktop && styles.colLeft]}>
+          <LimitBanner />
           <Text style={styles.bookTitle}>{book.title}</Text>
           <Text style={styles.summary}>
             {total} topic{total === 1 ? "" : "s"} · {doneCount} generated

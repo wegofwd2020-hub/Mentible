@@ -51,11 +51,15 @@ export interface PlanCaps {
   max_projects: number;
   max_generations: number;
   gen_window_days: number;
+  // Free stored-audio cap in bytes (absent on an older backend).
+  max_storage_bytes?: number;
 }
 
 export interface PlanUsage {
   projects: number;
   generations: number;
+  // Bytes of uploaded audio stored (absent on an older backend).
+  storage_bytes?: number;
 }
 
 // Free/Pro plan status (T1). Backs the client-side export Pro-wall (T3) — UX
@@ -63,10 +67,14 @@ export interface PlanUsage {
 // Free user hits it).
 export interface PlanStatus {
   is_pro: boolean;
+  // What the user sees under the usage meter: "Free", "Pro" or a managed plan's
+  // display name. Optional for back-compat with an older backend.
+  plan_name?: string;
   caps: PlanCaps;
   usage: PlanUsage;
   at_project_cap: boolean;
   at_generation_cap: boolean;
+  at_storage_cap?: boolean;
   // Per-format export entitlements, e.g. ["export_docx", "export_epub",
   // "export_pdf"] for Pro, [] for Free. Backs the client-side per-format
   // download wall (T5) — UX only, the server is the real gate (402).

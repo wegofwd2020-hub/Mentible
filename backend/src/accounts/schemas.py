@@ -219,6 +219,7 @@ class PlanCapsView(BaseModel):
     max_projects: int
     max_generations: int
     gen_window_days: int
+    max_storage_bytes: int = 0
 
 
 class PlanUsageView(BaseModel):
@@ -226,19 +227,23 @@ class PlanUsageView(BaseModel):
 
     projects: int
     generations: int
+    storage_bytes: int = 0
 
 
 class PlanStatusView(BaseModel):
     """GET /api/v1/billing/plan-status — Free/Pro status for gating UI (T1
     foundation). `is_pro` is provider-agnostic (`access.is_pro`): an active
     entitlement for any provider, or the staff allowlist. `at_*_cap` is always
-    False for a Pro account."""
+    False for a Pro account. `plan_name` is what the user sees in the app chrome:
+    the managed plan's display name when they hold one, else "Pro" or "Free"."""
 
     is_pro: bool
+    plan_name: str = "Free"
     caps: PlanCapsView
     usage: PlanUsageView
     at_project_cap: bool
     at_generation_cap: bool
+    at_storage_cap: bool = False
     features: list[str] = []
 
 

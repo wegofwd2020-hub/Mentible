@@ -289,11 +289,17 @@ def _patch_account(monkeypatch):
     monkeypatch.setattr(accounts_repo, "get_or_create_account", _get_or_create)
 
 
-def _patch_plan_status(monkeypatch, ps: quota.PlanStatus):
+def _patch_plan_status(monkeypatch, ps: quota.PlanStatus, entitlement=None):
+    from backend.src.billing import entitlement_repo
+
     async def _plan_status(conn, **kw):
         return ps
 
+    async def _get_entitlement(conn, **kw):
+        return entitlement
+
     monkeypatch.setattr(quota, "plan_status", _plan_status)
+    monkeypatch.setattr(entitlement_repo, "get_entitlement", _get_entitlement)
 
 
 @pytest.mark.asyncio
@@ -308,10 +314,13 @@ async def test_plan_status_endpoint_shape_free(client, as_user, monkeypatch):
             max_projects=2,
             max_generations=20,
             gen_window_days=30,
+            max_storage_bytes=500,
             projects=2,
             generations=5,
+            storage_bytes=120,
             at_project_cap=True,
             at_generation_cap=False,
+            at_storage_cap=False,
             features=(),
         ),
     )
@@ -321,10 +330,17 @@ async def test_plan_status_endpoint_shape_free(client, as_user, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["is_pro"] is False
-    assert body["caps"] == {"max_projects": 2, "max_generations": 20, "gen_window_days": 30}
-    assert body["usage"] == {"projects": 2, "generations": 5}
+    assert body["plan_name"] == "Free"
+    assert body["caps"] == {
+        "max_projects": 2,
+        "max_generations": 20,
+        "gen_window_days": 30,
+        "max_storage_bytes": 500,
+    }
+    assert body["usage"] == {"projects": 2, "generations": 5, "storage_bytes": 120}
     assert body["at_project_cap"] is True
     assert body["at_generation_cap"] is False
+    assert body["at_storage_cap"] is False
     assert body["features"] == []
 
 
@@ -340,10 +356,13 @@ async def test_plan_status_endpoint_shape_pro(client, as_user, monkeypatch):
             max_projects=2,
             max_generations=20,
             gen_window_days=30,
+            max_storage_bytes=500,
             projects=50,
             generations=500,
+            storage_bytes=900,
             at_project_cap=False,
             at_generation_cap=False,
+            at_storage_cap=False,
             features=("export_docx", "export_epub"),
         ),
     )
@@ -353,10 +372,68 @@ async def test_plan_status_endpoint_shape_pro(client, as_user, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["is_pro"] is True
-    assert body["usage"] == {"projects": 50, "generations": 500}
+    assert body["plan_name"] == "Pro"
+    assert body["usage"] == {"projects": 50, "generations": 500, "storage_bytes": 900}
     assert body["at_project_cap"] is False
     assert body["at_generation_cap"] is False
+    assert body["at_storage_cap"] is False
     assert body["features"] == ["export_docx", "export_epub"]
+
+
+@pytest.mark.asyncio
+async def test_plan_status_names_managed_plan_and_flags_storage_cap(client, as_user, monkeypatch):
+    from types import SimpleNamespace
+
+    from backend.main import app
+
+    _patch_account(monkeypatch)
+    _patch_plan_status(
+        monkeypatch,
+        quota.PlanStatus(
+            is_pro=True,
+            max_projects=2,
+            max_generations=20,
+            gen_window_days=30,
+            max_storage_bytes=500,
+            projects=1,
+            generations=3,
+            storage_bytes=600,
+            at_project_cap=False,
+            at_generation_cap=False,
+            at_storage_cap=False,
+            features=(),
+        ),
+        entitlement=SimpleNamespace(plan_id="managed_basic"),
+    )
+    app.state.db = _FakePool()
+
+    r = await client.get(PLAN_STATUS)
+    assert r.status_code == 200
+    body = r.json()
+    # A managed entitlement names its plan (display comes from the plan catalogue).
+    assert body["plan_name"] == "Managed Basic"
+
+    # Storage cap flag is passed through unchanged from the quota layer.
+    _patch_plan_status(
+        monkeypatch,
+        quota.PlanStatus(
+            is_pro=False,
+            max_projects=2,
+            max_generations=20,
+            gen_window_days=30,
+            max_storage_bytes=500,
+            projects=1,
+            generations=3,
+            storage_bytes=500,
+            at_project_cap=False,
+            at_generation_cap=False,
+            at_storage_cap=True,
+            features=(),
+        ),
+    )
+    r = await client.get(PLAN_STATUS)
+    assert r.json()["at_storage_cap"] is True
+    assert r.json()["plan_name"] == "Free"
 
 
 @pytest.mark.asyncio

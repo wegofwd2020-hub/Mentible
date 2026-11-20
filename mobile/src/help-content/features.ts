@@ -12,6 +12,7 @@ export const FEATURES = [
   { key: "diagram-flowchart", label: "Flowchart diagrams (steps, decisions, pipelines)" },
   { key: "diagram-mindmap", label: "Mind-map diagrams (a central idea with branches)" },
   { key: "instrument-diagrams", label: "Instrument diagrams (labelled keyboards & fretboards)" },
+  { key: "plan-limits", label: "Your plan name and limits (generations, projects, storage, token allowance)" },
   { key: "export", label: "Export (EPUB3 / PDF)" },
   { key: "sharing", label: "Draft sharing" },
   { key: "accounts", label: "Accounts & sign-in" },
