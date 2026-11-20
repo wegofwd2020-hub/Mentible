@@ -86,6 +86,9 @@ export const HELP_TREE: HelpTreeNode[] = [
     children: [
       { id: "leaf-scoped-generation", title: "How scoping works", topicId: "scoped-generation" },
       { id: "leaf-diagram-types", title: "Diagram types", topicId: "diagram-types" },
+      { id: "leaf-diagram-flowchart", title: "Flowchart diagrams", topicId: "diagram-flowchart" },
+      { id: "leaf-diagram-mindmap", title: "Mind-map diagrams", topicId: "diagram-mindmap" },
+      { id: "leaf-instrument-diagrams", title: "Labelled instrument diagrams", topicId: "instrument-diagrams" },
       { id: "leaf-formats", title: "Formats & books", topicId: "formats" },
     ],
   },
