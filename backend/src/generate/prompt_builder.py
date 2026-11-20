@@ -128,6 +128,50 @@ Diagrams — no raw SVG:
   a ```mermaid block instead. Keep diagrams simple and well-formed.
 """
 
+# Music subject block (Mentible-owned — kept here, not in the vendored
+# pipeline/prompts.py, so the vendoring sync never overwrites it). Matched by
+# keyword in _subject_block(). The SVG rule is an explicit override of the
+# generic "reserve svg for motion" guide above: a labelled static keyboard is
+# the one case where raw SVG is the right tool (Mermaid cannot draw a keyboard).
+_MUSIC_SVG_GUIDELINES = """SUBJECT-SPECIFIC — MUSIC:
+- Instrument layouts (keyboard, fretboard, hand position): when a lesson shows
+  where a key, string or control is, draw ONE self-contained inline SVG in a
+  ```svg block (viewBox, role="img", aria-label). Put a <text> label on every
+  key or control you name. For this subject, a static labelled instrument
+  diagram IS allowed in ```svg even though the guide above prefers Mermaid for
+  static structure.
+- Note names and rhythm values: markdown tables with centred columns.
+"""
+
+_MUSIC_NO_SVG_GUIDELINES = """SUBJECT-SPECIFIC — MUSIC:
+- Note names and rhythm values: markdown tables with centred columns.
+- Describe instrument layouts in words (no SVG is available for this lesson).
+"""
+
+# Matched against the TOPIC: the generate request carries no book subject, so
+# the topic is the only signal. "keyboard" is ambiguous (computer keyboard) —
+# accepted trade-off; a CS keyboard topic gets the music block, which is harmless.
+_MUSIC_KEYWORDS = (
+    "music",
+    "piano",
+    "keyboard",
+    "chord",
+    "rhythm",
+    "melody",
+    "instrument",
+    "guitar",
+    "octave",
+)
+
+
+def _subject_block(topic: str, subject: str, include_svg: bool) -> str:
+    """Per-subject guidance: Mentible's music block, else the vendored blocks."""
+    t = (topic or "").strip().lower()
+    if any(kw in t for kw in _MUSIC_KEYWORDS):
+        return _MUSIC_SVG_GUIDELINES if include_svg else _MUSIC_NO_SVG_GUIDELINES
+    return _subject_guidelines(subject)
+
+
 # Per-register guidance: what kind of diagrams to produce for this publication.
 _DIAGRAM_REGISTERS: dict[str, str] = {
     "conceptual": """\
@@ -415,7 +459,7 @@ You MUST respond with ONLY valid JSON — no markdown fences, no extra text, no 
 
 {_FORMATTING_GUIDELINES}
 {svg_block}
-{_subject_guidelines(subject)}
+{_subject_block(topic, subject, include_svg)}
 {_diagram_guidelines(diagram_register)}
 {_PROSE_QUALITY}
 The JSON must exactly match this schema:
