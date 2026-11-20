@@ -37,3 +37,14 @@ def test_register_specific_guidance_is_kept():
     # guidance (e.g. the conceptual mindmap example) is not lost.
     assert "Core idea" in _diagram_guidelines("conceptual")
     assert "root((Indra))" in _diagram_guidelines("balanced")
+
+
+def test_connectivity_diagrams_of_devices_are_flowcharts_not_mindmaps():
+    # Regression: a computer / MIDI keyboard / audio interface / speakers
+    # diagram was drawn as a mindmap (a hub with spokes). Cable-joined physical
+    # devices must be a labelled-edge flowchart, exempt from the hub rule.
+    for register in _DIAGRAM_REGISTERS:
+        text = _diagram_guidelines(register)
+        assert "CONNECTIVITY diagram" in text, register
+        assert "NOT a mindmap" in text, register
+        assert "EXCEPT a connectivity diagram" in text, register

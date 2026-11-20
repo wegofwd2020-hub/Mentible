@@ -268,6 +268,16 @@ topic with branches, items grouped under headings — all of these.)
         Interface and Consumption
         System-Wide Guardrails
     ```
+  - NO -> continue to step 2b.
+
+  STEP 2b — ask: is this a set of PHYSICAL devices or components joined by
+  cables, ports or wires (what plugs into what, how signal or power flows)?
+  -> A CONNECTIVITY diagram: `flowchart LR` with ONE node per device (name it
+  with its model, e.g. `Computer`, `MIDI keyboard`, `USB audio interface`,
+  `Speakers`) and an edge per cable, labelled with the connection type
+  (e.g. `A -- USB --> B`, `-- MIDI -->`, `-- 1/4 in TRS -->`). Even when one
+  device has several connections, this is NOT a mindmap: the cables are the
+  point. Give the diagram a caption line such as "Component connectivity".
   - NO -> continue to step 3.
   STEP 3 — ask: are these concepts linked to each other by named relationships
   (A informs B, B constrains C) with no order and no single centre?
@@ -277,7 +287,9 @@ topic with branches, items grouped under headings — all of these.)
   allows it. INTERACTIONS OVER TIME -> `sequenceDiagram`. LIFECYCLES ->
   `stateDiagram-v2`. A plain list of facts -> no diagram; use prose or a table.
 
-Never draw a hub with three or more spokes as a flowchart with arrows out of it.
+Never draw a hub with three or more spokes as a flowchart with arrows out of it —
+EXCEPT a connectivity diagram of physical devices (STEP 2b), which is a flowchart
+with labelled cable edges.
 A layered or stacked structure is never a flowchart unless its layers happen in
 a fixed order."""
 
