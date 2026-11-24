@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Fake curl for the reset-script tests. Logs every call's argv (never the
+# token: the token only ever lives in the -K config, which we read and check
+# here), and returns canned HTTP codes/bodies driven by env vars.
+echo "ARGV: $*" >> "$STUB_LOG"
+out=""; wfmt=""; method="GET"; url=""; cfg=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+  case "${args[$i]}" in
+    -o) out="${args[$((i + 1))]}" ;;
+    -w) wfmt="${args[$((i + 1))]}" ;;
+    -X) method="${args[$((i + 1))]}" ;;
+    -K) cfg="${args[$((i + 1))]}" ;;
+    http*) url="${args[$i]}" ;;
+  esac
+done
+if [[ -n "$cfg" ]]; then
+  if [[ "$(cat "$cfg")" == *"Authorization: Bearer $TEST_TOKEN"* ]]; then
+    echo "AUTH: ok" >> "$STUB_LOG"
+  else
+    echo "AUTH: bad" >> "$STUB_LOG"
+  fi
+fi
+code=200; body="{}"
+case "$url" in
+  *"/sync/keyset") code="${STUB_KEYSET:-200}"; body='{"wrapped_lmk":"x"}' ;;
+  *"/sync/books") code="${STUB_BOOKS:-200}"; body='[{"id":"b1"},{"id":"b2"}]' ;;
+  *"/sync/epubs") code="${STUB_EPUBS:-200}"; body='[{"id":"e1"}]' ;;
+  *"/sync/data"*)
+    if [[ "$method" == "DELETE" ]]; then
+      echo "DELETE: $url" >> "$STUB_LOG"
+      code="${STUB_DELETE:-200}"; body="${STUB_DELETE_BODY:-{\"synced_book\":2,\"synced_epub\":1,\"synced_shelves\":0,\"sync_keyset\":1\}}"
+    fi ;;
+esac
+[[ -n "$out" ]] && printf '%s' "$body" > "$out"
+[[ "$wfmt" == *http_code* ]] && printf '%s' "$code"
+exit 0
