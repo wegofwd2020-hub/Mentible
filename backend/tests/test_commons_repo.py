@@ -36,7 +36,7 @@ async def _pub(conn, book_id="b1", owner="owner-1", title="Algebra", fmt="epub",
         account_name="ada",
         description="d",
         language="en",
-        cover_data_uri=None,
+        cover_svg=None,
         fmt=fmt,
         bump_version=bump,
     )
@@ -83,3 +83,21 @@ async def test_list_live_escapes_wildcards(conn):
     assert entries == [] and total == 0
     entries, total = await repo.list_live(conn, query="alg", language="en", limit=20, offset=0)
     assert total == 1
+
+
+async def test_cover_svg_round_trips(conn):
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"/>'
+    await repo.upsert_publish(
+        conn,
+        book_id="b-cover",
+        owner_sub="owner-1",
+        title="Algebra",
+        author_name="Ada",
+        account_name="ada",
+        description="d",
+        language="en",
+        cover_svg=svg,
+        fmt="epub",
+        bump_version=True,
+    )
+    assert (await repo.get_entry(conn, "b-cover")).cover_svg == svg

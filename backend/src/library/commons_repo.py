@@ -17,7 +17,7 @@ class CommonsEntry:
     account_name: str
     version: int
     published_at: datetime
-    cover_data_uri: str | None
+    cover_svg: str | None  # SVG markup of the book's metadata.coverSvg
     description: str | None
     language: str | None
     formats: list[str]
@@ -33,7 +33,7 @@ def _row(r: asyncpg.Record) -> CommonsEntry:
         account_name=r["account_name"],
         version=r["version"],
         published_at=r["published_at"],
-        cover_data_uri=r["cover_svg"],
+        cover_svg=r["cover_svg"],
         description=r["description"],
         language=r["language"],
         formats=list(r["formats"]),
@@ -56,7 +56,7 @@ async def upsert_publish(
     account_name: str,
     description: str | None,
     language: str | None,
-    cover_data_uri: str | None,
+    cover_svg: str | None,
     fmt: str,
     bump_version: bool,
 ) -> CommonsEntry:
@@ -90,7 +90,7 @@ async def upsert_publish(
         title,
         author_name,
         account_name,
-        cover_data_uri,
+        cover_svg,
         description,
         language,
         fmt,
