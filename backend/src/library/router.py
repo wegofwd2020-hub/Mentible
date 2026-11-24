@@ -90,7 +90,8 @@ async def publish_book(
             content={"detail": str(exc)},
         )
 
-    missing = missing_publish_fields(book, _publish_account_name(principal))
+    account_name = _publish_account_name(principal)
+    missing = missing_publish_fields(book, account_name)
     if missing:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -108,6 +109,19 @@ async def publish_book(
             detail="this book is published by another account",
         )
 
+    metadata = book.get("metadata") or {}
+    commons = {
+        "owner_sub": principal.sub,
+        "title": book["title"],
+        "author_name": metadata["author"],
+        "account_name": account_name,
+        "description": metadata.get("description"),
+        "language": metadata.get("language"),
+        "cover_svg": metadata.get("coverSvg"),
+        # One publish = EPUB + PDF: only the EPUB bumps the catalog version.
+        "bump_version": fmt == "epub",
+    }
+
     job_id = uuid.uuid4()
     await r.set(
         export_tasks.export_status_key(job_id),
@@ -124,6 +138,7 @@ async def publish_book(
         publish_book_id=book_id,
         published_by_sub=principal.sub,
         db_pool=db_pool,
+        commons=commons,
     )
     log.info("library_publish_submitted", job_id=str(job_id), book_id=book_id, fmt=fmt)
     return ExportSubmitResponse(job_id=job_id, status="queued")
