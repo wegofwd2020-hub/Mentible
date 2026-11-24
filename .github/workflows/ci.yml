@@ -214,3 +214,14 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: npm run test:mermaid-security
+
+  # ── 6. Scripts — reset-cloud-sync.sh (destructive recovery tool) ────────────
+  # Runs the real script against a fake curl (scripts/tests/fixtures/bin). No
+  # network, no secrets. Covers confirm/refusal/leak paths; see the test file.
+  scripts-reset-cloud-sync:
+    name: Scripts — reset-cloud-sync tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run reset-cloud-sync tests
+        run: scripts/tests/test_reset_cloud_sync.sh
