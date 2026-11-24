@@ -114,12 +114,11 @@ describe("user-authored book", () => {
     (loadBook as jest.Mock).mockResolvedValue({ ...baseBook, source: "user" });
   });
 
-  it("shows BookEditor, Generate, SaveToLibraryButton, PublishButton", async () => {
+  it("shows BookEditor, Generate, SaveToLibraryButton (Publish now lives in Library)", async () => {
     render(<SavedBookScreen />);
     await waitFor(() => expect(screen.getByText("EDITOR")).toBeTruthy());
     expect(screen.getByLabelText("Generate all topics")).toBeTruthy();
     expect(screen.getByText("SAVE_TO_LIBRARY")).toBeTruthy();
-    expect(screen.getByText("PUBLISH")).toBeTruthy();
   });
 
   it("shows the Share draft action when a token is available", async () => {

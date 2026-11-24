@@ -428,6 +428,7 @@ function EpubLibrary() {
         exportStatus={selected ? exportStatus[selected.id] : undefined}
         published={selected ? published[selected.id] : undefined}
         reviewCount={selected ? counts[selected.id] : undefined}
+        publishBookId={selected && !selected.id.startsWith("imported-") ? selected.id : undefined}
         onRead={() => {
           const item = selected;
           closeMeta();

@@ -17,7 +17,7 @@ type State =
 // server-side and hosts them so any reader can see the green indicators and
 // download. Distinct from "Save to Library" (which keeps a private on-device
 // EPUB). Requires a signed-in author.
-export function PublishButton({ bookId }: { bookId: string }) {
+export function PublishButton({ bookId, enabled }: { bookId: string; enabled: boolean }) {
   const { accessToken } = useAuth();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -52,6 +52,21 @@ export function PublishButton({ bookId }: { bookId: string }) {
   }
 
   const publishing = state.kind === "publishing";
+  if (!enabled) {
+    return (
+      <View>
+        <Pressable
+          style={[styles.btn, styles.btnDisabled]}
+          disabled
+          accessibilityRole="button"
+          accessibilityLabel="Publish book to Author Commons"
+          accessibilityState={{ disabled: true }}
+        >
+          <Text style={styles.btnText}>Export EPUB or PDF first</Text>
+        </Pressable>
+      </View>
+    );
+  }
   return (
     <View>
       <Pressable
@@ -59,7 +74,7 @@ export function PublishButton({ bookId }: { bookId: string }) {
         onPress={publish}
         disabled={publishing}
         accessibilityRole="button"
-        accessibilityLabel="Publish book to the Author Commons"
+        accessibilityLabel="Publish book to Author Commons"
         accessibilityState={{ disabled: publishing }}
       >
         {publishing ? (

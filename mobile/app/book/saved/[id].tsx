@@ -13,7 +13,6 @@ import { Alert } from "@/lib/alert";
 import { BookEditor } from "@/components/BookEditor";
 import { TopicReadList } from "@/components/TopicReadList";
 import { SaveToLibraryButton } from "@/components/SaveToLibraryButton";
-import { PublishButton } from "@/components/PublishButton";
 import { ExportBookJsonButton } from "@/components/ExportBookJsonButton";
 import { ShareDraftModal } from "@/components/ShareDraftModal";
 import { GenerateAllNarration } from "@/components/GenerateAllNarration";
@@ -173,11 +172,9 @@ function SavedBookScreenInner() {
               Compiles the generated topics into an EPUB3 and saves it to your
               Library. Generate the topics first.
             </Text>
-
-            <PublishButton bookId={book.id} />
             <Text style={styles.generateHint}>
-              Publishes the EPUB + PDF to the Author Commons so readers can see and
-              download them (their availability shows as green on the shelf).
+              To publish to the Author Commons, export an EPUB or PDF, then use
+              Publish on the book in your Library.
             </Text>
           </>
         )}
