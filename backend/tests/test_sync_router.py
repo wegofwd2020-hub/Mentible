@@ -324,3 +324,120 @@ def test_reset_wipes_keyset_then_new_keyset_allowed():
         assert c.get(f"{SYNC}/keyset").status_code == 404
         # Keyset gone, so a fresh one is accepted without force.
         assert c.put(f"{SYNC}/keyset", json=_keyset_body(b"after-reset")).status_code == 200
+
+
+# ── account reset: scope + isolation (ADR-014 lost-recovery-key recovery) ───
+
+RESET_CONFIRM = {"confirm": "delete-all-synced-data"}
+_RESET_TABLES = ("sync_keyset", "synced_book", "synced_epub", "synced_shelves")
+
+
+async def _row_counts(sub: str) -> dict[str, int]:
+    """Raw row counts per sync table for one account (tombstones included)."""
+    conn = await asyncpg.connect(DSN)
+    try:
+        acct = await conn.fetchval("SELECT id FROM account WHERE idp_sub = $1", sub)
+        out: dict[str, int] = {}
+        for table in _RESET_TABLES:
+            out[table] = await conn.fetchval(
+                f"SELECT count(*) FROM {table} WHERE owner_account_id = $1", acct
+            )
+        return out
+    finally:
+        await conn.close()
+
+
+def _epub_put(c: TestClient, epub_id: str, seed: bytes) -> None:
+    # Raw ciphertext body; the nonce/tag/wrapped-key/meta travel as headers.
+    r = c.put(
+        f"{SYNC}/epubs/{epub_id}",
+        content=b"epub-ct-" + seed,
+        headers={
+            "X-Nonce": _b64(seed + b"-epub-nonce"),
+            "X-Tag": _b64(seed + b"-epub-tag-16b"),
+            "X-Wrapped-Dk": _b64(seed + b"-epub-wdk"),
+            "X-Dk-Nonce": _b64(seed + b"-epub-dknonce"),
+            "X-Meta": _b64(seed + b"-epub-meta"),
+            "X-Meta-Nonce": _b64(seed + b"-epub-meta-nonce"),
+            "X-Client-Version": "v1",
+            "Content-Type": "application/octet-stream",
+        },
+    )
+    assert r.status_code == 200, r.text
+
+
+def _fill_account(c: TestClient, seed: bytes) -> None:
+    """Give the Principal currently set by _as() one of every synced artefact:
+    a keyset, two books, one epub and a shelves blob."""
+    assert c.put(f"{SYNC}/keyset", json=_keyset_body(seed)).status_code == 200
+    assert c.put(f"{SYNC}/books/b1", json=_book_body(seed + b"-b1")).status_code == 200
+    assert c.put(f"{SYNC}/books/b2", json=_book_body(seed + b"-b2")).status_code == 200
+    _epub_put(c, "e1", seed)
+    shelves = _book_body(seed + b"-shelves")
+    assert c.put(f"{SYNC}/shelves", json=shelves).status_code == 200
+
+
+def test_reset_wipes_every_synced_table_and_reports_exact_counts():
+    sub = f"sk-{uuid.uuid4()}"
+    _account(sub)
+    with TestClient(app) as c:
+        _as(sub)
+        _fill_account(c, b"scope")
+        before = asyncio.run(_row_counts(sub))
+        assert before == {"sync_keyset": 1, "synced_book": 2, "synced_epub": 1, "synced_shelves": 1}
+
+        res = c.delete(f"{SYNC}/data", params=RESET_CONFIRM)
+        assert res.status_code == 200
+        # The response is per-table metadata counts, not content.
+        assert res.json() == {
+            "synced_book": 2,
+            "synced_epub": 1,
+            "synced_shelves": 1,
+            "sync_keyset": 1,
+        }
+
+        # Hard delete: no tombstones left behind for any table.
+        assert asyncio.run(_row_counts(sub)) == dict.fromkeys(_RESET_TABLES, 0)
+        assert c.get(f"{SYNC}/keyset").status_code == 404
+        assert c.get(f"{SYNC}/books").json() == []
+
+
+def test_reset_leaves_other_accounts_completely_untouched():
+    sub_a = f"sk-{uuid.uuid4()}"
+    sub_b = f"sk-{uuid.uuid4()}"
+    _account(sub_a)
+    _account(sub_b)
+    with TestClient(app) as c:
+        _as(sub_b)
+        _fill_account(c, b"bystander")
+        b_counts = asyncio.run(_row_counts(sub_b))
+        b_book_before = c.get(f"{SYNC}/books/b1").json()
+        b_keyset_before = c.get(f"{SYNC}/keyset").json()
+        assert b_counts == {
+            "sync_keyset": 1,
+            "synced_book": 2,
+            "synced_epub": 1,
+            "synced_shelves": 1,
+        }
+
+        _as(sub_a)
+        _fill_account(c, b"victim")
+        assert c.delete(f"{SYNC}/data", params=RESET_CONFIRM).status_code == 200
+        assert asyncio.run(_row_counts(sub_a)) == dict.fromkeys(_RESET_TABLES, 0)
+
+        # B's rows are byte-for-byte what they were: counts, the keyset, and a book.
+        assert asyncio.run(_row_counts(sub_b)) == b_counts
+        _as(sub_b)
+        assert c.get(f"{SYNC}/books/b1").json() == b_book_before
+        assert c.get(f"{SYNC}/keyset").json() == b_keyset_before
+        assert len(c.get(f"{SYNC}/books").json()) == 2
+
+
+def test_reset_on_account_with_no_sync_data_is_a_zero_count_noop():
+    sub = f"sk-{uuid.uuid4()}"
+    _account(sub)
+    with TestClient(app) as c:
+        _as(sub)
+        res = c.delete(f"{SYNC}/data", params=RESET_CONFIRM)
+        assert res.status_code == 200
+        assert res.json() == dict.fromkeys(_RESET_TABLES, 0)
