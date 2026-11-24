@@ -37,7 +37,7 @@ const TABS: { icon: IconName; label: string; blurb: string }[] = NAV_ORDER.map((
 }));
 
 const READ_STEPS = [
-  "Open Library and tap a book cover.",
+  "Author Commons and tap a book cover.",
   "Inside the book, tap a topic to read its lesson.",
   "Use Export to save the book as an EPUB or PDF for offline reading.",
 ];

@@ -59,7 +59,7 @@ export function PublishButton({ bookId }: { bookId: string }) {
         onPress={publish}
         disabled={publishing}
         accessibilityRole="button"
-        accessibilityLabel="Publish book to the Open Library"
+        accessibilityLabel="Publish book to the Author Commons"
         accessibilityState={{ disabled: publishing }}
       >
         {publishing ? (

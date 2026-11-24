@@ -176,7 +176,7 @@ function SavedBookScreenInner() {
 
             <PublishButton bookId={book.id} />
             <Text style={styles.generateHint}>
-              Publishes the EPUB + PDF to the Open Library so readers can see and
+              Publishes the EPUB + PDF to the Author Commons so readers can see and
               download them (their availability shows as green on the shelf).
             </Text>
           </>
