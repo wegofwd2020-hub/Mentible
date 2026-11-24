@@ -40,6 +40,7 @@ from backend.src.export import router as export_router
 from backend.src.feedback import admin_router as feedback_admin_router
 from backend.src.feedback import router as feedback_router
 from backend.src.generate import router as generate_router
+from backend.src.library import commons_router
 from backend.src.library import router as library_router
 from backend.src.sharing import router as sharing_router
 from backend.src.shelves import router as shelves_router
@@ -139,6 +140,7 @@ app.include_router(feedback_admin_router.router)
 app.include_router(admin_router.router)
 app.include_router(billing_router.router)
 app.include_router(library_router.router)
+app.include_router(commons_router.router)
 app.include_router(sharing_router.router)
 app.include_router(shelves_router.router)
 app.include_router(trust_router.router)
