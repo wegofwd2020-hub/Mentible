@@ -24,7 +24,7 @@ Authors publish a finished book (EPUB and/or PDF) from their Library to a shared
 - An author can publish and hide their own books.
 
 **Non-goals (this design)**
-- The approver or review step. Deferred until the user defines the approver roles (section 8.1).
+- A separate approver or review step. For now the author self-approves: the book sits in the Library, and publishing it to Author Commons is the author's approval (section 8.1).
 - Ratings, comments, reviews, recommendations.
 - Payment or paid books.
 - Drafts. Not a goal for any path.
@@ -97,7 +97,7 @@ New table `author_commons_entry`:
 | `description` | text, nullable | From book.json, if present. |
 | `language` | text | From book.json. |
 | `formats` | text array | Subset of `epub`, `pdf` that are live. |
-| `status` | text | `live` or `hidden`. A `pending_review` value can be added later with no schema change. |
+| `status` | text | `live` or `hidden`. Publishing by the author sets `live` directly (self-approval). A `pending_review` value can be added later, with the approver roles, with no schema change. |
 | `updated_at` | timestamptz | |
 
 Write rules:
@@ -134,14 +134,14 @@ The existing anonymous `GET /api/v1/library/{book_id}/artifacts` stays as it is.
 
 ## 7. Constraints
 
-- **Review gate (ADR-021 D8).** A public shelf waits on legal review (takedown), moderation and demand. This design adds no review step. The `status` field is the seam where an approver step can be inserted later.
+- **Review gate (ADR-021 D8).** A public shelf waits on legal review (takedown), moderation and demand. Self-approval means no Mentible review happens before a book goes live. That is a deliberate, temporary choice, and it means the takedown and complaint process must exist before public launch. The `status` field is the seam where an approver step can be inserted later.
 - **Hosting (ADR-027).** Our servers host the published files. Hiding keeps them, so a republish is quick.
 - **Registration.** Browsing and downloading require a signed-in user.
 - **Trademark.** Name check before alpha.
 
 ## 8. Open items
 
-8.1 **Approver / review step.** Still open. Two kinds of approvers are being defined. This design leaves room for it.
+8.1 **Approver / review step.** Resolved for now: self-approval. The book lives in the author's Library, and the author reads it and publishes it to Author Commons. The two kinds of approvers are deferred; the `status` seam leaves room for them. Open follow-up: the takedown and complaint process before public launch (ADR-021 D8).
 
 8.2 **Account name vs author name.** The spec lists both (6.1). Confirm the account name is the login display name, and that the author name is the name on the book. If they are always the same for a user, one field would do.
 
@@ -151,6 +151,7 @@ The existing anonymous `GET /api/v1/library/{book_id}/artifacts` stays as it is.
 
 ## 9. Calls I made (check these)
 
+- **Self-approval:** publishing is the author's approval. No review state before `live`.
 - **Version:** a per-book publish counter, starting at 1. Not in the book file today.
 - **Account name:** the signed-in account's display name, taken at publish time.
 - **Page size 20;** title and author substring search; exact language code filter.
