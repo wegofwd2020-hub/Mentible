@@ -28,6 +28,7 @@ from backend.src.export import compiler
 from backend.src.export import tasks as export_tasks
 from backend.src.export.schemas import ExportSubmitResponse
 from backend.src.library import artifact_store, published_repo
+from backend.src.library.commons_metadata import missing_publish_fields
 
 router = APIRouter(prefix="/api/v1/library", tags=["library"])
 log = get_logger("library")
@@ -35,6 +36,12 @@ log = get_logger("library")
 _MAX_BODY_BYTES = 25 * 1024 * 1024
 _FORMATS = {"epub", "pdf"}
 _MEDIA_TYPE = {"epub": "application/epub+zip", "pdf": "application/pdf"}
+
+
+def _publish_account_name(principal: Principal) -> str | None:
+    """Account name for the publish gate. No source is wired yet (a later task
+    decides it), so this reports None, i.e. missing."""
+    return None
 
 
 @router.post(
@@ -76,11 +83,18 @@ async def publish_book(
             content={"detail": "Book is too large to publish."},
         )
     try:
-        compiler.validate_book(raw)
+        book = compiler.validate_book(raw)
     except compiler.ExportValidationError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": str(exc)},
+        )
+
+    missing = missing_publish_fields(book, _publish_account_name(principal))
+    if missing:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": f"Missing required fields: {', '.join(missing)}"},
         )
 
     # Ownership: the first principal to publish a book_id claims it; nobody else

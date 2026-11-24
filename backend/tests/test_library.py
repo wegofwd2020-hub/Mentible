@@ -20,6 +20,7 @@ from backend.src.library import artifact_store
 _BOOK = {
     "id": "book-1",
     "title": "Physics & Friends",
+    "metadata": {"author": "A. Author"},
     "toc": {"subjects": [{"subject_label": "M", "units": [{"id": "u1", "title": "K"}]}]},
     "content": {},
 }
@@ -76,6 +77,13 @@ async def _wait_done(client, job_id):
             return body
         await asyncio.sleep(0.02)
     raise AssertionError("job never finished")
+
+
+@pytest.fixture(autouse=True)
+def _account_name(monkeypatch):
+    from backend.src.library import router as library_router
+
+    monkeypatch.setattr(library_router, "_publish_account_name", lambda principal: "Acme")
 
 
 @pytest.fixture
