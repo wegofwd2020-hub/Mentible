@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
 import { LibrarySync } from "@/components/LibrarySync";
 import { SyncKeysetExistsError } from "@/sync/syncEngine";
 
@@ -28,6 +28,8 @@ const mockSyncStatus = jest.fn(async (_t: string | null) => ({
   lastSyncedAt: null as string | null,
 }));
 
+const mockResetCloudSync = jest.fn(async (_t: string) => {});
+
 jest.mock("@/sync/syncEngine", () => {
   const actual = jest.requireActual("@/sync/syncEngine");
   return {
@@ -37,6 +39,7 @@ jest.mock("@/sync/syncEngine", () => {
     runSyncExclusive: (t: string) => mockSyncNow(t),
     syncStatus: (t: string | null) => mockSyncStatus(t),
     getLastSyncedAt: () => mockGetLastSyncedAt(),
+    resetCloudSync: (t: string) => mockResetCloudSync(t),
     SyncLockedError: actual.SyncLockedError,
     SyncKeysetExistsError: actual.SyncKeysetExistsError,
   };
@@ -66,6 +69,8 @@ beforeEach(() => {
   mockSyncStatus.mockClear();
   mockSyncStatus.mockImplementation(async () => ({ state: "up_to_date", toPush: 0, toPull: 0, lastSyncedAt: null }));
   mockAlertSpy.mockClear();
+  mockResetCloudSync.mockClear();
+  mockResetCloudSync.mockImplementation(async () => {});
   mockCopyText.mockClear();
 });
 
@@ -209,4 +214,78 @@ it("the recovery key is never rendered in the unlocked or locked states", async 
   const { getByText, queryByText } = render(<LibrarySync />);
   await waitFor(() => expect(getByText(/sync now/i)).toBeTruthy());
   expect(queryByText(/^RECOVERY-KEY/)).toBeNull();
+});
+
+// ── lost-recovery-key reset (unlocked view → Alert → resetCloudSync) ────────
+
+const resetConfirmButtons = () =>
+  mockAlertSpy.mock.calls.find((c) => c[0] === "Reset cloud sync?")?.[2] as
+    | { text: string; style?: string; onPress?: () => Promise<void> }[]
+    | undefined;
+
+it("unlocked: the reset link asks for confirmation as a destructive action", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  const { getByLabelText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByLabelText("Reset cloud sync")).toBeTruthy());
+
+  fireEvent.press(getByLabelText("Reset cloud sync"));
+
+  expect(mockAlertSpy).toHaveBeenCalledWith(
+    "Reset cloud sync?",
+    expect.stringMatching(/books on this device are kept/i),
+    expect.any(Array),
+  );
+  const buttons = resetConfirmButtons()!;
+  expect(buttons.find((b) => b.text === "Delete cloud copy")?.style).toBe("destructive");
+  expect(buttons.find((b) => b.text === "Cancel")?.style).toBe("cancel");
+  // Opening the dialog alone must not touch the server.
+  expect(mockResetCloudSync).not.toHaveBeenCalled();
+});
+
+it("cancelling the reset dialog leaves the cloud copy alone", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  const { getByLabelText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByLabelText("Reset cloud sync")).toBeTruthy());
+  fireEvent.press(getByLabelText("Reset cloud sync"));
+
+  // The Cancel button has no onPress; dismissing the dialog is the whole effect.
+  const cancel = resetConfirmButtons()!.find((b) => b.text === "Cancel");
+  expect(cancel?.onPress).toBeUndefined();
+  expect(mockResetCloudSync).not.toHaveBeenCalled();
+});
+
+it("confirming the reset calls resetCloudSync with the token, then offers Enable again", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  const { getByLabelText, getByText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByLabelText("Reset cloud sync")).toBeTruthy());
+  fireEvent.press(getByLabelText("Reset cloud sync"));
+
+  const del = resetConfirmButtons()!.find((b) => b.text === "Delete cloud copy")!;
+  await act(async () => {
+    await del.onPress!();
+  });
+
+  expect(mockResetCloudSync).toHaveBeenCalledWith("test-token");
+  expect(mockAlertSpy).toHaveBeenCalledWith("Cloud sync reset", expect.stringMatching(/Enable cloud sync/i));
+  expect(getByText("Enable cloud sync")).toBeTruthy();
+});
+
+it("a failed reset alerts the server's message and keeps the unlocked view", async () => {
+  mockIsUnlocked.mockImplementation(async () => true);
+  mockResetCloudSync.mockImplementation(async () => {
+    throw new Error("server down");
+  });
+  const { getByLabelText, getByText } = render(<LibrarySync />);
+  await waitFor(() => expect(getByLabelText("Reset cloud sync")).toBeTruthy());
+  fireEvent.press(getByLabelText("Reset cloud sync"));
+
+  const del = resetConfirmButtons()!.find((b) => b.text === "Delete cloud copy")!;
+  await act(async () => {
+    await del.onPress!();
+  });
+
+  expect(mockAlertSpy).toHaveBeenCalledWith("Reset failed", "server down");
+  // Nothing was reset, so the user is still on the unlocked screen, not Enable.
+  expect(getByText(/sync now/i)).toBeTruthy();
+  expect(mockAlertSpy).not.toHaveBeenCalledWith("Cloud sync reset", expect.anything());
 });
