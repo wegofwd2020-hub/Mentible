@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 from backend.config import settings
 from backend.src.accounts import repo as account_repo
+from backend.src.accounts.deps import require_active_user
 from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.core.log_redaction import get_logger
@@ -60,7 +61,7 @@ async def publish_book(
     format: str = "epub",
     diagrams: bool = True,
     r: redis.Redis = Depends(get_redis),
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
 ) -> ExportSubmitResponse:
     """Publish a book to the Open Library. Body is the book.json; returns a job id
     to poll on GET /export/jobs/{id} (the same async export machinery). On done,

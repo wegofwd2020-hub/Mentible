@@ -67,7 +67,7 @@ export function AuthorDisplayName(): React.JSX.Element {
           setValue(t);
           setSaved(false);
         }}
-        maxLength={MAX_LEN + 20}
+        maxLength={MAX_LEN}
         placeholder="Your name or pen name"
         placeholderTextColor={styles.help.color}
         accessibilityLabel="Author name shown on Author Commons"

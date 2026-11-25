@@ -49,3 +49,10 @@ it("keeps Save disabled while the field is blank", async () => {
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   expect(screen.getByLabelText("Save author name").props.accessibilityState.disabled).toBe(true);
 });
+
+it("the input caps typing at 60 characters", async () => {
+  fetchMock.mockResolvedValueOnce(json({ display_name: "Ada" }));
+  render(<AuthorDisplayName />);
+  const input = await screen.findByDisplayValue("Ada");
+  expect(input.props.maxLength).toBe(60);
+});

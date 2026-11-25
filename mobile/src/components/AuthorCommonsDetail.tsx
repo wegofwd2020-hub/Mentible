@@ -64,6 +64,10 @@ export function AuthorCommonsDetail({ bookId }: { bookId: string }) {
     setNotice(null);
     try {
       const bytes = await downloadCommonsArtifact(accessToken, bookId, fmt);
+      if (bytes.byteLength === 0) {
+        setNotice("Download failed. Try again in a moment.");
+        return;
+      }
       const res = await downloadArtifact(bytes, `${slug(book.title)}.${fmt}`, MIME[fmt]);
       setNotice(res.savedPath ? `Saved to ${res.savedPath}` : "Download started.");
     } catch (e) {

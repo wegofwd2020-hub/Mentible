@@ -56,6 +56,32 @@ it("download uses the Bearer token", async () => {
   expect(mockSave.mock.calls[0][1]).toBe("alpha-book.pdf");
 });
 
+it("an empty 200 download is not saved and reports failure", async () => {
+  fetchMock
+    .mockResolvedValueOnce(json(detail))
+    .mockResolvedValueOnce(new Response(new Uint8Array([])));
+  render(<AuthorCommonsDetail bookId="b1" />);
+  fireEvent.press(await screen.findByLabelText("Download PDF"));
+  expect(await screen.findByText("Download failed. Try again in a moment.")).toBeTruthy();
+  expect(mockSave).not.toHaveBeenCalled();
+});
+
+it("a 404 on download says the book is no longer available", async () => {
+  fetchMock
+    .mockResolvedValueOnce(json(detail))
+    .mockResolvedValueOnce(new Response("gone", { status: 404 }));
+  render(<AuthorCommonsDetail bookId="b1" />);
+  fireEvent.press(await screen.findByLabelText("Download PDF"));
+  expect(await screen.findByText("This book is no longer available.")).toBeTruthy();
+  expect(mockSave).not.toHaveBeenCalled();
+});
+
+it("a 404 on load says the book is no longer available", async () => {
+  fetchMock.mockResolvedValueOnce(new Response("gone", { status: 404 }));
+  render(<AuthorCommonsDetail bookId="b1" />);
+  expect(await screen.findByText("This book is no longer available.")).toBeTruthy();
+});
+
 describe("hide", () => {
   const run = () => {
     const onDone = jest.fn();
