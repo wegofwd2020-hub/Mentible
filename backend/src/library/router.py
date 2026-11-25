@@ -131,7 +131,7 @@ async def publish_book(
         "author_name": metadata["author"],
         "account_name": account_name,
         "description": metadata.get("description"),
-        "language": metadata.get("language"),
+        "language": (metadata.get("language") or "").strip() or "en",
         "cover_svg": metadata.get("coverSvg"),
         # One publish = EPUB + PDF: only the EPUB bumps the catalog version.
         "bump_version": fmt == "epub",

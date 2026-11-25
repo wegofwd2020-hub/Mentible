@@ -6,6 +6,11 @@ publishing account's name. Empty or whitespace-only values count as missing.
 
 from __future__ import annotations
 
+import re
+
+# Simple BCP-47-style tag: a 2-3 letter language plus optional subtags.
+_LANG_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
+
 
 def _blank(value: object) -> bool:
     return not isinstance(value, str) or not value.strip()
@@ -47,6 +52,7 @@ _LIMITS = (
     ("title", 300),
     ("author", 300),
     ("description", 5_000),
+    ("language", 35),
     ("coverSvg", 100_000),
 )
 
@@ -60,6 +66,7 @@ def oversize_publish_fields(raw_book: dict) -> str | None:
         "title": raw_book.get("title"),
         "author": metadata.get("author"),
         "description": metadata.get("description"),
+        "language": metadata.get("language"),
         "coverSvg": metadata.get("coverSvg"),
     }
     for name, limit in _LIMITS:
@@ -70,4 +77,6 @@ def oversize_publish_fields(raw_book: dict) -> str | None:
             return f"{name} must be a string"
         if len(value) > limit:
             return f"{name} is too long (max {limit} characters)"
+        if name == "language" and value.strip() and not _LANG_RE.match(value):
+            return "language must be a language tag such as 'en' or 'en-US'"
     return None

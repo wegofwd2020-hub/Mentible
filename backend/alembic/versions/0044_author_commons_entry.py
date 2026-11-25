@@ -29,7 +29,7 @@ def upgrade() -> None:
             published_at timestamptz NOT NULL DEFAULT now(),
             cover_svg    text CHECK (char_length(cover_svg) <= 100000),
             description  text CHECK (char_length(description) <= 5000),
-            language     text,
+            language     text CHECK (char_length(language) <= 35),
             formats      text[] NOT NULL DEFAULT '{}',
             status       text NOT NULL DEFAULT 'live'
                 CHECK (status IN ('live', 'hidden')),

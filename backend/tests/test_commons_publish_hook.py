@@ -161,3 +161,70 @@ async def test_router_builds_commons_and_bumps_only_for_epub(client, monkeypatch
     assert c["bump_version"] is bump
     assert c["owner_sub"] == "author-1" and c["author_name"] == "Ada"
     assert c["account_name"] == "Acme" and c["cover_svg"] == "<svg/>"
+
+
+# --- language: default "en", length cap, tag shape ------------------------------------
+
+
+async def _post_publish(client, monkeypatch, metadata):
+    from backend.main import app
+    from backend.src.auth.deps import require_user
+    from backend.src.auth.principal import Principal
+    from backend.src.library import router as library_router
+    from backend.tests.test_library import _BOOK, _acme, _Pool, _RecordingConn
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        sub="author-1", email="a@x.com", issuer="iss"
+    )
+    monkeypatch.setattr(library_router, "_publish_account_name", _acme)
+    seen = []
+
+    async def fake_run_export(**kwargs):
+        seen.append(kwargs)
+
+    monkeypatch.setattr(export_tasks, "run_export", fake_run_export)
+    book = {**_BOOK, "metadata": {"author": "Ada", **metadata}}
+    app.state.db = _Pool(_RecordingConn())
+    try:
+        resp = await client.post(
+            "/api/v1/library/book-1/publish?format=epub", content=json.dumps(book)
+        )
+    finally:
+        app.state.db = None
+        app.dependency_overrides.pop(require_user, None)
+    return resp, seen
+
+
+async def test_missing_language_publishes_as_en_and_lists_under_english(
+    client, monkeypatch, pool, book_id
+):
+    resp, seen = await _post_publish(client, monkeypatch, {})
+    assert resp.status_code == 202
+    commons = seen[0]["commons"]
+    assert commons["language"] == "en"
+    async with pool.acquire() as conn:
+        await commons_repo.upsert_publish(conn, book_id=book_id, fmt="epub", **commons)
+        _items, total = await commons_repo.list_live(
+            conn, query="", language="en", limit=20, offset=0
+        )
+    assert total >= 1
+
+
+async def test_empty_language_defaults_to_en(client, monkeypatch):
+    resp, seen = await _post_publish(client, monkeypatch, {"language": "  "})
+    assert resp.status_code == 202 and seen[0]["commons"]["language"] == "en"
+
+
+async def test_language_tag_passes(client, monkeypatch):
+    resp, seen = await _post_publish(client, monkeypatch, {"language": "en-US"})
+    assert resp.status_code == 202 and seen[0]["commons"]["language"] == "en-US"
+
+
+async def test_language_too_long_is_422(client, monkeypatch):
+    resp, seen = await _post_publish(client, monkeypatch, {"language": "a" * 36})
+    assert resp.status_code == 422 and seen == []
+
+
+async def test_language_not_a_tag_is_422(client, monkeypatch):
+    resp, seen = await _post_publish(client, monkeypatch, {"language": "not a tag!"})
+    assert resp.status_code == 422 and seen == []
