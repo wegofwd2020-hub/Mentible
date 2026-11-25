@@ -12,6 +12,7 @@ export const NAV = {
   trust: "Trust",
   pricing: "Pilot",
   library: "Library",
+  authorCommons: "Author Commons",
   // The authoring home (route is still `books`); "Studio" pairs with Library
   // and removes the old Books/Library ambiguity (both read as "shelves").
   studio: "Studio",

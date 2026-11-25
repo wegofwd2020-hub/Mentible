@@ -18,6 +18,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const TAB_BLURBS: Record<string, string> = {
   index: "Your home base — what Mentible does, how it works, and where to start.",
   library: "Your finished books — tap a cover to read.",
+  "author-commons": "Browse books other authors have published.",
   projects: "Capture your expertise into a project — draft it, get it validated, then publish.",
   reviews: "Review and approve projects you've been invited to validate.",
   settings: "Your themes, LLM keys and preferences.",
@@ -37,7 +38,7 @@ const TABS: { icon: IconName; label: string; blurb: string }[] = NAV_ORDER.map((
 }));
 
 const READ_STEPS = [
-  "Open Library and tap a book cover.",
+  "Open your Library and tap a book cover to open it.",
   "Inside the book, tap a topic to read its lesson.",
   "Use Export to save the book as an EPUB or PDF for offline reading.",
 ];

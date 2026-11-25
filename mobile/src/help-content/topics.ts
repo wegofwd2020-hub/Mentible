@@ -232,7 +232,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "steps",
         steps: [
-          "Open Library and tap a book cover to open it.",
+          "Open your Library and tap a book cover to open it.",
           "Inside the book, tap a topic to read its lesson.",
           "Use Export to save the book as an EPUB or PDF for offline reading.",
         ],
@@ -1200,6 +1200,50 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Tap Save to create a new version of the transcript.",
           "Tap Approve to record it as validated (or Unapprove to withdraw).",
         ],
+      },
+    ],
+  },
+  {
+    id: "author-display-name",
+    title: "Your publisher name on Author Commons",
+    featureKey: "author-display-name",
+    keywords: ["author name", "display name", "author commons", "publish", "name", "pen name", "account name"],
+    blocks: [
+      {
+        kind: "text",
+        text: "This name appears on every book you publish to Author Commons. It is shown to all members, so use the name you want readers to see. It is never filled in from your email.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Settings, then the Account tab.",
+          "Type your name under \"Publisher / account name\" (1-60 characters).",
+          "Tap Save. Set it before you publish: publishing is blocked until a name is saved.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "author-commons",
+    title: "Sharing finished books on Author Commons",
+    featureKey: "author-commons",
+    keywords: ["author commons", "share", "publish", "hide", "unpublish", "epub", "pdf", "community", "library"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Author Commons is a shared shelf of finished books. Each book is shown with the author's name and the account name. You must save a publisher name in Settings before you can publish.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Export your book as an EPUB or PDF.",
+          "Open the Library and find the book.",
+          "Tap Publish to Author Commons (EPUB + PDF). The book then appears on Author Commons.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "To take a book down, tap Hide. Hide removes the book from the listing. Your project stays in your Library. Only the person who published a book can hide it.",
       },
     ],
   },

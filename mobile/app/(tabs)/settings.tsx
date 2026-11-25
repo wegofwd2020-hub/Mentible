@@ -10,6 +10,7 @@ import { PageContainer } from "@/components/PageContainer";
 import { ProviderKeyForm } from "@/components/ProviderKeyForm";
 import { BackupRestore } from "@/components/BackupRestore";
 import { LibrarySync } from "@/components/LibrarySync";
+import { AuthorDisplayName } from "@/components/AuthorDisplayName";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAccount } from "@/hooks/useAccount";
@@ -218,6 +219,17 @@ export default function SettingsScreen() {
                 <Text style={styles.accountChevron}>›</Text>
               </Card>
             </Pressable>
+          )}
+          {authStatus === "signed_in" && (
+            <Card style={styles.accountRow}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.accountTitle}>Publisher / account name</Text>
+                  <HelpButton topic="author-display-name" label="publisher name" />
+                </View>
+                <AuthorDisplayName />
+              </View>
+            </Card>
           )}
           <Pressable onPress={() => router.push("/paywall")}>
             <Card style={styles.accountRow}>

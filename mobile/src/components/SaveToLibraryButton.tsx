@@ -52,9 +52,9 @@ export function SaveToLibraryButton({ bookId }: { bookId: string }) {
         <Pressable
           onPress={() => router.push("/library")}
           accessibilityRole="button"
-          accessibilityLabel="Open Library"
+          accessibilityLabel="Go to Library"
         >
-          <Text style={styles.link}>Open Library →</Text>
+          <Text style={styles.link}>Go to Library →</Text>
         </Pressable>
       </View>
     );

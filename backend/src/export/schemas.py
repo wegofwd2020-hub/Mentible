@@ -32,3 +32,6 @@ class ExportJobStatusResponse(BaseModel):
     # Set only on the Open-Library publish path: whether the artifact was
     # registered for readers (ADR-027). Absent on a plain export.
     published: bool | None = None
+    # Author Commons publish only: whether the catalog row was written (False =
+    # stored but not listed). Absent otherwise.
+    listed: bool | None = None

@@ -19,6 +19,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import JSONResponse
 
 from backend.config import settings
+from backend.src.accounts import repo as account_repo
+from backend.src.accounts.deps import require_active_user
 from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.core.log_redaction import get_logger
@@ -27,7 +29,12 @@ from backend.src.core.redis_dep import get_redis
 from backend.src.export import compiler
 from backend.src.export import tasks as export_tasks
 from backend.src.export.schemas import ExportSubmitResponse
-from backend.src.library import artifact_store, published_repo
+from backend.src.library import artifact_store, commons_repo, published_repo
+from backend.src.library.commons_metadata import (
+    missing_fields_message,
+    missing_publish_fields,
+    oversize_publish_fields,
+)
 
 router = APIRouter(prefix="/api/v1/library", tags=["library"])
 log = get_logger("library")
@@ -35,6 +42,14 @@ log = get_logger("library")
 _MAX_BODY_BYTES = 25 * 1024 * 1024
 _FORMATS = {"epub", "pdf"}
 _MEDIA_TYPE = {"epub": "application/epub+zip", "pdf": "application/pdf"}
+
+
+async def _publish_account_name(db_pool, principal: Principal) -> str | None:
+    """Account name for the publish gate: the account's editable display name
+    (Settings). None when unset or blank, which the gate reports as missing."""
+    async with db_pool.acquire() as conn:
+        await account_repo.get_or_create_account(conn, idp_sub=principal.sub, email=principal.email)
+        return await account_repo.get_display_name(conn, idp_sub=principal.sub)
 
 
 @router.post(
@@ -50,7 +65,7 @@ async def publish_book(
     format: str = "epub",
     diagrams: bool = True,
     r: redis.Redis = Depends(get_redis),
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_active_user),
 ) -> ExportSubmitResponse:
     """Publish a book to the Open Library. Body is the book.json; returns a job id
     to poll on GET /export/jobs/{id} (the same async export machinery). On done,
@@ -76,11 +91,26 @@ async def publish_book(
             content={"detail": "Book is too large to publish."},
         )
     try:
-        compiler.validate_book(raw)
+        book = compiler.validate_book(raw)
     except compiler.ExportValidationError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": str(exc)},
+        )
+
+    account_name = await _publish_account_name(db_pool, principal)
+    missing = missing_publish_fields(book, account_name)
+    if missing:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": missing_fields_message(missing)},
+        )
+
+    too_big = oversize_publish_fields(book)
+    if too_big:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": too_big},
         )
 
     # Ownership: the first principal to publish a book_id claims it; nobody else
@@ -93,6 +123,19 @@ async def publish_book(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="this book is published by another account",
         )
+
+    metadata = book.get("metadata") or {}
+    commons = {
+        "owner_sub": principal.sub,
+        "title": book["title"],
+        "author_name": metadata["author"],
+        "account_name": account_name,
+        "description": metadata.get("description"),
+        "language": (metadata.get("language") or "").strip() or "en",
+        "cover_svg": metadata.get("coverSvg"),
+        # One publish = EPUB + PDF: only the EPUB bumps the catalog version.
+        "bump_version": fmt == "epub",
+    }
 
     job_id = uuid.uuid4()
     await r.set(
@@ -110,6 +153,7 @@ async def publish_book(
         publish_book_id=book_id,
         published_by_sub=principal.sub,
         db_pool=db_pool,
+        commons=commons,
     )
     log.info("library_publish_submitted", job_id=str(job_id), book_id=book_id, fmt=fmt)
     return ExportSubmitResponse(job_id=job_id, status="queued")
@@ -148,6 +192,10 @@ async def download_artifact(
     if db_pool is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")
     async with db_pool.acquire() as conn:
+        entry = await commons_repo.get_entry(conn, book_id)
+        if entry is None or entry.status != "live":
+            # Hidden (or never listed): refuse before touching the stored bytes.
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")
         row = await published_repo.get_one(conn, book_id, fmt)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")

@@ -19,6 +19,8 @@ from backend.src.accounts.schemas import (
     CredentialUpsert,
     CredentialView,
     DeviceRegister,
+    DisplayNameUpdate,
+    DisplayNameView,
 )
 from backend.src.auth import identity_admin
 from backend.src.auth.principal import Principal
@@ -51,6 +53,28 @@ async def get_my_account(
         credentials=[_view(c) for c in creds],
         is_super_admin=principal.is_super_admin,
     )
+
+
+@router.get("/display-name", response_model=DisplayNameView)
+async def get_display_name(
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> DisplayNameView:
+    """The name shown on books the caller publishes to Author Commons (null = unset)."""
+    await repo.get_or_create_account(conn, idp_sub=principal.sub, email=principal.email)
+    return DisplayNameView(display_name=await repo.get_display_name(conn, idp_sub=principal.sub))
+
+
+@router.put("/display-name", response_model=DisplayNameView)
+async def put_display_name(
+    body: DisplayNameUpdate,
+    principal: Principal = Depends(require_active_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+) -> DisplayNameView:
+    """Set the Author Commons display name (trimmed, 1-60 chars)."""
+    await repo.get_or_create_account(conn, idp_sub=principal.sub, email=principal.email)
+    await repo.set_display_name(conn, idp_sub=principal.sub, display_name=body.display_name)
+    return DisplayNameView(display_name=body.display_name)
 
 
 @router.put("/credentials/{provider_id}", response_model=CredentialView)

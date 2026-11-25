@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,11 +17,12 @@ from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.export import compiler
 from backend.src.export.compiler import ExportResult
-from backend.src.library import artifact_store
+from backend.src.library import artifact_store, commons_repo
 
 _BOOK = {
     "id": "book-1",
     "title": "Physics & Friends",
+    "metadata": {"author": "A. Author"},
     "toc": {"subjects": [{"subject_label": "M", "units": [{"id": "u1", "title": "K"}]}]},
     "content": {},
 }
@@ -39,6 +42,17 @@ class _RecordingConn:
         return self._rows
 
     async def fetchrow(self, sql, *args):
+        if "FROM account" in sql:  # require_active_user: an existing, active account
+            return {
+                "id": uuid.uuid4(),
+                "idp_sub": args[0],
+                "email": "a@x.com",
+                "created_at": None,
+                "synced_library_ref": None,
+                "suspended": False,
+                "suspended_at": None,
+                "active_provider_id": None,
+            }
         return self._rows[0] if self._rows else None
 
     async def fetchval(self, sql, *args):
@@ -76,6 +90,17 @@ async def _wait_done(client, job_id):
             return body
         await asyncio.sleep(0.02)
     raise AssertionError("job never finished")
+
+
+async def _acme(db_pool, principal):
+    return "Acme"
+
+
+@pytest.fixture(autouse=True)
+def _account_name(monkeypatch):
+    from backend.src.library import router as library_router
+
+    monkeypatch.setattr(library_router, "_publish_account_name", _acme)
 
 
 @pytest.fixture
@@ -159,6 +184,43 @@ async def test_publish_refused_when_book_owned_by_another_account(client, monkey
         app.state.db = None
         app.dependency_overrides.pop(require_user, None)
     assert resp.status_code == 403
+
+
+async def test_publish_refused_for_suspended_account(client, monkeypatch, as_user):
+    from backend.src.accounts import deps as account_deps
+
+    async def suspended(conn, *, idp_sub):
+        return SimpleNamespace(suspended=True)
+
+    monkeypatch.setattr(account_deps.repo, "get_account", suspended)
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile())
+    app.state.db = _Pool(_RecordingConn())
+    try:
+        resp = await client.post(
+            "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+        )
+    finally:
+        app.state.db = None
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "account suspended"
+
+
+async def test_publish_allowed_for_active_account(client, monkeypatch, as_user):
+    from backend.src.accounts import deps as account_deps
+
+    async def active(conn, *, idp_sub):
+        return SimpleNamespace(suspended=False)
+
+    monkeypatch.setattr(account_deps.repo, "get_account", active)
+    monkeypatch.setattr(compiler, "compile_book", _fake_compile())
+    app.state.db = _Pool(_RecordingConn())
+    try:
+        resp = await client.post(
+            "/api/v1/library/book-1/publish?format=epub", content=json.dumps(_BOOK)
+        )
+    finally:
+        app.state.db = None
+    assert resp.status_code == 202
 
 
 async def test_publish_requires_a_configured_store(client, as_user):
@@ -245,6 +307,11 @@ async def test_download_streams_the_file(client, tmp_path, monkeypatch, as_user)
         "published_by_sub": "author-1",
         "published_at": datetime(2026, 7, 4, tzinfo=UTC),
     }
+
+    async def _live_entry(conn, book_id):
+        return SimpleNamespace(status="live")
+
+    monkeypatch.setattr(commons_repo, "get_entry", _live_entry)
     app.state.db = _Pool(_RecordingConn(rows=[row]))
     try:
         resp = await client.get("/api/v1/library/book-1/artifacts/pdf")

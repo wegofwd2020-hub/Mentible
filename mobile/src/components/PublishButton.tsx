@@ -10,14 +10,14 @@ import { useTheme, useThemedStyles } from "@/theme";
 type State =
   | { kind: "idle" }
   | { kind: "publishing"; fmt: "epub" | "pdf" }
-  | { kind: "done" }
+  | { kind: "done"; listed: boolean }
   | { kind: "error"; message: string };
 
 // Publish a book's EPUB + PDF to the Open Library (ADR-027): compiles them
 // server-side and hosts them so any reader can see the green indicators and
 // download. Distinct from "Save to Library" (which keeps a private on-device
 // EPUB). Requires a signed-in author.
-export function PublishButton({ bookId }: { bookId: string }) {
+export function PublishButton({ bookId, enabled }: { bookId: string; enabled: boolean }) {
   const { accessToken } = useAuth();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -30,14 +30,16 @@ export function PublishButton({ bookId }: { bookId: string }) {
     try {
       const book = await loadBook(bookId);
       if (!book) throw new Error("Book not found.");
+      let listed = true;
       for (const fmt of ["epub", "pdf"] as const) {
         setState({ kind: "publishing", fmt });
         const job = await publishBook(book, fmt, accessToken);
         if (job.status === "failed") {
           throw new Error(job.error || `Could not publish the ${fmt.toUpperCase()}.`);
         }
+        if (job.listed === false) listed = false;
       }
-      setState({ kind: "done" });
+      setState({ kind: "done", listed });
     } catch (err) {
       setState({ kind: "error", message: messageFor(err) });
     }
@@ -46,12 +48,31 @@ export function PublishButton({ bookId }: { bookId: string }) {
   if (state.kind === "done") {
     return (
       <View style={styles.doneBox}>
-        <Text style={styles.doneText}>✓ Published to the Library — readers can now download it.</Text>
+        <Text style={styles.doneText}>
+          {state.listed
+            ? "✓ Published to Author Commons — readers can now download it."
+            : "Published, but not yet listed on Author Commons. Please publish again."}
+        </Text>
       </View>
     );
   }
 
   const publishing = state.kind === "publishing";
+  if (!enabled) {
+    return (
+      <View>
+        <Pressable
+          style={[styles.btn, styles.btnDisabled]}
+          disabled
+          accessibilityRole="button"
+          accessibilityLabel="Publish book to Author Commons"
+          accessibilityState={{ disabled: true }}
+        >
+          <Text style={styles.btnText}>Export EPUB or PDF first</Text>
+        </Pressable>
+      </View>
+    );
+  }
   return (
     <View>
       <Pressable
@@ -59,7 +80,7 @@ export function PublishButton({ bookId }: { bookId: string }) {
         onPress={publish}
         disabled={publishing}
         accessibilityRole="button"
-        accessibilityLabel="Publish book to the Open Library"
+        accessibilityLabel="Publish book to Author Commons"
         accessibilityState={{ disabled: publishing }}
       >
         {publishing ? (
@@ -68,7 +89,7 @@ export function PublishButton({ bookId }: { bookId: string }) {
             <Text style={styles.btnText}> Publishing {state.fmt.toUpperCase()}… (can take a few minutes)</Text>
           </View>
         ) : (
-          <Text style={styles.btnText}>Publish to Library (EPUB + PDF)</Text>
+          <Text style={styles.btnText}>Publish to Author Commons (EPUB + PDF)</Text>
         )}
       </Pressable>
       {state.kind === "error" && <Text style={styles.errText}>{state.message}</Text>}

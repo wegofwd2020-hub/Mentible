@@ -43,7 +43,7 @@ from backend.src.analytics.schemas import EventIn
 from backend.src.core.log_redaction import get_logger
 from backend.src.export import compiler
 from backend.src.export import trust as export_trust
-from backend.src.library import artifact_store, published_repo
+from backend.src.library import artifact_store, commons_repo, published_repo
 
 log = get_logger("export.tasks")
 
@@ -95,6 +95,7 @@ async def run_export(
     publish_book_id: str | None = None,
     published_by_sub: str | None = None,
     db_pool: asyncpg.Pool | None = None,
+    commons: dict | None = None,
 ) -> None:
     """Compile a book to an artifact off the request and record the result in Redis.
 
@@ -104,7 +105,10 @@ async def run_export(
 
     When `publish_book_id` is set (the Open-Library publish path, ADR-027), the
     finished artifact is ALSO written to the durable on-disk store and registered
-    in `published_artifact` so readers can see + download it.
+    in `published_artifact` so readers can see + download it. When `commons` is
+    also set ({owner_sub, title, author_name, account_name, description, language,
+    cover_svg, bump_version}) the Author Commons catalog row is written after the
+    artifact; a catalog failure is logged and never fails the artifact publish.
     """
     r = redis_client
     try:
@@ -249,6 +253,21 @@ async def run_export(
         except Exception:
             log.error("export_publish_failed", job_id=str(job_id), book_id=publish_book_id)
             payload["published"] = False
+
+        if payload["published"] and commons is not None:
+            try:
+                async with db_pool.acquire() as conn:
+                    await commons_repo.upsert_publish(
+                        conn, book_id=publish_book_id, fmt=fmt, **commons
+                    )
+                payload["listed"] = True
+            except Exception:
+                # The artifact is stored but not in the catalog: surface that so the
+                # client does not report a plain success.
+                payload["listed"] = False
+                log.error(
+                    "commons_catalog_write_failed", job_id=str(job_id), book_id=publish_book_id
+                )
 
     await _write_status(r, job_id, payload)
 

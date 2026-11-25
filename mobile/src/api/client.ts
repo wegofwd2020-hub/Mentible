@@ -274,6 +274,7 @@ export interface ExportJobStatus {
   size?: number;
   warnings?: number;
   trust?: string; // base64 Content Trust Manifest
+  listed?: boolean; // Author Commons publish: false = stored but not listed
 }
 
 // A diagram-heavy book compiles for minutes on the backend (one headless-Chromium
@@ -465,4 +466,84 @@ export async function pollUntilDone(
     };
     tick();
   });
+}
+
+// ---- Author Commons (public catalog of published books) ----
+// Field names mirror backend/src/library/commons_router.py. The cover is an
+// inline SVG string (`cover_svg`), not a data URI.
+export type CommonsSummary = {
+  book_id: string;
+  title: string;
+  author_name: string;
+  account_name: string;
+  version: number;
+  published_at: string;
+  formats: ("epub" | "pdf")[];
+  language: string | null;
+  cover_svg: string | null;
+};
+
+export type CommonsPage = {
+  items: CommonsSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export async function listAuthorCommons(
+  token: string,
+  opts: { query?: string; language?: string; page?: number },
+): Promise<CommonsPage> {
+  const params = new URLSearchParams();
+  if (opts.query) params.set("query", opts.query);
+  if (opts.language) params.set("language", opts.language);
+  params.set("page", String(opts.page ?? 1));
+  const res = await authedFetch(`/author-commons?${params.toString()}`, token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  return res.json();
+}
+
+export async function getAuthorCommons(
+  token: string,
+  bookId: string,
+): Promise<CommonsSummary & { description: string | null }> {
+  const res = await authedFetch(`/author-commons/${encodeURIComponent(bookId)}`, token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  return res.json();
+}
+
+// Owner-only: takes the book out of the commons (the project and its files are kept).
+export async function hideAuthorCommons(token: string, bookId: string): Promise<void> {
+  const res = await authedFetch(`/library/${encodeURIComponent(bookId)}/hide`, token, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+}
+
+// Authenticated artifact download for a published book (the commons detail's
+// Download buttons). Sends the Bearer token; the caller saves/shares the bytes.
+export async function downloadCommonsArtifact(
+  token: string,
+  bookId: string,
+  format: "epub" | "pdf",
+): Promise<ArrayBuffer> {
+  const res = await authedFetch(`/library/${encodeURIComponent(bookId)}/artifacts/${format}`, token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  return res.arrayBuffer();
+}
+
+// ---- Author Commons display name (the account name shown on published books) ----
+export async function getDisplayName(token: string): Promise<string | null> {
+  const res = await authedFetch("/account/display-name", token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  const body = (await res.json()) as { display_name: string | null };
+  return body.display_name;
+}
+
+export async function setDisplayName(token: string, displayName: string): Promise<string> {
+  const res = await authedFetch("/account/display-name", token, {
+    method: "PUT",
+    body: JSON.stringify({ display_name: displayName }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  const body = (await res.json()) as { display_name: string };
+  return body.display_name;
 }

@@ -13,6 +13,7 @@ import type { Book } from "@/types/book";
 import { Ionicons } from "@expo/vector-icons";
 import { ExportStatusPills } from "@/components/ExportStatusPills";
 import { BookCover } from "@/components/BookCover";
+import { PublishButton } from "@/components/PublishButton";
 import type { BookExportStatus } from "@/storage/exportStatus";
 import type { PublishedFormats } from "@/lib/trackedExport";
 
@@ -45,6 +46,11 @@ export interface BookMetadataRows {
   description?: string;
   tags?: string;
   format?: string;
+}
+
+// A book can be published once an EPUB or PDF has been exported.
+function hasExportedFile(status: BookExportStatus | undefined): boolean {
+  return status?.epub?.state === "done" || status?.pdf?.state === "done";
 }
 
 function cap(s: string | undefined | null): string {
@@ -132,6 +138,9 @@ export interface BookMetadataModalProps {
   reviewCount?: number;
   // Cover artwork shown at the top of the panel (shelf is spines-only).
   coverUri?: string;
+  // Authored books only: renders the Publish action (Author Commons), enabled
+  // once an EPUB or PDF has been exported. Omitted for imported books.
+  publishBookId?: string;
   onRead: () => void;
   // Action buttons render only when their handler is provided, so the sidebar
   // degrades gracefully (and this change stays additive for callers).
@@ -141,6 +150,8 @@ export interface BookMetadataModalProps {
   // the Studio/Books tab was removed from the nav.
   onManage?: () => void;
   onReviews?: () => void;
+  // Only for books this device published: takes it out of Author Commons.
+  onHide?: () => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -154,10 +165,12 @@ export function BookMetadataModal({
   published,
   reviewCount,
   coverUri,
+  publishBookId,
   onRead,
   onMove,
   onManage,
   onReviews,
+  onHide,
   onDelete,
   onClose,
 }: BookMetadataModalProps) {
@@ -203,6 +216,12 @@ export function BookMetadataModal({
           </ScrollView>
         )}
         <View style={styles.footer}>
+          {publishBookId ? (
+            <PublishButton
+              bookId={publishBookId}
+              enabled={hasExportedFile(exportStatus)}
+            />
+          ) : null}
           <View style={styles.actions}>
             <Pressable style={styles.readBtn} onPress={onRead} accessibilityRole="button" accessibilityLabel="Read this book">
               <Text style={styles.readBtnText}>Read</Text>
@@ -221,6 +240,11 @@ export function BookMetadataModal({
               <Pressable style={styles.iconBtn} onPress={onReviews} accessibilityRole="button" accessibilityLabel="Reviews" hitSlop={8}>
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.textSecondary} />
                 {reviewCount ? <Text style={styles.count}>{reviewCount}</Text> : null}
+              </Pressable>
+            ) : null}
+            {onHide ? (
+              <Pressable style={styles.iconBtn} onPress={onHide} accessibilityRole="button" accessibilityLabel="Hide from Author Commons" hitSlop={8}>
+                <Ionicons name="eye-off-outline" size={20} color={theme.textSecondary} />
               </Pressable>
             ) : null}
             {onDelete ? (
