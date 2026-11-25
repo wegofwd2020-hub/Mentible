@@ -517,6 +517,18 @@ export async function hideAuthorCommons(token: string, bookId: string): Promise<
   if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
 }
 
+// Authenticated artifact download for a published book (the commons detail's
+// Download buttons). Sends the Bearer token; the caller saves/shares the bytes.
+export async function downloadCommonsArtifact(
+  token: string,
+  bookId: string,
+  format: "epub" | "pdf",
+): Promise<ArrayBuffer> {
+  const res = await authedFetch(`/library/${encodeURIComponent(bookId)}/artifacts/${format}`, token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  return res.arrayBuffer();
+}
+
 // ---- Author Commons display name (the account name shown on published books) ----
 export async function getDisplayName(token: string): Promise<string | null> {
   const res = await authedFetch("/account/display-name", token);

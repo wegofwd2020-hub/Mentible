@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { Alert } from "@/lib/alert";
+import { confirmHideFromCommons } from "@/lib/hideCommons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteEpub, listEpubs, openEpub, type EpubMeta } from "@/storage/epubLibrary";
 import { getAllExportStatus, type BookExportStatus } from "@/storage/exportStatus";
@@ -269,6 +270,24 @@ function EpubLibrary() {
     [handleDelete, closeMeta],
   );
 
+  const confirmHideBook = useCallback(
+    (item: EpubMeta) => {
+      if (!accessToken) return;
+      confirmHideFromCommons({
+        token: accessToken,
+        bookId: item.id,
+        title: item.title,
+        onDone: () => {
+          setError(null);
+          closeMeta();
+          reload();
+        },
+        onError: setError,
+      });
+    },
+    [accessToken, closeMeta, reload],
+  );
+
   const currentShelfId = moveTarget ? assignments[moveTarget.id] ?? null : null;
 
   const handleAssign = useCallback(
@@ -452,6 +471,15 @@ function EpubLibrary() {
           closeMeta();
           if (item) openReviews(item);
         }}
+        onHide={
+          // Only books this device published (authored + has a published artifact).
+          // Imported books never get it; the backend also enforces the owner (403).
+          selected &&
+          !selected.id.startsWith("imported-") &&
+          (published[selected.id]?.epub || published[selected.id]?.pdf)
+            ? () => confirmHideBook(selected)
+            : undefined
+        }
         onDelete={() => selected && confirmDeleteBook(selected)}
         onClose={closeMeta}
       />

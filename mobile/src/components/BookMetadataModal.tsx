@@ -150,6 +150,8 @@ export interface BookMetadataModalProps {
   // the Studio/Books tab was removed from the nav.
   onManage?: () => void;
   onReviews?: () => void;
+  // Only for books this device published: takes it out of Author Commons.
+  onHide?: () => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -168,6 +170,7 @@ export function BookMetadataModal({
   onMove,
   onManage,
   onReviews,
+  onHide,
   onDelete,
   onClose,
 }: BookMetadataModalProps) {
@@ -237,6 +240,11 @@ export function BookMetadataModal({
               <Pressable style={styles.iconBtn} onPress={onReviews} accessibilityRole="button" accessibilityLabel="Reviews" hitSlop={8}>
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.textSecondary} />
                 {reviewCount ? <Text style={styles.count}>{reviewCount}</Text> : null}
+              </Pressable>
+            ) : null}
+            {onHide ? (
+              <Pressable style={styles.iconBtn} onPress={onHide} accessibilityRole="button" accessibilityLabel="Hide from Author Commons" hitSlop={8}>
+                <Ionicons name="eye-off-outline" size={20} color={theme.textSecondary} />
               </Pressable>
             ) : null}
             {onDelete ? (
