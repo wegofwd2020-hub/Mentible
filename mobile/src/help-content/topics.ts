@@ -232,7 +232,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         kind: "steps",
         steps: [
-          "Browse Author Commons. Tap a book to see its details.",
+          "Open your Library and tap a book cover to open it.",
           "Inside the book, tap a topic to read its lesson.",
           "Use Export to save the book as an EPUB or PDF for offline reading.",
         ],
