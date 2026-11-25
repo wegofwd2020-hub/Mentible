@@ -243,6 +243,17 @@ Diagrams — TECHNICAL direction (reference / engineer audience):
 _DIAGRAM_TYPE_SELECTION = """\
 Choose each diagram's TYPE from its content. Do NOT default to a flowchart.
 
+BLOCK DIAGRAM OVERRIDE — when the content or the topic asks for a block diagram
+(boxes joined by arrows that show how the parts connect, a signal chain, a
+system of components with connections), draw a `flowchart` even if the parts
+have no fixed order. Put a `%% block-diagram` comment on its own line directly
+under the `flowchart` header. Never redraw a block diagram as a mindmap:
+  ```mermaid
+  flowchart LR
+    %% block-diagram
+    A["Keyboard"] --> B["USB or MIDI interface"] --> C["Computer"]
+  ```
+
 STEP 1 — ask: does the content have a fixed ORDER (steps happen one after
 another, data flows through stages, a decision branches)?
   - YES -> `flowchart`.

@@ -24,6 +24,9 @@ _ID = re.compile(r"[A-Za-z_][\w-]*")
 _CLASS_SUFFIX = re.compile(r":::[\w-]+\s*$")
 _MAX_LINE = 500
 _INLINE_LABEL = re.compile(r"\s+--\s+([^\s>-][^>\n]{0,200}?)\s+(-->|---)")
+# A `%% block-diagram` comment line marks a diagram the author wants drawn as boxes and
+# arrows (a block diagram). Such a flowchart is never rewritten as a mindmap.
+BLOCK_DIAGRAM_MARKER = re.compile(r"^\s*%%\s*block-diagram\b", re.IGNORECASE | re.MULTILINE)
 
 
 class _Unsupported(Exception):
@@ -104,6 +107,8 @@ def mindmap_for(source: str) -> str | None:
     incoming edge, so some relationships are dropped. Nodes not reachable from
     the chosen root are attached to the root as extra branches.
     """
+    if BLOCK_DIAGRAM_MARKER.search(source):
+        return None  # the author asked for a block diagram: keep the flowchart
     try:
         labels, order, edges = _parse(source)
     except _Unsupported:
