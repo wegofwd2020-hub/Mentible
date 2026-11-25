@@ -516,3 +516,21 @@ export async function hideAuthorCommons(token: string, bookId: string): Promise<
   const res = await authedFetch(`/library/${encodeURIComponent(bookId)}/hide`, token, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
 }
+
+// ---- Author Commons display name (the account name shown on published books) ----
+export async function getDisplayName(token: string): Promise<string | null> {
+  const res = await authedFetch("/account/display-name", token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  const body = (await res.json()) as { display_name: string | null };
+  return body.display_name;
+}
+
+export async function setDisplayName(token: string, displayName: string): Promise<string> {
+  const res = await authedFetch("/account/display-name", token, {
+    method: "PUT",
+    body: JSON.stringify({ display_name: displayName }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  const body = (await res.json()) as { display_name: string };
+  return body.display_name;
+}

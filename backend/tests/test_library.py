@@ -80,11 +80,15 @@ async def _wait_done(client, job_id):
     raise AssertionError("job never finished")
 
 
+async def _acme(db_pool, principal):
+    return "Acme"
+
+
 @pytest.fixture(autouse=True)
 def _account_name(monkeypatch):
     from backend.src.library import router as library_router
 
-    monkeypatch.setattr(library_router, "_publish_account_name", lambda principal: "Acme")
+    monkeypatch.setattr(library_router, "_publish_account_name", _acme)
 
 
 @pytest.fixture

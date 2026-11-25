@@ -133,12 +133,12 @@ async def test_router_builds_commons_and_bumps_only_for_epub(client, monkeypatch
     from backend.src.auth.deps import require_user
     from backend.src.auth.principal import Principal
     from backend.src.library import router as library_router
-    from backend.tests.test_library import _BOOK, _Pool, _RecordingConn
+    from backend.tests.test_library import _BOOK, _acme, _Pool, _RecordingConn
 
     app.dependency_overrides[require_user] = lambda: Principal(
         sub="author-1", email="a@x.com", issuer="iss"
     )
-    monkeypatch.setattr(library_router, "_publish_account_name", lambda principal: "Acme")
+    monkeypatch.setattr(library_router, "_publish_account_name", _acme)
     seen = []
 
     async def fake_run_export(**kwargs):

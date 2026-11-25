@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.src.accounts.models import CREDENTIAL_SOURCES, CREDENTIAL_STATUSES
 
@@ -271,3 +271,21 @@ class CredentialUpsert(BaseModel):
         if self.status not in CREDENTIAL_STATUSES:
             return f"status must be one of {CREDENTIAL_STATUSES}"
         return None
+
+
+DISPLAY_NAME_MAX = 60
+
+
+class DisplayNameView(BaseModel):
+    display_name: str | None
+
+
+class DisplayNameUpdate(BaseModel):
+    """Trimmed on input; blank-after-trim or > 60 chars is a 422."""
+
+    display_name: str = Field(min_length=1, max_length=DISPLAY_NAME_MAX)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def _trim(cls, v):
+        return v.strip() if isinstance(v, str) else v

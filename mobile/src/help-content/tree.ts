@@ -26,6 +26,7 @@ export const HELP_TREE: HelpTreeNode[] = [
       { id: "leaf-plans", title: "Plans & billing", topicId: "plans" },
       { id: "leaf-free-tier-limits", title: "Free-plan limits & your counter", topicId: "free-tier-limits" },
       { id: "leaf-appearance", title: "Appearance & themes", topicId: "appearance" },
+      { id: "leaf-author-display-name", title: "Your author name on Author Commons", topicId: "author-display-name" },
       { id: "leaf-send-feedback", title: "Sending feedback", topicId: "send-feedback" },
     ],
   },

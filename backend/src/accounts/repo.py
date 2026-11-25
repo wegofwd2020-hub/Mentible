@@ -322,3 +322,18 @@ async def set_active_provider(
         provider_id,
     )
     return _account(row) if row else None
+
+
+async def get_display_name(conn: asyncpg.Connection, *, idp_sub: str) -> str | None:
+    """The author-facing display name (Author Commons account name); None when
+    unset or blank. Never defaults to the email (shown to all members)."""
+    value = await conn.fetchval("SELECT display_name FROM account WHERE idp_sub = $1", idp_sub)
+    if value is None or not value.strip():
+        return None
+    return value
+
+
+async def set_display_name(conn: asyncpg.Connection, *, idp_sub: str, display_name: str) -> None:
+    await conn.execute(
+        "UPDATE account SET display_name = $2 WHERE idp_sub = $1", idp_sub, display_name
+    )

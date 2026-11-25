@@ -19,6 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import JSONResponse
 
 from backend.config import settings
+from backend.src.accounts import repo as account_repo
 from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.core.log_redaction import get_logger
@@ -38,10 +39,12 @@ _FORMATS = {"epub", "pdf"}
 _MEDIA_TYPE = {"epub": "application/epub+zip", "pdf": "application/pdf"}
 
 
-def _publish_account_name(principal: Principal) -> str | None:
-    """Account name for the publish gate. No source is wired yet (a later task
-    decides it), so this reports None, i.e. missing."""
-    return None
+async def _publish_account_name(db_pool, principal: Principal) -> str | None:
+    """Account name for the publish gate: the account's editable display name
+    (Settings). None when unset or blank, which the gate reports as missing."""
+    async with db_pool.acquire() as conn:
+        await account_repo.get_or_create_account(conn, idp_sub=principal.sub, email=principal.email)
+        return await account_repo.get_display_name(conn, idp_sub=principal.sub)
 
 
 @router.post(
@@ -90,7 +93,7 @@ async def publish_book(
             content={"detail": str(exc)},
         )
 
-    account_name = _publish_account_name(principal)
+    account_name = await _publish_account_name(db_pool, principal)
     missing = missing_publish_fields(book, account_name)
     if missing:
         return JSONResponse(

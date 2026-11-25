@@ -1204,6 +1204,26 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "author-display-name",
+    title: "Your author name on Author Commons",
+    featureKey: "author-display-name",
+    keywords: ["author name", "display name", "author commons", "publish", "name", "pen name", "account name"],
+    blocks: [
+      {
+        kind: "text",
+        text: "This name appears on every book you publish to Author Commons. It is shown to all members, so use the name you want readers to see. It is never filled in from your email.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Settings, then the Account tab.",
+          "Type your name under \"Author name shown on Author Commons\" (1-60 characters).",
+          "Tap Save. Set it before you publish: publishing is blocked until a name is saved.",
+        ],
+      },
+    ],
+  },
+  {
     id: "send-feedback",
     title: "Sending feedback",
     featureKey: "send-feedback",
