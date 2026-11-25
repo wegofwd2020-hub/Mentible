@@ -1224,6 +1224,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "author-commons",
+    title: "Sharing finished books on Author Commons",
+    featureKey: "author-commons",
+    keywords: ["author commons", "share", "publish", "hide", "unpublish", "epub", "pdf", "community", "library"],
+    blocks: [
+      {
+        kind: "text",
+        text: "Author Commons is a shared shelf of finished books. Each book is shown with the author's name and the account name. You must save an author name in Settings before you can publish.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Export your book as an EPUB or PDF.",
+          "Open the Library and find the book.",
+          "Tap Publish to Author Commons.",
+        ],
+      },
+      {
+        kind: "text",
+        text: "To take a book down, tap Hide. Hide removes the book from the listing. Your project stays in your Library. Only the person who published a book can hide it.",
+      },
+    ],
+  },
+  {
     id: "send-feedback",
     title: "Sending feedback",
     featureKey: "send-feedback",
