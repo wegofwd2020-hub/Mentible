@@ -15,10 +15,10 @@ test("hero shows headline, accent word, and honest subhead", () => {
   expect(queryByText(/YouTube/i)).toBeNull();
 });
 
-test("approval card is labeled an Example and shows provenance", () => {
-  const { getByText, getAllByText } = render(<LandingHome />);
-  expect(getAllByText(/Example/i).length).toBeGreaterThan(0);
-  expect(getByText(/never hide who signed off/i)).toBeTruthy();
+test("example video replaces the approval-record card on native", () => {
+  const { getByText, queryByText } = render(<LandingHome />);
+  expect(getByText(/Watch the example video/i)).toBeTruthy();
+  expect(queryByText(/never hide who signed off/i)).toBeNull();
 });
 
 test("Formats lists only built exports", () => {

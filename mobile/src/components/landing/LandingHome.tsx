@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Hero } from "./Hero";
-import { ApprovalCardExample } from "./ApprovalCardExample";
+import { ExampleVideo } from "./ExampleVideo";
 import { Phases } from "./Phases";
 import { Formats } from "./Formats";
 import { PilotCTA } from "./PilotCTA";
@@ -43,20 +43,20 @@ export function LandingHome(): React.JSX.Element {
       <ScrollView ref={scrollRef} style={s.page} contentContainerStyle={s.inner}>
         <View style={s.content}>
           {isDesktop ? (
-            // Wide screens: the hero and the approval-record card sit side by side,
+            // Wide screens: the hero and the example video sit side by side,
             // matching the marketing layout. They stack on narrow screens.
             <View style={s.heroRow}>
               <View style={s.heroCol}>
                 <Hero />
               </View>
               <View style={s.cardCol}>
-                <ApprovalCardExample />
+                <ExampleVideo />
               </View>
             </View>
           ) : (
             <>
               <Hero />
-              <ApprovalCardExample />
+              <ExampleVideo />
             </>
           )}
           <Phases />
