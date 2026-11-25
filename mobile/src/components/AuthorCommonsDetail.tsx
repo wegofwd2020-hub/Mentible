@@ -8,7 +8,7 @@ import {
   type CommonsSummary,
 } from "@/api/client";
 import { downloadArtifact } from "@/storage/epubLibrary";
-import { BookCover } from "@/components/BookCover";
+import { CommonsCover } from "@/components/CommonsCover";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -87,7 +87,7 @@ export function AuthorCommonsDetail({ bookId }: { bookId: string }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.coverBox}>
-        <BookCover title={book.title} size="large" coverSvg={book.cover_svg ?? undefined} />
+        <CommonsCover title={book.title} size="large" coverSvg={book.cover_svg} />
       </View>
       <Text style={styles.title}>{book.title}</Text>
       <Text style={styles.meta}>{book.author_name}</Text>

@@ -22,13 +22,13 @@ def upgrade() -> None:
         CREATE TABLE author_commons_entry (
             book_id      text PRIMARY KEY,
             owner_sub    text NOT NULL,
-            title        text NOT NULL,
-            author_name  text NOT NULL,
+            title        text NOT NULL CHECK (char_length(title) <= 300),
+            author_name  text NOT NULL CHECK (char_length(author_name) <= 300),
             account_name text NOT NULL,
             version      integer NOT NULL DEFAULT 1,
             published_at timestamptz NOT NULL DEFAULT now(),
-            cover_svg    text,
-            description  text,
+            cover_svg    text CHECK (char_length(cover_svg) <= 100000),
+            description  text CHECK (char_length(description) <= 5000),
             language     text,
             formats      text[] NOT NULL DEFAULT '{}',
             status       text NOT NULL DEFAULT 'live'

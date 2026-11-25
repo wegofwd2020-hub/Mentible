@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
-import { BookCover } from "@/components/BookCover";
+import { CommonsCover } from "@/components/CommonsCover";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
 import { listAuthorCommons, type CommonsSummary } from "@/api/client";
@@ -119,7 +119,7 @@ function AuthorCommonsInner() {
           >
             <Card style={styles.row}>
               <View style={styles.coverBox}>
-                <BookCover title={item.title} coverSvg={item.cover_svg ?? undefined} />
+                <CommonsCover title={item.title} coverSvg={item.cover_svg} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{item.title}</Text>
