@@ -224,8 +224,8 @@ export default function SettingsScreen() {
             <Card style={styles.accountRow}>
               <View style={{ flex: 1 }}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.accountTitle}>Author name</Text>
-                  <HelpButton topic="author-display-name" label="author name" />
+                  <Text style={styles.accountTitle}>Publisher / account name</Text>
+                  <HelpButton topic="author-display-name" label="publisher name" />
                 </View>
                 <AuthorDisplayName />
               </View>

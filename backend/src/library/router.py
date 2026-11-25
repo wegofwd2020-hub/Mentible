@@ -30,7 +30,11 @@ from backend.src.export import compiler
 from backend.src.export import tasks as export_tasks
 from backend.src.export.schemas import ExportSubmitResponse
 from backend.src.library import artifact_store, commons_repo, published_repo
-from backend.src.library.commons_metadata import missing_publish_fields, oversize_publish_fields
+from backend.src.library.commons_metadata import (
+    missing_fields_message,
+    missing_publish_fields,
+    oversize_publish_fields,
+)
 
 router = APIRouter(prefix="/api/v1/library", tags=["library"])
 log = get_logger("library")
@@ -99,7 +103,7 @@ async def publish_book(
     if missing:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": f"Missing required fields: {', '.join(missing)}"},
+            content={"detail": missing_fields_message(missing)},
         )
 
     too_big = oversize_publish_fields(book)

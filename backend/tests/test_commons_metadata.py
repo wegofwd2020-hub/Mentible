@@ -57,7 +57,7 @@ async def test_publish_refused_422_without_author(client, monkeypatch):
         app.state.db = None
         app.dependency_overrides.pop(require_user, None)
     assert resp.status_code == 422
-    assert "author" in resp.json()["detail"]
+    assert "Add the author's name" in resp.json()["detail"]
     assert called == []
     assert conn.executed == []
 

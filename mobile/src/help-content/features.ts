@@ -49,7 +49,7 @@ export const FEATURES = [
   { key: "capture-audio", label: "Transcribing an interview (audio → transcript)" },
   { key: "transcript-review", label: "Reviewing a transcript (edit, tag speakers, approve)" },
   { key: "send-feedback", label: "Sending feedback from anywhere in the app" },
-  { key: "author-display-name", label: "Author name shown on Author Commons" },
+  { key: "author-display-name", label: "Publisher name shown on Author Commons" },
   { key: "author-commons", label: "Author Commons (sharing finished books)" },
 ] as const;
 

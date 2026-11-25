@@ -22,7 +22,7 @@ it("loads the stored name and saves an edit through the API", async () => {
 
   fetchMock.mockResolvedValueOnce(json({ display_name: "Ada L." }));
   fireEvent.changeText(input, "  Ada L.  ");
-  fireEvent.press(screen.getByLabelText("Save author name"));
+  fireEvent.press(screen.getByLabelText("Save publisher name"));
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   const [url, init] = fetchMock.mock.calls[1];
@@ -36,10 +36,10 @@ it("loads the stored name and saves an edit through the API", async () => {
 it("shows an inline error on 422", async () => {
   fetchMock.mockResolvedValueOnce(json({ display_name: null }));
   render(<AuthorDisplayName />);
-  const input = await screen.findByLabelText("Author name shown on Author Commons");
+  const input = await screen.findByLabelText("Publisher / account name");
   fetchMock.mockResolvedValueOnce(json({ detail: "bad" }, 422));
   fireEvent.changeText(input, "x");
-  fireEvent.press(screen.getByLabelText("Save author name"));
+  fireEvent.press(screen.getByLabelText("Save publisher name"));
   expect(await screen.findByText(/1.60 characters/)).toBeTruthy();
 });
 
@@ -47,7 +47,7 @@ it("keeps Save disabled while the field is blank", async () => {
   fetchMock.mockResolvedValueOnce(json({ display_name: null }));
   render(<AuthorDisplayName />);
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-  expect(screen.getByLabelText("Save author name").props.accessibilityState.disabled).toBe(true);
+  expect(screen.getByLabelText("Save publisher name").props.accessibilityState.disabled).toBe(true);
 });
 
 it("the input caps typing at 60 characters", async () => {

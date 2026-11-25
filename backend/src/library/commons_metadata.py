@@ -28,6 +28,20 @@ def missing_publish_fields(raw_book: dict, account_name: str | None) -> list[str
     return missing
 
 
+_MISSING_GUIDANCE = {
+    "account_name": "Set your publisher name in Settings \u2192 Account before publishing.",
+    "author": "Add the author's name to the book (Book details), then publish again.",
+    "title": "Add a title to the book, then publish again.",
+}
+
+
+def missing_fields_message(missing: list[str]) -> str:
+    """Plain-language guidance for each missing publish field."""
+    return " ".join(
+        _MISSING_GUIDANCE.get(m, f"Add the book's {m}, then publish again.") for m in missing
+    )
+
+
 # Hard caps on the free-text fields copied into the public catalog.
 _LIMITS = (
     ("title", 300),

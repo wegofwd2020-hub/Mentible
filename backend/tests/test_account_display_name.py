@@ -86,8 +86,8 @@ async def _publish(client, monkeypatch):
 async def test_publish_blocked_without_display_name(client, pool, monkeypatch):
     resp, seen = await _publish(client, monkeypatch)
     assert resp.status_code == 422
-    assert "Missing required fields" in resp.json()["detail"]
-    assert "account_name" in resp.json()["detail"]
+    assert "publisher name in Settings" in resp.json()["detail"]
+    assert "account_name" not in resp.json()["detail"]
     assert seen == []
 
 
@@ -97,7 +97,7 @@ async def test_publish_blocked_when_stored_name_is_whitespace(client, pool, monk
         await c.execute("UPDATE account SET display_name = '   ' WHERE idp_sub = $1", SUB)
     resp, _ = await _publish(client, monkeypatch)
     assert resp.status_code == 422
-    assert "account_name" in resp.json()["detail"]
+    assert "publisher name in Settings" in resp.json()["detail"]
 
 
 async def test_publish_passes_with_display_name(client, pool, monkeypatch):

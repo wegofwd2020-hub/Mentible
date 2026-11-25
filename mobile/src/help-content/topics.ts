@@ -1205,7 +1205,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "author-display-name",
-    title: "Your author name on Author Commons",
+    title: "Your publisher name on Author Commons",
     featureKey: "author-display-name",
     keywords: ["author name", "display name", "author commons", "publish", "name", "pen name", "account name"],
     blocks: [
@@ -1217,7 +1217,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         kind: "steps",
         steps: [
           "Open Settings, then the Account tab.",
-          "Type your name under \"Author name shown on Author Commons\" (1-60 characters).",
+          "Type your name under \"Publisher / account name\" (1-60 characters).",
           "Tap Save. Set it before you publish: publishing is blocked until a name is saved.",
         ],
       },
@@ -1231,7 +1231,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Author Commons is a shared shelf of finished books. Each book is shown with the author's name and the account name. You must save an author name in Settings before you can publish.",
+        text: "Author Commons is a shared shelf of finished books. Each book is shown with the author's name and the account name. You must save a publisher name in Settings before you can publish.",
       },
       {
         kind: "steps",

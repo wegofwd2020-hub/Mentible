@@ -56,9 +56,9 @@ export function AuthorDisplayName(): React.JSX.Element {
 
   return (
     <View style={styles.wrap}>
-      <Label tone="secondary">Author name shown on Author Commons</Label>
+      <Label tone="secondary">Publisher / account name</Label>
       <Text style={styles.help}>
-        Shown to all members on books you publish. Set it before you publish.
+        Shown as the publisher on Author Commons. Set it before you publish.
       </Text>
       <TextInput
         style={styles.input}
@@ -70,12 +70,12 @@ export function AuthorDisplayName(): React.JSX.Element {
         maxLength={MAX_LEN}
         placeholder="Your name or pen name"
         placeholderTextColor={styles.help.color}
-        accessibilityLabel="Author name shown on Author Commons"
+        accessibilityLabel="Publisher / account name"
       />
       <Button
         variant="primary"
         label="Save"
-        accessibilityLabel="Save author name"
+        accessibilityLabel="Save publisher name"
         onPress={onSave}
         busy={busy}
         disabled={busy || !accessToken || !value.trim()}
