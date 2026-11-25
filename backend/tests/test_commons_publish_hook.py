@@ -100,6 +100,7 @@ async def test_epub_publish_creates_entry_v1(pool, book_id):
     e = await _entry(pool, book_id)
     assert e.status == "live" and e.version == 1 and e.formats == ["epub"]
     assert e.cover_svg == "<svg/>" and e.account_name == "ada"
+    assert status["listed"] is True
 
 
 async def test_epub_then_pdf_is_one_publish(pool, book_id):
@@ -121,6 +122,7 @@ async def test_catalog_failure_does_not_fail_artifact(pool, book_id, monkeypatch
     monkeypatch.setattr(commons_repo, "upsert_publish", boom)
     status = await _run(pool, book_id, "epub", _FakeRedis())
     assert status["status"] == "done" and status["published"] is True
+    assert status["listed"] is False
     async with pool.acquire() as conn:
         n = await conn.fetchval("SELECT count(*) FROM published_artifact WHERE book_id=$1", book_id)
     assert n == 1

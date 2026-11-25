@@ -274,6 +274,7 @@ export interface ExportJobStatus {
   size?: number;
   warnings?: number;
   trust?: string; // base64 Content Trust Manifest
+  listed?: boolean; // Author Commons publish: false = stored but not listed
 }
 
 // A diagram-heavy book compiles for minutes on the backend (one headless-Chromium

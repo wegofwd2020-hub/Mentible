@@ -260,7 +260,11 @@ async def run_export(
                     await commons_repo.upsert_publish(
                         conn, book_id=publish_book_id, fmt=fmt, **commons
                     )
+                payload["listed"] = True
             except Exception:
+                # The artifact is stored but not in the catalog: surface that so the
+                # client does not report a plain success.
+                payload["listed"] = False
                 log.error(
                     "commons_catalog_write_failed", job_id=str(job_id), book_id=publish_book_id
                 )
