@@ -46,7 +46,7 @@ export function PublishButton({ bookId, enabled }: { bookId: string; enabled: bo
   if (state.kind === "done") {
     return (
       <View style={styles.doneBox}>
-        <Text style={styles.doneText}>✓ Published to the Library — readers can now download it.</Text>
+        <Text style={styles.doneText}>✓ Published to Author Commons — readers can now download it.</Text>
       </View>
     );
   }

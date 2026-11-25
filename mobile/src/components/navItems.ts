@@ -8,6 +8,7 @@ export type IconName = keyof typeof Ionicons.glyphMap;
 export const NAV_TABS: Record<string, { label: string; active: IconName; inactive: IconName }> = {
   index: { label: NAV.home, active: "home", inactive: "home-outline" },
   library: { label: NAV.library, active: "library", inactive: "library-outline" },
+  "author-commons": { label: NAV.authorCommons, active: "globe", inactive: "globe-outline" },
   shelves: { label: NAV.shelves, active: "albums", inactive: "albums-outline" },
   books: { label: NAV.studio, active: "create", inactive: "create-outline" },
   projects: { label: NAV.projects, active: "folder", inactive: "folder-outline" },
@@ -26,6 +27,7 @@ export const NAV_TABS: Record<string, { label: string; active: IconName; inactiv
 export const NAV_ORDER: string[] = [
   "index",
   "library",
+  ...(IS_DEMO ? [] : ["author-commons"]),
   ...(IS_DEMO ? [] : ["projects", "reviews"]),
   "settings",
   "help",

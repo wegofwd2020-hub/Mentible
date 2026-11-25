@@ -35,6 +35,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="library" />
+      <Tabs.Screen name="author-commons" />
       <Tabs.Screen name="shelves" />
       <Tabs.Screen name="books" />
       <Tabs.Screen name="projects" />
