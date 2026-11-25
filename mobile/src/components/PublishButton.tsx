@@ -83,7 +83,7 @@ export function PublishButton({ bookId, enabled }: { bookId: string; enabled: bo
             <Text style={styles.btnText}> Publishing {state.fmt.toUpperCase()}… (can take a few minutes)</Text>
           </View>
         ) : (
-          <Text style={styles.btnText}>Publish to Library (EPUB + PDF)</Text>
+          <Text style={styles.btnText}>Publish to Author Commons (EPUB + PDF)</Text>
         )}
       </Pressable>
       {state.kind === "error" && <Text style={styles.errText}>{state.message}</Text>}
