@@ -1238,7 +1238,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Export your book as an EPUB or PDF.",
           "Open the Library and find the book.",
-          "Tap Publish to Author Commons.",
+          "Tap Publish to Library (EPUB + PDF). The book then appears on Author Commons.",
         ],
       },
       {
