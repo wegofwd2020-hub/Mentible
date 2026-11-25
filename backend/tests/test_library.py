@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,7 +16,7 @@ from backend.src.auth.deps import require_user
 from backend.src.auth.principal import Principal
 from backend.src.export import compiler
 from backend.src.export.compiler import ExportResult
-from backend.src.library import artifact_store
+from backend.src.library import artifact_store, commons_repo
 
 _BOOK = {
     "id": "book-1",
@@ -253,6 +254,11 @@ async def test_download_streams_the_file(client, tmp_path, monkeypatch, as_user)
         "published_by_sub": "author-1",
         "published_at": datetime(2026, 7, 4, tzinfo=UTC),
     }
+
+    async def _live_entry(conn, book_id):
+        return SimpleNamespace(status="live")
+
+    monkeypatch.setattr(commons_repo, "get_entry", _live_entry)
     app.state.db = _Pool(_RecordingConn(rows=[row]))
     try:
         resp = await client.get("/api/v1/library/book-1/artifacts/pdf")

@@ -1,4 +1,4 @@
-"""Author Commons catalog endpoints: listing and detail (metadata only).
+"""Author Commons catalog endpoints: listing, detail (metadata only) and owner hide.
 
 No router prefix: every route spells its full path (more routes share this module).
 """
@@ -98,3 +98,21 @@ async def get_commons_entry(
     if entry is None or entry.status != "live":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
     return CommonsDetail(**_summary(entry).model_dump(), description=entry.description)
+
+
+@router.post("/api/v1/library/{book_id}/hide")
+async def hide_commons_entry(
+    book_id: str,
+    request: Request,
+    principal: Principal = Depends(require_user),
+) -> dict[str, str]:
+    """Owner-only: take a book out of the commons. Keeps the project and every
+    stored file; republishing makes it live again."""
+    async with _pool(request).acquire() as conn:
+        entry = await commons_repo.get_entry(conn, book_id)
+        if entry is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+        if entry.owner_sub != principal.sub:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not the owner")
+        await commons_repo.set_status(conn, book_id=book_id, status="hidden")
+    return {"status": "hidden"}

@@ -27,7 +27,7 @@ from backend.src.core.redis_dep import get_redis
 from backend.src.export import compiler
 from backend.src.export import tasks as export_tasks
 from backend.src.export.schemas import ExportSubmitResponse
-from backend.src.library import artifact_store, published_repo
+from backend.src.library import artifact_store, commons_repo, published_repo
 from backend.src.library.commons_metadata import missing_publish_fields
 
 router = APIRouter(prefix="/api/v1/library", tags=["library"])
@@ -177,6 +177,10 @@ async def download_artifact(
     if db_pool is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")
     async with db_pool.acquire() as conn:
+        entry = await commons_repo.get_entry(conn, book_id)
+        if entry is None or entry.status != "live":
+            # Hidden (or never listed): refuse before touching the stored bytes.
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")
         row = await published_repo.get_one(conn, book_id, fmt)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not published")
