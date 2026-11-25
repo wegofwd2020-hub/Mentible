@@ -30,6 +30,10 @@ DIAGRAM_GUIDANCE = (
     "branches): use a native mermaid `mindmap` — `root((Centre))` on its own line, then each "
     "part indented beneath it on its own line. Do NOT draw a list of layers or parts as a "
     "flowchart with arrows between them unless they happen in a fixed order.\n"
+    "BLOCK DIAGRAM: when the sources or the topic ask for a block diagram (boxes joined by "
+    "arrows showing how parts connect), draw a `flowchart` even with no fixed order, and put "
+    "`%% block-diagram` on its own line directly under the header. Never redraw a block "
+    "diagram as a mindmap.\n"
     'NEVER write "[IMAGE: ...]" or a camera emoji as a placeholder — produce an actual '
     "```mermaid/```svg diagram, or write text only."
 )
