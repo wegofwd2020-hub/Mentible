@@ -9,7 +9,7 @@ import { sectionAnchor } from "./anchor";
 
 // Built exports ONLY (honesty guardrail — see brief Global Constraints). Do
 // NOT add YouTube, Newsletter, or any learning-module entry here.
-const FORMATS = [
+export const FORMATS = [
   "Book",
   "EPUB",
   "PDF",

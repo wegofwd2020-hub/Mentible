@@ -4,11 +4,10 @@ import { useRouter, type Href } from "expo-router";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 
-// Operator identity + legal links for the public landing page. The contact address
-// is deliberately a placeholder: it must be confirmed by the owner before launch
-// (see the site-actions brief, Task 4). Legal pages are DRAFTS pending legal review.
+// Operator identity + legal links for the public landing page. Contact address confirmed
+// by the owner (support address). Legal pages are DRAFTS pending legal review.
 export const OPERATOR_NAME = "Kaundinya Labs LLC";
-export const CONTACT_PLACEHOLDER = "[Contact email: pending owner confirmation]";
+export const CONTACT_EMAIL = "support@kaundinyalabs.com";
 
 export function LandingFooter(): React.JSX.Element {
   const s = useThemedStyles(make);
@@ -17,7 +16,7 @@ export function LandingFooter(): React.JSX.Element {
   return (
     <View style={s.footer}>
       <Text style={s.operator}>{OPERATOR_NAME} · Michigan, USA</Text>
-      <Text style={s.body}>{CONTACT_PLACEHOLDER}</Text>
+      <Text style={s.body}>{CONTACT_EMAIL}</Text>
       <View style={s.links}>
         <Pressable
           accessibilityRole="link"

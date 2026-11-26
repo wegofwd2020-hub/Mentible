@@ -7,27 +7,40 @@ import { FRAUNCES } from "@/constants/fonts";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { sectionAnchor } from "./anchor";
 
-const PHASES: Array<[string, string, string]> = [
-  [
-    "01",
-    "Capture",
-    "Paste transcripts, notes, and links; we organize them into labelled sources.",
-  ],
-  [
-    "02",
-    "Create",
-    "AI drafts an outline and cornerstone asset from those sources only — every section attributed to its source, inventing nothing. A grounding check flags any unbacked claim.",
-  ],
-  [
-    "03",
-    "Validate",
-    "The named expert reviews each version, leaves feedback, and approves or withdraws it. Approval is stamped with who recorded it; coverage and readability score automatically.",
-  ],
-  [
-    "04",
-    "Share",
-    "Publish the approved master to your chosen export formats, plus social derivatives.",
-  ],
+export interface Phase {
+  num: string;
+  name: string;
+  body: string;
+  youGet: string;
+}
+
+export const PHASES_HEADING = "From your material to a published book, with every claim traceable.";
+
+export const PHASES: Phase[] = [
+  {
+    num: "01",
+    name: "Capture",
+    body: "You bring transcripts, notes, and links. Mentible sorts them into labelled sources.",
+    youGet: "a source library that every later claim can point back to.",
+  },
+  {
+    num: "02",
+    name: "Create",
+    body: "The AI writes an outline and a first draft using only those sources. Each section names its source, and a grounding check flags any sentence the sources do not support.",
+    youGet: "a first draft in days, not a blank page, with nothing to check against the sources by hand.",
+  },
+  {
+    num: "03",
+    name: "Validate",
+    body: "Your named expert reviews each version, comments, and approves or withdraws it.",
+    youGet: "a sign-off on record, so readers and reviewers can see who stood behind the content.",
+  },
+  {
+    num: "04",
+    name: "Publish",
+    body: "The approved master goes out as a book, PDF, or other format, plus social posts cut from the same source.",
+    youGet: "one approved source, eleven formats.",
+  },
 ];
 
 export function Phases(): React.JSX.Element {
@@ -35,13 +48,17 @@ export function Phases(): React.JSX.Element {
   return (
     <View style={s.section} {...sectionAnchor("how-it-works")}>
       <Label>How it works</Label>
-      <Text style={s.heading}>Four phases, one traceable thread.</Text>
+      <Text style={s.heading}>{PHASES_HEADING}</Text>
       <View style={s.grid}>
-        {PHASES.map(([num, name, body]) => (
-          <Card key={num} style={s.card}>
-            <Text style={s.num}>{num}</Text>
-            <Text style={s.name}>{name}</Text>
-            <Text style={s.body}>{body}</Text>
+        {PHASES.map((p) => (
+          <Card key={p.num} style={s.card}>
+            <Text style={s.num}>{p.num}</Text>
+            <Text style={s.name}>{p.name}</Text>
+            <Text style={s.body}>{p.body}</Text>
+            <Text style={s.youGet}>
+              <Text style={s.youGetLabel}>You get: </Text>
+              {p.youGet}
+            </Text>
           </Card>
         ))}
       </View>
@@ -84,5 +101,17 @@ const make = (t: Palette) => ({
     color: t.textSecondary,
     fontSize: typography.sizeSm,
     lineHeight: typography.sizeSm * typography.lineHeightNormal,
+  },
+  youGet: {
+    color: t.textMuted,
+    fontSize: typography.sizeXs,
+    lineHeight: typography.sizeXs * typography.lineHeightNormal,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: t.border,
+  },
+  youGetLabel: {
+    color: t.primary,
+    fontWeight: "600" as const,
   },
 });

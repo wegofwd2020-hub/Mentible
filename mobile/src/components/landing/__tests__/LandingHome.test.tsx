@@ -9,7 +9,8 @@ test("hero shows headline, accent word, and honest subhead", () => {
   const { getByText, queryByText } = render(<LandingHome />);
   expect(getByText(/Turn expertise into/i)).toBeTruthy();
   expect(getByText(/trusted knowledge/i)).toBeTruthy();
-  expect(getByText(/cited back to/i)).toBeTruthy();
+  expect(getByText(/traceable to its source/i)).toBeTruthy();
+  expect(getByText("Eleven formats")).toBeTruthy();
   // honesty guardrails: no fabricated proof strings
   expect(queryByText(/review time/i)).toBeNull();
   expect(queryByText(/YouTube/i)).toBeNull();
@@ -23,7 +24,8 @@ test("example video replaces the approval-record card on native", () => {
 
 test("Formats lists only built exports", () => {
   const { getByText, queryByText } = render(<LandingHome />);
-  ["EPUB", "PDF", "Carousel", "Audio"].forEach((f) => expect(getByText(new RegExp(f, "i"))).toBeTruthy());
+  // exact match: step copy also mentions PDF, so chips are matched by full label
+  ["EPUB", "PDF", "Carousel", "Audio"].forEach((f) => expect(getByText(f)).toBeTruthy());
   expect(queryByText(/Newsletter/i)).toBeNull();
 });
 

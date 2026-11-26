@@ -9,7 +9,7 @@ import { radius, spacing, typography, type Palette } from "@/constants/theme";
 
 const STATS: Array<[string, string]> = [
   ["Weeks, not months", "one focused sprint"],
-  ["1 source", "book + derivatives"],
+  ["Eleven formats", "from one approved source"],
   ["Named-expert sign-off", "recorded on each version"],
 ];
 
@@ -22,9 +22,8 @@ export function Hero(): React.JSX.Element {
         Turn expertise into <AccentText>trusted knowledge.</AccentText>
       </Text>
       <Text style={s.sub}>
-        Expert-validated books, guides, and social content — drafted by AI from your own
-        sources, every claim cited back to one, then reviewed and signed off by a named
-        expert.
+        Your expertise, drafted from your own material, checked by you, and traceable to its
+        source.
       </Text>
       <View style={s.ctas}>
         <Pressable
