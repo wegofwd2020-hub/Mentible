@@ -514,7 +514,15 @@ export async function getAuthorCommons(
   return res.json();
 }
 
+// The caller's own live listings (the Recall list). Hidden listings are not returned.
+export async function listMyAuthorCommons(token: string): Promise<CommonsSummary[]> {
+  const res = await authedFetch(`/author-commons/mine`, token);
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));
+  return res.json();
+}
+
 // Owner-only: takes the book out of the commons (the project and its files are kept).
+// Shown to users as "Recall from Author Commons".
 export async function hideAuthorCommons(token: string, bookId: string): Promise<void> {
   const res = await authedFetch(`/library/${encodeURIComponent(bookId)}/hide`, token, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => ""), retryAfterSeconds(res));

@@ -114,6 +114,20 @@ async def set_status(conn: asyncpg.Connection, *, book_id: str, status: str) -> 
     )
 
 
+_LIST_OWNED_LIVE = r"""
+SELECT * FROM author_commons_entry
+WHERE owner_sub = $1 AND status = 'live'
+ORDER BY published_at DESC, book_id
+"""
+
+
+async def list_owned_live(conn: asyncpg.Connection, *, owner_sub: str) -> list[CommonsEntry]:
+    """The caller's own live listings, for the Recall list. Hidden ones are excluded:
+    there is nothing left to recall."""
+    rows = await conn.fetch(_LIST_OWNED_LIVE, owner_sub)
+    return [_row(r) for r in rows]
+
+
 def _escape_like(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 

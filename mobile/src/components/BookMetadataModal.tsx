@@ -243,8 +243,8 @@ export function BookMetadataModal({
               </Pressable>
             ) : null}
             {onHide ? (
-              <Pressable style={styles.iconBtn} onPress={onHide} accessibilityRole="button" accessibilityLabel="Hide from Author Commons" hitSlop={8}>
-                <Ionicons name="eye-off-outline" size={20} color={theme.textSecondary} />
+              <Pressable style={styles.iconBtn} onPress={onHide} accessibilityRole="button" accessibilityLabel="Recall from Author Commons" hitSlop={8}>
+                <Ionicons name="arrow-undo-outline" size={20} color={theme.textSecondary} />
               </Pressable>
             ) : null}
             {onDelete ? (

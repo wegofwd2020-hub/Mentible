@@ -10,7 +10,7 @@ jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock("@/components/PageContainer", () => ({
   PageContainer: ({ children }: { children: React.ReactNode }) => children,
 }));
-jest.mock("@/api/client", () => ({ listAuthorCommons: jest.fn() }));
+jest.mock("@/api/client", () => ({ listAuthorCommons: jest.fn(), listMyAuthorCommons: jest.fn().mockResolvedValue([]) }));
 
 import { listAuthorCommons } from "@/api/client";
 import { NAV_ORDER } from "@/components/navItems";

@@ -94,7 +94,7 @@ describe("hide", () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
     const { onDone, buttons } = run();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(buttons.map((b) => b.text)).toEqual(["Cancel", "Hide"]);
+    expect(buttons.map((b) => b.text)).toEqual(["Cancel", "Recall"]);
     buttons[1].onPress?.();
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0];
@@ -113,6 +113,6 @@ describe("hide", () => {
     fetchMock.mockResolvedValue(new Response("no", { status: 403 }));
     const { onError, buttons } = run();
     buttons[1].onPress?.();
-    await waitFor(() => expect(onError).toHaveBeenCalledWith("Only the book's publisher can hide it."));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("Only the book's publisher can recall it."));
   });
 });

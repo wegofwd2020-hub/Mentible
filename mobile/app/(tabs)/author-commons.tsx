@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { PageContainer } from "@/components/PageContainer";
 import { CommonsCover } from "@/components/CommonsCover";
 import { RequireSignIn } from "@/auth/RequireSignIn";
 import { useAuth } from "@/auth/AuthProvider";
-import { listAuthorCommons, type CommonsSummary } from "@/api/client";
+import { listAuthorCommons, listMyAuthorCommons, type CommonsSummary } from "@/api/client";
+import { confirmHideFromCommons } from "@/lib/hideCommons";
 import { spacing, typography, type Palette } from "@/constants/theme";
 import { FRAUNCES } from "@/constants/fonts";
 import { useTheme, useThemedStyles } from "@/theme";
@@ -35,7 +36,37 @@ function AuthorCommonsInner() {
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mine, setMine] = useState<CommonsSummary[]>([]);
+  const [recallNotice, setRecallNotice] = useState<string | null>(null);
+  // Bumped after a recall so the public list drops the book without a manual refresh.
+  const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
+
+  const loadMine = useCallback(() => {
+    if (!accessToken) return;
+    listMyAuthorCommons(accessToken)
+      .then(setMine)
+      .catch(() => setMine([]));
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadMine();
+  }, [loadMine]);
+
+  const recall = (book: CommonsSummary) => {
+    if (!accessToken) return;
+    confirmHideFromCommons({
+      token: accessToken,
+      bookId: book.book_id,
+      title: book.title,
+      onDone: () => {
+        setRecallNotice(null);
+        loadMine();
+        setReloadKey((k) => k + 1);
+      },
+      onError: setRecallNotice,
+    });
+  };
 
   // Debounce the search box into `query`.
   useEffect(() => {
@@ -62,10 +93,32 @@ function AuthorCommonsInner() {
       .finally(() => {
         if (mine === seq.current) setLoading(false);
       });
-  }, [accessToken, query, language]);
+  }, [accessToken, query, language, reloadKey]);
 
   const header = (
     <View style={styles.controls}>
+      {mine.length > 0 ? (
+        <View style={styles.mine}>
+          <Text style={styles.sectionTitle}>Your listings</Text>
+          {mine.map((b) => (
+            <View key={b.book_id} style={styles.mineRow}>
+              <Text style={[styles.rowTitle, { flex: 1 }]} numberOfLines={1}>
+                {b.title}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Recall ${b.title} from Author Commons`}
+                onPress={() => recall(b)}
+                style={styles.recallBtn}
+              >
+                <Text style={styles.recallText}>Recall</Text>
+              </Pressable>
+            </View>
+          ))}
+          <Text style={styles.rowMeta}>Recalling takes a book off the listing. You can publish it again any time.</Text>
+          {recallNotice ? <Text style={styles.error}>{recallNotice}</Text> : null}
+        </View>
+      ) : null}
       <TextInput
         style={styles.search}
         value={text}
@@ -163,6 +216,11 @@ const makeStyles = (c: Palette) => ({
     paddingVertical: spacing.sm,
     fontSize: typography.sizeMd,
   },
+  mine: { gap: spacing.xs, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+  sectionTitle: { color: c.text, fontSize: typography.sizeMd, fontFamily: FRAUNCES.semibold },
+  mineRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  recallBtn: { borderWidth: 1, borderColor: c.border, borderRadius: 8, paddingVertical: 4, paddingHorizontal: spacing.md },
+  recallText: { color: c.text, fontSize: typography.sizeSm, fontWeight: "700" as const },
   langRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs },
   langChip: {
     borderWidth: 1,
