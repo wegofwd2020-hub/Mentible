@@ -33,13 +33,13 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "Before you sign in, the top bar shows marketing links plus a Sign in button. Once you're signed in, those links are replaced by your app tabs — Library, Studio, Projects, Reviews, and Publish — alongside an account menu (Settings, Help, About, Sign out).",
+        text: "Before you sign in, the top bar shows marketing links plus a Sign in button. Once you're signed in, those links are replaced by your app tabs — Library, Author Commons, Projects, and Reviews — alongside an account menu (Settings, Help, About, Sign out).",
       },
       {
         kind: "steps",
         steps: [
           "From Home, tap Sign in to create an account or log in.",
-          "Once signed in, use the top bar's tabs to get to your Library, Studio, Projects, Reviews, or Publish.",
+          "Once signed in, use the top bar's tabs to get to your Library, Author Commons, Projects, or Reviews.",
           "Open the account menu for Settings, Help, About, or to sign out.",
         ],
       },
@@ -59,9 +59,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Optional: sign in to sync your library across devices — or keep reading without an account.",
           "Add a provider API key in Settings. Claude (Anthropic) is recommended for finished books; free-to-start options exist if you just want to try it. Your key stays on your device.",
-          "In Books, start a New Book and structure its table of contents.",
+          "On the Projects tab, tap “+ New project”, then add your sources on its Input tab.",
           "Generate — each topic is written with math, diagrams and tables, scoped by level and depth.",
-          "Save the finished book to your Library to read or export.",
+          "Approve the draft in the project's Feedback tab, then export it from its Publish tab.",
         ],
       },
       { kind: "action", label: "Create your account", step: "signup" },
@@ -227,7 +227,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible's nav bar has: Library (your finished books), Projects (the expert-validation studio), Reviews (projects you've been invited to review), Publish (turn your writing into posts and shareable cards), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+        text: "Mentible's nav bar has: Library (your finished books), Author Commons (books authors have shared), Projects (the expert-validation studio), Reviews (projects you've been invited to review), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
       },
       {
         kind: "steps",
@@ -971,7 +971,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "The Posts tab turns any writing into short, platform-ready social posts. Paste the source text, pick LinkedIn or X, optionally give it a tone, and you get three distinct drafts to choose from. Each draft is yours to copy and post — Mentible does not publish for you. You can also attach an optional reference image to steer style and tone — the model takes cues from it, it does not copy the image, and your posts are still AI-generated.",
+        text: "The Publish screen turns any writing into short, platform-ready social posts. Paste the source text, pick LinkedIn or X, optionally give it a tone, and you get three distinct drafts to choose from. Each draft is yours to copy and post — Mentible does not publish for you. You can also attach an optional reference image to steer style and tone — the model takes cues from it, it does not copy the image, and your posts are still AI-generated.",
       },
       {
         kind: "steps",
@@ -992,7 +992,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "The Publish tab also makes a branded, shareable image card from your own writing — either pasted text or a validated section from one of your projects. Pick a size (Square, LinkedIn, or Story) and an optional tone; a card built from a validated section carries its cited-source label, so readers can see where it came from. The card is yours to download — Mentible does not publish it for you, and making one uses a billable LLM call (BYOK or your plan's managed allowance).",
+        text: "The Publish screen also makes a branded, shareable image card from your own writing — either pasted text or a validated section from one of your projects. Pick a size (Square, LinkedIn, or Story) and an optional tone; a card built from a validated section carries its cited-source label, so readers can see where it came from. The card is yours to download — Mentible does not publish it for you, and making one uses a billable LLM call (BYOK or your plan's managed allowance).",
       },
       {
         kind: "steps",
