@@ -136,6 +136,13 @@ describe("compileEpub — structure & well-formedness (M2/M3)", () => {
     for (const name of ["OEBPS/content.opf", "OEBPS/css/style.css", "mimetype"]) {
       expect(zip.file(name)!.date.toISOString()).toBe(expected);
     }
+    // Folder records too: JSZip auto-creates `OEBPS/`, `OEBPS/css/`, … and stamps
+    // them with the wall clock unless the compiler creates them with the stable date.
+    const dirs = Object.values(zip.files).filter((f) => f.dir);
+    expect(dirs.length).toBeGreaterThan(0);
+    for (const dir of dirs) {
+      expect(dir.date.toISOString()).toBe(expected);
+    }
   });
 
   it("profile 'kdp' writes KDP_STYLESHEET instead of STYLESHEET", async () => {
