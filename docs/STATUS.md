@@ -68,6 +68,29 @@ sign-in and the super-admin console are **verified on production**. Focus shifte
 
 ---
 
+## 🏷 Release Candidate v0.3.0-rc.1 (2026-11-27)
+
+First **release candidate** for v0.3.0 (`app.json` 0.3.0-rc.1, versionCode 76). Covers
+the ~370 features merged since `v0.2.0` (2026-06-28). Pre-release: feature work is
+frozen for the RC, and only release-blocking fixes land until `v0.3.0` is cut.
+
+- **Expert-validation trust workspace** (ADR-037) — invite/revoke experts, per-topic
+  diagram edits, link-source ingestion, stored-audio cap for Free accounts.
+- **Author Commons** — publish finished books to all members; publishers can recall
+  them (`feat(commons)`, #648, #655).
+- **Diagram generation** — content-driven diagram type choice, flowchart→mindmap
+  conversion, music/connectivity drawings.
+- **Books & export** — cover artwork upload, EPUB/PDF page-layout and styling rework.
+- **Billing** — one Free generation cap across all routes; plan name + limit banner.
+- **Journey analytics** — stall detection, 3-tier intervention emails, admin dashboards,
+  live intervention config.
+- **Sync** — cloud library sync reset when the recovery key is lost (#614).
+- **Ops** — `backend-swap.sh` for root prod backend swap; staging compose rewrite;
+  build-time feature flags.
+
+Known open before v0.3.0 final: backlog items listed under "Open after v0.2.0" below
+still apply; RC soak on demo + prod web before promoting.
+
 ## 🏷 Release v0.2.0 (2026-06-28)
 
 First tagged release (`v0.2.0`, `app.json` 0.2.0; live prod web build `c2e5821`). An
