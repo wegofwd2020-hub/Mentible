@@ -345,8 +345,19 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
     const d = book.updatedAt ? new Date(book.updatedAt) : null;
     return d && !Number.isNaN(d.getTime()) ? d : new Date("2000-01-01T00:00:00Z");
   })();
-  const put = (name: string, data: string | Uint8Array, opts?: JSZip.JSZipFileOptions) =>
-    zip.file(name, data, { date: zipDate, ...opts });
+  // JSZip auto-creates parent folder entries (`OEBPS/`, `OEBPS/css/`, …) through
+  // an internal path that ignores the `date` option and stamps `new Date()`, so
+  // those directory records would still carry the wall clock — the flake's real
+  // source (a folder's DOS time ticking over a 2 s boundary). Turn auto-folders
+  // off and create each parent folder ourselves with the stable date.
+  const put = (name: string, data: string | Uint8Array, opts?: JSZip.JSZipFileOptions) => {
+    const parts = name.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const dir = `${parts.slice(0, i).join("/")}/`;
+      if (!zip.files[dir]) zip.file(dir, "", { dir: true, date: zipDate });
+    }
+    zip.file(name, data, { date: zipDate, createFolders: false, ...opts });
+  };
 
   // mimetype MUST be the first entry and stored uncompressed (EPUB OCF rule).
   put("mimetype", "application/epub+zip", { compression: "STORE" });
