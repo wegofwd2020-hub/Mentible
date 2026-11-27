@@ -1227,7 +1227,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "author-commons",
     title: "Sharing finished books on Author Commons",
     featureKey: "author-commons",
-    keywords: ["author commons", "share", "publish", "hide", "unpublish", "epub", "pdf", "community", "library"],
+    keywords: ["author commons", "share", "publish", "recall", "hide", "unpublish", "epub", "pdf", "community", "library"],
     blocks: [
       {
         kind: "text",
@@ -1243,7 +1243,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         kind: "text",
-        text: "To take a book down, tap Hide. Hide removes the book from the listing. Your project stays in your Library. Only the person who published a book can hide it.",
+        text: "To take a book down, tap Recall from Author Commons. Recall removes the book from the listing. Your book stays in your Library, and you can publish it again any time. You can also recall your listings from the Your listings section at the top of Author Commons. Only the person who published a book can recall it.",
       },
     ],
   },

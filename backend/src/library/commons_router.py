@@ -89,6 +89,17 @@ async def list_commons(
     )
 
 
+@router.get("/api/v1/author-commons/mine", response_model=list[CommonsSummary])
+async def list_my_commons(
+    request: Request,
+    principal: Principal = Depends(require_user),
+) -> list[CommonsSummary]:
+    """The caller's own live listings. Declared before `/{book_id}` so "mine" is not read as an id."""
+    async with _pool(request).acquire() as conn:
+        entries = await commons_repo.list_owned_live(conn, owner_sub=principal.sub)
+    return [_summary(e) for e in entries]
+
+
 @router.get("/api/v1/author-commons/{book_id}", response_model=CommonsDetail)
 async def get_commons_entry(
     book_id: str,

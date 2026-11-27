@@ -121,3 +121,29 @@ async def test_detail_404_for_hidden(client, pool, as_user):
     await _hide(pool, "rt-hidden")
     assert (await client.get("/api/v1/author-commons/rt-hidden")).status_code == 404
     assert (await client.get("/api/v1/author-commons/nope")).status_code == 404
+
+
+async def test_my_listings_returns_only_caller_live_books(client, pool):
+    # Owner is "owner-1" (see _pub); the test user is someone else, then the owner.
+    await _pub(pool, "rt-live", "Mine Live")
+    await _pub(pool, "rt-hidden", "Mine Hidden")
+    await _hide(pool, "rt-hidden")
+    await _pub(pool, "rt-other", "Someone Else")
+    async with pool.acquire() as c:
+        await c.execute(
+            "UPDATE author_commons_entry SET owner_sub = 'other-9' WHERE book_id = 'rt-other'"
+        )
+    app.dependency_overrides[require_user] = lambda: Principal(
+        sub="owner-1", email="o@x.com", issuer="iss"
+    )
+    try:
+        resp = await client.get("/api/v1/author-commons/mine")
+    finally:
+        app.dependency_overrides.pop(require_user, None)
+    assert resp.status_code == 200
+    assert [i["book_id"] for i in resp.json()] == ["rt-live"]
+
+
+async def test_my_listings_requires_sign_in(client, pool):
+    resp = await client.get("/api/v1/author-commons/mine")
+    assert resp.status_code == 401
