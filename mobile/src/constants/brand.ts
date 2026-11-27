@@ -14,7 +14,8 @@ export const BRAND_TAGLINE = "Author Yourself";
 
 // App author / maintainer — surfaced on the About screen.
 export const BRAND_AUTHOR = "Sivakumar Mambakkam [Siva]";
-export const BRAND_CONTACT = "siva.mambakkam@kaundinyalabs.com";
+// Public contact for "work with us" and the About contact row (owner-confirmed sales address).
+export const BRAND_CONTACT = "sales@kaundinyalabs.com";
 
 // User-facing support inbox (distinct from the author's personal contact).
 // Matches the backend `feedback_to` recipient; surfaced on About + Help.

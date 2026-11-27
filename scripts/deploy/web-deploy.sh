@@ -112,6 +112,8 @@ sed -i "s#\"baseUrl\": \"/[A-Za-z0-9/_-]*\"#\"baseUrl\": \"$BASEURL\"#" "$WT/mob
   # --clear is REQUIRED: without it, an export reuses a stale metro asset cache
   # from a prior build with different env (e.g. an app build before a demo build)
   # and silently drops assets — the demo once shipped with 0 of its 55 fonts.
+  # Bake the built commit so About shows it instead of "dev" (buildInfo.ts reads this).
+  export EXPO_PUBLIC_GIT_SHA="$(git -C "$WT" rev-parse --short HEAD)"
   npx expo export --platform web --clear >/dev/null
 )
 
