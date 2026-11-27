@@ -54,7 +54,12 @@ _LIMITS = (
     ("description", 5_000),
     ("language", 35),
     ("coverSvg", 100_000),
+    ("coverThumb", 200_000),
 )
+
+# The shelf thumbnail is a re-encoded JPEG (see mobile pickCoverArtwork). Anything
+# else is refused rather than stored, so the catalog never serves a non-image URI.
+_THUMB_PREFIX = "data:image/jpeg;base64,"
 
 
 def oversize_publish_fields(raw_book: dict) -> str | None:
@@ -68,6 +73,7 @@ def oversize_publish_fields(raw_book: dict) -> str | None:
         "description": metadata.get("description"),
         "language": metadata.get("language"),
         "coverSvg": metadata.get("coverSvg"),
+        "coverThumb": metadata.get("coverThumb"),
     }
     for name, limit in _LIMITS:
         value = sources[name]
@@ -77,6 +83,8 @@ def oversize_publish_fields(raw_book: dict) -> str | None:
             return f"{name} must be a string"
         if len(value) > limit:
             return f"{name} is too long (max {limit} characters)"
+        if name == "coverThumb" and not value.startswith(_THUMB_PREFIX):
+            return "coverThumb must be a JPEG data URI"
         if name == "language" and value.strip() and not _LANG_RE.match(value):
             return "language must be a language tag such as 'en' or 'en-US'"
     return None

@@ -481,6 +481,8 @@ export type CommonsSummary = {
   formats: ("epub" | "pdf")[];
   language: string | null;
   cover_svg: string | null;
+  // JPEG data URI of the author's shelf thumbnail; null for books published before it existed.
+  cover_thumb?: string | null;
 };
 
 export type CommonsPage = {

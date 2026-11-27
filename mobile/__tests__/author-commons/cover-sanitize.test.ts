@@ -37,3 +37,19 @@ it("returns undefined (placeholder) for empty, oversize, non-svg or sanitized-to
 it("keeps a benign cover", () => {
   expect(clean('<svg xmlns="http://www.w3.org/2000/svg"><circle r="3"/></svg>')).toContain("<circle");
 });
+
+import { safeCoverThumb } from "@/components/CommonsCover";
+
+describe("safeCoverThumb", () => {
+  it("accepts a base64 JPEG data URI", () => {
+    expect(safeCoverThumb("data:image/jpeg;base64,/9j/4AAQSkZJRg==")).toBe("data:image/jpeg;base64,/9j/4AAQSkZJRg==");
+  });
+
+  it("rejects SVG, remote URLs, and anything with markup or quotes", () => {
+    expect(safeCoverThumb("data:image/svg+xml;base64,PHN2Zz4=")).toBeUndefined();
+    expect(safeCoverThumb("https://evil.test/x.jpg")).toBeUndefined();
+    expect(safeCoverThumb('data:image/jpeg;base64,AA"><script>')).toBeUndefined();
+    expect(safeCoverThumb(null)).toBeUndefined();
+    expect(safeCoverThumb("")).toBeUndefined();
+  });
+});

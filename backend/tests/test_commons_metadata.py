@@ -127,3 +127,28 @@ async def test_publish_at_limit_passes_gate(client, monkeypatch):
     book = {**_with_meta(coverSvg="x" * 100_000, description="d" * 5_000), "title": "t" * 300}
     resp = await _publish(client, monkeypatch, book)
     assert resp.status_code == 202
+
+
+def test_cover_thumb_must_be_jpeg_data_uri():
+    from backend.src.library.commons_metadata import oversize_publish_fields
+
+    good = "data:image/jpeg;base64,/9j/AA=="
+    assert oversize_publish_fields(_book(metadata={"author": "A", "coverThumb": good})) is None
+    assert "coverThumb" in oversize_publish_fields(
+        _book(metadata={"author": "A", "coverThumb": "data:image/svg+xml;base64,PHN2Zz4="})
+    )
+    assert "coverThumb" in oversize_publish_fields(
+        _book(metadata={"author": "A", "coverThumb": "https://evil.test/x.jpg"})
+    )
+
+
+def test_cover_thumb_size_cap():
+    from backend.src.library.commons_metadata import oversize_publish_fields
+
+    prefix = "data:image/jpeg;base64,"
+    at_cap = prefix + "A" * (200_000 - len(prefix))
+    assert oversize_publish_fields(_book(metadata={"author": "A", "coverThumb": at_cap})) is None
+    over = at_cap + "A"
+    assert "coverThumb" in oversize_publish_fields(
+        _book(metadata={"author": "A", "coverThumb": over})
+    )

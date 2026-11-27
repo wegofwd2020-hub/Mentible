@@ -29,6 +29,7 @@ class CommonsSummary(BaseModel):
     formats: list[str]
     language: str | None
     cover_svg: str | None
+    cover_thumb: str | None = None
 
 
 class CommonsDetail(CommonsSummary):
@@ -53,6 +54,7 @@ def _summary(e: commons_repo.CommonsEntry) -> CommonsSummary:
         formats=e.formats,
         language=e.language,
         cover_svg=e.cover_svg,
+        cover_thumb=e.cover_thumb,
     )
 
 
