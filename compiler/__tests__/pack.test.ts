@@ -114,6 +114,17 @@ describe("compilePack", () => {
     );
   });
 
+  it("stamps every pack entry with the book's updatedAt, not the wall clock (determinism)", async () => {
+    // Same flake as the EPUB container: JSZip defaults entry dates to `new Date()`,
+    // so a pack built across a DOS 2 s boundary would differ. Every entry must carry
+    // the book's fixed updatedAt (fixtureBook: 2026-08-18T00:00:00.000Z).
+    const zip = await JSZip.loadAsync(await compilePack(fixtureBook()));
+    const expected = new Date("2026-08-18T00:00:00.000Z").toISOString();
+    for (const name of ["book.epub", "cover.jpg", "metadata.txt", "README.html"]) {
+      expect(zip.file(name)!.date.toISOString()).toBe(expected);
+    }
+  });
+
   it("book.epub starts with the EPUB PK magic", async () => {
     const buf = await compilePack(fixtureBook());
     const zip = await JSZip.loadAsync(buf);

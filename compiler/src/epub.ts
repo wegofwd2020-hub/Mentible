@@ -198,6 +198,15 @@ function modifiedTimestamp(iso?: string): string {
 // toISOString() (that converts to UTC, which shifts the date backward by up
 // to a day on any positive-UTC-offset machine — e.g. TZ=Asia/Singapore turned
 // "Jan 2026" into "2025-12-31"). Exported for direct unit testing.
+// The zip-entry timestamp every compiled container uses (EPUB and the publish
+// pack). Stable per book so the same book always produces the same bytes; JSZip
+// would otherwise stamp `new Date()`, which flakes across a DOS 2 s boundary.
+// The book's own updatedAt, or a fixed epoch when absent.
+export function stableZipDate(book: Book): Date {
+  const d = book.updatedAt ? new Date(book.updatedAt) : null;
+  return d && !Number.isNaN(d.getTime()) ? d : new Date("2000-01-01T00:00:00Z");
+}
+
 export function isoDate(raw: string): string {
   // Already ISO-ish (YYYY-MM-DD, optionally with a time/zone suffix): take the
   // date part verbatim — no Date round-trip, so no TZ shift.
@@ -341,10 +350,7 @@ export async function compileEpub(book: Book, opts: CompileOptions = {}): Promis
   // it JSZip defaults each entry's date to `new Date()`, so two builds a moment
   // apart differ whenever they straddle a DOS-time (2-second) boundary — the CI
   // flake. Use the book's own updatedAt; fall back to a fixed epoch if absent.
-  const zipDate = (() => {
-    const d = book.updatedAt ? new Date(book.updatedAt) : null;
-    return d && !Number.isNaN(d.getTime()) ? d : new Date("2000-01-01T00:00:00Z");
-  })();
+  const zipDate = stableZipDate(book);
   // JSZip auto-creates parent folder entries (`OEBPS/`, `OEBPS/css/`, …) through
   // an internal path that ignores the `date` option and stamps `new Date()`, so
   // those directory records would still carry the wall clock — the flake's real

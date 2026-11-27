@@ -6,7 +6,7 @@
 // author still uploads by hand.
 
 import JSZip from "jszip";
-import { compileEpub, isoDate } from "./epub";
+import { compileEpub, isoDate, stableZipDate } from "./epub";
 import { buildCoverSvgRaster, coverInputForBook } from "./cover";
 import { renderCoverJpeg } from "./coverRaster";
 import { escapeHtml } from "./html";
@@ -107,10 +107,13 @@ export async function compilePack(book: Book, opts: { mermaid?: MermaidRenderer 
   const epubBytes = await compileEpub(book, { ...opts, profile: "kdp" });
   const coverJpeg = await renderCoverJpeg(buildCoverSvgRaster(coverInputForBook(book)));
 
+  // Stable entry date (same rule as the EPUB container) so the pack is
+  // byte-deterministic for a given book, not stamped with the wall clock.
+  const date = stableZipDate(book);
   const zip = new JSZip();
-  zip.file("book.epub", epubBytes);
-  zip.file("cover.jpg", coverJpeg);
-  zip.file("metadata.txt", buildMetadataSheet(book));
-  zip.file("README.html", buildPublishReadme(book));
+  zip.file("book.epub", epubBytes, { date });
+  zip.file("cover.jpg", coverJpeg, { date });
+  zip.file("metadata.txt", buildMetadataSheet(book), { date });
+  zip.file("README.html", buildPublishReadme(book), { date });
   return zip.generateAsync({ type: "nodebuffer" });
 }
