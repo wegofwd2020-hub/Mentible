@@ -87,7 +87,7 @@ export function AuthorCommonsDetail({ bookId }: { bookId: string }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.coverBox}>
-        <CommonsCover title={book.title} size="large" coverSvg={book.cover_svg} />
+        <CommonsCover title={book.title} size="large" coverSvg={book.cover_svg} coverThumb={book.cover_thumb} />
       </View>
       <Text style={styles.title}>{book.title}</Text>
       <Text style={styles.meta}>{book.author_name}</Text>

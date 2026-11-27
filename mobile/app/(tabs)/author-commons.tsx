@@ -119,7 +119,7 @@ function AuthorCommonsInner() {
           >
             <Card style={styles.row}>
               <View style={styles.coverBox}>
-                <CommonsCover title={item.title} coverSvg={item.cover_svg} />
+                <CommonsCover title={item.title} coverSvg={item.cover_svg} coverThumb={item.cover_thumb} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{item.title}</Text>

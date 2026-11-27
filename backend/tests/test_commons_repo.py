@@ -101,3 +101,39 @@ async def test_cover_svg_round_trips(conn):
         bump_version=True,
     )
     assert (await repo.get_entry(conn, "b-cover")).cover_svg == svg
+
+
+async def test_cover_thumb_is_stored_and_refreshed_on_republish(conn):
+    thumb_a = "data:image/jpeg;base64,AAAA"
+    thumb_b = "data:image/jpeg;base64,BBBB"
+    e = await repo.upsert_publish(
+        conn,
+        book_id="b1",
+        owner_sub="owner-1",
+        title="Algebra",
+        author_name="Ada",
+        account_name="ada",
+        description=None,
+        language="en",
+        cover_svg=None,
+        fmt="epub",
+        bump_version=True,
+        cover_thumb=thumb_a,
+    )
+    assert e.cover_thumb == thumb_a
+    assert (await repo.get_entry(conn, "b1")).cover_thumb == thumb_a
+    e = await repo.upsert_publish(
+        conn,
+        book_id="b1",
+        owner_sub="owner-1",
+        title="Algebra",
+        author_name="Ada",
+        account_name="ada",
+        description=None,
+        language="en",
+        cover_svg=None,
+        fmt="pdf",
+        bump_version=False,
+        cover_thumb=thumb_b,
+    )
+    assert e.cover_thumb == thumb_b

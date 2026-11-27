@@ -18,6 +18,7 @@ class CommonsEntry:
     version: int
     published_at: datetime
     cover_svg: str | None  # SVG markup of the book's metadata.coverSvg
+    cover_thumb: str | None  # data:image/jpeg;base64 of metadata.coverThumb
     description: str | None
     language: str | None
     formats: list[str]
@@ -34,6 +35,7 @@ def _row(r: asyncpg.Record) -> CommonsEntry:
         version=r["version"],
         published_at=r["published_at"],
         cover_svg=r["cover_svg"],
+        cover_thumb=r["cover_thumb"],
         description=r["description"],
         language=r["language"],
         formats=list(r["formats"]),
@@ -59,21 +61,25 @@ async def upsert_publish(
     cover_svg: str | None,
     fmt: str,
     bump_version: bool,
+    cover_thumb: str | None = None,
 ) -> CommonsEntry:
     """Create or update the catalog row, set it live, and add `fmt` to formats.
     `version` increments on conflict only when `bump_version`. `owner_sub` is never
-    changed on conflict."""
+    changed on conflict. `cover_thumb` is the shelf thumbnail (a JPEG data URI)."""
     r = await conn.fetchrow(
         """
         INSERT INTO author_commons_entry
             (book_id, owner_sub, title, author_name, account_name, version,
-             published_at, cover_svg, description, language, formats, status, updated_at)
-        VALUES ($1, $2, $3, $4, $5, 1, now(), $6, $7, $8, ARRAY[$9::text], 'live', now())
+             published_at, cover_svg, description, language, formats, status, updated_at,
+             cover_thumb)
+        VALUES ($1, $2, $3, $4, $5, 1, now(), $6, $7, $8, ARRAY[$9::text], 'live', now(),
+                $11)
         ON CONFLICT (book_id) DO UPDATE SET
             title        = EXCLUDED.title,
             author_name  = EXCLUDED.author_name,
             account_name = EXCLUDED.account_name,
             cover_svg    = EXCLUDED.cover_svg,
+            cover_thumb  = EXCLUDED.cover_thumb,
             description  = EXCLUDED.description,
             language     = EXCLUDED.language,
             formats      = ARRAY(
@@ -95,6 +101,7 @@ async def upsert_publish(
         language,
         fmt,
         bump_version,
+        cover_thumb,
     )
     return _row(r)
 
