@@ -71,7 +71,7 @@ describe("FirstRunWizard", () => {
       await Promise.resolve();
     });
     // Wizard is suppressed on the marketing landing — no step surfaces.
-    expect(screen.queryByText("Add an LLM key")).toBeNull();
+    expect(screen.queryByText("Add an API key")).toBeNull();
     expect(screen.queryByText("Meet your tabs")).toBeNull();
   });
 
@@ -82,7 +82,7 @@ describe("FirstRunWizard", () => {
     // that made this first-in-file test the flaky one.
     await applyStepStatuses({ signup: "done" });
     render(<FirstRunWizard />);
-    expect(await screen.findByText("Add an LLM key")).toBeTruthy();
+    expect(await screen.findByText("Add an API key")).toBeTruthy();
     // Assert Continue via waitFor (like the sibling tests) so the act() scope
     // stays open until KeyStep's saved-keys probe settles — a bare synchronous
     // getByLabelText here lets that update land post-test, un-acted.
@@ -93,7 +93,7 @@ describe("FirstRunWizard", () => {
 
   it("unlocks Continue after saving a key and advances to the tour", async () => {
     render(<FirstRunWizard />);
-    await screen.findByText("Add an LLM key");
+    await screen.findByText("Add an API key");
 
     fireEvent.changeText(screen.getByPlaceholderText("sk-ant-..."), "sk-ant-abcdefghijklmnopqrstuvwxyz");
     fireEvent.press(screen.getByLabelText("Save API key"));
@@ -120,7 +120,7 @@ describe("FirstRunWizard", () => {
 
   it("skips the key step to the tour, then skips the tour to close", async () => {
     render(<FirstRunWizard />);
-    await screen.findByText("Add an LLM key");
+    await screen.findByText("Add an API key");
 
     fireEvent.press(screen.getByLabelText("Skip for now"));
     expect(await screen.findByText("Meet your tabs")).toBeTruthy();
@@ -148,6 +148,6 @@ describe("FirstRunWizard", () => {
 
     mockAuthStatus = "signed_in";
     rerender(<FirstRunWizard />);
-    expect(await screen.findByText("Add an LLM key")).toBeTruthy();
+    expect(await screen.findByText("Add an API key")).toBeTruthy();
   });
 });

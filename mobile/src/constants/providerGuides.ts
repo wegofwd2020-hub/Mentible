@@ -30,10 +30,10 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
     consoleLabel: "console.anthropic.com",
     cost: "paid",
     costNote:
-      "Paid — Anthropic bills you per token. Highest output quality; recommended for finished books.",
+      "Paid — Anthropic bills you per token. Recommended for finished books.",
     steps: [
       "Open console.anthropic.com and sign up or log in.",
-      "Under Billing, add a payment method and a little credit (Claude has no free tier).",
+      "Under Billing, add a payment method and some prepaid credit. Claude has no free tier.",
       "Go to Settings → API Keys and choose Create Key.",
       "Copy the key (it starts with sk-ant-) and paste it below.",
     ],

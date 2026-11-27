@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { Alert } from "@/lib/alert";
 import {
   deleteApiKey,
@@ -97,11 +97,7 @@ export function ProviderKeyForm({
 
   return (
     <View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.providerRow}
-      >
+      <View style={styles.providerRow}>
         {PROVIDERS.map((p) => {
           const selected = p.id === keyProvider;
           return (
@@ -119,7 +115,7 @@ export function ProviderKeyForm({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {savedMask ? (
         <View style={styles.savedKeyCard}>
@@ -139,9 +135,11 @@ export function ProviderKeyForm({
       ) : (
         <Text style={styles.noKeyText}>No key saved</Text>
       )}
-      <Text style={styles.noKeyText}>
-        Saved on this device only. Keys don't sync to your other devices.
-      </Text>
+      {savedMask ? (
+        <Text style={styles.noKeyText}>
+          Saved on this device only. Keys don't sync to your other devices.
+        </Text>
+      ) : null}
 
       <View style={styles.keyLabelRow}>
         <Text style={styles.keyLabel}>API key</Text>
@@ -182,7 +180,9 @@ export function ProviderKeyForm({
 const makeStyles = (c: Palette) => ({
   // Provider selector — same beveled white/brand tiles as the param chips
   // (selected = brand face, unselected = white; dark glyphs).
-  providerRow: { flexDirection: "row" as const, gap: spacing.sm, paddingVertical: spacing.xs },
+  // Wraps instead of scrolling sideways: a horizontal ScrollView hid the last
+  // provider chip (Gemini) with no visible scroll cue on the first-run card.
+  providerRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, paddingVertical: spacing.xs },
   providerChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

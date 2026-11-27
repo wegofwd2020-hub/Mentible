@@ -227,7 +227,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Mentible's nav bar has: Library (your finished books), Author Commons (books authors have shared), Projects (the expert-validation studio), Reviews (projects you've been invited to review), Settings (your LLM keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
+        text: "Mentible's nav bar has: Library (your finished books), Author Commons (books authors have shared), Projects (the expert-validation studio), Reviews (projects you've been invited to review), Settings (your API keys and preferences), Help (guides and these walkthroughs), and About (version and privacy).",
       },
       {
         kind: "steps",

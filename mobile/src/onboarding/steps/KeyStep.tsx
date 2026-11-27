@@ -40,7 +40,7 @@ export function KeyStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProp
 
   const subtitle = useMemo(() => {
     if (!hasAnyKey) {
-      return "Bring your own key — pick a provider, grab a key, and paste it below. It stays on this device, is used once per request, and is never logged. You can skip and read the included books first.";
+      return "Bring your own key: choose a provider, get a key from its console, and paste it below. The key stays on this device, is used only for each request, and is never logged. You can skip and read the included books first.";
     }
     const n = savedProviders.size;
     return `${n} key${n > 1 ? "s" : ""} saved — you're ready to generate. Add another or continue.`;
@@ -59,7 +59,7 @@ export function KeyStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepProp
     <WizardScaffold
       stepIndex={stepIndex}
       stepCount={stepCount}
-      title="Add an LLM key"
+      title="Add an API key"
       subtitle={subtitle}
       helpTopic="provider-keys"
       primaryLabel="Continue"

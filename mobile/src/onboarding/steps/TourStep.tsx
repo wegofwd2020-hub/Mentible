@@ -21,7 +21,7 @@ const TAB_BLURBS: Record<string, string> = {
   "author-commons": "Browse books other authors have published.",
   projects: "Capture your expertise into a project — draft it, get it validated, then publish.",
   reviews: "Review and approve projects you've been invited to validate.",
-  settings: "Your themes, LLM keys and preferences.",
+  settings: "Your themes, API keys and preferences.",
   help: "Guides — and you can replay these walkthroughs.",
   about: "Version and privacy.",
   shelves: "Browse free book catalogs and download books to read offline.",
@@ -72,7 +72,7 @@ export function TourStep({ stepIndex, stepCount, onDone, onSkip }: WizardStepPro
         stepIndex={stepIndex}
         stepCount={stepCount}
         title="Meet your tabs"
-        subtitle="Your menu, along the top of the app."
+        subtitle="Your main menu."
         helpTopic="reading-a-book"
         primaryLabel="Next"
         onPrimary={() => setPage(1)}
