@@ -1,7 +1,6 @@
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { PageContainer } from "@/components/PageContainer";
 import { Button, Card } from "@/components/ui";
-import { BRAND_CONTACT } from "@/constants/brand";
 import { FRAUNCES } from "@/constants/fonts";
 import { radius, spacing, typography, type Palette } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
@@ -17,13 +16,17 @@ const TIERS: { title: string; body: string }[] = [
   { title: "Pilot", body: "A longer run standing up your validation workflow across several assets." },
 ];
 
-const PHASES = ["Capture", "Create", "Validate", "Share"];
+// Sales contact for this page (owner-confirmed). Scoped here: BRAND_CONTACT is shared
+// with the About screen and is intentionally not changed.
+export const SALES_EMAIL = "sales@kaundinyalabs.com";
+
+const PHASES = ["Capture", "Create", "Validate", "Publish"];
 
 export default function WorkWithMeScreen() {
   const styles = useThemedStyles(makeStyles);
   const bookCall = () => { void Linking.openURL(SCHEDULER_URL); };
   const emailMe = () =>
-    void Linking.openURL(`mailto:${BRAND_CONTACT}?subject=${encodeURIComponent("Mentible — work with me")}`);
+    void Linking.openURL(`mailto:${SALES_EMAIL}?subject=${encodeURIComponent("Mentible — work with me")}`);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
@@ -33,7 +36,7 @@ export default function WorkWithMeScreen() {
           <Text style={styles.h1}>Work with me: turn your expertise into validated, traceable knowledge</Text>
           <Text style={styles.subhead}>
             I help subject-matter experts capture what they know and turn it into expert-validated,
-            traceable assets — a four-phase loop: Capture, Create, Validate, Share.
+            traceable assets — a four-phase loop: Capture, Create, Validate, Publish.
           </Text>
 
           {/* Engagement types */}
